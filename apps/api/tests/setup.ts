@@ -111,11 +111,21 @@ export default async function setup(): Promise<void> {
     );
   }
 
-  // -- Generate keypair --------------------------------------------------
+  // -- Generate keypair for Entra test JWT path --------------------------
   const { publicKeyPem, privateKeyPem } = await generateTestKeyPair();
 
   // -- Export public key via env var so config plugin picks it up --------
   process.env['TEST_JWT_PUBLIC_KEY'] = publicKeyPem;
+
+  // -- Generate RS256 keypair for Inventario JWT (ADR-0013) ---------------
+  // These are used by the inventario-jwt plugin for issuing/verifying
+  // access tokens in the email/OAuth auth flows.
+  const inventarioKeys = await generateTestKeyPair();
+  process.env['JWT_PRIVATE_KEY'] = inventarioKeys.privateKeyPem;
+  process.env['JWT_PUBLIC_KEY'] = inventarioKeys.publicKeyPem;
+  // TTL defaults — short for tests to keep token-expiry assertions feasible.
+  process.env['JWT_ACCESS_TOKEN_TTL_SECONDS'] ??= '900'; // 15 min
+  process.env['JWT_REFRESH_TOKEN_TTL_DAYS'] ??= '7';
 
   // -- Write private key + metadata to temp file for test files ---------
   //
@@ -127,7 +137,7 @@ export default async function setup(): Promise<void> {
   };
   writeFileSync(TEST_KEYS_FILE, JSON.stringify(payload), { mode: 0o600 });
 
-  console.log(
+  console.info(
     `\n🔑 Test JWT keypair generated. Public key in TEST_JWT_PUBLIC_KEY env. Private key at ${TEST_KEYS_FILE}.\n`,
   );
 }
