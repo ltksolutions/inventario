@@ -6,14 +6,15 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import type { JSX } from 'react';
 
-import { RegisterPage } from '@/components/RegisterPage';
+import { ResetPasswordPage } from '@/components/ResetPasswordPage';
 
-export const metadata: Metadata = { title: 'Registrácia' };
+export const metadata: Metadata = { title: 'Nastaviť nové heslo' };
 
+// useSearchParams() requires Suspense in Next.js App Router
 export default function Page(): JSX.Element {
   return (
     <Suspense>
-      <RegisterPage />
+      <ResetPasswordPage />
     </Suspense>
   );
 }

@@ -17,6 +17,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Prístup bol zamietnutý.',
   invalid_state: 'Neplatná session. Skúste sa prihlásiť znova.',
   account_exists: 'Tento účet je už zaregistrovaný cez iného poskytovateľa.',
+  invalid_verification_token: 'Neplatný overovací odkaz.',
+  verification_token_expired: 'Overovací odkaz vypršal. Zaregistrujte sa znova.',
 };
 
 /**
@@ -34,6 +36,7 @@ export function LoginPage(): JSX.Element {
 
   const errorKey = params.get('error') ?? '';
   const verified = params.get('verified') === 'true';
+  const passwordReset = params.get('passwordReset') === 'true';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -122,6 +125,11 @@ export function LoginPage(): JSX.Element {
           {verified && (
             <div className="mt-3 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
               E-mail bol potvrdený. Môžete sa prihlásiť.
+            </div>
+          )}
+          {passwordReset && (
+            <div className="mt-3 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+              Heslo bolo úspešne zmenené. Prihláste sa novým heslom.
             </div>
           )}
           {errorKey && (
