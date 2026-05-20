@@ -116,6 +116,9 @@ export async function buildServer(
   await app.register(fastifyRateLimit, {
     max: 100, // 100 requests
     timeWindow: '1 minute',
+    // In test mode skip all rate limiting — tests hit the same endpoints
+    // many times from 127.0.0.1 and would otherwise get 429s.
+    ...(process.env['NODE_ENV'] === 'test' && { skip: () => true }),
   });
 
   // --- Infrastructure ------------------------------------------------------
