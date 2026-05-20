@@ -15,6 +15,7 @@
  *   6. routes — domain modules
  */
 
+import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
@@ -28,6 +29,7 @@ import {
 
 import assetsRoutes from './modules/assets/assets.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
+import oauthRoutes from './modules/auth/oauth.routes.js';
 import categoriesRoutes from './modules/categories/categories.routes.js';
 import healthRoutes from './modules/health/health.routes.js';
 import loanRequestsRoutes from './modules/loans/loan-requests.routes.js';
@@ -103,10 +105,10 @@ export async function buildServer(
 
   await app.register(fastifyCors, {
     origin: app.config.CORS_ORIGINS,
-    // Credentials NOT allowed with origin '*' (browser security rule).
-    // Only enable credentials when using a specific allowlist.
     credentials: app.config.CORS_ORIGINS !== '*',
   });
+
+  await app.register(fastifyCookie);
 
   await app.register(fastifyRateLimit, {
     max: 100, // 100 requests
@@ -118,6 +120,7 @@ export async function buildServer(
   await app.register(auditPlugin);
   await app.register(authPlugin);
   await app.register(inventarioJwtPlugin);
+  await app.register(oauthRoutes);
 
   // --- API documentation ---------------------------------------------------
   await app.register(swaggerPlugin);

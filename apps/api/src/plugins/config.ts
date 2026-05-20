@@ -57,6 +57,33 @@ const envSchema = z.object({
     .transform((val) => val === 'true'),
 
   // ---------------------------------------------------------------------
+  // OAuth providers (ADR-0013) — Google + Microsoft + Apple
+  // ---------------------------------------------------------------------
+  // All are optional during transition; required once MSAL is removed (K17).
+
+  /** 32+ char HMAC secret for signing OAuth state params. */
+  OAUTH_STATE_SECRET: z.string().min(32).optional(),
+  /** Absolute URL for OAuth callbacks. E.g. https://api.inventario.sportup.sk/v1/auth/callback */
+  OAUTH_REDIRECT_BASE_URL: z.string().url().optional(),
+
+  // Google
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+
+  // Microsoft (uses existing Entra app registration, extended for public consumers)
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+
+  // Apple (K4)
+  APPLE_CLIENT_ID: z.string().optional(), // Services ID (com.sportup.inventario)
+  APPLE_TEAM_ID: z.string().optional(), // Apple Developer Team ID
+  APPLE_KEY_ID: z.string().optional(), // Key ID from Apple Developer
+  APPLE_PRIVATE_KEY: z.string().optional(), // PEM private key (.p8 file content)
+
+  // Frontend base URL — used for post-OAuth redirects
+  FRONTEND_BASE_URL: z.string().url().default('http://localhost:3001'),
+
+  // ---------------------------------------------------------------------
   // JWT — Inventario JWT (ADR-0013)
   // ---------------------------------------------------------------------
   // RS256 key pair for signing/verifying Inventario access tokens.
