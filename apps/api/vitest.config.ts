@@ -1,14 +1,16 @@
 /**
- * Vitest configuration for @sfz/api.
+ * Vitest configuration for @inventario/api.
  *
  * Test layout:
  *   tests/
- *     setup.ts           — global setup: generate ephemeral JWT keypair,
- *                          set TEST_JWT_PUBLIC_KEY env var before any
- *                          plugin loads
+ *     setup.ts           — global setup: spin up in-memory MongoDB replica
+ *                          set, generate ephemeral JWT keypair, set
+ *                          TEST_JWT_PUBLIC_KEY env var before any plugin
+ *                          loads
  *     helpers/           — shared utilities (test-app, test-jwt, test-mongo)
  *     unit/              — pure function tests (fast, no DB)
- *     integration/       — full app tests via app.inject() (slow, hits Atlas)
+ *     integration/       — full app tests via app.inject() against the
+ *                          in-memory replica set
  *
  * Test isolation:
  *   Integration tests run against a SEPARATE database
@@ -16,13 +18,16 @@
  *   via the test-app helper's override). Each test suite drops the
  *   database in `beforeAll` for a tabula-rasa starting state.
  *
- * Why a longer testTimeout:
- *   Atlas Flex round-trips from a developer machine are typically 30-80ms
- *   per operation. A single CRUD test does 4-6 operations (POST + GET +
- *   PATCH + DELETE + audit log inserts), totaling 200-500ms. With the
- *   default 5s timeout, a slow network would cause flaky failures.
- *   30 seconds covers the worst-case observed (audit.test.ts ~10s when
- *   the network is contended) with comfortable headroom.
+ * Why a longer testTimeout / teardownTimeout:
+ *   In-memory MongoDB replica set mode keeps background handles open
+ *   (oplog tailing, heartbeat) that take a few seconds to drain after
+ *   the last test finishes. Default 10s teardownTimeout produces a
+ *   harmless "close timed out after 10000ms" warning even though
+ *   100% of tests pass. 30s covers cold-CI worst case with headroom.
+ *
+ *   testTimeout/hookTimeout stay at 30s for the same reasons that
+ *   applied to the old Atlas Flex setup: occasional cold-start spikes
+ *   when an in-memory mongod is first contacted from a fresh pool.
  */
 
 import { defineConfig } from 'vitest/config';
@@ -39,6 +44,14 @@ export default defineConfig({
     // multi-CRUD tests on a contended residential link.
     testTimeout: 30_000,
     hookTimeout: 30_000, // beforeAll can take longer (DB cleanup, app boot)
+
+    // Default 10s isn't enough for the in-memory replica set to drain
+    // its background handles (oplog tailing, heartbeats) after the last
+    // test finishes. Without this, every successful run ends with a
+    // cosmetic "close timed out after 10000ms" warning. 30s is well
+    // under any reasonable CI step timeout and covers the slowest
+    // observed teardown by ~3x.
+    teardownTimeout: 30_000,
 
     // Reporter — default is fine; verbose only on CI failures
     reporters: 'default',
