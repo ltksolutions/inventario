@@ -31,13 +31,33 @@ import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
 
 import type { UsersRepository, UserUpdatePatch } from './users.repository.js';
-import type { EntraClaims } from '../../plugins/auth.js';
 import type { AuditLogService } from '../audit/audit.service.js';
 import type { FastifyRequest } from 'fastify';
 import type { ClientSession, Filter, MongoClient, WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
 // Public API types
+// ---------------------------------------------------------------------------
+
+/**
+ * Subset of Entra/OAuth JWT claims used for JIT user provisioning.
+ * Kept here because `auth.ts` no longer exports this type after the
+ * Inventario cookie auth cutover (Slice #6c K17).
+ */
+export interface EntraClaims {
+  oid: string;
+  tid: string;
+  email?: string;
+  preferred_username?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  scp?: string;
+  roles?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Public API types (continued)
 // ---------------------------------------------------------------------------
 
 export interface ListUsersResponse {

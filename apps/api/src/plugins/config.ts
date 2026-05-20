@@ -116,39 +116,18 @@ const envSchema = z.object({
   JWT_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().positive().default(30),
 
   // ---------------------------------------------------------------------
-  // Auth — Microsoft Entra ID (slice #2)
+  // Auth — Microsoft Entra ID (legacy, kept for backward compat with
+  // existing .env.local files; removed from auth flow in Slice #6c K17)
   // ---------------------------------------------------------------------
-  // ENTRA_TENANT_ID and ENTRA_API_CLIENT_ID are required in all environments.
-  // Get them from Azure Portal → Entra ID → App registrations → SFZ API.
-  //
-  // ENTRA_JWKS_URI and ENTRA_ISSUER are auto-derived from ENTRA_TENANT_ID
-  // and rarely need to be overridden. The override exists for unusual
-  // tenant configurations (e.g. national cloud, sovereign Azure).
-  ENTRA_TENANT_ID: z
-    .string()
-    .uuid('ENTRA_TENANT_ID must be a valid GUID (find it in Azure Portal → Entra ID → Overview).'),
-  ENTRA_API_CLIENT_ID: z
-    .string()
-    .uuid(
-      'ENTRA_API_CLIENT_ID must be a valid GUID (Application (client) ID from your API app registration).',
-    ),
+  // These vars are no longer used by the auth plugin but may still be
+  // present in developer .env.local files. Keeping them optional so
+  // existing environments don't break at startup.
+  ENTRA_TENANT_ID: z.string().uuid().optional(),
+  ENTRA_API_CLIENT_ID: z.string().uuid().optional(),
   ENTRA_ISSUER: z.string().url().optional(),
   ENTRA_JWKS_URI: z.string().url().optional(),
 
-  // ---------------------------------------------------------------------
-  // Test JWT — development/test only (slice #2c)
-  // ---------------------------------------------------------------------
-  // When set, the auth plugin will additionally accept JWTs signed by
-  // this public key with issuer `urn:sfz-test:dev`. This enables vitest
-  // integration tests to generate their own tokens without going through
-  // the Entra ID device-code flow.
-  //
-  // In production this env var MUST be unset — the auth plugin refuses
-  // to enable the test path if NODE_ENV === 'production'.
-  //
-  // Format: PEM-encoded public key (typically Ed25519, but RS256 also works).
-  // The vitest setup generates an ephemeral keypair at test start and writes
-  // the public half here, so no key material is ever committed to git.
+  // Test JWT — no longer used (removed in Slice #6c K17)
   TEST_JWT_PUBLIC_KEY: z.string().optional(),
 });
 
@@ -162,11 +141,10 @@ export type AppConfig = z.infer<typeof envSchema>;
  * if you specifically need the env-var-only shape.
  */
 export interface ResolvedConfig extends AppConfig {
-  /** Microsoft Entra ID v2.0 issuer URL — used to validate JWT `iss` claim. */
+  // Entra derived fields kept for backward compatibility but unused
+  // in the auth flow after Slice #6c K17.
   ENTRA_ISSUER_RESOLVED: string;
-  /** JWKS endpoint for fetching Entra ID signing keys. */
   ENTRA_JWKS_URI_RESOLVED: string;
-  /** Accepted audiences for JWT `aud` claim (both raw GUID and api:// URI). */
   ENTRA_ACCEPTED_AUDIENCES: readonly string[];
 }
 
@@ -209,14 +187,13 @@ const configPlugin: FastifyPluginAsync = async (fastify) => {
   //
   // The audience in a JWT can appear either as the raw client ID GUID
   // or as the Application ID URI (api://<client-id>). We accept both.
-  const issuer =
-    env.ENTRA_ISSUER ?? `https://login.microsoftonline.com/${env.ENTRA_TENANT_ID}/v2.0`;
+  const tenantId = env.ENTRA_TENANT_ID ?? 'not-configured';
+  const issuer = env.ENTRA_ISSUER ?? `https://login.microsoftonline.com/${tenantId}/v2.0`;
   const jwksUri =
-    env.ENTRA_JWKS_URI ??
-    `https://login.microsoftonline.com/${env.ENTRA_TENANT_ID}/discovery/v2.0/keys`;
+    env.ENTRA_JWKS_URI ?? `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
   const acceptedAudiences = Object.freeze([
-    env.ENTRA_API_CLIENT_ID,
-    `api://${env.ENTRA_API_CLIENT_ID}`,
+    env.ENTRA_API_CLIENT_ID ?? 'not-configured',
+    `api://${env.ENTRA_API_CLIENT_ID ?? 'not-configured'}`,
   ] as const);
 
   const resolved: ResolvedConfig = {
@@ -234,7 +211,9 @@ const configPlugin: FastifyPluginAsync = async (fastify) => {
       mongoDb: resolved.MONGO_DB_NAME,
       corsOrigins: resolved.CORS_ORIGINS,
       swaggerEnabled: resolved.ENABLE_SWAGGER,
-      entraTenantId: `${resolved.ENTRA_TENANT_ID.slice(0, 8)}…`, // truncated for logs
+      entraTenantId: resolved.ENTRA_TENANT_ID
+        ? `${resolved.ENTRA_TENANT_ID.slice(0, 8)}…`
+        : 'not-set',
       entraIssuer: resolved.ENTRA_ISSUER_RESOLVED,
     },
     'Configuration loaded',

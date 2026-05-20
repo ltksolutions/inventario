@@ -25,23 +25,19 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
 import {
   insertTestCategory,
-  provisionUserAsAndSignToken,
+  provisionUser,
   UserRole,
   validCreateCategoryBody,
 } from '../helpers/test-fixtures.js';
-import { createTokenSigner } from '../helpers/test-jwt-loader.js';
 
-import type { SignTestTokenInput } from '../helpers/test-jwt.js';
 import type { FastifyInstance } from 'fastify';
 
 describe('POST /v1/categories', () => {
   let app: FastifyInstance;
-  let signToken: (input: SignTestTokenInput) => Promise<string>;
   let adminToken: string;
 
   beforeAll(async () => {
     app = await buildTestApp();
-    signToken = await createTokenSigner();
   });
 
   afterAll(async () => {
@@ -50,7 +46,7 @@ describe('POST /v1/categories', () => {
 
   beforeEach(async () => {
     await cleanTestDatabase(app);
-    const { token } = await provisionUserAsAndSignToken(app, signToken, {
+    const { token } = await provisionUser(app, {
       oid: 'admin-for-categories-post',
       role: UserRole.ADMIN,
     });
@@ -76,7 +72,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
@@ -111,7 +107,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
@@ -124,7 +120,7 @@ describe('POST /v1/categories', () => {
       const create = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ name: 'Persisted', slug: 'persisted-cat' }),
       });
       expect(create.statusCode).toBe(201);
@@ -133,7 +129,7 @@ describe('POST /v1/categories', () => {
       const get = await app.inject({
         method: 'GET',
         url: `/v1/categories/${id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
       });
 
       expect(get.statusCode).toBe(200);
@@ -154,7 +150,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ slug: 'duplicate-slug', name: 'Second one' }),
       });
 
@@ -175,7 +171,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ parentId: fakeParentId }),
       });
 
@@ -187,7 +183,6 @@ describe('POST /v1/categories', () => {
     it('rejects parentId pointing to a soft-deleted category with 400', async () => {
       const parent = await insertTestCategory(app, { slug: 'about-to-delete' });
 
-      // Soft-delete the parent manually
       const { ObjectId } = await import('mongodb');
       await app.mongo.db
         .collection('categories')
@@ -199,7 +194,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ parentId: parent._id }),
       });
 
@@ -216,7 +211,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ name: '' }),
       });
       expect(res.statusCode).toBe(400);
@@ -226,7 +221,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ slug: 'UPPERCASE-Slug' }),
       });
       expect(res.statusCode).toBe(400);
@@ -236,7 +231,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ slug: 'has spaces' }),
       });
       expect(res.statusCode).toBe(400);
@@ -246,7 +241,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ assetType: 'NOT_A_REAL_TYPE' }),
       });
       expect(res.statusCode).toBe(400);
@@ -256,7 +251,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ color: 'not-a-color' }),
       });
       expect(res.statusCode).toBe(400);
@@ -275,7 +270,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
@@ -290,7 +285,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
@@ -299,7 +294,6 @@ describe('POST /v1/categories', () => {
     });
 
     it('appends -2 suffix when the derived slug already exists', async () => {
-      // First POST takes the base slug.
       await insertTestCategory(app, { name: 'Notebooky', slug: 'notebooky' });
 
       const body = validCreateCategoryBody({ name: 'Notebooky' });
@@ -308,7 +302,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
@@ -326,7 +320,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
@@ -341,12 +335,10 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
-      // Zod min(1) on name passes for "!@#$%", but slugify() returns ""
-      // so the service throws 400 with a clear message.
       expect(res.statusCode).toBe(400);
       const responseBody = res.json<{ message: string }>();
       expect(responseBody.message).toMatch(/cannot derive a slug/i);
@@ -361,7 +353,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: body,
       });
 
@@ -371,14 +363,11 @@ describe('POST /v1/categories', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Hierarchy depth (K4) — only depth applies on POST since the new node
-  // can't already be in any chain. Cycle detection is exclusive to PATCH.
+  // Hierarchy depth
   // -------------------------------------------------------------------------
 
   describe('hierarchy depth', () => {
     it('allows creating at the maximum legal depth (root + 4 nested)', async () => {
-      // Build root -> d1 -> d2 -> d3 (depths 0..3). New POST under d3
-      // lands at depth 4 = max.
       const root = await insertTestCategory(app, { slug: 'cr-root' });
       const d1 = await insertTestCategory(app, { slug: 'cr-d1', parentId: root._id });
       const d2 = await insertTestCategory(app, { slug: 'cr-d2', parentId: d1._id });
@@ -387,12 +376,8 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
-        payload: validCreateCategoryBody({
-          name: 'Deep leaf',
-          slug: 'cr-leaf',
-          parentId: d3._id,
-        }),
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: validCreateCategoryBody({ name: 'Deep leaf', slug: 'cr-leaf', parentId: d3._id }),
       });
 
       expect(res.statusCode).toBe(201);
@@ -400,8 +385,6 @@ describe('POST /v1/categories', () => {
     });
 
     it('rejects creating one level past the maximum depth', async () => {
-      // Build root -> d1 -> d2 -> d3 -> d4 (depths 0..4). POST under d4
-      // would land at depth 5 = over limit.
       const root = await insertTestCategory(app, { slug: 'crover-root' });
       const d1 = await insertTestCategory(app, { slug: 'crover-d1', parentId: root._id });
       const d2 = await insertTestCategory(app, { slug: 'crover-d2', parentId: d1._id });
@@ -411,7 +394,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({
           name: 'Too deep',
           slug: 'crover-toodeep',
@@ -430,15 +413,16 @@ describe('POST /v1/categories', () => {
 
   describe('audit fields', () => {
     it('sets createdBy and updatedBy to the calling user _id', async () => {
-      const usersColl = app.mongo.db.collection('users');
-      const adminUser = await usersColl.findOne({ entraOid: 'admin-for-categories-post' });
+      const adminUser = await app.mongo.db
+        .collection('users')
+        .findOne({ entraOid: 'admin-for-categories-post' });
       expect(adminUser).not.toBeNull();
       const adminId = String(adminUser!._id);
 
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody(),
       });
 
@@ -452,7 +436,7 @@ describe('POST /v1/categories', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody(),
       });
 

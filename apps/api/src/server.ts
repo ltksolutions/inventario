@@ -125,8 +125,8 @@ export async function buildServer(
   await app.register(mongoPlugin);
   await app.register(auditPlugin);
   await app.register(emailPlugin);
-  await app.register(authPlugin);
   await app.register(inventarioJwtPlugin);
+  await app.register(authPlugin);
   await app.register(oauthRoutes);
   await app.register(emailAuthRoutes);
   await app.register(registrationRoutes);

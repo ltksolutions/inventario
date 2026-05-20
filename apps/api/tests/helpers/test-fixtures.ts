@@ -32,10 +32,10 @@
  */
 
 import { UserRole, AccountType, type User } from '@inventario/shared-types';
+import { ObjectId } from 'mongodb';
 
-import type { SignTestTokenInput } from './test-jwt.js';
 import type { FastifyInstance } from 'fastify';
-import type { ObjectId, WithId } from 'mongodb';
+import type { WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
 // Module-level counters for unique fixture data
@@ -168,23 +168,126 @@ export async function seedTestTenant(
 // ---------------------------------------------------------------------------
 
 /**
- * Provision a user via the normal JIT flow, then promote them to the
- * specified role. Returns the resulting user document (with the bumped
- * role applied).
+ * Provision a user with the given role and return the user document plus
+ * an Inventario JWT access token (K17 replacement for provisionUserAs).
  *
- * Why go through JIT first instead of direct insert?
- *   The auth flow sets fields we shouldn't have to hand-construct in
- *   every test (preferences, audit fields, accountType, entraOid uniqueness
- *   in the schema). Letting the service build them keeps the fixture
- *   minimal AND keeps tests honest about real provisioning behaviour.
+ * Inserts the user directly into MongoDB (no JIT provisioning), then
+ * calls `app.inventarioJwt.issueAccessToken()` to generate a real
+ * Inventario JWT. The token is passed as `cookies: { inv_access: token }`
+ * in app.inject() calls.
  *
- * Concurrency note:
- *   Tests run sequentially under singleFork, so the JIT call here cannot
- *   race against another provisioning attempt for the same oid.
+ * Cross-tenant tests pass `organisationId` explicitly.
+ */
+export async function provisionUser(
+  app: FastifyInstance,
+  options: {
+    oid?: string;
+    role: UserRole;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    organisationId?: string;
+  },
+): Promise<{ user: WithId<User>; token: string }> {
+  const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
+  const stamp = randomHex(12);
+  const oid = options.oid ?? `00000000-0000-4000-8000-${stamp}`;
+  const email = options.email ?? `test-${stamp}@test.inventario`;
+  const firstName = options.firstName ?? 'Test';
+  const lastName = options.lastName ?? 'User';
+  const now = new Date().toISOString();
+
+  const usersColl = app.mongo.db.collection<User>('users');
+
+  // Upsert by entraOid so repeated calls with the same oid return the same user.
+  const existing = (await usersColl.findOne({
+    entraOid: oid,
+    deletedAt: null,
+  })) as WithId<User> | null;
+
+  let userId: string;
+
+  if (existing) {
+    await usersColl.updateOne(
+      { _id: existing._id },
+      { $set: { roles: [options.role], organisationId } },
+    );
+    userId = String(existing._id);
+  } else {
+    const result = await usersColl.insertOne({
+      organisationId,
+      email,
+      firstName,
+      lastName,
+      displayName: `${firstName} ${lastName}`,
+      accountType: AccountType.ENTRA_ID,
+      entraOid: oid,
+      authProviders: [],
+      emailVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpiresAt: null,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
+      passwordHash: null,
+      roles: [options.role],
+      organizationalUnit: null,
+      teams: [],
+      isActive: true,
+      lastLoginAt: now,
+      invitationSentAt: null,
+      mustChangePassword: false,
+      preferences: {
+        language: 'sk',
+        timezone: 'Europe/Bratislava',
+        emailNotifications: true,
+        pushNotifications: false,
+      },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 'test-setup',
+      updatedBy: 'test-setup',
+      deletedAt: null,
+      deletedBy: null,
+    } as never);
+    userId = String(result.insertedId);
+  }
+
+  const user = (await usersColl.findOne({
+    _id: new ObjectId(userId),
+  } as never)) as WithId<User>;
+
+  const org = (await app.mongo.db.collection('organisations').findOne({
+    _id: new ObjectId(organisationId),
+  } as never)) as never;
+
+  const token = await app.inventarioJwt.issueAccessToken(user as never, org);
+
+  return { user, token };
+}
+
+/**
+ * @deprecated Use `provisionUser` instead (K17 Slice #6c).
+ * Kept as a thin wrapper so old call sites that capture the return
+ * can be migrated incrementally.
+ */
+export async function provisionUserAsAndSignToken(
+  app: FastifyInstance,
+  _signToken: unknown,
+  options: {
+    oid: string;
+    role: UserRole;
+    email?: string;
+  },
+): Promise<{ user: WithId<User>; token: string }> {
+  return provisionUser(app, options);
+}
+
+/**
+ * @deprecated Use `provisionUser` instead (K17 Slice #6c).
  */
 export async function provisionUserAs(
   app: FastifyInstance,
-  signToken: (input: SignTestTokenInput) => Promise<string>,
+  _signToken: unknown,
   options: {
     oid: string;
     role: UserRole;
@@ -193,57 +296,8 @@ export async function provisionUserAs(
     lastName?: string;
   },
 ): Promise<WithId<User>> {
-  const token = await signToken({
-    oid: options.oid,
-    ...(options.email !== undefined && { email: options.email }),
-    ...(options.firstName !== undefined && { given_name: options.firstName }),
-    ...(options.lastName !== undefined && { family_name: options.lastName }),
-  });
-
-  // JIT-provision via GET /v1/me
-  const meRes = await app.inject({
-    method: 'GET',
-    url: '/v1/me',
-    headers: { authorization: `Bearer ${token}` },
-  });
-  if (meRes.statusCode !== 200) {
-    throw new Error(`provisionUserAs: JIT failed with ${meRes.statusCode}: ${meRes.body}`);
-  }
-
-  // Bump role directly in DB (simulating admin action; there's no
-  // role-management endpoint yet — that's slice #3 territory).
-  const usersColl = app.mongo.db.collection<User>('users');
-  const updateResult = await usersColl.findOneAndUpdate(
-    { entraOid: options.oid },
-    { $set: { roles: [options.role] } },
-    { returnDocument: 'after' },
-  );
-
-  if (!updateResult) {
-    throw new Error(`provisionUserAs: could not find user after JIT for oid=${options.oid}`);
-  }
-
-  return updateResult;
-}
-
-/**
- * Variant of `provisionUserAs` that returns the token alongside the user.
- * Useful when a test wants to JIT a user AND then make requests as them.
- */
-export async function provisionUserAsAndSignToken(
-  app: FastifyInstance,
-  signToken: (input: SignTestTokenInput) => Promise<string>,
-  options: {
-    oid: string;
-    role: UserRole;
-    email?: string;
-  },
-): Promise<{ user: WithId<User>; token: string }> {
-  const user = await provisionUserAs(app, signToken, options);
-  const tokenInput: SignTestTokenInput = { oid: options.oid };
-  if (options.email !== undefined) tokenInput.email = options.email;
-  const token = await signToken(tokenInput);
-  return { user, token };
+  const { user } = await provisionUser(app, options);
+  return user;
 }
 
 // ---------------------------------------------------------------------------

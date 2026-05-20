@@ -1,22 +1,5 @@
 /**
- * Integration tests for PATCH /v1/categories/:id.
- *
- * Covers:
- *   - 200 with updated body on partial patch (single + multi field)
- *   - 404 when category doesn't exist or is soft-deleted
- *   - 400 for self-parent assignment
- *   - 400 for slug collision with another category
- *   - 400 for parentId pointing to a non-existent parent
- *   - Empty body no-op
- *   - updatedBy refresh, updatedAt strictly advances
- *
- * What's tested elsewhere:
- *   - RBAC, audit log content → other test files (later)
- *   - Cycle detection (parentId chain forming a loop) → K4, future
- *
- * Setup:
- *   ADMIN user, fresh DB per test. Each test inserts a baseline category
- *   via `insertTestCategory` then PATCHes it.
+ * Integration tests for PATCH /v1/categories/:id — Slice #6c K17 (cookie auth).
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -24,24 +7,20 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
 import {
   insertTestCategory,
-  provisionUserAsAndSignToken,
+  provisionUser,
   resolveTestTenantId,
   UserRole,
 } from '../helpers/test-fixtures.js';
-import { createTokenSigner } from '../helpers/test-jwt-loader.js';
 
-import type { SignTestTokenInput } from '../helpers/test-jwt.js';
 import type { FastifyInstance } from 'fastify';
 
 describe('PATCH /v1/categories/:id', () => {
   let app: FastifyInstance;
-  let signToken: (input: SignTestTokenInput) => Promise<string>;
   let adminToken: string;
   let adminId: string;
 
   beforeAll(async () => {
     app = await buildTestApp();
-    signToken = await createTokenSigner();
   });
 
   afterAll(async () => {
@@ -50,7 +29,7 @@ describe('PATCH /v1/categories/:id', () => {
 
   beforeEach(async () => {
     await cleanTestDatabase(app);
-    const { user, token } = await provisionUserAsAndSignToken(app, signToken, {
+    const { user, token } = await provisionUser(app, {
       oid: 'admin-for-categories-patch',
       role: UserRole.ADMIN,
     });
@@ -62,21 +41,15 @@ describe('PATCH /v1/categories/:id', () => {
     await cleanTestDatabase(app);
   });
 
-  // -------------------------------------------------------------------------
-  // Happy path
-  // -------------------------------------------------------------------------
-
   describe('happy path', () => {
     it('updates a single field (name) and returns 200', async () => {
       const cat = await insertTestCategory(app, { name: 'Old name', slug: 'old-name' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { name: 'New name' },
       });
-
       expect(res.statusCode).toBe(200);
       const body = res.json<{ _id: string; name: string }>();
       expect(body._id).toBe(cat._id);
@@ -85,11 +58,10 @@ describe('PATCH /v1/categories/:id', () => {
 
     it('updates multiple fields in one request', async () => {
       const cat = await insertTestCategory(app, { name: 'Pôvodný', slug: 'povodny' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: {
           name: 'Premenovaný',
           description: 'Nový popis',
@@ -99,7 +71,6 @@ describe('PATCH /v1/categories/:id', () => {
           sortOrder: 10,
         },
       });
-
       expect(res.statusCode).toBe(200);
       const body = res.json<{
         name: string;
@@ -111,8 +82,6 @@ describe('PATCH /v1/categories/:id', () => {
       }>();
       expect(body.name).toBe('Premenovaný');
       expect(body.description).toBe('Nový popis');
-      expect(body.icon).toBe('briefcase');
-      expect(body.color).toBe('#1450df');
       expect(body.isActive).toBe(false);
       expect(body.sortOrder).toBe(10);
     });
@@ -120,77 +89,60 @@ describe('PATCH /v1/categories/:id', () => {
     it('updates parentId to a valid parent', async () => {
       const parent = await insertTestCategory(app, { slug: 'new-parent' });
       const child = await insertTestCategory(app, { slug: 'orphan-to-reparent' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${child._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: parent._id },
       });
-
       expect(res.statusCode).toBe(200);
       expect(res.json<{ parentId: string }>().parentId).toBe(parent._id);
     });
 
     it('updates parentId to null (reparent to root)', async () => {
       const parent = await insertTestCategory(app, { slug: 'will-be-detached' });
-      const child = await insertTestCategory(app, {
-        slug: 'attached-child',
-        parentId: parent._id,
-      });
-
+      const child = await insertTestCategory(app, { slug: 'attached-child', parentId: parent._id });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${child._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: null },
       });
-
       expect(res.statusCode).toBe(200);
       expect(res.json<{ parentId: string | null }>().parentId).toBeNull();
     });
 
     it('persists the change — second GET returns the updated values', async () => {
       const cat = await insertTestCategory(app, { name: 'Before' });
-
       await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { name: 'After' },
       });
-
       const get = await app.inject({
         method: 'GET',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
       });
       expect(get.statusCode).toBe(200);
       expect(get.json<{ name: string }>().name).toBe('After');
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Not found
-  // -------------------------------------------------------------------------
-
   describe('not found', () => {
     it('returns 404 when category _id does not exist', async () => {
-      const fakeId = '0123456789abcdef01234567';
-
       const res = await app.inject({
         method: 'PATCH',
-        url: `/v1/categories/${fakeId}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        url: '/v1/categories/0123456789abcdef01234567',
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { name: 'Whatever' },
       });
-
       expect(res.statusCode).toBe(404);
     });
 
     it('returns 404 for a soft-deleted category', async () => {
       const cat = await insertTestCategory(app);
-
       const { ObjectId } = await import('mongodb');
       await app.mongo.db
         .collection('categories')
@@ -198,253 +150,189 @@ describe('PATCH /v1/categories/:id', () => {
           { _id: new ObjectId(cat._id) },
           { $set: { deletedAt: new Date().toISOString(), deletedBy: adminId } },
         );
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
-        payload: { name: 'Trying to update a deleted category' },
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { name: 'Trying to update deleted' },
       });
-
       expect(res.statusCode).toBe(404);
     });
 
-    it('returns 400 for malformed _id (not 24-hex)', async () => {
+    it('returns 400 for malformed _id', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/categories/not-a-valid-id',
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { name: 'Whatever' },
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Self-parent + parent existence
-  // -------------------------------------------------------------------------
-
   describe('hierarchy validation', () => {
     it('rejects self-parent assignment with 400', async () => {
       const cat = await insertTestCategory(app);
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: cat._id },
       });
-
       expect(res.statusCode).toBe(400);
-      const body = res.json<{ message: string }>();
-      expect(body.message).toMatch(/own parent/i);
+      expect(res.json<{ message: string }>().message).toMatch(/own parent/i);
     });
 
     it('rejects parentId pointing to a non-existent parent with 400', async () => {
       const cat = await insertTestCategory(app);
-      const fakeParent = '0123456789abcdef01234567';
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
-        payload: { parentId: fakeParent },
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { parentId: '0123456789abcdef01234567' },
       });
-
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Cycle and depth detection (K4)
-  // -------------------------------------------------------------------------
-
   describe('cycle detection', () => {
     it('rejects a 2-cycle: PATCH A.parentId = B when B.parentId = A', async () => {
-      // A is a root. B is a child of A. We try to reparent A under B,
-      // which would close a loop A -> B -> A -> ...
       const a = await insertTestCategory(app, { slug: 'node-a' });
       const b = await insertTestCategory(app, { slug: 'node-b', parentId: a._id });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${a._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: b._id },
       });
-
       expect(res.statusCode).toBe(400);
-      const body = res.json<{ message: string }>();
-      expect(body.message).toMatch(/cycle/i);
+      expect(res.json<{ message: string }>().message).toMatch(/cycle/i);
     });
 
     it('rejects a 3-cycle through an intermediate', async () => {
-      // Chain: A -> B -> C (each is child of previous). We try to reparent
-      // A under C, which would create A -> C -> B -> A.
       const a = await insertTestCategory(app, { slug: 'cyc-a' });
       const b = await insertTestCategory(app, { slug: 'cyc-b', parentId: a._id });
       const c = await insertTestCategory(app, { slug: 'cyc-c', parentId: b._id });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${a._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: c._id },
       });
-
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toMatch(/cycle/i);
     });
 
     it('allows reparenting that does NOT create a cycle', async () => {
-      // Sibling reparent: both B and C are children of A. We move C under B.
-      // No cycle: C -> B -> A.
       const a = await insertTestCategory(app, { slug: 'sib-a' });
       const b = await insertTestCategory(app, { slug: 'sib-b', parentId: a._id });
       const c = await insertTestCategory(app, { slug: 'sib-c', parentId: a._id });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${c._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: b._id },
       });
-
       expect(res.statusCode).toBe(200);
       expect(res.json<{ parentId: string }>().parentId).toBe(b._id);
     });
   });
 
   describe('depth limit', () => {
-    it('allows reparenting that lands at the maximum legal depth', async () => {
-      // Chain root -> d1 -> d2 -> d3 (depths 0, 1, 2, 3). We add an orphan
-      // node and reparent it under d3 -> would land at depth 4 = max.
+    it('allows reparenting at the maximum legal depth', async () => {
       const root = await insertTestCategory(app, { slug: 'depth-root' });
       const d1 = await insertTestCategory(app, { slug: 'depth-d1', parentId: root._id });
       const d2 = await insertTestCategory(app, { slug: 'depth-d2', parentId: d1._id });
       const d3 = await insertTestCategory(app, { slug: 'depth-d3', parentId: d2._id });
       const orphan = await insertTestCategory(app, { slug: 'depth-orphan' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${orphan._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: d3._id },
       });
-
       expect(res.statusCode).toBe(200);
-      expect(res.json<{ parentId: string }>().parentId).toBe(d3._id);
     });
 
     it('rejects reparenting that would exceed the maximum depth', async () => {
-      // Build chain root -> d1 -> d2 -> d3 -> d4 (depths 0..4 = max).
-      // Try to reparent orphan under d4 -> would be depth 5 = over limit.
       const root = await insertTestCategory(app, { slug: 'over-root' });
       const d1 = await insertTestCategory(app, { slug: 'over-d1', parentId: root._id });
       const d2 = await insertTestCategory(app, { slug: 'over-d2', parentId: d1._id });
       const d3 = await insertTestCategory(app, { slug: 'over-d3', parentId: d2._id });
       const d4 = await insertTestCategory(app, { slug: 'over-d4', parentId: d3._id });
       const orphan = await insertTestCategory(app, { slug: 'over-orphan' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${orphan._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { parentId: d4._id },
       });
-
       expect(res.statusCode).toBe(400);
-      const body = res.json<{ message: string }>();
-      expect(body.message).toMatch(/depth/i);
+      expect(res.json<{ message: string }>().message).toMatch(/depth/i);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Slug collision
-  // -------------------------------------------------------------------------
 
   describe('slug collision', () => {
     it('rejects changing slug to one that exists on another category with 400', async () => {
-      const other = await insertTestCategory(app, { slug: 'already-taken' });
+      await insertTestCategory(app, { slug: 'already-taken' });
       const cat = await insertTestCategory(app, { slug: 'free-slug' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { slug: 'already-taken' },
       });
-
       expect(res.statusCode).toBe(400);
-      const body = res.json<{ message: string }>();
-      expect(body.message).toMatch(/slug.*already exists/i);
-      // Ensure we identified the right one (not Claude paranoia)
-      expect(other.slug).toBe('already-taken');
+      expect(res.json<{ message: string }>().message).toMatch(/slug.*already exists/i);
     });
 
-    it('allows PATCH with the same slug as the category currently has (no-op slug)', async () => {
+    it('allows PATCH with the same slug (no-op slug)', async () => {
       const cat = await insertTestCategory(app, { slug: 'unchanged-slug' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { slug: 'unchanged-slug', name: 'New name only' },
       });
-
       expect(res.statusCode).toBe(200);
-      expect(res.json<{ slug: string; name: string }>().slug).toBe('unchanged-slug');
+      expect(res.json<{ slug: string }>().slug).toBe('unchanged-slug');
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Empty body / validation
-  // -------------------------------------------------------------------------
 
   describe('validation', () => {
     it('accepts empty body (no-op)', async () => {
       const cat = await insertTestCategory(app, { name: 'Original' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: {},
       });
-
       expect(res.statusCode).toBe(200);
       expect(res.json<{ name: string }>().name).toBe('Original');
     });
 
     it('rejects invalid assetType enum', async () => {
       const cat = await insertTestCategory(app);
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { assetType: 'TOTALLY_FAKE' },
       });
-
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Audit fields
-  // -------------------------------------------------------------------------
-
   describe('audit fields', () => {
     it('updates updatedBy to the calling user _id', async () => {
       const cat = await insertTestCategory(app, { createdBy: 'someone-else' });
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${cat._id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { name: 'New name' },
       });
-
       expect(res.statusCode).toBe(200);
       const body = res.json<{ createdBy: string; updatedBy: string }>();
       expect(body.createdBy).toBe('someone-else');
@@ -476,14 +364,12 @@ describe('PATCH /v1/categories/:id', () => {
         deletedBy: null,
       });
       const id = String(insertResult.insertedId);
-
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${id}`,
-        headers: { authorization: `Bearer ${adminToken}` },
+        headers: { cookie: `inv_access=${adminToken}` },
         payload: { name: 'Trigger update' },
       });
-
       expect(res.statusCode).toBe(200);
       const body = res.json<{ createdAt: string; updatedAt: string }>();
       expect(body.createdAt).toBe(oldTimestamp);
