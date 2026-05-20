@@ -220,18 +220,9 @@ export class OrganisationsRepository {
       session ? { session } : undefined,
     );
 
-    const inserted = await this.collection.findOne(
-      { _id: result.insertedId } as Filter<Organisation>,
-      session ? { session } : undefined,
-    );
-
-    if (!inserted) {
-      throw new Error(
-        `Organisation insert succeeded but read-back failed for _id=${String(result.insertedId)}`,
-      );
-    }
-
-    return inserted;
+    // Return the document we just inserted with the assigned _id.
+    // Avoids Atlas Flex read-after-write latency issues on shared clusters.
+    return { ...organisation, _id: result.insertedId } as unknown as WithId<Organisation>;
   }
 
   /**

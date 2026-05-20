@@ -192,18 +192,13 @@ export class UsersRepository {
   async insertNew(user: Omit<User, '_id'>): Promise<WithId<User>> {
     const { insertedId } = await this.collection.insertOne(user as unknown as User);
 
-    // Re-fetch with projection so we don't accidentally return
-    // passwordHash even though the caller may not have included it.
-    const inserted = await this.collection.findOne(
-      { _id: insertedId },
-      { projection: PUBLIC_PROJECTION },
-    );
+    // Return the document we just inserted with the assigned _id.
+    // Avoids Atlas Flex read-after-write latency (findOne after insertOne
+    // can return null on shared clusters due to replication lag).
+    // passwordHash excluded via destructuring — same intent as PUBLIC_PROJECTION.
 
-    if (!inserted) {
-      throw new Error(`User insert succeeded but read-back failed for _id=${String(insertedId)}`);
-    }
-
-    return inserted;
+    const { passwordHash: _pw, ...userWithoutHash } = user as User;
+    return { ...userWithoutHash, _id: insertedId } as unknown as WithId<User>;
   }
 
   /**
