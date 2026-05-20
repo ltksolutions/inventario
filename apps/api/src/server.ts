@@ -29,6 +29,7 @@ import {
 
 import assetsRoutes from './modules/assets/assets.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
+import emailAuthRoutes from './modules/auth/email-auth.routes.js';
 import oauthRoutes from './modules/auth/oauth.routes.js';
 import categoriesRoutes from './modules/categories/categories.routes.js';
 import healthRoutes from './modules/health/health.routes.js';
@@ -121,6 +122,7 @@ export async function buildServer(
   await app.register(authPlugin);
   await app.register(inventarioJwtPlugin);
   await app.register(oauthRoutes);
+  await app.register(emailAuthRoutes);
 
   // --- API documentation ---------------------------------------------------
   await app.register(swaggerPlugin);
