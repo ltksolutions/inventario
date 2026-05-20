@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 > **Living document** — vždy aktuálny stav projektu, najbližšie kroky, technical debt.
 > Pri novej Claude session si prečítaj **najprv toto**, potom najnovší day-summary.
 
-**Aktualizované**: 2026-05-20 night (Slice #5 loans backend KOMPLETNÝ — 366 testov, 11 endpointov, ADR-0012, milestone doc)
+**Aktualizované**: 2026-05-20 (Slice #4 frontend KOMPLETNÝ — 7/7 P0 stránok, loans UI live, milestone doc hotový)
 
 ---
 
@@ -20,7 +20,7 @@ Frontend (Slice #4) je posledný **zámerne**, aby sa minimalizovali prerábky. 
 - 🅲 **OrganisationId migration** → stabilný API contract s tenant scoping **pred** frontend integráciou ✅ **DONE**
 - 🅳 **EU compliance** (OpenAPI export, SBOM, WCAG, GDPR) → fundamenty pre type generation a verejný sektor ✅ **DONE**
 - 🅴 **Tech debt cleanup** → posledný refresh pred veľkým kusom ✅ **DONE**
-- 🅰 **Slice #4 frontend** → na zelenú lúku s čistým API, tokens, multi-tenancy in place ⬅ **5/6 P0 DONE** (login + dashboard + assets list+detail + categories + locations + users + mobile responsive; iba `/loans/request` + `/my-loans` blocked na Slice #5 backend)
+- 🅰 **Slice #4 frontend** → na zelenú lúku s čistým API, tokens, multi-tenancy in place ✅ **DONE** (7/7 P0 stránok: login + dashboard + assets list+detail + categories + locations + users + loans + loans/request + my-loans + mobile responsive)
 
 ---
 
@@ -151,44 +151,24 @@ Asset-Management/                    (root, pnpm monorepo, EUPL-1.2)
 
 ---
 
-## 🎯 Next session — Slice #5 (loans backend) ALEBO pilot tenant onboarding ⬅ **PRÍŠTÍ KROK**
+## 🎯 Ďalší krok — Pilot tenant onboarding
 
-**Inventario je KOMPLETNE LIVE!** Všetky 4 subdomény fungujú v produkcii (marketing, docs, api, app). 10/10 smoke test PASS pre `app.inventario.sportup.sk` cez Microsoft Entra ID login + JIT provisioning + RBAC + mobile drawer + logout flow. ADMIN promote re-test OK (cez Mongo Atlas UI manuálne, kým nemáme prvého ADMIN tenantu).
+**Inventario je FEATURE-COMPLETE pre MVP!** Všetkých 7 P0 stránok funkčných, loans flow
+end-to-end (request → approve → return) cez produkčné API na `app.inventario.sportup.sk`.
 
-### Voľba ďalšieho smeru
+### Pilot tenant onboarding (~1-2 týždne)
 
-**A) Slice #5 — loans backend** (~3-5 dní práce)
+5 krokov pre prvého reálneho tenantu (Mesto Pezinok? ŠK Inter? Stredná škola Kremnica?):
 
-Unblockne posledné 2 P0 frontend stránky (`/loans/request` + `/my-loans`). Detaily v sekcii "Po milestone doc — Slice #5" nižšie.
+1. **Vybrať pilot tenanta** — kontaktovať, dohodnúť podmienky, podpísať NDA/DPA
+2. **Entra ID konfigurácia** — pre-authorize tenant-u vlastnú Entra ID app registration na náš API
+3. **DPIA + GDPR Art. 30** — finalizovať pre konkrétny municipálny/školský prípad
+4. **Onboarding session** — account setup, data import (CSV → MongoDB), training
+5. **Feedback loop** — zbierať feedback pre Slice #5b (PDF protokoly, multi-approver, predĺženie)
 
-**B) Pilot tenant onboarding** (~1-2 týždne práce)
+### Slice #5b (po pilot feedback — nie teraz)
 
-5/6 P0 stránok je dostatočné na onboarding prvého reálneho tenantu (Mesto Pezinok? Stredná škola Kremnica? ŠK Inter?). Loans môžu byť odložené ako Phase 2. Aktivity:
-
-- Vybrať prvý pilot tenant
-- Nakonfigurovať ich Entra ID app registration (pre-authorize na náš API)
-- DPIA + GDPR Article 30 inventory finalizovať pre municipálny prípad
-- Onboarding session (account setup, data import, training)
-- Real-world feedback loop
-
-**Odporúčanie:** B prv ako A. Slice #5 backend design (single vs multi-approver, notifikácie, delegácia) sa zlepší s real-world feedback z prvého pilotu. Loans môžu žiť 2-4 týždne ako manual process (Excel + email) v prvom pilote, mezitým build-neme správnu verziu.
-
-**Krok 1-9 hotové (2026-05-18):** Kompletný 3.5-hodinový debug Vercel deploy story v `docs/sessions/2026-05-18-day-summary.md` sekciách 7-8 (Production Override locks, engines.node syntax, stale UI overrides, smoke test PASS).
-
-### Pending — milestone doc Slice #4
-
-Vytvoriť `docs/milestones/slice-4-frontend-web.md` (rovnaký pattern ako `phase-d-eu-compliance.md`) so:
-
-- Zoznam 5 P0 stránok + build sizes + commit references
-- Tech stack: Next.js 15, MSAL, openapi-fetch, TanStack Query, react-hook-form, Tailwind + design tokens
-- a11y achievements: aria-live regions, semantic table headers, keyboard navigation, role labels
-- Mobile responsive notes
-- Vercel deploy guide (cross-link na `infra/vercel/APP-DEPLOYMENT.md`)
-- Outstanding work: `/loans/request` + `/my-loans` (blocked na Slice #5)
-- Vercel deploy battle lessons learned (Node 24 LTS, engines.node syntax, stale UI overrides)
-- 10/10 smoke test PASS confirmation (link na day-summary)
-
-Môže byť spravené v ďalšej session (nie kritické).
+Per ADR-0012 — multi-approver routing, PDF protokoly, OVERDUE cron, predĺženie, email notifikácie.
 
 ### Pre-deploy checklist (OLD — historický záznam pre rev-A debt, deploy je COMPLETED)
 
@@ -290,14 +270,14 @@ Vytvoriť `docs/milestones/slice-4-frontend-web.md` (rovnaký pattern ako `phase
 - Outstanding work: `/loans/request` + `/my-loans` (blocked na Slice #5)
 - Vercel deploy battle lessons learned (Node 24 LTS, engines.node syntax, stale UI overrides)
 
-### Slice #4 finálne 2 P0 stránky — **ODBLOKOVANÉ** ✅
+### Slice #4 finálne 2 P0 stránky — ✅ **KOMPLETNÉ**
 
-Slice #5 backend je kompletný. Tieto dve stránky sú teraz odblokované:
+Slice #4 je formálne uzavretý. Milestone doc: `docs/milestones/slice-4-frontend-web.md`.
 
-- **`/loans/request`** — formulár pre novú žiadosť (asset multi-select + purpose + dátumy)
-- **`/my-loans`** — zoznam vlastných zápožičiek s `isOverdue` badge-om
-
-Po dokončení je Slice #4 formálne uzavretý (viď `docs/milestones/slice-4-frontend-web.md` pending).
+- ✅ `/loans` — žiadosti list + inline approve/reject/cancel pre ASSET_MANAGER+ADMIN
+- ✅ `/loans/request` — formulár s asset multi-select + date inputs + basket
+- ✅ `/my-loans` — výpožičky + Čakajúce žiadosti sekcia + isOverdue badge
+- ✅ Dashboard loans card — real data z GET /v1/loans/my?status=ACTIVE
 
 ---
 

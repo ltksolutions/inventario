@@ -3,13 +3,14 @@
 
 'use client';
 
-import { AlertCircle, Clock, Package } from 'lucide-react';
+import { AlertCircle, Clock, Package, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
 
-import type { LoanSummary } from '@/lib/api-hooks';
+import type { LoanRequestSummary, LoanSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
-import { useMyLoans } from '@/lib/api-hooks';
+import { useCancelLoanRequest, useLoanRequests, useMyLoans } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
 
 /**
@@ -49,6 +50,9 @@ export function MyLoansContent(): JSX.Element {
   const loansQuery = useMyLoans({ limit: 50 });
   const loans = loansQuery.data?.data ?? [];
 
+  const pendingQuery = useLoanRequests({ status: 'PENDING', limit: 20 });
+  const pendingRequests = pendingQuery.data?.data ?? [];
+
   return (
     <div>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -67,16 +71,133 @@ export function MyLoansContent(): JSX.Element {
         </Link>
       </header>
 
-      {loansQuery.isLoading ? (
-        <ListSkeleton />
-      ) : loansQuery.isError ? (
-        <ErrorPanel message="Výpožičky sa nepodarilo načítať. Skontroluj pripojenie a skús to znova." />
-      ) : loans.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <LoansTable loans={loans} total={loansQuery.data?.pagination.total ?? loans.length} />
+      {/* Pending requests section — shown when user has PENDING loan-requests */}
+      {(pendingRequests.length > 0 || pendingQuery.isLoading) && (
+        <section aria-labelledby="pending-heading" className="mb-8">
+          <h2 id="pending-heading" className="mb-3 text-lg font-semibold text-text-primary">
+            Čakajúce žiadosti
+          </h2>
+          {pendingQuery.isLoading ? (
+            <div
+              aria-busy="true"
+              aria-label="Načítavam žiadosti"
+              className="h-16 animate-pulse rounded-xl border border-border-subtle bg-surface-card"
+            />
+          ) : (
+            <PendingRequestsList requests={pendingRequests} />
+          )}
+        </section>
       )}
+
+      {/* Loans section */}
+      <section aria-labelledby="loans-heading">
+        <h2 id="loans-heading" className="mb-3 text-lg font-semibold text-text-primary">
+          Výpožičky
+        </h2>
+        {loansQuery.isLoading ? (
+          <ListSkeleton />
+        ) : loansQuery.isError ? (
+          <ErrorPanel message="Výpožičky sa nepodarilo načítať. Skontroluj pripojenie a skús to znova." />
+        ) : loans.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <LoansTable loans={loans} total={loansQuery.data?.pagination.total ?? loans.length} />
+        )}
+      </section>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pending requests list
+// ---------------------------------------------------------------------------
+
+function PendingRequestsList({
+  requests,
+}: {
+  requests: readonly LoanRequestSummary[];
+}): JSX.Element {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
+      <table className="w-full min-w-[540px] text-sm">
+        <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
+          <tr>
+            <th scope="col" className="px-4 py-3">
+              Majetok
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Účel
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Termín
+            </th>
+            <th scope="col" className="px-4 py-3 text-right">
+              Akcie
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border-subtle">
+          {requests.map((req) => (
+            <PendingRequestRow key={req._id} request={req} />
+          ))}
+        </tbody>
+      </table>
+      <div className="border-t border-border-subtle px-4 py-2 text-xs text-text-muted">
+        {requests.length} čakajúch
+      </div>
+    </div>
+  );
+}
+
+function PendingRequestRow({ request }: { request: LoanRequestSummary }): JSX.Element {
+  const cancel = useCancelLoanRequest();
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  function handleCancel(): void {
+    setRowError(null);
+    cancel.mutate({ id: request._id }, { onError: (e) => setRowError(e.message) });
+  }
+
+  return (
+    <>
+      <tr className="hover:bg-surface-subtle">
+        <td className="px-4 py-3">
+          <div className="flex flex-col gap-0.5">
+            {request.items.map((item) => (
+              <span key={item.assetId} className="text-sm font-medium text-text-primary">
+                {item.snapshot.inventoryNumber}
+                <span className="ml-1.5 font-normal text-text-secondary">{item.snapshot.name}</span>
+              </span>
+            ))}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-text-secondary">{request.purpose}</td>
+        <td className="px-4 py-3 text-xs text-text-secondary">
+          {formatDate(request.plannedFrom)}
+          {' – '}
+          {formatDate(request.plannedTo)}
+        </td>
+        <td className="px-4 py-3 text-right">
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={cancel.isPending}
+            aria-label={`Zrušiť žiadosť`}
+            className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-surface-card px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-subtle hover:text-danger-fg disabled:opacity-50"
+          >
+            <XCircle aria-hidden="true" className="h-3.5 w-3.5" />
+            Zrušiť
+          </button>
+        </td>
+      </tr>
+      {rowError && (
+        <tr className="bg-danger-bg">
+          <td colSpan={4} className="px-4 py-2 text-xs text-danger-fg">
+            {rowError}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 

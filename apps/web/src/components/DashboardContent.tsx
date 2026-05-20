@@ -10,7 +10,7 @@ import { StatCard } from './StatCard';
 
 import type { JSX, ReactNode } from 'react';
 
-import { useAssets, useCategories, useLocations, useMe } from '@/lib/api-hooks';
+import { useAssets, useCategories, useLocations, useMe, useMyLoans } from '@/lib/api-hooks';
 
 /**
  * Dashboard for authenticated users.
@@ -33,6 +33,7 @@ export function DashboardContent(): JSX.Element {
   const assets = useAssets({ limit: 1 });
   const categories = useCategories({ limit: 1 });
   const locations = useLocations({ limit: 1 });
+  const loans = useMyLoans({ limit: 1, status: 'ACTIVE' });
 
   const greetingName = me.data?.firstName ?? me.data?.displayName ?? null;
 
@@ -80,10 +81,12 @@ export function DashboardContent(): JSX.Element {
           />
           <StatCard
             label="Výpožičky"
-            value={0}
+            value={loans.data?.pagination.total}
             icon={<ClipboardList aria-hidden="true" className="h-5 w-5" />}
             tone="warning"
-            hint="modul príde čoskoro"
+            isLoading={loans.isLoading}
+            isError={loans.isError}
+            hint="aktívnych výpožičiek"
           />
         </div>
       </section>
@@ -123,7 +126,11 @@ export function DashboardContent(): JSX.Element {
         </ul>
       </section>
 
-      {(assets.isError || categories.isError || locations.isError || me.isError) && (
+      {(assets.isError ||
+        categories.isError ||
+        locations.isError ||
+        loans.isError ||
+        me.isError) && (
         <div
           role="alert"
           className="mt-6 rounded-lg border border-danger-fg bg-danger-bg p-4 text-sm text-danger-fg"
