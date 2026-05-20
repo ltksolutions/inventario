@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useMsal } from '@azure/msal-react';
+import { useAccount, useMsal } from '@azure/msal-react';
 import { LogOut } from 'lucide-react';
 
 import type { JSX } from 'react';
@@ -14,12 +14,26 @@ import type { JSX } from 'react';
  * to the app's home page (where the LoginButton becomes visible again).
  */
 export function LogoutButton(): JSX.Element {
-  const { instance } = useMsal();
+  const { instance, accounts } = useMsal();
+  const account = useAccount(accounts[0]);
 
   const handleLogout = (): void => {
-    void instance.logoutRedirect().catch((err: unknown) => {
-      console.error('Logout failed:', err);
-    });
+    void instance
+      .logoutRedirect({
+        account: account ?? null,
+        postLogoutRedirectUri: window.location.origin + '/login',
+        // logoutHint tells Entra ID which account to sign out, skipping
+        // the 'Which account do you want to sign out of?' picker screen.
+        ...(account && {
+          logoutHint:
+            ((account.idTokenClaims as Record<string, unknown> | undefined)?.['login_hint'] as
+              | string
+              | undefined) ?? account.username,
+        }),
+      })
+      .catch((err: unknown) => {
+        console.error('Logout failed:', err);
+      });
   };
 
   return (
