@@ -14,6 +14,7 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "migrate:organisation-id": "tsx --env-file-if-exists=.env.local scripts/migrate-organisation-id.ts",
+    "migrate:auth-providers": "tsx --env-file-if-exists=.env.local scripts/migrate-auth-providers.ts",
     "openapi:export": "tsx --env-file-if-exists=.env.local scripts/export-openapi.ts",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
