@@ -181,3 +181,11 @@ Type: A   Name: @   Value: 76.76.21.21
 ---
 
 **Last updated:** 20. máj 2026 — Migrácia na inventario.estate
+
+### Kompletný zoznam domén
+
+| Doména                   | Vercel projekt        | Status |
+| ------------------------ | --------------------- | ------ |
+| `app.inventario.estate`  | inventario-app        | ✅     |
+| `api.inventario.estate`  | asset-management-api  | ✅     |
+| `docs.inventario.estate` | asset-management-docs | ✅     |
