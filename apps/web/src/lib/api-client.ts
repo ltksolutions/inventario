@@ -6,51 +6,115 @@ import createClient, { type Middleware } from 'openapi-fetch';
 import type { paths } from './api-types';
 
 /**
- * Inventario API client — Slice #6b.
+ * Inventario API client — Slice #6b/K19.
  *
- * Authentication is now cookie-based (Inventario JWT). The `inv_access`
- * httpOnly cookie is set by the backend login / OAuth callback routes
- * and is sent automatically by the browser with every same-origin
- * request when `credentials: 'include'` is set.
+ * Authentication: httpOnly `inv_access` cookie, sent automatically by
+ * the browser via `credentials: 'include'`.
  *
- * No MSAL, no Bearer token manipulation — the browser handles it.
+ * Silent refresh (K19):
+ *   When any API call returns 401 (expired access token), the middleware:
+ *     1. Calls POST /v1/auth/refresh (browser sends inv_refresh cookie
+ *        automatically because it is scoped to /v1/auth/refresh path).
+ *     2. On success (204): retries the original request once. The new
+ *        inv_access cookie is set by the server and sent on the retry.
+ *     3. On failure: redirects to /login.
  *
- * 401 handling:
- *   When a request returns 401 the middleware redirects to /login so
- *   the user can re-authenticate. This covers both expired access tokens
- *   (server returns 401 on cookie) and the case where the user has no
- *   cookie at all.
- *
- * Usage:
- *   const { data, error } = await apiClient.GET('/v1/assets', {
- *     params: { query: { limit: 50, skip: 0 } },
- *   });
- *
- * For React components prefer the TanStack Query hooks in
- * `src/lib/api-hooks.ts` — they cache, deduplicate, and handle loading
- * states automatically.
+ * Concurrency guard:
+ *   Multiple requests expiring simultaneously would each trigger a
+ *   refresh attempt. The backend's refresh-token reuse detection would
+ *   interpret the second attempt as a replay attack and revoke ALL
+ *   sessions. We prevent this with a module-level singleton promise:
+ *   the first 401 fires the refresh; subsequent ones await that same
+ *   promise and then retry once it resolves.
  */
 
 const API_BASE_URL = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
+// ---------------------------------------------------------------------------
+// Singleton refresh coordination
+// ---------------------------------------------------------------------------
+
 /**
- * Redirect to /login on 401 so the user can re-authenticate.
- * Runs only in the browser (middleware fires inside fetch invocations
- * which only happen client-side for our usage pattern).
+ * While a refresh is in flight this holds the promise. All concurrent
+ * 401 handlers await this instead of firing their own refresh.
+ * Cleared to null when the refresh settles (success or failure).
  */
-const unauthorizedMiddleware: Middleware = {
-  async onResponse({ response }) {
-    if (response.status === 401 && typeof window !== 'undefined') {
-      window.location.href = '/login';
+let refreshInFlight: Promise<boolean> | null = null;
+
+/**
+ * Attempt a silent token refresh. Returns true if the server accepted
+ * the refresh token and issued new cookies, false otherwise.
+ *
+ * Guarantees at most one concurrent refresh request is in flight by
+ * reusing the pending promise for any callers that arrive while the
+ * first is still running.
+ */
+async function tryRefresh(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      // Allow the next expiry to start a fresh refresh cycle.
+      refreshInFlight = null;
     }
-    return response;
+  })();
+
+  return refreshInFlight;
+}
+
+// ---------------------------------------------------------------------------
+// Middleware
+// ---------------------------------------------------------------------------
+
+const silentRefreshMiddleware: Middleware = {
+  async onResponse({ request, response }) {
+    // Only intercept 401s in the browser. Server-side fetches have no
+    // cookies to refresh and no window to redirect.
+    if (response.status !== 401 || typeof window === 'undefined') return response;
+
+    // Don't retry auth endpoints — prevents infinite loops and avoids
+    // triggering replay-attack detection on consecutive refresh calls.
+    if (
+      request.url.includes('/v1/auth/refresh') ||
+      request.url.includes('/v1/auth/login') ||
+      request.url.includes('/v1/auth/logout')
+    ) {
+      window.location.href = '/login';
+      return response;
+    }
+
+    // Attempt silent refresh.
+    const refreshed = await tryRefresh();
+    if (!refreshed) {
+      window.location.href = '/login';
+      return response;
+    }
+
+    // Retry the original request. The browser automatically attaches the
+    // new inv_access cookie (set by the refresh endpoint) because
+    // credentials:'include' is in the client options.
+    //
+    // Clone the request: a consumed Request body can only be read once.
+    return fetch(request.clone());
   },
 };
 
+// ---------------------------------------------------------------------------
+// Client
+// ---------------------------------------------------------------------------
+
 export const apiClient = createClient<paths>({
   baseUrl: API_BASE_URL,
-  // Cookie-based auth: send the inv_access httpOnly cookie with every request.
+  // Cookie-based auth — inv_access is sent automatically.
   credentials: 'include',
 });
 
-apiClient.use(unauthorizedMiddleware);
+apiClient.use(silentRefreshMiddleware);

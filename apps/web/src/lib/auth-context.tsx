@@ -94,22 +94,42 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     refreshing.current = true;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/me`, {
+      let res = await fetch(`${API_BASE_URL}/v1/me`, {
         credentials: 'include',
-        // Prevent stale cache from masking an expired session.
         cache: 'no-store',
       });
+
+      // Access token expired — try a silent refresh before giving up.
+      // This covers the page-load case where the user had a valid
+      // refresh token but the access token expired while the tab was
+      // in the background.
+      if (res.status === 401) {
+        try {
+          const refreshRes = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+          if (refreshRes.ok) {
+            // New cookie set — retry the /v1/me call.
+            res = await fetch(`${API_BASE_URL}/v1/me`, {
+              credentials: 'include',
+              cache: 'no-store',
+            });
+          }
+        } catch {
+          // Refresh network error — fall through to the null path below.
+        }
+      }
 
       if (res.ok) {
         const data = (await res.json()) as AuthUser;
         setUser(data);
       } else {
-        // 401 / 403 — no valid session.
+        // 401 even after refresh (or 403/5xx) — no valid session.
         setUser(null);
       }
     } catch {
-      // Network error — treat as unauthenticated. The UI will show the
-      // login screen; retrying is the user's call.
+      // Network error — treat as unauthenticated.
       setUser(null);
     } finally {
       refreshing.current = false;
