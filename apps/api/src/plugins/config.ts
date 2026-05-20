@@ -84,6 +84,21 @@ const envSchema = z.object({
   FRONTEND_BASE_URL: z.string().url().default('http://localhost:3001'),
 
   // ---------------------------------------------------------------------
+  // Email (ADR-0013) — nodemailer + SMTP
+  // ---------------------------------------------------------------------
+  // All optional — if not set, emails are logged to console (dev mode).
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  /** From address shown to recipients. */
+  EMAIL_FROM: z.string().default('Inventario <noreply@inventario.sportup.sk>'),
+
+  // ---------------------------------------------------------------------
   // JWT — Inventario JWT (ADR-0013)
   // ---------------------------------------------------------------------
   // RS256 key pair for signing/verifying Inventario access tokens.

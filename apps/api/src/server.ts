@@ -40,6 +40,7 @@ import organisationsRoutes from './modules/organisations/organisations.routes.js
 import usersRoutes from './modules/users/users.routes.js';
 import authPlugin from './plugins/auth.js';
 import configPlugin from './plugins/config.js';
+import emailPlugin from './plugins/email.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
 import inventarioJwtPlugin from './plugins/inventario-jwt.js';
 import mongoPlugin from './plugins/mongo.js';
@@ -119,6 +120,7 @@ export async function buildServer(
   // --- Infrastructure ------------------------------------------------------
   await app.register(mongoPlugin);
   await app.register(auditPlugin);
+  await app.register(emailPlugin);
   await app.register(authPlugin);
   await app.register(inventarioJwtPlugin);
   await app.register(oauthRoutes);

@@ -233,8 +233,9 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         },
       );
 
-      // Send verification email (K6 wires real transport; stub logs in dev)
-      await sendVerificationEmail(fastify, email, verificationToken);
+      // Send verification email
+      const apiBase = fastify.config.OAUTH_REDIRECT_BASE_URL ?? 'http://localhost:3000';
+      await fastify.emailService.sendVerificationEmail(email, verificationToken, apiBase);
 
       fastify.log.info({ userId: userId.toString(), email }, 'New email/password user registered');
 
@@ -414,7 +415,11 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           },
         });
 
-        await sendPasswordResetEmail(fastify, email, resetToken);
+        await fastify.emailService.sendPasswordResetEmail(
+          email,
+          resetToken,
+          fastify.config.FRONTEND_BASE_URL,
+        );
         fastify.log.info({ userId: String(user._id), email }, 'Password reset email sent');
       }
 
@@ -468,30 +473,6 @@ export default fp(emailAuthRoutesPlugin, {
   name: 'email-auth-routes',
   dependencies: ['config', 'mongo', 'inventario-jwt'],
 });
-
-// ---------------------------------------------------------------------------
-// Email stubs (K6 will replace with real nodemailer transport)
-// ---------------------------------------------------------------------------
-
-async function sendVerificationEmail(
-  fastify: Parameters<FastifyPluginAsync>[0],
-  email: string,
-  token: string,
-): Promise<void> {
-  const url = `${fastify.config.OAUTH_REDIRECT_BASE_URL ?? 'http://localhost:3000'}/v1/auth/verify-email?token=${token}`;
-  fastify.log.info({ email, verificationUrl: url }, '[K6-STUB] Would send verification email');
-  // K6: await fastify.emailService.send({ to: email, template: 'verify-email', data: { url } });
-}
-
-async function sendPasswordResetEmail(
-  fastify: Parameters<FastifyPluginAsync>[0],
-  email: string,
-  token: string,
-): Promise<void> {
-  const url = `${fastify.config.FRONTEND_BASE_URL}/reset-password?token=${token}`;
-  fastify.log.info({ email, resetUrl: url }, '[K6-STUB] Would send password reset email');
-  // K6: await fastify.emailService.send({ to: email, template: 'reset-password', data: { url } });
-}
 
 // ---------------------------------------------------------------------------
 // Utilities
