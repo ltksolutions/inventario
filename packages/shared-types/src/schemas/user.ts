@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { AuthProvider } from '../enums/auth-provider.js';
 import { AccountType, UserRole } from '../enums/user-role.js';
 
 import {
@@ -56,6 +57,52 @@ export const UserSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
 
     /** Microsoft Entra ID Object ID — povinné pre ENTRA_ID účty, null pre LOCAL. */
     entraOid: z.string().uuid().nullable().default(null),
+
+    // -----------------------------------------------------------------
+    // Multi-provider auth (ADR-0013)
+    // -----------------------------------------------------------------
+
+    /**
+     * Linked auth providers for this user. A user can have multiple
+     * providers linked (e.g. Microsoft at work, Google at home).
+     *
+     * For legacy Entra ID users, migration script populates this from
+     * `entraOid`. For new users, populated during OAuth callback or
+     * email registration.
+     *
+     * Empty array for legacy users not yet migrated (backward compat).
+     */
+    authProviders: z
+      .array(
+        z.object({
+          /** Which auth provider. */
+          provider: z.enum(
+            Object.values(AuthProvider) as [string, ...string[]],
+          ) as z.ZodType<AuthProvider>,
+          /** Provider-specific user ID (Google sub, Apple sub, Entra oid, or email). */
+          providerId: z.string().min(1),
+          /** Email used with this provider. */
+          email: z.string().email(),
+          /** When this provider was linked. */
+          linkedAt: z.string().datetime(),
+        }),
+      )
+      .default([]),
+
+    /** Whether the user’s primary email has been verified. */
+    emailVerified: z.boolean().default(false),
+
+    /** Token for email verification flow. Null when not pending. NEVER in API response. */
+    emailVerificationToken: z.string().nullable().default(null),
+
+    /** Expiry for email verification token. */
+    emailVerificationExpiresAt: z.string().datetime().nullable().default(null),
+
+    /** Token for password reset flow. Null when not pending. NEVER in API response. */
+    passwordResetToken: z.string().nullable().default(null),
+
+    /** Expiry for password reset token. */
+    passwordResetExpiresAt: z.string().datetime().nullable().default(null),
 
     /** Hash hesla (bcrypt/argon2). Len pre LOCAL účty. NIKDY do API response. */
     passwordHash: z.string().nullable().default(null),
@@ -127,6 +174,12 @@ export const CreateUserSchema = UserSchema.omit({
   passwordHash: true,
   lastLoginAt: true,
   invitationSentAt: true,
+  authProviders: true, // managed by auth system
+  emailVerified: true, // managed by auth system
+  emailVerificationToken: true, // internal security token
+  emailVerificationExpiresAt: true, // internal
+  passwordResetToken: true, // internal security token
+  passwordResetExpiresAt: true, // internal
 }).extend({
   /** Pre LOCAL účty — počiatočné heslo. Musí byť zaslané cez secure channel. */
   initialPassword: z.string().min(12).max(128).optional(),
@@ -150,6 +203,12 @@ export const UpdateUserSchema = UserSchema.omit({
   passwordHash: true,
   accountType: true,
   entraOid: true,
+  authProviders: true, // managed by auth system
+  emailVerified: true, // managed by auth system
+  emailVerificationToken: true, // internal security token
+  emailVerificationExpiresAt: true, // internal
+  passwordResetToken: true, // internal security token
+  passwordResetExpiresAt: true, // internal
 }).partial();
 
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;

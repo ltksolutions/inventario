@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
+import { AuthProvider, MemberJoinPolicy, RegistrationMethod } from '../enums/auth-provider.js';
 import { OrganisationPlan, OrganisationStatus } from '../enums/organisation-status.js';
 
-import { BaseDocumentSchema, EmailSchema, SoftDeleteSchema } from './common.js';
+import { BaseDocumentSchema, EmailSchema, ObjectIdSchema, SoftDeleteSchema } from './common.js';
 
 /**
  * Organisation = tenant in the multi-tenant Inventario platform.
@@ -121,6 +122,67 @@ export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).ext
    * onboarding settle on what tenants need to configure.
    */
   settings: z.record(z.string(), z.unknown()).default({}),
+
+  // -----------------------------------------------------------------
+  // Auth + member policy (ADR-0013)
+  // -----------------------------------------------------------------
+
+  /**
+   * Which auth providers are allowed for this tenant's users.
+   * Default: all providers. Enterprise tenants may restrict to e.g.
+   * only Microsoft (M365 companies) or only Google (Google Workspace schools).
+   *
+   * Enforced at login/invite callback — if the user's provider is not
+   * in this list, they get a clear error message.
+   */
+  allowedAuthProviders: z
+    .array(z.enum(Object.values(AuthProvider) as [string, ...string[]]) as z.ZodType<AuthProvider>)
+    .default([AuthProvider.GOOGLE, AuthProvider.APPLE, AuthProvider.MICROSOFT, AuthProvider.EMAIL]),
+
+  /**
+   * How new members join this organisation.
+   * - INVITE_ONLY (default): only users with a valid invite can join
+   * - DOMAIN_RESTRICTED: users with matching email domain auto-join
+   * - OPEN: anyone with the org's join link can register
+   *
+   * Self-serve registration always creates NEW orgs (first user = ADMIN).
+   * This policy governs joining EXISTING orgs.
+   */
+  memberJoinPolicy: z
+    .enum(Object.values(MemberJoinPolicy) as [string, ...string[]])
+    .default(MemberJoinPolicy.INVITE_ONLY) as z.ZodType<MemberJoinPolicy>,
+
+  /**
+   * Email domains that trigger auto-join when memberJoinPolicy is
+   * DOMAIN_RESTRICTED. Example: ['mestopezinok.sk', 'pezinok.eu'].
+   * Ignored for other policies.
+   */
+  autoJoinDomains: z.array(z.string().toLowerCase().trim()).default([]),
+
+  // -----------------------------------------------------------------
+  // Registration + onboarding (ADR-0013)
+  // -----------------------------------------------------------------
+
+  /** UserId of the person who registered this organisation. Null for legacy/manual orgs. */
+  registeredBy: ObjectIdSchema.nullable().default(null),
+
+  /** How was this org created. */
+  registrationMethod: z
+    .enum(Object.values(RegistrationMethod) as [string, ...string[]])
+    .default(RegistrationMethod.MANUAL) as z.ZodType<RegistrationMethod>,
+
+  /** When the onboarding wizard was completed. Null = still onboarding. */
+  onboardingCompletedAt: z.string().datetime().nullable().default(null),
+
+  // -----------------------------------------------------------------
+  // DPA (GDPR Data Processing Agreement)
+  // -----------------------------------------------------------------
+
+  /** Timestamp when the DPA was accepted during registration. */
+  dpaAcceptedAt: z.string().datetime().nullable().default(null),
+
+  /** UserId who accepted the DPA. */
+  dpaAcceptedBy: ObjectIdSchema.nullable().default(null),
 });
 
 export type Organisation = z.infer<typeof OrganisationSchema>;
@@ -157,6 +219,10 @@ export const UpdateOrganisationSchema = OrganisationSchema.omit({
   _id: true,
   slug: true,
   entraTenantId: true,
+  registeredBy: true, // immutable — who created the org
+  registrationMethod: true, // immutable — how it was created
+  dpaAcceptedAt: true, // immutable — audit trail
+  dpaAcceptedBy: true, // immutable — audit trail
   createdAt: true,
   updatedAt: true,
   createdBy: true,

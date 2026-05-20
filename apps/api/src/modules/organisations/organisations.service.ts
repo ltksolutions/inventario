@@ -35,7 +35,13 @@
  *     401 instead of silently provisioning a new one.
  */
 
-import { OrganisationPlan, OrganisationStatus } from '@inventario/shared-types';
+import {
+  AuthProvider,
+  MemberJoinPolicy,
+  OrganisationPlan,
+  OrganisationStatus,
+  RegistrationMethod,
+} from '@inventario/shared-types';
 
 import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
@@ -182,13 +188,24 @@ export class OrganisationsService {
       primaryContactEmail: null,
       brandKit: null,
       settings: {},
+      // Auth + member policy defaults
+      allowedAuthProviders: [
+        AuthProvider.GOOGLE,
+        AuthProvider.APPLE,
+        AuthProvider.MICROSOFT,
+        AuthProvider.EMAIL,
+      ],
+      memberJoinPolicy: MemberJoinPolicy.INVITE_ONLY,
+      autoJoinDomains: [],
+      // Registration: JIT = legacy manual provisioning
+      registeredBy: null,
+      registrationMethod: RegistrationMethod.MANUAL,
+      onboardingCompletedAt: null,
+      // DPA: not accepted during JIT provisioning
+      dpaAcceptedAt: null,
+      dpaAcceptedBy: null,
       createdAt: now,
       updatedAt: now,
-      // JIT-provisioned tenants are created by the SYSTEM actor — there
-      // is no authenticated user at the point we create the tenant
-      // (this runs DURING auth middleware, before user resolution).
-      // Future audit queries can filter on this to find auto-created
-      // tenants vs admin-created ones.
       createdBy: 'SYSTEM',
       updatedBy: 'SYSTEM',
       deletedAt: null,

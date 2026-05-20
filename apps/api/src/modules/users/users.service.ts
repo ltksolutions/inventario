@@ -512,6 +512,20 @@ export class UsersService {
       displayName,
       accountType: AccountType.ENTRA_ID,
       entraOid: claims.oid,
+      // Multi-provider auth (ADR-0013): populate authProviders from Entra claim
+      authProviders: [
+        {
+          provider: 'MICROSOFT' as const,
+          providerId: claims.oid,
+          email: email.toLowerCase(),
+          linkedAt: now,
+        },
+      ],
+      emailVerified: true, // Entra SSO = email already verified by Microsoft
+      emailVerificationToken: null,
+      emailVerificationExpiresAt: null,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
       passwordHash: null,
       roles: [UserRole.EMPLOYEE],
       organizationalUnit: null,
@@ -526,10 +540,6 @@ export class UsersService {
         emailNotifications: true,
         pushNotifications: false,
       },
-      // Audit fields: the user is "creating themselves" on first
-      // login, so createdBy points at their own (yet-to-be-assigned)
-      // _id. We don't know it until after insert — so use SYSTEM here.
-      // This is a documented convention for JIT-provisioned users.
       createdAt: now,
       updatedAt: now,
       createdBy: 'SYSTEM',
