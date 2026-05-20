@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 > **Living document** — vždy aktuálny stav projektu, najbližšie kroky, technical debt.
 > Pri novej Claude session si prečítaj **najprv toto**, potom najnovší day-summary.
 
-**Aktualizované**: 2026-05-18 night (po kompletnom Vercel deploy — **`app.inventario.sportup.sk` LIVE**, 10/10 smoke test PASS, ADMIN promote re-test OK)
+**Aktualizované**: 2026-05-20 (ADR-0012 loans state machine účinný, Slice #5 MVP scope rozhodnutý, K1–K8 sub-task breakdown)
 
 ---
 
@@ -290,21 +290,34 @@ Vytvoriť `docs/milestones/slice-4-frontend-web.md` (rovnaký pattern ako `phase
 - Outstanding work: `/loans/request` + `/my-loans` (blocked na Slice #5)
 - Vercel deploy battle lessons learned (Node 24 LTS, engines.node syntax, stale UI overrides)
 
-### Po milestone doc — Slice #5 (loans backend)
+### Po milestone doc — Slice #5 (loans backend) — design done ✅
 
-Keď je `app.inventario.sportup.sk` live a stable, ide Slice #5:
+**ADR-0012 schválený 2026-05-20** — [`docs/decisions/0012-loans-state-machine.md`](../decisions/0012-loans-state-machine.md). Scope, state machine diagram, endpoint inventory, RBAC matica, sub-task breakdown, deferral list pre #5b/#5c.
 
-- POST `/v1/loans/request` — create loan request, prečíta `Category.requiresApprovalByDefault` na rozhodnutie či ide rovno do APPROVED alebo cez REQUESTED
-- GET `/v1/loans/my` — current user's active + historical loans
-- GET `/v1/loans/:id` — single loan detail s asset embed + approval chain
-- POST `/v1/loans/:id/approve` — ASSET_MANAGER+ADMIN approval (alebo nakonfigurovaný approver z `Category.approverIds`)
-- POST `/v1/loans/:id/reject` — reject s reason
-- POST `/v1/loans/:id/return` — return flow, asset.currentLoanId clear
-- Stavový stroj: REQUESTED → APPROVED → ACTIVE → RETURNED (+ REJECTED, OVERDUE auto-flip)
-- Tests: ~40-60 nových (state transitions, RBAC, FK protection, last-active-admin)
-- Audit log: `LegalBasis.LEGITIMATE_INTEREST` (workforce management)
+**MVP rozsah (~1 týždeň, K1–K8):**
 
-Unblockne posledné 2 P0 frontend pages.
+- K1 (Haiku, 30 min): Schema fixes — pridať `OrganisationScopedSchema` do `LoanRequestSchema`, `LoanSchema`, `LoanProtocolSchema` (multi-tenant compliance fix per ADR-0010)
+- K2 (Sonnet, 2–3 h): `LoanRequestsRepository` + `LoansRepository` + compound indexy
+- K3 (Sonnet, 1 deň): State machine logic v `loans.service.ts` (5 transakčných helper-ov)
+- K4 (Sonnet, 4–5 h): 11 Fastify routes (RBAC guards, OpenAPI schemas)
+- K5 (Sonnet, 1 deň): ~50–55 nových testov (state transitions, RBAC, reservation race, cross-tenant)
+- K6 (Haiku, 1 h): OpenAPI export + frontend type regen sanity check
+- K7 (Haiku, 1 h): Manuálny smoke test cez curl/Bruno + dokumentácia
+- K8 (Haiku, 1 h): Milestone doc `slice-5-loans-mvp.md`
+
+**Endpoint inventory:** 6 žiadosť-endpointov + 5 loan-endpointov (viď ADR-0012 § Endpoint inventory).
+
+**MVP kompromisy (explicitne odložené do #5b/#5c):**
+
+- Žiadne PDF protokoly + podpisy (#5b)
+- Žiadny multi-approver routing per kategória — každý ASSET_MANAGER+ADMIN môže schvaľovať všetko (#5b)
+- Žiadny per-item substitution / partial approval — all-or-nothing (#5c)
+- Žiadny quick loan (#5b)
+- Žiadne predĺženie zápožičky (#5b)
+- Žiadne email notifikácie (#5b po Slice #6)
+- OVERDUE je lazy-computed pri GET, nie persistent flag (#5b cron + persistent flag)
+
+**Po Slice #5 dokončení:** rozblokujú sa posledné 2 P0 frontend stránky (`/loans/request` + `/my-loans`) — Slice #4 sa formálne uzavrie.
 
 ---
 
