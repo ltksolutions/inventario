@@ -172,12 +172,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@azure/msal-browser':
-        specifier: ^5.10.1
-        version: 5.10.1
-      '@azure/msal-react':
-        specifier: ^5.4.1
-        version: 5.4.1(@azure/msal-browser@5.10.1)(react@19.2.6)
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.76.0(react@19.2.6))
@@ -272,21 +266,6 @@ packages:
 
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
-
-  '@azure/msal-browser@5.10.1':
-    resolution: {integrity: sha512-hTbvOi9Ko2Jvn+G/fSmjzHf9WbNcf/o3epMtbeGx/pMwMrVAbi6OgCJVeCfsAb8IybSRpaCSc4EDRlYAhgngUQ==}
-    engines: {node: '>=0.8.0'}
-
-  '@azure/msal-common@16.6.1':
-    resolution: {integrity: sha512-VxKdEtUwDuLD0F1hOQP7kye0YadZxFJfv37Em440geEf/w9uggKnHpRrqwZJOdxmPUOdhZ9kyRtKuAJW8wUcRg==}
-    engines: {node: '>=0.8.0'}
-
-  '@azure/msal-react@5.4.1':
-    resolution: {integrity: sha512-Io/Yu/UzLcv14+M9ZilzCQLHrVxDfj27/7X/T4NhuP3+sySabRpKpx8BUmYQOms0pQ0PLzTcYmLzTJt7Tg8YSA==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      '@azure/msal-browser': ^5.10.1
-      react: ^16.8.0 || ^17 || ^18 || ^19.2.1
 
   '@babel/code-frame@7.29.0':
     resolution: {integrity: sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw==}
@@ -5171,17 +5150,6 @@ snapshots:
     dependencies:
       package-manager-detector: 1.6.0
       tinyexec: 1.1.2
-
-  '@azure/msal-browser@5.10.1':
-    dependencies:
-      '@azure/msal-common': 16.6.1
-
-  '@azure/msal-common@16.6.1': {}
-
-  '@azure/msal-react@5.4.1(@azure/msal-browser@5.10.1)(react@19.2.6)':
-    dependencies:
-      '@azure/msal-browser': 5.10.1
-      react: 19.2.6
 
   '@babel/code-frame@7.29.0':
     dependencies:

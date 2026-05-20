@@ -3,29 +3,36 @@
 
 'use client';
 
-import { useIsAuthenticated } from '@azure/msal-react';
-
 import { AppShell } from './AppShell';
 import { LoginScreen } from './LoginScreen';
 
 import type { JSX, ReactNode } from 'react';
 
+import { useAuth } from '@/lib/auth-context';
+
 /**
- * Auth gate. Decides between the pre-login landing screen and the
- * authenticated app shell.
+ * Auth gate — Slice #6b.
  *
- * `useIsAuthenticated()` reads from MSAL's account list — it returns
- * true when at least one account exists and the cached access token
- * is not expired. MSAL refreshes the token silently in the background
- * via `acquireTokenSilent` (our api-client uses the same path).
- *
- * Used in every page component:
- *   export default function Page() {
- *     return <AuthGate><DashboardContent /></AuthGate>;
- *   }
+ * Reads auth state from the Inventario JWT cookie via useAuth().
+ * Shows a loading skeleton while the initial /v1/me check is in
+ * flight, then either renders the app shell (authenticated) or the
+ * login screen (unauthenticated).
  */
 export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex min-h-screen items-center justify-center bg-surface-page"
+      >
+        <span className="sr-only">Načítavam Inventario…</span>
+        <span className="text-sm text-text-secondary">Načítavam Inventario…</span>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginScreen />;

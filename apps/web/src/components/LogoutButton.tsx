@@ -3,37 +3,23 @@
 
 'use client';
 
-import { useAccount, useMsal } from '@azure/msal-react';
 import { LogOut } from 'lucide-react';
 
 import type { JSX } from 'react';
 
+import { useAuth } from '@/lib/auth-context';
+
 /**
- * Logout button. Initiates the Entra ID logout redirect, which clears
- * the MSAL cache + the Microsoft SSO cookie, then returns the user
- * to the app's home page (where the LoginButton becomes visible again).
+ * Logout button — Slice #6b.
+ *
+ * Calls useAuth().logout() which POSTs to /v1/auth/logout (clears
+ * cookies server-side) then navigates to /login.
  */
 export function LogoutButton(): JSX.Element {
-  const { instance, accounts } = useMsal();
-  const account = useAccount(accounts[0]);
+  const { logout } = useAuth();
 
   const handleLogout = (): void => {
-    void instance
-      .logoutRedirect({
-        account: account ?? null,
-        postLogoutRedirectUri: window.location.origin + '/login',
-        // logoutHint tells Entra ID which account to sign out, skipping
-        // the 'Which account do you want to sign out of?' picker screen.
-        ...(account && {
-          logoutHint:
-            ((account.idTokenClaims as Record<string, unknown> | undefined)?.['login_hint'] as
-              | string
-              | undefined) ?? account.username,
-        }),
-      })
-      .catch((err: unknown) => {
-        console.error('Logout failed:', err);
-      });
+    void logout();
   };
 
   return (

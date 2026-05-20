@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 // SPDX-License-Identifier: EUPL-1.2
 
-import { useIsAuthenticated } from '@azure/msal-react';
 import {
   useMutation,
   useQuery,
@@ -11,6 +10,7 @@ import {
 } from '@tanstack/react-query';
 
 import { apiClient } from './api-client';
+import { useAuth } from './auth-context';
 
 /**
  * TanStack Query hooks wrapping the generated openapi-fetch client.
@@ -23,7 +23,7 @@ import { apiClient } from './api-client';
  *      state. The thrown value is the parsed error body when the
  *      backend returned one, or the underlying Error otherwise.
  *   3. `enabled` defaults to whether the user is authenticated —
- *      pre-login dashboards stay silent instead of hammering the API
+ *      pre-login components stay silent instead of hammering the API
  *      with 401s.
  *
  * Why one tiny hook per endpoint instead of a fully generic helper:
@@ -80,7 +80,7 @@ export interface ListResponse<T> {
  * pre-login.
  */
 export function useMe(): UseQueryResult<MeResponse, Error> {
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<MeResponse, Error>({
     queryKey: ['me'],
@@ -132,7 +132,7 @@ function makeListHook<TItem>(
     options: ListQueryOptions = {},
   ): UseQueryResult<ListResponse<TItem>, Error> {
     const { limit = 50, skip = 0 } = options;
-    const isAuthenticated = useIsAuthenticated();
+    const { isAuthenticated } = useAuth();
 
     return useQuery<ListResponse<TItem>, Error>({
       queryKey: [resourceKey, { limit, skip }],
@@ -582,7 +582,7 @@ export type AssetUpdatePatch = Partial<
  *   that boundary on the client too.
  */
 export function useAsset(id: string | null): UseQueryResult<AssetDetail, Error> {
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<AssetDetail, Error>({
     queryKey: ['asset', id],
@@ -746,7 +746,7 @@ export function useUsers(
   options: UsersListQueryOptions = {},
 ): UseQueryResult<ListResponse<UserSummary>, Error> {
   const { limit = 50, skip = 0, role, isActive, q } = options;
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<ListResponse<UserSummary>, Error>({
     queryKey: ['users', { limit, skip, role, isActive, q }],
@@ -796,7 +796,7 @@ export function useUsers(
  * pattern through the openapi-fetch result.
  */
 export function useUser(id: string | null): UseQueryResult<UserDetail, Error> {
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<UserDetail, Error>({
     queryKey: ['user', id],
@@ -1001,7 +1001,7 @@ export function useLoanRequests(
   options: LoanRequestsListOptions = {},
 ): UseQueryResult<ListResponse<LoanRequestSummary>, Error> {
   const { limit = 20, skip = 0, status } = options;
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<ListResponse<LoanRequestSummary>, Error>({
     queryKey: ['loan-requests', { limit, skip, status }],
@@ -1033,7 +1033,7 @@ export function useMyLoans(
   options: LoansListOptions = {},
 ): UseQueryResult<ListResponse<LoanSummary>, Error> {
   const { limit = 20, skip = 0, status } = options;
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<ListResponse<LoanSummary>, Error>({
     queryKey: ['my-loans', { limit, skip, status }],
@@ -1058,7 +1058,7 @@ export function useLoans(
   options: LoansListOptions = {},
 ): UseQueryResult<ListResponse<LoanSummary>, Error> {
   const { limit = 20, skip = 0, status, borrowerId } = options;
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<ListResponse<LoanSummary>, Error>({
     queryKey: ['loans', { limit, skip, status, borrowerId }],

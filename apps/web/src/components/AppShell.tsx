@@ -3,7 +3,6 @@
 
 'use client';
 
-import { useAccount, useMsal } from '@azure/msal-react';
 import {
   Boxes,
   ClipboardList,
@@ -24,7 +23,7 @@ import { LogoutButton } from './LogoutButton';
 
 import type { JSX, ReactNode } from 'react';
 
-import { useMe } from '@/lib/api-hooks';
+import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/cn';
 
 /**
@@ -93,24 +92,16 @@ function formatRoles(roles: readonly string[]): string {
 }
 
 export function AppShell({ children }: { children: ReactNode }): JSX.Element {
-  const { accounts } = useMsal();
-  const account = useAccount(accounts[0]);
-  const me = useMe();
+  const { user } = useAuth();
   const pathname = usePathname();
 
-  // Mobile drawer open/close state. Lives on the AppShell so the
-  // hamburger trigger (Header) and the drawer itself can share it.
+  // Mobile drawer open/close state.
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Close the drawer whenever the route changes. This is what makes
-  // taps on nav items feel native — user picks a destination and the
-  // drawer dismisses on its own.
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
 
-  // Escape closes the drawer when it's open. Attached at document
-  // level so focus position doesn't matter.
   useEffect(() => {
     if (!drawerOpen) return;
     function onKeyDown(e: KeyboardEvent): void {
@@ -122,12 +113,8 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [drawerOpen]);
 
-  // Prefer the backend-resolved displayName (which the JIT-provision
-  // step pulled from Entra) over MSAL's account.name. They usually
-  // agree, but the backend's value is what other users see when this
-  // person creates an asset, so showing it builds trust in the data.
-  const displayName = me.data?.displayName ?? account?.name ?? account?.username ?? 'Používateľ';
-  const roles = me.data?.roles ?? [];
+  const displayName = user?.displayName ?? user?.email ?? 'Používateľ';
+  const roles = user?.roles ?? [];
 
   return (
     <div className="min-h-screen bg-surface-page">

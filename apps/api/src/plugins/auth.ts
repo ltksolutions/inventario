@@ -37,9 +37,11 @@ import {
   type JWTPayload,
   type KeyLike,
 } from 'jose';
+import { ObjectId } from 'mongodb';
 
 import { ForbiddenError, UnauthorizedError } from './error-handler.js';
 
+import type { InventarioJwtPayload } from './inventario-jwt.js';
 import type { Organisation, User, UserRole } from '@inventario/shared-types';
 import type { FastifyPluginAsync, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 import type { WithId } from 'mongodb';
@@ -132,6 +134,17 @@ declare module 'fastify' {
      * immediately, not wait for token refresh (~1 hour).
      */
     currentUser: WithId<User>;
+
+    /**
+     * Validated Inventario JWT claims for cookie-authenticated requests
+     * (Slice #6b+). Set by `requireAuth` when the `inv_access` httpOnly
+     * cookie is present. Mutually exclusive with `entraClaims` on any
+     * given request — a request is either cookie-authenticated or
+     * Bearer-authenticated, never both.
+     *
+     * Only populated on routes protected by `requireAuth`.
+     */
+    inventarioClaims?: InventarioJwtPayload;
   }
 
   interface FastifyInstance {
@@ -473,6 +486,28 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
   // requireAuth preHandler
   // -------------------------------------------------------------------------
   fastify.decorate('requireAuth', async (request: FastifyRequest) => {
+    // --- Inventario JWT cookie path (Slice #6b+) ---
+    //
+    // The `inv_access` cookie is httpOnly — browser JS cannot read it,
+    // it is sent automatically on every same-origin request when the
+    // client uses `credentials: 'include'` (set in the web api-client).
+    //
+    // If the cookie is present we ONLY try the Inventario JWT path and
+    // return early. Cookie clients never send a Bearer header, so
+    // falling through would yield a misleading "Missing Authorization
+    // header" error for an expired cookie instead of a clean 401.
+    const invCookie = request.cookies?.['inv_access'];
+    if (invCookie) {
+      // verifyAccessToken throws UnauthorizedError on invalid / expired
+      // token — error-handler maps that to 401 so the client knows to
+      // refresh via POST /v1/auth/refresh.
+      const claims = await fastify.inventarioJwt.verifyAccessToken(invCookie);
+      request.inventarioClaims = claims;
+      request.log.debug({ sub: claims.sub, org: claims.org }, 'Inventario JWT verified (cookie)');
+      return;
+    }
+
+    // --- Bearer token path (Entra ID or test JWT) ---
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {
@@ -513,15 +548,52 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
   // plugins (which decorate those services onto the instance). At
   // registration time the decorators do not exist; at request time they do.
   fastify.decorate('loadCurrentUser', async (request: FastifyRequest) => {
-    if (!request.entraClaims) {
+    if (!request.entraClaims && !request.inventarioClaims) {
       // Programmer error: route forgot to chain requireAuth before this.
       throw new Error(
         'loadCurrentUser called without prior requireAuth — fix the preHandler chain.',
       );
     }
 
-    // ----- Step 1: resolve tenant from JWT `tid` claim -----
-    const claims = request.entraClaims;
+    // --- Inventario JWT path (Slice #6b+) ---
+    //
+    // Token already verified by `requireAuth` — just load the full
+    // documents from MongoDB by the IDs in the JWT payload. No JIT
+    // provisioning here; cookie auth only works for already-registered
+    // users. New-user onboarding goes through registration / OAuth flows.
+    if (request.inventarioClaims) {
+      const payload = request.inventarioClaims;
+
+      const orgDoc = await fastify.mongo.db
+        .collection('organisations')
+        .findOne({ _id: new ObjectId(payload.org), deletedAt: null });
+
+      if (!orgDoc) throw new UnauthorizedError('Tenant unavailable.');
+      const orgStatus = orgDoc['status'] as string;
+      if (orgStatus !== 'ACTIVE')
+        throw new UnauthorizedError(`Tenant is ${orgStatus.toLowerCase()}.`);
+
+      request.organisation = orgDoc as unknown as WithId<Organisation>;
+      request.organisationId = String(orgDoc._id);
+
+      const userDoc = await fastify.mongo.db
+        .collection('users')
+        .findOne({ _id: new ObjectId(payload.sub), deletedAt: null });
+
+      if (!userDoc) throw new UnauthorizedError('User not found.');
+      if (!(userDoc['isActive'] as boolean))
+        throw new UnauthorizedError('User account is deactivated');
+
+      request.currentUser = userDoc as unknown as WithId<User>;
+      request.log.debug(
+        { userId: payload.sub, roles: payload.roles, organisationId: request.organisationId },
+        'Current user + tenant loaded (Inventario JWT)',
+      );
+      return;
+    }
+
+    // ----- Step 1: resolve tenant from JWT `tid` claim (Entra path) -----
+    const claims = request.entraClaims!;
     const organisation = await fastify.organisationsService.findOrProvisionByEntraTenantId({
       entraTenantId: claims.tid,
       displayNameHint: claims.name ?? null,

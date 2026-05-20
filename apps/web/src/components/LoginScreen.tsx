@@ -3,20 +3,16 @@
 
 'use client';
 
-import { Layers, ShieldCheck, Sparkles, Zap } from 'lucide-react';
-
-import { LoginButton } from './LoginButton';
+import { Layers, Mail, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import Link from 'next/link';
 
 import type { JSX, ReactNode } from 'react';
 
 /**
- * Pre-login landing screen. Shown when the user has no MSAL account
- * yet. The login button kicks off the redirect flow; once back, the
- * page re-renders and `<AppShell>` takes over.
+ * Pre-login landing screen — Slice #6b.
  *
- * Tone: short, factual, branded. No marketing copy — that's what
- * inventario.sportup.sk is for. Here we just say "click to log in"
- * and remind users what kind of platform this is.
+ * Shown by AuthGate when there is no active session. Directs users to
+ * /login (email + SSO) or /register (new organisation).
  */
 export function LoginScreen(): JSX.Element {
   return (
@@ -30,22 +26,33 @@ export function LoginScreen(): JSX.Element {
 
           <h1 className="text-xl font-semibold text-text-primary">Vitajte späť</h1>
           <p className="mt-2 text-sm text-text-secondary">
-            Prihláste sa cez svoje firemné Microsoft konto, aby ste sa dostali k majetku vašej
-            organizácie.
+            Prihláste sa do svojej organizácie alebo si vytvorte nový účet.
           </p>
 
-          <div className="mt-6">
-            <LoginButton />
+          <div className="mt-6 flex flex-col gap-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-5 py-3 text-base font-semibold text-brand-primary-fg shadow-cta transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-page"
+            >
+              <Mail aria-hidden="true" className="h-5 w-5" />
+              Prihlásiť sa
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-5 py-3 text-base font-semibold text-text-primary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Vytvoriť novú organizáciu
+            </Link>
           </div>
 
           <ul className="mt-8 space-y-3 border-t border-border-subtle pt-6">
             <Feature
               icon={<ShieldCheck aria-hidden="true" className="h-4 w-4" />}
-              text="Single sign-on cez Microsoft Entra ID"
+              text="Single sign-on cez Google alebo Microsoft"
             />
             <Feature
               icon={<Zap aria-hidden="true" className="h-4 w-4" />}
-              text="Žiadne ďalšie heslá na zapamätanie"
+              text="Alebo e-mail + heslo — žiadne záväzky"
             />
             <Feature
               icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}
@@ -55,7 +62,11 @@ export function LoginScreen(): JSX.Element {
         </div>
 
         <p className="mt-6 text-center text-xs text-text-muted">
-          Problémy s prihlásením? Kontaktujte svojho IT správcu.
+          Problémy s prihlásením? Kontaktujte svojho správcu alebo{' '}
+          <a href="mailto:support@inventario.estate" className="underline hover:text-text-primary">
+            support@inventario.estate
+          </a>
+          .
         </p>
       </div>
     </main>

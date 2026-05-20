@@ -19,8 +19,6 @@
     "clean": "rm -rf .next .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@azure/msal-browser": "^5.10.1",
-    "@azure/msal-react": "^5.4.1",
     "@hookform/resolvers": "^3.9.1",
     "@inventario/design-tokens": "workspace:*",
     "@inventario/shared-types": "workspace:*",
