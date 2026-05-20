@@ -12,6 +12,7 @@ import {
 describe('LoanRequestSchema', () => {
   const validLoanRequest = {
     _id: '507f1f77bcf86cd799439011',
+    organisationId: '507f1f77bcf86cd799439099',
     createdAt: '2024-03-04T10:00:00.000Z',
     updatedAt: '2024-03-04T10:00:00.000Z',
     createdBy: '507f1f77bcf86cd799439012',
@@ -93,6 +94,7 @@ describe('CreateLoanRequestSchema', () => {
 describe('LoanSchema', () => {
   const validLoan = {
     _id: '507f1f77bcf86cd799439050',
+    organisationId: '507f1f77bcf86cd799439099',
     createdAt: '2024-03-17T08:00:00.000Z',
     updatedAt: '2024-03-17T08:00:00.000Z',
     createdBy: '507f1f77bcf86cd799439030',
