@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import { BaseDocumentSchema, ObjectIdSchema, TimestampSchema } from './common.js';
+import {
+  BaseDocumentSchema,
+  ObjectIdSchema,
+  OrganisationScopedSchema,
+  TimestampSchema,
+} from './common.js';
 
 /**
  * Loan Protocol = právne relevantný protokol o odovzdaní alebo vrátení majetku.
@@ -11,7 +16,7 @@ import { BaseDocumentSchema, ObjectIdSchema, TimestampSchema } from './common.js
  * Súbor s PDF protokolom je v `attachments` collection, tu sú len metadata
  * a štruktúrovaný obsah.
  */
-export const LoanProtocolSchema = BaseDocumentSchema.extend({
+export const LoanProtocolSchema = BaseDocumentSchema.merge(OrganisationScopedSchema).extend({
   /** Typ protokolu. */
   type: z.enum(['HANDOVER', 'RETURN', 'AMENDMENT']),
 

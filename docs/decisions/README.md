@@ -35,3 +35,4 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0009 | [Fastify ako backend framework (nahrádza NestJS)](0009-backend-fastify.md)                | ✅ Accepted           | máj 2026   |
 | 0010 | [Multi-tenant white-label architektúra](0010-multi-tenant-white-label.md)                 | ✅ Accepted           | 2026-05-15 |
 | 0011 | [Open-source licensing — EUPL-1.2 + CC-BY-4.0 + REUSE 3.3](0011-licensing-eupl-reuse.md)  | ✅ Accepted           | 2026-05-15 |
+| 0012 | [Loans state machine + Slice #5 MVP scope](0012-loans-state-machine.md)                   | ✅ Accepted           | 2026-05-20 |
