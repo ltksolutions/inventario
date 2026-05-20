@@ -72,6 +72,8 @@ const RegisterSchema = z
 // Plugin
 // ---------------------------------------------------------------------------
 
+const IS_TEST = process.env['NODE_ENV'] === 'test';
+
 const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   const {
     GOOGLE_CLIENT_ID,
@@ -84,9 +86,7 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/v1/auth/register',
-    {
-      config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
-    },
+    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }) },
     async (request, reply) => {
       const parsed = RegisterSchema.safeParse(request.body);
       if (!parsed.success) {

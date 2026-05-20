@@ -97,6 +97,8 @@ const ResetPasswordSchema = z.object({
 // Plugin
 // ---------------------------------------------------------------------------
 
+const IS_TEST = process.env['NODE_ENV'] === 'test';
+
 const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   const { FRONTEND_BASE_URL, JWT_ACCESS_TOKEN_TTL_SECONDS, JWT_REFRESH_TOKEN_TTL_DAYS } =
     fastify.config;
@@ -111,11 +113,7 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/v1/auth/register/email',
-    {
-      config: {
-        rateLimit: { max: 5, timeWindow: '15 minutes' },
-      },
-    },
+    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }) },
     async (request, reply) => {
       const body = RegisterEmailSchema.safeParse(request.body);
       if (!body.success) {
@@ -252,11 +250,7 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/v1/auth/login/email',
-    {
-      config: {
-        rateLimit: { max: 10, timeWindow: '15 minutes' },
-      },
-    },
+    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }) },
     async (request, reply) => {
       const body = LoginEmailSchema.safeParse(request.body);
       if (!body.success) {
@@ -382,11 +376,7 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/v1/auth/forgot-password',
-    {
-      config: {
-        rateLimit: { max: 5, timeWindow: '15 minutes' },
-      },
-    },
+    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }) },
     async (request, reply) => {
       const body = ForgotPasswordSchema.safeParse(request.body);
       if (!body.success) {
