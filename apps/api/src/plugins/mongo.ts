@@ -56,6 +56,15 @@ async function getMongoConnection(
     // Retry logic
     retryWrites: true,
     retryReads: true,
+
+    // Read-after-write consistency on Atlas Flex (shared replica set).
+    // Without majority concerns the same connection can occasionally
+    // serve stale reads to operations issued immediately after a write,
+    // breaking integration tests ("insert succeeded but read-back failed",
+    // "GET list returns 0 after creating 1", etc.). Majority concerns add
+    // ~10ms latency per round-trip — acceptable for both tests and prod.
+    writeConcern: { w: 'majority', wtimeoutMS: 5_000 },
+    readConcern: { level: 'majority' },
   });
 
   await client.connect();
