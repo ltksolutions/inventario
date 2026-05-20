@@ -38,6 +38,23 @@ import type { FastifyInstance } from 'fastify';
 import type { ObjectId, WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
+// Module-level counters for unique fixture data
+// ---------------------------------------------------------------------------
+
+/**
+ * Process-monotonic counter for generating unique `inventoryNumber`
+ * values across `insertTestAsset` calls.
+ *
+ * Previous implementation derived the suffix from `Date.now().slice(-6)`,
+ * which collides on the unique `{organisationId, inventoryNumber}` index
+ * whenever two fixture inserts land in the same millisecond — trivially
+ * easy in tight loops (e.g. tests that seed multiple assets for one
+ * loan request). A simple counter is collision-free for the lifetime
+ * of the vitest process (singleFork = one process for all test files).
+ */
+let testAssetCounter = 0;
+
+// ---------------------------------------------------------------------------
 // Tenant resolution
 // ---------------------------------------------------------------------------
 
@@ -277,11 +294,12 @@ export async function insertTestAsset(
 ): Promise<{ _id: string; inventoryNumber: string; name: string }> {
   const now = new Date().toISOString();
   const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
-  // Unique-ish default inventory number so parallel tests don't clobber.
-  // Format mirrors production: PREFIX-YYYY-NNN (but with millis for uniqueness).
+  // Process-monotonic counter so back-to-back inserts in the same
+  // millisecond do not collide on the unique
+  // `{organisationId, inventoryNumber}` index.
   const defaultInventoryNumber =
     options.inventoryNumber ??
-    `TEST-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+    `TEST-${new Date().getFullYear()}-${String(++testAssetCounter).padStart(6, '0')}`;
 
   const doc = {
     organisationId,

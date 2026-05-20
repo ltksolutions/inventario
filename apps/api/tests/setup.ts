@@ -2,11 +2,21 @@
  * Vitest global setup — runs once before any test file loads.
  *
  * Responsibilities:
- *   1. Generate an ephemeral RS256 keypair for signing test JWTs.
- *   2. Export the public key as `TEST_JWT_PUBLIC_KEY` env var, so the
+ *   1. Start an in-memory MongoDB replica set (mongodb-memory-server) and
+ *      override `MONGO_URI` to point to it. Eliminates Atlas Flex
+ *      consistency issues and makes tests 5x faster.
+ *
+ *      MUST be a replica set (not standalone) because the API uses
+ *      `session.withTransaction(...)` in every write path (assets,
+ *      categories, locations, users, loans). A standalone mongod
+ *      throws "Transaction numbers are only allowed on a replica set
+ *      member" on the first write attempt, which surfaces as 500s
+ *      in every POST/PATCH/DELETE integration test.
+ *   2. Generate an ephemeral RS256 keypair for signing test JWTs.
+ *   3. Export the public key as `TEST_JWT_PUBLIC_KEY` env var, so the
  *      auth plugin (in src/plugins/auth.ts) knows to accept tokens
  *      signed by this key.
- *   3. Export the private key + the original audience (api://<client-id>)
+ *   4. Export the private key + the original audience (api://<client-id>)
  *      to a temp file that test files can import.
  *
  * Why a temp file for the private key?
@@ -18,13 +28,14 @@
  *   expected audience cleanly.
  *
  * Env var sources:
- *   - Locally: `.env.local` (Atlas dev cluster, Entra dev app reg)
+ *   - Locally: `.env.local` (Entra dev app reg)
  *   - CI: GitHub Actions repo secrets injected into process.env by the
  *     `Run tests` step in .github/workflows/ci.yml (slice #2c-beta, K9)
  *
  *   We load .env.local if present (no-op on CI). Either path must end
- *   up with `MONGO_URI` and `ENTRA_API_CLIENT_ID` in process.env, or
- *   setup fails with a clear error.
+ *   up with `ENTRA_API_CLIENT_ID` in process.env, or setup fails with
+ *   a clear error. `MONGO_URI` is no longer required — we generate it
+ *   from the in-memory MongoDB instance.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -32,10 +43,25 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
+
 import { generateTestKeyPair } from './helpers/test-jwt.js';
 
 // ESM equivalent of __dirname
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ---------------------------------------------------------------------------
+// Module-level MongoDB instance (for teardown)
+// ---------------------------------------------------------------------------
+
+/**
+ * In-memory MongoDB replica set. Initialized in setup(), stopped in
+ * teardown(). Held at module level so teardown() can access it.
+ *
+ * Replica set (not standalone) — see file header for the transaction
+ * rationale.
+ */
+let mongoServer: MongoMemoryReplSet | null = null;
 
 // ---------------------------------------------------------------------------
 // Temp file location for handing the private key to test processes
@@ -103,13 +129,19 @@ export default async function setup(): Promise<void> {
     );
   }
 
-  if (!process.env['MONGO_URI']) {
-    throw new Error(
-      'tests/setup.ts: MONGO_URI is not set. ' +
-        'Locally: add it to apps/api/.env.local. ' +
-        'On CI: configure MONGO_URI_TEST as a repo secret and inject it via the workflow env block.',
-    );
-  }
+  // -- Start in-memory MongoDB replica set ------------------------------
+  //
+  // Single-node replica set: required for multi-document transactions
+  // used in every API write path. See file header for context.
+  //
+  // Eliminates Atlas Flex read-after-write consistency issues and makes
+  // tests 5x faster. First run after a fresh install downloads the
+  // mongod binary (~70 MB); subsequent runs reuse the cache.
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+  const mongoUri = mongoServer.getUri();
+  process.env['MONGO_URI'] = mongoUri;
+
+  console.info(`\n🗄️  In-memory MongoDB replica set started at ${mongoUri}\n`);
 
   // -- Generate keypair for Entra test JWT path --------------------------
   const { publicKeyPem, privateKeyPem } = await generateTestKeyPair();
@@ -138,6 +170,22 @@ export default async function setup(): Promise<void> {
   writeFileSync(TEST_KEYS_FILE, JSON.stringify(payload), { mode: 0o600 });
 
   console.info(
-    `\n🔑 Test JWT keypair generated. Public key in TEST_JWT_PUBLIC_KEY env. Private key at ${TEST_KEYS_FILE}.\n`,
+    `🔑 Test JWT keypair generated. Public key in TEST_JWT_PUBLIC_KEY env. Private key at ${TEST_KEYS_FILE}.\n`,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Teardown function — vitest calls this when all tests complete
+// ---------------------------------------------------------------------------
+
+/**
+ * Stop the in-memory MongoDB replica set to allow the test process to
+ * exit cleanly. Called automatically by vitest's globalSetup/
+ * globalTeardown mechanism.
+ */
+export async function teardown(): Promise<void> {
+  if (mongoServer) {
+    await mongoServer.stop();
+    console.info('\n🛝️  In-memory MongoDB replica set stopped.\n');
+  }
 }
