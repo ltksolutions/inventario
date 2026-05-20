@@ -38,6 +38,7 @@ import usersRoutes from './modules/users/users.routes.js';
 import authPlugin from './plugins/auth.js';
 import configPlugin from './plugins/config.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
+import inventarioJwtPlugin from './plugins/inventario-jwt.js';
 import mongoPlugin from './plugins/mongo.js';
 import swaggerPlugin from './plugins/swagger.js';
 
@@ -116,6 +117,7 @@ export async function buildServer(
   await app.register(mongoPlugin);
   await app.register(auditPlugin);
   await app.register(authPlugin);
+  await app.register(inventarioJwtPlugin);
 
   // --- API documentation ---------------------------------------------------
   await app.register(swaggerPlugin);

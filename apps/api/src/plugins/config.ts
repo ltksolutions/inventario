@@ -57,6 +57,23 @@ const envSchema = z.object({
     .transform((val) => val === 'true'),
 
   // ---------------------------------------------------------------------
+  // JWT — Inventario JWT (ADR-0013)
+  // ---------------------------------------------------------------------
+  // RS256 key pair for signing/verifying Inventario access tokens.
+  // PEM-encoded strings. Generate with:
+  //   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private.pem
+  //   openssl rsa -in private.pem -pubout -out public.pem
+  // In production: set these env vars to the key file contents.
+  // In tests: the test setup generates an ephemeral key pair.
+  // Optional during Slice #6a — required after MSAL cutover in K17.
+  JWT_PRIVATE_KEY: z.string().optional(),
+  JWT_PUBLIC_KEY: z.string().optional(),
+  /** Access token lifetime in seconds. Default 900 (15 minutes). */
+  JWT_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().positive().default(900),
+  /** Refresh token lifetime in days. Default 30 days. */
+  JWT_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().positive().default(30),
+
+  // ---------------------------------------------------------------------
   // Auth — Microsoft Entra ID (slice #2)
   // ---------------------------------------------------------------------
   // ENTRA_TENANT_ID and ENTRA_API_CLIENT_ID are required in all environments.
