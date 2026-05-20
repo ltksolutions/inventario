@@ -1,11 +1,11 @@
 # 0004. Microsoft Entra ID ako identity provider
 
-|                   |                                       |
-| ----------------- | ------------------------------------- |
-| **Status**        | Accepted                              |
-| **Dátum**         | máj 2026                              |
-| **Autori**        | tím SFZ Asset Management              |
-| **Súvisiace ADR** | [0002-nestjs](0002-backend-nestjs.md) |
+|                   |                                                                     |
+| ----------------- | ------------------------------------------------------------------- |
+| **Status**        | 🚫 Superseded by [ADR-0013](0013-multi-provider-auth-self-serve.md) |
+| **Dátum**         | máj 2026                                                            |
+| **Autori**        | tím SFZ Asset Management                                            |
+| **Súvisiace ADR** | [0002-nestjs](0002-backend-nestjs.md)                               |
 
 ## Kontext
 

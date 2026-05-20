@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 > **Living document** — vždy aktuálny stav projektu, najbližšie kroky, technical debt.
 > Pri novej Claude session si prečítaj **najprv toto**, potom najnovší day-summary.
 
-**Aktualizované**: 2026-05-20 (Slice #4 frontend KOMPLETNÝ — 7/7 P0 stránok, loans UI live, milestone doc hotový)
+**Aktualizované**: 2026-05-20 (Slice #6 auth pivot — ADR-0013 accepted, multi-provider auth + self-serve onboarding)
 
 ---
 
@@ -151,24 +151,34 @@ Asset-Management/                    (root, pnpm monorepo, EUPL-1.2)
 
 ---
 
-## 🎯 Ďalší krok — Pilot tenant onboarding
+## 🎯 Ďalší krok — Slice #6 Auth Pivot (ADR-0013)
 
-**Inventario je FEATURE-COMPLETE pre MVP!** Všetkých 7 P0 stránok funkčných, loans flow
-end-to-end (request → approve → return) cez produkčné API na `app.inventario.sportup.sk`.
+**Inventario je feature-complete pre MVP.** Pred pilot onboardingom robíme auth
+architektúru pivot — drop MSAL-only auth, pridávame Google + Apple + Microsoft +
+email/heslo cez Arctic + vlastný Inventario JWT. Self-serve registrácia z cenníka.
 
-### Pilot tenant onboarding (~1-2 týždne)
+### Fáza 1: Backend auth modul (Slice #6a, ~3-4 dni)
 
-5 krokov pre prvého reálneho tenantu (Mesto Pezinok? ŠK Inter? Stredná škola Kremnica?):
+K1-K10: Schema zmeny, RS256 JWT, Arctic OAuth (Google/Apple/Microsoft),
+email/password auth (argon2id), email sending (nodemailer), registration
+endpoint, cookie transport, migrácia existujúcich MSAL users, testy.
 
-1. **Vybrať pilot tenanta** — kontaktovať, dohodnúť podmienky, podpísať NDA/DPA
-2. **Entra ID konfigurácia** — pre-authorize tenant-u vlastnú Entra ID app registration na náš API
-3. **DPIA + GDPR Art. 30** — finalizovať pre konkrétny municipálny/školský prípad
-4. **Onboarding session** — account setup, data import (CSV → MongoDB), training
-5. **Feedback loop** — zbierať feedback pre Slice #5b (PDF protokoly, multi-approver, predĺženie)
+### Fáza 2: Frontend auth migration (Slice #6b, ~2-3 dni)
 
-### Slice #5b (po pilot feedback — nie teraz)
+K11-K16: /login (4 provideri), /register (org info + DPA), /onboarding
+wizard (4 kroky), utility stránky (forgot-password, reset, verify-email),
+drop MSAL dependencies, pricing CTA.
 
-Per ADR-0012 — multi-approver routing, PDF protokoly, OVERDUE cron, predĺženie, email notifikácie.
+### Fáza 3: Cutover + docs (Slice #6c, ~1 deň)
+
+K17-K19: Odstrániť starý Entra-only auth, invite flow, milestone doc.
+
+**Detaily:** `docs/decisions/0013-multi-provider-auth-self-serve.md`
+
+### Pilot tenant onboarding (po Slice #6)
+
+Po dokončení auth pivotu je onboarding self-serve — žiadne manuálne kroky.
+Prvý pilot tenant si založí tenant z cenníka sám.
 
 ### Pre-deploy checklist (OLD — historický záznam pre rev-A debt, deploy je COMPLETED)
 
