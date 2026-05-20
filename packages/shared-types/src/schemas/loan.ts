@@ -94,6 +94,7 @@ export type LoanRequest = z.infer<typeof LoanRequestSchema>;
 
 export const CreateLoanRequestSchema = LoanRequestSchema.omit({
   _id: true,
+  organisationId: true, // Server-provided from authenticated context
   createdAt: true,
   updatedAt: true,
   createdBy: true,
@@ -214,6 +215,7 @@ export type Loan = z.infer<typeof LoanSchema>;
  */
 export const CreateLoanSchema = LoanSchema.omit({
   _id: true,
+  organisationId: true, // Server-provided from authenticated context
   createdAt: true,
   updatedAt: true,
   createdBy: true,
