@@ -622,8 +622,138 @@ export function validCreateLocationBody(
 }
 
 // ---------------------------------------------------------------------------
-// User fixtures — direct insert (for admin endpoint tests)
+// Loan Request fixtures
 // ---------------------------------------------------------------------------
+
+export interface InsertTestLoanRequestOptions {
+  organisationId?: string;
+  requesterId?: string;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  /** Array of assetIds to include. Defaults to one test asset created inline. */
+  assetIds?: string[];
+  plannedFrom?: string;
+  plannedTo?: string;
+  purpose?: string;
+  resultingLoanId?: string | null;
+  rejectionReason?: string | null;
+}
+
+/**
+ * Insert a loan request directly into the `loan_requests` collection.
+ * Useful for tests that need an existing request to operate on.
+ */
+export async function insertTestLoanRequest(
+  app: FastifyInstance,
+  options: InsertTestLoanRequestOptions = {},
+): Promise<{ _id: string; status: string; items: Array<{ assetId: string }> }> {
+  const now = new Date().toISOString();
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
+  const requesterId = options.requesterId ?? 'test-requester-000000000000';
+
+  // Default to one sentinel asset if no ids given.
+  const assetIds = options.assetIds ?? ['000000000000000000000099'];
+
+  const items = assetIds.map((assetId) => ({
+    assetId,
+    snapshot: { inventoryNumber: `TEST-${assetId.slice(-4)}`, name: 'Test Asset' },
+    status: 'PENDING' as const,
+    substitutedWithAssetId: null,
+    approverNote: null,
+  }));
+
+  const doc = {
+    organisationId,
+    requesterId,
+    purpose: options.purpose ?? 'Test purpose',
+    plannedFrom: options.plannedFrom ?? now,
+    plannedTo: options.plannedTo ?? future,
+    items,
+    status: options.status ?? 'PENDING',
+    approvers: [],
+    resultingLoanId: options.resultingLoanId ?? null,
+    rejectionReason: options.rejectionReason ?? null,
+    teamId: null,
+    idempotencyKey: null,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: requesterId,
+    updatedBy: requesterId,
+    deletedAt: null,
+    deletedBy: null,
+  };
+
+  const result = await app.mongo.db.collection('loan_requests').insertOne(doc);
+  return {
+    _id: String(result.insertedId),
+    status: doc.status,
+    items: items.map((i) => ({ assetId: i.assetId })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Loan fixtures
+// ---------------------------------------------------------------------------
+
+export interface InsertTestLoanOptions {
+  organisationId?: string;
+  requestId?: string;
+  borrowerId?: string;
+  assetIds?: string[];
+  status?: 'ACTIVE' | 'RETURNED' | 'DAMAGED' | 'LOST';
+  /** dueAt ISO string. Defaults to 7 days from now (not overdue). */
+  dueAt?: string;
+}
+
+/**
+ * Insert a loan directly into the `loans` collection.
+ */
+export async function insertTestLoan(
+  app: FastifyInstance,
+  options: InsertTestLoanOptions = {},
+): Promise<{ _id: string; status: string }> {
+  const now = new Date().toISOString();
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
+  const borrowerId = options.borrowerId ?? 'test-borrower-0000000000000';
+  const assetIds = options.assetIds ?? ['000000000000000000000099'];
+
+  const items = assetIds.map((assetId) => ({
+    assetId,
+    snapshot: { inventoryNumber: `TEST-${assetId.slice(-4)}`, name: 'Test Asset' },
+    condition: {
+      atPickup: { condition: 'GOOD' as const, note: null, photoIds: [] },
+      atReturn: null,
+    },
+  }));
+
+  const doc = {
+    organisationId,
+    requestId: options.requestId ?? '000000000000000000000000',
+    borrowerId,
+    purpose: 'Test purpose',
+    pickedUpAt: now,
+    handedOverBy: 'test-manager-00000000000',
+    dueAt: options.dueAt ?? future,
+    returnedAt: null,
+    returnedTo: null,
+    items,
+    status: options.status ?? 'ACTIVE',
+    extensionCount: 0,
+    handoverProtocolId: null,
+    returnProtocolId: null,
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: borrowerId,
+    updatedBy: borrowerId,
+    deletedAt: null,
+    deletedBy: null,
+  };
+
+  const result = await app.mongo.db.collection('loans').insertOne(doc);
+  return { _id: String(result.insertedId), status: doc.status };
+}
 
 export interface InsertTestUserOptions {
   /**
