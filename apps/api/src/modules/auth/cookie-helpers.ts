@@ -5,7 +5,7 @@
  * Shared cookie helpers for Inventario auth routes (K3, K5).
  *
  * Sets httpOnly inv_access (access token) and inv_refresh (refresh token)
- * cookies. In production both cookies are scoped to .inventario.sportup.sk.
+ * cookies. In production both cookies are scoped to .inventario.estate.
  * In development no domain is set so localhost works.
  */
 
@@ -25,7 +25,7 @@ export function setAuthCookies(
     secure: isProd,
     sameSite: 'lax',
     path: '/',
-    ...(isProd && { domain: '.inventario.sportup.sk' }),
+    ...(isProd && { domain: '.inventario.estate' }),
     maxAge: accessTtlSeconds,
   });
 
@@ -34,7 +34,7 @@ export function setAuthCookies(
     secure: isProd,
     sameSite: 'lax',
     path: '/v1/auth/refresh',
-    ...(isProd && { domain: '.inventario.sportup.sk' }),
+    ...(isProd && { domain: '.inventario.estate' }),
     maxAge: refreshTtlDays * 24 * 60 * 60,
   });
 }

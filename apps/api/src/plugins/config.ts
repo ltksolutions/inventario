@@ -96,7 +96,7 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   /** From address shown to recipients. */
-  EMAIL_FROM: z.string().default('Inventario <noreply@inventario.sportup.sk>'),
+  EMAIL_FROM: z.string().default('Inventario <noreply@inventario.estate>'),
 
   // ---------------------------------------------------------------------
   // JWT — Inventario JWT (ADR-0013)

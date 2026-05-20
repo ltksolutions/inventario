@@ -617,7 +617,7 @@ function setAuthCookies(
     secure: isProd,
     sameSite: 'lax',
     path: '/',
-    ...(isProd && { domain: '.inventario.sportup.sk' }),
+    ...(isProd && { domain: '.inventario.estate' }),
     maxAge: accessTtlSeconds,
   });
 
@@ -626,7 +626,7 @@ function setAuthCookies(
     secure: isProd,
     sameSite: 'lax',
     path: '/v1/auth/refresh',
-    ...(isProd && { domain: '.inventario.sportup.sk' }),
+    ...(isProd && { domain: '.inventario.estate' }),
     maxAge: refreshTtlDays * 24 * 60 * 60,
   });
 }
