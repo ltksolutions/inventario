@@ -4,7 +4,18 @@
 'use client';
 
 import { useAccount, useMsal } from '@azure/msal-react';
-import { Boxes, ClipboardList, Home, Layers, MapPin, Menu, Tags, Users, X } from 'lucide-react';
+import {
+  Boxes,
+  ClipboardList,
+  Home,
+  Layers,
+  Library,
+  MapPin,
+  Menu,
+  Tags,
+  Users,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -62,7 +73,8 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/assets', label: 'Majetok', icon: Boxes },
-  { href: '/loans', label: 'Výpožičky', icon: ClipboardList },
+  { href: '/loans', label: 'Žiadosti', icon: ClipboardList },
+  { href: '/my-loans', label: 'Moje výpožičky', icon: Library },
   { href: '/categories', label: 'Kategórie', icon: Tags },
   { href: '/locations', label: 'Lokality', icon: MapPin },
   { href: '/users', label: 'Používatelia', icon: Users },

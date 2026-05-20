@@ -4,30 +4,16 @@
 import type { JSX } from 'react';
 
 import { AuthGate } from '@/components/AuthGate';
-import { ComingSoonContent } from '@/components/ComingSoonContent';
+import { LoansContent } from '@/components/LoansContent';
 
 /**
- * /loans — placeholder until the loans module ships.
- *
- * The loans module is cross-cutting: it touches assets (status flips
- * to BORROWED + currentLoanId), users (borrower), audit log, and
- * notifications. Scheduled for slice #5 — until then this page keeps
- * the sidebar entry alive without breaking the product tour.
+ * /loans — loan requests list.
+ * EMPLOYEE sees own requests; ASSET_MANAGER + ADMIN see all tenant requests.
  */
 export default function LoansPage(): JSX.Element {
   return (
     <AuthGate>
-      <ComingSoonContent
-        title="Výpožičky"
-        description="Evidencia zápožičiek majetku — kto má čo, dokedy, a kto schvaľuje."
-        preview={[
-          'Žiadosť o výpožičku s automatickou kontrolou dostupnosti',
-          'Schvaľovací workflow podľa kategórie a politiky tenanta',
-          'Aktívne výpožičky s upozorneniami pred koncom termínu',
-          'História výpožičiek s preberacími a odovzdávacími protokolmi',
-          'Self-service vrátenie cez QR kód',
-        ]}
-      />
+      <LoansContent />
     </AuthGate>
   );
 }

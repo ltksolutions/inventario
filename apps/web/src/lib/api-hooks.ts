@@ -935,3 +935,253 @@ export function useCanDeleteTaxonomy(): boolean {
   const roles = me.data?.roles ?? [];
   return roles.includes('ADMIN');
 }
+
+// ---------------------------------------------------------------------------
+// Loans — types, hooks, mutations
+// ---------------------------------------------------------------------------
+
+export interface LoanRequestItem {
+  assetId: string;
+  snapshot: { inventoryNumber: string; name: string };
+  status: string;
+}
+
+export interface LoanRequestSummary {
+  _id: string;
+  organisationId: string;
+  requesterId: string;
+  purpose: string;
+  plannedFrom: string;
+  plannedTo: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  items: LoanRequestItem[];
+  resultingLoanId: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface LoanItemSummary {
+  assetId: string;
+  snapshot: { inventoryNumber: string; name: string };
+}
+
+export interface LoanSummary {
+  _id: string;
+  organisationId: string;
+  requestId: string;
+  borrowerId: string;
+  purpose: string;
+  pickedUpAt: string;
+  dueAt: string;
+  returnedAt: string | null;
+  status: 'ACTIVE' | 'RETURNED' | 'DAMAGED' | 'LOST';
+  isOverdue: boolean;
+  items: LoanItemSummary[];
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+export interface CreateLoanRequestInput {
+  purpose: string;
+  plannedFrom: string;
+  plannedTo: string;
+  items: Array<{ assetId: string }>;
+}
+
+interface LoanRequestsListOptions {
+  status?: string;
+  limit?: number;
+  skip?: number;
+}
+
+/** GET /v1/loan-requests — EMPLOYEE sees own, manager sees all */
+export function useLoanRequests(
+  options: LoanRequestsListOptions = {},
+): UseQueryResult<ListResponse<LoanRequestSummary>, Error> {
+  const { limit = 20, skip = 0, status } = options;
+  const isAuthenticated = useIsAuthenticated();
+
+  return useQuery<ListResponse<LoanRequestSummary>, Error>({
+    queryKey: ['loan-requests', { limit, skip, status }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const query: Record<string, unknown> = { limit, skip };
+      if (status !== undefined) query['status'] = status;
+      const { data, error } = await apiClient.GET('/v1/loan-requests', {
+        params: { query: query as never },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load loan requests');
+      }
+      return data as unknown as ListResponse<LoanRequestSummary>;
+    },
+  });
+}
+
+interface LoansListOptions {
+  status?: string;
+  limit?: number;
+  skip?: number;
+  borrowerId?: string;
+}
+
+/** GET /v1/loans/my — current user's loans */
+export function useMyLoans(
+  options: LoansListOptions = {},
+): UseQueryResult<ListResponse<LoanSummary>, Error> {
+  const { limit = 20, skip = 0, status } = options;
+  const isAuthenticated = useIsAuthenticated();
+
+  return useQuery<ListResponse<LoanSummary>, Error>({
+    queryKey: ['my-loans', { limit, skip, status }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const query: Record<string, unknown> = { limit, skip };
+      if (status !== undefined) query['status'] = status;
+      const { data, error } = await apiClient.GET('/v1/loans/my', {
+        params: { query: query as never },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load my loans');
+      }
+      return data as unknown as ListResponse<LoanSummary>;
+    },
+  });
+}
+
+/** GET /v1/loans — all loans (manager) or own (employee) */
+export function useLoans(
+  options: LoansListOptions = {},
+): UseQueryResult<ListResponse<LoanSummary>, Error> {
+  const { limit = 20, skip = 0, status, borrowerId } = options;
+  const isAuthenticated = useIsAuthenticated();
+
+  return useQuery<ListResponse<LoanSummary>, Error>({
+    queryKey: ['loans', { limit, skip, status, borrowerId }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const query: Record<string, unknown> = { limit, skip };
+      if (status !== undefined) query['status'] = status;
+      if (borrowerId !== undefined) query['borrowerId'] = borrowerId;
+      const { data, error } = await apiClient.GET('/v1/loans', {
+        params: { query: query as never },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load loans');
+      }
+      return data as unknown as ListResponse<LoanSummary>;
+    },
+  });
+}
+
+/** POST /v1/loan-requests */
+export function useCreateLoanRequest(): UseMutationResult<
+  LoanRequestSummary,
+  Error,
+  CreateLoanRequestInput
+> {
+  const queryClient = useQueryClient();
+  return useMutation<LoanRequestSummary, Error, CreateLoanRequestInput>({
+    mutationFn: async (input) => {
+      const { data, error } = await apiClient.POST('/v1/loan-requests', {
+        body: input as never,
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to create loan request',
+        );
+      }
+      return data as unknown as LoanRequestSummary;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/** POST /v1/loan-requests/:id/approve */
+export function useApproveLoanRequest(): UseMutationResult<LoanSummary, Error, { id: string }> {
+  const queryClient = useQueryClient();
+  return useMutation<LoanSummary, Error, { id: string }>({
+    mutationFn: async ({ id }) => {
+      const { data, error } = await apiClient.POST('/v1/loan-requests/{id}/approve', {
+        params: { path: { id } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to approve loan request',
+        );
+      }
+      return data as unknown as LoanSummary;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['loans'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/** POST /v1/loan-requests/:id/reject */
+export function useRejectLoanRequest(): UseMutationResult<
+  void,
+  Error,
+  { id: string; reason: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; reason: string }>({
+    mutationFn: async ({ id, reason }) => {
+      const { error } = await apiClient.POST('/v1/loan-requests/{id}/reject', {
+        params: { path: { id } },
+        body: { reason } as never,
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to reject loan request',
+        );
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/** DELETE /v1/loan-requests/:id (cancel) */
+export function useCancelLoanRequest(): UseMutationResult<void, Error, { id: string }> {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string }>({
+    mutationFn: async ({ id }) => {
+      const { error } = await apiClient.DELETE('/v1/loan-requests/{id}', {
+        params: { path: { id } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to cancel loan request',
+        );
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/** Whether current user can manage loans (approve/reject/return) */
+export function useCanManageLoans(): boolean {
+  const me = useMe();
+  const roles = me.data?.roles ?? [];
+  return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+}
