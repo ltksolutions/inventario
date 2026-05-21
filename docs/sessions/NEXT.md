@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                  |
 | ------------------------- | -------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-21 (večer)                                       |
+| **Posledná aktualizácia** | 2026-05-21 (noc — po Threshold Assessment)               |
 | **Aktuálna fáza**         | Pre-pilot compliance preparation                         |
 | **Posledný session log**  | [`2026-05-21-day-summary.md`](2026-05-21-day-summary.md) |
 
@@ -17,11 +17,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Stav na konci dňa 2026-05-21
 
-### ✅ Hotové dnes
+### ✅ Hotové 2026-05-21
 
 - **Slice #6c K18** invite flow (backend + frontend) — kompletný
 - **Slice #7 TOTP MFA** — kompletný, 480/480 testov
-- **5 compliance dokumentov** vyrobených (DPA Template, 2× ROPA, sub-processors, README)
+- **6 compliance dokumentov** vyrobených (DPA Template, 2× ROPA, sub-processors, Compliance README, Threshold Assessment / DPIA Pre-screen)
 - **Strategický pivot ujasnený** — Inventario je komerčný produkt LTK Solutions, SFZ je tenant #1
 
 ### 🎯 Stratégia jasná
@@ -37,17 +37,17 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## ⏭️ Najbližšie kroky (priorita HIGH)
 
-### 1. Compliance Fáza 1 — dokončenie (~10–12 h)
+### 1. Compliance Fáza 1 — dokončenie (~9 h zostáva)
 
-| #   | Dokument                                                           | Model      | Trvanie | Stav       |
-| --- | ------------------------------------------------------------------ | ---------- | ------- | ---------- |
-| 1   | **Privacy Policy** pre `inventario.estate` (verejná stránka)       | Sonnet 4.6 | ~3 h    | ⏳ Pending |
-| 2   | **Terms of Service** LTK ↔ tenant                                  | Opus 4.7   | ~4 h    | ⏳ Pending |
-| 3   | **Breach Notification Plan** (interný, čl. 33–34)                  | Sonnet 4.6 | ~1 h    | ⏳ Pending |
-| 4   | **Disaster Recovery Plan** (kontinuita prevádzky)                  | Sonnet 4.6 | ~1 h    | ⏳ Pending |
-| 5   | **Threshold Assessment / DPIA Pre-screen** pre Inventario platform | Opus 4.7   | ~2 h    | ⏳ Pending |
+| #   | Dokument                                                           | Model      | Trvanie | Stav               |
+| --- | ------------------------------------------------------------------ | ---------- | ------- | ------------------ |
+| 1   | **Privacy Policy** pre `inventario.estate` (verejná stránka)       | Sonnet 4.6 | ~3 h    | ⏳ Pending         |
+| 2   | **Terms of Service** LTK ↔ tenant                                  | Opus 4.7   | ~4 h    | ⏳ Pending         |
+| 3   | **Breach Notification Plan** (interný, čl. 33–34)                  | Sonnet 4.6 | ~1 h    | ⏳ Pending         |
+| 4   | **Disaster Recovery Plan** (kontinuita prevádzky)                  | Sonnet 4.6 | ~1 h    | ⏳ Pending         |
+| 5   | **Threshold Assessment / DPIA Pre-screen** pre Inventario platform | Opus 4.7   | ~2 h    | ✅ Done 2026-05-21 |
 
-> Privacy Policy je najpraktickejšia — môžeš ju potrebovať na webe skôr ako čokoľvek iné. Odporúčam začať tu pri ďalšej session.
+> Privacy Policy je najpraktickejšia — môžeš ju potrebovať na webe skôr ako čokoľvek iné. Po Threshold Assessmente je logický ďalší krok buď Privacy Policy (Sonnet) alebo ToS (Opus, ak ostaneš v tejto session).
 
 ### 2. SFZ-side akčné body (pred podpisom DPA)
 

@@ -295,11 +295,16 @@ DPA pokrýva:
 
 ## 8. Threshold Assessment — DPIA pre processor scope
 
-Sprostredkovateľ **nemá povinnosť vyhotoviť vlastnú DPIA** podľa čl. 35 GDPR — DPIA je povinnosť prevádzkovateľa (tenant-a). LTK Solutions poskytuje **podporu tenant-om** pri vyhotovovaní ich DPIA cez:
+Sprostredkovateľ **nemá povinnosť vyhotoviť vlastnú DPIA** podľa čl. 35 GDPR — DPIA je povinnosť prevádzkovateľa (tenant-a). LTK Solutions napriek tomu vyhotovil **formálny threshold assessment** pre platformu Inventario ako celok ako dôkaz accountability princípu a ako podporný materiál pre tenant-ov:
+
+- [**Threshold Assessment / DPIA Pre-screen**](./threshold-assessment.md) — formálne posúdenie podľa čl. 35 ods. 3 GDPR, EDPB Guidelines WP248 rev.01 a zoznamu ÚOOÚ SR. **Záver: DPIA nie je povinná** pre platformu Inventario ako celok v jej súčasnom funkčnom rozsahu.
+
+Nad rámec threshold dokumentu poskytuje LTK Solutions **podporu tenant-om** pri vyhotovovaní ich DPIA cez:
 
 1. **Tento dokument** ako technický opis spracúvania
 2. **DPA Template** s detailami opatrení a sub-processors
-3. **DPIA Reference Pack** (planned — publikované na https://inventario.estate/dpia) — pre-filled template DPIA ktorý tenant prispôsobí svojmu kontextu
+3. **Threshold Assessment** ako prílohu k tenant-ovmu vlastnému threshold assessmentu
+4. **DPIA Reference Pack** (planned — publikovaný na https://inventario.estate/dpia) — pre-filled template DPIA ktorý tenant prispôsobí svojmu kontextu
 
 Pre **vlastné business operations** LTK Solutions (mimo platformy Inventario) viď [Threshold Assessment v gdpr-article-30-controller.md sekcia 6](./gdpr-article-30-controller.md#6-threshold-assessment-dpia).
 

@@ -27,6 +27,12 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 | [`legal/dpa-template.md`](./legal/dpa-template.md)     | **DPA Template** — Zmluva o spracúvaní osobných údajov medzi LTK a tenant-om (čl. 28 GDPR)    |
 | [`legal/sub-processors.md`](./legal/sub-processors.md) | **Verejný register sub-processors** — publikovaný na https://inventario.estate/sub-processors |
 
+### Posúdenie rizika
+
+| Dokument                                               | Účel                                                                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| [`threshold-assessment.md`](./threshold-assessment.md) | **Threshold Assessment / DPIA Pre-screen** pre platformu Inventario ako celok (čl. 35 GDPR + EDPB WP248 + zoznam ÚOOÚ SR) |
+
 ### Accessibility
 
 | Dokument                                         | Účel                                 |
@@ -43,6 +49,7 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 - ROPA Controller view (`gdpr-article-30-controller.md`)
 - DPA Template (`legal/dpa-template.md`)
 - Sub-processor list (`legal/sub-processors.md`)
+- Threshold Assessment / DPIA Pre-screen (`threshold-assessment.md`)
 - WCAG 2.1 AA audit
 
 ### ⏳ Pripravované — Fáza 1 (blocking pre go-live SFZ pilot)
@@ -51,7 +58,6 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 - **Terms of Service** medzi LTK Solutions a tenant-mi
 - **Breach Notification Plan** (interný procesný dokument, čl. 33 — 34 GDPR)
 - **Disaster Recovery Plan** (kontinuita prevádzky platformy)
-- **Threshold Assessment / DPIA Pre-screen** pre platformu Inventario (zhodnotenie či plná DPIA je povinná)
 
 ### ⏳ Pripravované — Fáza 2 (pred ďalšími tenant-mi po SFZ)
 
