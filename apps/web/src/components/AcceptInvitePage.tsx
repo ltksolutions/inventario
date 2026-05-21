@@ -162,44 +162,18 @@ export function AcceptInvitePage(): JSX.Element {
   };
 
   // -------------------------------------------------------------------------
-  // OAuth accept handler
+  // OAuth accept handler (K18.3)
   // -------------------------------------------------------------------------
-  const handleSso = async (provider: 'google' | 'microsoft'): Promise<void> => {
+  const handleSso = (provider: 'google' | 'microsoft'): void => {
     setSsoLoading(provider);
     setFormError('');
 
-    try {
-      // Pass the invite token in the OAuth flow as a hint. The backend
-      // reads it from the state cookie on callback and links the OAuth
-      // identity to the pending invite User document.
-      const res = await fetch(`${API_BASE}/v1/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          orgName: preview?.organisation.displayName ?? 'Invitation',
-          contactEmail: preview?.email ?? 'invite@example.com',
-          provider,
-          dpaAccepted: true,
-          invitationToken: token,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setFormError(body.error ?? 'SSO zlyhalo. Skúste znova.');
-        return;
-      }
-
-      const body = (await res.json()) as { authUrl?: string };
-      if (body.authUrl) {
-        window.location.href = body.authUrl;
-      }
-    } catch {
-      setFormError('Sieťová chyba. Skúste znova.');
-    } finally {
-      setSsoLoading(null);
-    }
+    // Redirect directly to the OAuth login endpoint with invitationToken as
+    // a query param. The backend embeds it in the signed state cookie and
+    // the callback accepts the pending invite automatically — no POST needed.
+    const loginUrl = new URL(`${API_BASE}/v1/auth/login/${provider}`);
+    loginUrl.searchParams.set('invitationToken', token);
+    window.location.href = loginUrl.toString();
   };
 
   // -------------------------------------------------------------------------
@@ -394,14 +368,14 @@ export function AcceptInvitePage(): JSX.Element {
               provider="google"
               label="Prijať s Google"
               loading={ssoLoading === 'google'}
-              onClick={() => void handleSso('google')}
+              onClick={() => handleSso('google')}
               disabled={state === 'submitting'}
             />
             <SsoButton
               provider="microsoft"
               label="Prijať s Microsoft"
               loading={ssoLoading === 'microsoft'}
-              onClick={() => void handleSso('microsoft')}
+              onClick={() => handleSso('microsoft')}
               disabled={state === 'submitting'}
             />
           </div>

@@ -19,10 +19,11 @@
  *   1. Exchange code → access token via Arctic
  *   2. Fetch provider user profile (Google userinfo / MS Graph)
  *   3. Find user by authProviders[].{provider+providerId}, or provision new one
- *   4. If new user: attach to org (from pendingOrg in state cookie) or require invite
+ *   4a. If invitationToken in state → accept pending invite (K18.3)
+ *   4b. If new user: attach to org (from pendingOrg in state) or require invite
  *   5. Issue Inventario JWT + refresh token
  *   6. Set httpOnly cookies (inv_access, inv_refresh)
- *   7. Redirect to FRONTEND_BASE_URL/onboarding (new user) or /dashboard (existing)
+ *   7. Redirect to frontend
  *
  * Cookie setup is handled here because redirect needs to happen in the same
  * response as the Set-Cookie headers. CORS credentials handling is in K8.
@@ -44,10 +45,8 @@ import {
 } from './oauth-state.js';
 
 import type { Organisation, User } from '@inventario/shared-types';
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
-import type { WithId } from 'mongodb';
-
-// Util: PKCE + state generation handled inside oauth-state.ts via randomBytes
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { Db, WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -97,6 +96,8 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       contactEmail?: string;
       ico?: string;
       dpaAcceptedAt?: string;
+      /** K18.3: invite token — when present, callback will accept the invite. */
+      invitationToken?: string;
     };
   }>('/v1/auth/login/:provider', async (request, reply) => {
     const { provider } = request.params;
@@ -110,12 +111,14 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       return reply.code(503).send({ error: `Provider ${provider} is not configured.` });
     }
 
-    const { redirectAfter, orgName, contactEmail, ico, dpaAcceptedAt } = request.query;
+    const { redirectAfter, orgName, contactEmail, ico, dpaAcceptedAt, invitationToken } =
+      request.query;
 
     // Build state payload (carries PKCE verifier + metadata across redirect)
     const statePayload = generateOAuthState({
       provider,
       ...(redirectAfter !== undefined && { redirectAfter }),
+      ...(invitationToken !== undefined && { invitationToken }),
       ...(orgName && contactEmail && dpaAcceptedAt
         ? {
             pendingOrg: {
@@ -216,18 +219,17 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     // Provision / find user
     try {
       const result = await provisionOrFindUser({
-        fastify,
+        db: fastify.mongo.db,
         provider: provider as 'google' | 'microsoft',
         providerUser,
         statePayload,
-        request,
       });
 
       if (!result.success) {
         return reply.redirect(`${FRONTEND_BASE_URL}/login?error=${result.errorCode}`);
       }
 
-      const { user, org, isNew } = result;
+      const { user, org, isNew, wasInvite } = result;
 
       // Issue tokens
       const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
@@ -242,8 +244,35 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         fastify.config.JWT_REFRESH_TOKEN_TTL_DAYS,
       );
 
+      // Emit audit log for invite accept
+      if (wasInvite) {
+        const authProviderEnum =
+          provider === 'google' ? AuthProvider.GOOGLE : AuthProvider.MICROSOFT;
+        const now = new Date().toISOString();
+        await fastify.mongo.db.collection('audit_logs').insertOne({
+          action: 'USER_INVITATION_ACCEPTED',
+          severity: 'INFO',
+          actor: { userId: String(user._id), email: user.email },
+          target: { entityType: 'User', entityId: String(user._id) },
+          organisationId: user.organisationId,
+          metadata: {
+            via: authProviderEnum === AuthProvider.GOOGLE ? 'oauth-google' : 'oauth-microsoft',
+            roles: user.roles,
+          },
+          createdAt: now,
+        });
+      }
+
       // Redirect
-      const destination = isNew ? '/onboarding' : (statePayload.redirectAfter ?? '/');
+      let destination: string;
+      if (wasInvite) {
+        destination = '/dashboard?invited=accepted';
+      } else if (isNew) {
+        destination = '/onboarding';
+      } else {
+        destination = statePayload.redirectAfter ?? '/';
+      }
+
       return reply.redirect(`${FRONTEND_BASE_URL}${destination}`);
     } catch (err) {
       fastify.log.error({ err, provider }, 'User provisioning failed during OAuth callback');
@@ -443,20 +472,25 @@ async function exchangeCodeAndGetUserInfo(
 // ---------------------------------------------------------------------------
 
 type ProvisionResult =
-  | { success: true; user: WithId<User>; org: WithId<Organisation>; isNew: boolean }
+  | {
+      success: true;
+      user: WithId<User>;
+      org: WithId<Organisation>;
+      isNew: boolean;
+      /** True when this callback completed an invite accept (K18.3). */
+      wasInvite: boolean;
+    }
   | { success: false; errorCode: string };
 
 async function provisionOrFindUser(args: {
-  fastify: Parameters<FastifyPluginAsync>[0];
+  db: Db;
   provider: 'google' | 'microsoft';
   providerUser: ProviderUserInfo;
   statePayload: ReturnType<typeof verifyOAuthState>;
-  request: FastifyRequest;
 }): Promise<ProvisionResult> {
-  const { fastify, provider, providerUser, statePayload } = args;
+  const { db, provider, providerUser, statePayload } = args;
   const authProviderEnum = provider === 'google' ? AuthProvider.GOOGLE : AuthProvider.MICROSOFT;
 
-  const db = fastify.mongo.db;
   const usersCol = db.collection<User>('users');
   const orgsCol = db.collection<Organisation>('organisations');
 
@@ -488,13 +522,25 @@ async function provisionOrFindUser(args: {
       { $set: { lastLoginAt: new Date().toISOString() } },
     );
 
-    return { success: true, user: existingUser, org, isNew: false };
+    return { success: true, user: existingUser, org, isNew: false, wasInvite: false };
   }
 
-  // New user — must have pendingOrg (self-serve registration) or an invite (K18)
+  // -------------------------------------------------------------------------
+  // K18.3: Invite-accept via OAuth
+  // When invitationToken is present, accept the pending invite instead of
+  // creating a new user or requiring a pendingOrg registration.
+  // -------------------------------------------------------------------------
+  if (statePayload.invitationToken) {
+    return await acceptInviteViaOAuth({
+      db,
+      invitationToken: statePayload.invitationToken,
+      authProviderEnum,
+      providerUser,
+    });
+  }
+
+  // New user — must have pendingOrg (self-serve registration)
   if (!statePayload.pendingOrg) {
-    // No pending registration and no existing user → invite-only check
-    // For now: reject. Invite flow comes in K18.
     return { success: false, errorCode: 'invite_required' };
   }
 
@@ -548,7 +594,7 @@ async function provisionOrFindUser(args: {
     firstName: providerUser.firstName,
     lastName: providerUser.lastName,
     displayName: providerUser.displayName,
-    accountType: AccountType.ENTRA_ID, // reuse enum value (SSO)
+    accountType: AccountType.ENTRA_ID,
     entraOid: null,
     authProviders: [
       {
@@ -596,7 +642,95 @@ async function provisionOrFindUser(args: {
   const newUser = (await usersCol.findOne({ _id: userId } as never)) as WithId<User>;
   const newOrg = (await orgsCol.findOne({ _id: orgId } as never)) as WithId<Organisation>;
 
-  return { success: true, user: newUser, org: newOrg, isNew: true };
+  return { success: true, user: newUser, org: newOrg, isNew: true, wasInvite: false };
+}
+
+// ---------------------------------------------------------------------------
+// K18.3: Invite accept via OAuth
+// ---------------------------------------------------------------------------
+
+async function acceptInviteViaOAuth(args: {
+  db: Db;
+  invitationToken: string;
+  authProviderEnum: AuthProvider;
+  providerUser: ProviderUserInfo;
+}): Promise<ProvisionResult> {
+  const { db, invitationToken, authProviderEnum, providerUser } = args;
+  const usersCol = db.collection<User>('users');
+  const orgsCol = db.collection<Organisation>('organisations');
+  const { ObjectId } = await import('mongodb');
+
+  // Find the pending invite by token
+  const pendingUser = (await usersCol.findOne({
+    emailVerificationToken: invitationToken,
+    passwordHash: null,
+    emailVerified: false,
+    deletedAt: null,
+  } as never)) as WithId<User> | null;
+
+  if (!pendingUser) {
+    return { success: false, errorCode: 'invite_not_found' };
+  }
+
+  // Check token expiry
+  if (new Date(pendingUser.emailVerificationExpiresAt ?? 0) < new Date()) {
+    return { success: false, errorCode: 'invite_expired' };
+  }
+
+  // Verify email match (case-insensitive)
+  if (pendingUser.email.toLowerCase() !== providerUser.email.toLowerCase()) {
+    return { success: false, errorCode: 'invite_email_mismatch' };
+  }
+
+  // Load org
+  const org = (await orgsCol.findOne({
+    _id: new ObjectId(pendingUser.organisationId) as never,
+    deletedAt: null,
+  })) as WithId<Organisation> | null;
+
+  if (!org) return { success: false, errorCode: 'org_not_found' };
+  if (org.status !== 'ACTIVE') return { success: false, errorCode: 'org_inactive' };
+
+  const now = new Date().toISOString();
+
+  // Activate the account via OAuth identity
+  // All OAuth users (Google / Microsoft) use ENTRA_ID as accountType
+  // (same pattern as self-serve registration in oauth.routes.ts).
+  const accountType = AccountType.ENTRA_ID;
+
+  await usersCol.updateOne(
+    { _id: pendingUser._id },
+    {
+      $set: {
+        accountType,
+        authProviders: [
+          {
+            provider: authProviderEnum,
+            providerId: providerUser.providerId,
+            email: providerUser.email,
+            linkedAt: now,
+          },
+        ],
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+        // Use provider name if invite did not pre-fill firstName/lastName
+        ...(pendingUser.firstName ? {} : { firstName: providerUser.firstName }),
+        ...(pendingUser.lastName ? {} : { lastName: providerUser.lastName }),
+        displayName:
+          pendingUser.firstName && pendingUser.lastName
+            ? `${pendingUser.firstName} ${pendingUser.lastName}`
+            : providerUser.displayName,
+        lastLoginAt: now,
+        updatedAt: now,
+        updatedBy: String(pendingUser._id),
+      } as Partial<User>,
+    },
+  );
+
+  const activatedUser = (await usersCol.findOne({ _id: pendingUser._id } as never)) as WithId<User>;
+
+  return { success: true, user: activatedUser, org, isNew: false, wasInvite: true };
 }
 
 // ---------------------------------------------------------------------------

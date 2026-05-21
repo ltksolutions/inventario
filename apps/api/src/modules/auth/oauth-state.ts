@@ -34,6 +34,12 @@ export interface OAuthStatePayload {
     ico?: string;
     dpaAcceptedAt: string;
   };
+  /**
+   * Optional: invite token for the invite-accept OAuth path (K18.3).
+   * When present, the callback resolves the pending invite user by this
+   * token instead of creating a new user or requiring a pendingOrg.
+   */
+  invitationToken?: string;
   /** Unix timestamp when the state was issued (for TTL check). */
   issuedAt: number;
 }
