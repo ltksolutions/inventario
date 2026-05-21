@@ -49,6 +49,22 @@ export interface EmailService {
    */
   sendPasswordResetEmail(to: string, token: string, frontendUrl: string): Promise<void>;
 
+  /**
+   * Send an invitation email to a new user.
+   * @param to  Recipient email address.
+   * @param opts  Invite metadata for the email body.
+   */
+  sendInvitationEmail(
+    to: string,
+    opts: {
+      inviterName: string;
+      tenantName: string;
+      roleLabels: string;
+      token: string;
+      frontendUrl: string;
+    },
+  ): Promise<void>;
+
   /** Name of the active provider — for diagnostics. */
   readonly providerName: EmailProvider['name'];
   /** Whether the active provider is a real transport (false for stub). */
@@ -153,6 +169,18 @@ const emailPlugin: FastifyPluginAsync = async (fastify) => {
         text: `Obnovte heslo: ${url} (platnosť 1 hodinu)`,
       });
     },
+
+    async sendInvitationEmail(to, { inviterName, tenantName, roleLabels, token, frontendUrl }) {
+      const url = `${frontendUrl}/accept-invite?token=${token}`;
+      await provider.send({
+        to,
+        subject: `Pozvánka do ${tenantName} — Inventario`,
+        html: invitationEmailHtml({ url, inviterName, tenantName, roleLabels }),
+        text:
+          `${inviterName} vás pozval/a do organizácie ${tenantName} (${roleLabels}). ` +
+          `Prijmite pozvánku: ${url} (platnosť ${INVITE_TEMPLATE_TTL_DAYS} dní)`,
+      });
+    },
   };
 
   fastify.decorate('emailService', service);
@@ -166,6 +194,8 @@ export default fp(emailPlugin, {
 // ---------------------------------------------------------------------------
 // Email HTML templates — Inventario brand
 // ---------------------------------------------------------------------------
+
+const INVITE_TEMPLATE_TTL_DAYS = 7;
 
 function emailLayout(title: string, content: string): string {
   return `<!DOCTYPE html>
@@ -251,6 +281,50 @@ function passwordResetEmailHtml(url: string): string {
     </a>
     <p style="margin:20px 0 0;color:#94A3B8;font-size:12px;">
       Ak ste o obnovenie nepožiadali, ignorujte tento e-mail. Vaše heslo zostáva nezmenené.
+    </p>
+    `,
+  );
+}
+
+function invitationEmailHtml(opts: {
+  url: string;
+  inviterName: string;
+  tenantName: string;
+  roleLabels: string;
+}): string {
+  const { url, inviterName, tenantName, roleLabels } = opts;
+  return emailLayout(
+    `Pozvánka do ${tenantName}`,
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">
+      Ste pozvaný do ${tenantName}
+    </h1>
+    <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+      <strong>${inviterName}</strong> vás pozval/a pripojiť sa k organizácii
+      <strong>${tenantName}</strong> v systéme Inventario.
+    </p>
+    <table style="background-color:#F8F6F1;border-radius:6px;padding:16px 20px;margin:0 0 24px;width:100%;box-sizing:border-box;">
+      <tr>
+        <td style="color:#64748B;font-size:13px;padding-bottom:6px;">Rola</td>
+        <td style="color:#1A2D47;font-size:14px;font-weight:600;">${roleLabels}</td>
+      </tr>
+      <tr>
+        <td style="color:#64748B;font-size:13px;padding-bottom:6px;">Organizácia</td>
+        <td style="color:#1A2D47;font-size:14px;font-weight:600;">${tenantName}</td>
+      </tr>
+      <tr>
+        <td style="color:#64748B;font-size:13px;">Platnosť</td>
+        <td style="color:#1A2D47;font-size:14px;">${INVITE_TEMPLATE_TTL_DAYS} dní od odoslania</td>
+      </tr>
+    </table>
+    <a href="${url}"
+       style="display:inline-block;background-color:#388FC3;color:#FFFFFF;text-decoration:none;
+              font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;">
+      Prijať pozvánku
+    </a>
+    <p style="margin:20px 0 0;color:#94A3B8;font-size:12px;">
+      Ak neočakávate túto pozvánku, ignorujte tento e-mail.
+      Váš účet nebude vytvorený bez výslovného súhlasu.
     </p>
     `,
   );
