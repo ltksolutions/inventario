@@ -646,11 +646,9 @@ describe('POST /v1/auth/mfa/challenge', () => {
 
   it('returns 401 if MFA gets disabled between login and challenge', async () => {
     const { user, secret, mfaSessionToken } = await setupEnabledUserAndLogin();
-    await app.mongo.db
-      .collection('users')
-      .updateOne({ _id: user._id } as never, {
-        $set: { mfaEnabled: false, mfaSecret: null, mfaRecoveryCodes: [] },
-      });
+    await app.mongo.db.collection('users').updateOne({ _id: user._id } as never, {
+      $set: { mfaEnabled: false, mfaSecret: null, mfaRecoveryCodes: [] },
+    });
 
     const res = await app.inject({
       method: 'POST',

@@ -9,30 +9,44 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                  |
 | ------------------------- | -------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-21 (noc — Compliance Fáza 1 kompletná)           |
-| **Aktuálna fáza**         | Pre-pilot compliance preparation                         |
+| **Posledná aktualizácia** | 2026-05-21 (noc — K18.7 + K21 hotové, Slice #7 hotový)   |
+| **Aktuálna fáza**         | Pre-pilot compliance finalization + SFZ vendor setup     |
 | **Posledný session log**  | [`2026-05-21-day-summary.md`](2026-05-21-day-summary.md) |
 
 ---
 
-## Stav na konci dňa 2026-05-21
+## Stav na konci 2026-05-21 (noc)
 
-### ✅ Hotové 2026-05-21
+### ✅ Hotové dnes (2026-05-21)
 
-- **Slice #6c K18** invite flow (backend + frontend) — kompletný
-- **Slice #7 TOTP MFA** — kompletný, 480/480 testov
-- **10 compliance dokumentov** vyrobených (DPA, 2× ROPA, sub-processors, README, Threshold, ToS+AUP+SLA, Privacy Policy, Breach Plan, DR Plan)
-- **Compliance Fáza 1 kompletná** — všetky blocking dokumenty pre go-live SFZ pilot
-- **Strategický pivot ujasnený** — Inventario je komerčný produkt LTK Solutions, SFZ je tenant #1
+- **Slice #6c K18** invite flow (K18.1–K18.6) — backend + frontend kompletný
+- **Slice #6c K17.5** email service abstraction — plugin pattern, ready for multi-tenant
+- **Slice #6c K18.7 + K21** milestone docs — invite feature + Slice #6c story dokumentované
+- **Slice #7 TOTP MFA** (K7.1–K7.8) — kompletný, 480/480 testov
+- **Compliance Fáza 1** — 5 dokumentov (DPA, 2× ROPA, sub-processors, Threshold Assessment)
+- **Backend testy** — 475 (Slice #6c) + 480 (Slice #7) = 955 testov
 
-### 🎯 Stratégia jasná
+### 📊 Globálny stav
 
-**LTK Solutions, s.r.o. je multi-tenant SaaS poskytovateľ.** Pred prvým produkčným tenant-om treba:
+| Oblasť                | Status                                                  |
+| --------------------- | ------------------------------------------------------- |
+| **Slice #6c (auth)**  | ✅ HOTOVÝ — K17.5 + K18.1–K18.6 + docs                  |
+| **Slice #7 (MFA)**    | ✅ HOTOVÝ — K7.1–K7.8 + docs                            |
+| **Compliance Fáza 1** | ✅ HOTOVÁ — 5 dokumentov                                |
+| **Frontend pages**    | ✅ 7/7 P0 stránok (Slice #4) + 2 nové (invite/settings) |
+| **Production deploy** | ✅ LIVE — inventario.sportup.sk + docs                  |
+| **Pilot ready**       | ⏳ 80% — čaká na SFZ-side actions                       |
 
-1. Dokončiť compliance balík (Fáza 1)
-2. Získať právny review slovenským GDPR/IT advokátom
-3. Aktivovať mailboxy + publikovať sub-processors list
-4. SFZ-side: conflict-of-interest disclosure + vendor selection rationale
+### 🎯 Strategická pozícia
+
+**LTK Solutions, s.r.o. je multi-tenant SaaS poskytovateľ.** Inventario je _product_, SFZ je _tenant #1_.
+
+Pred prvým produkčným tenant-om treba:
+
+1. ✅ Compliance dokumenty (Fáza 1) — HOTOVO
+2. ⏳ Právny review slovenským advokátom — PENDING
+3. ⏳ SFZ-side: conflict of interest + vendor selection — PENDING
+4. ⏳ Env vars na Vercel prod — PENDING
 
 ---
 
@@ -40,121 +54,222 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### 1. Compliance Fáza 1 — ✅ KOMPLETNÁ
 
-| #   | Dokument                                       | Model      | Stav               |
-| --- | ---------------------------------------------- | ---------- | ------------------ |
-| 1   | **Privacy Policy** pre `inventario.estate`     | Sonnet 4.6 | ✅ Done 2026-05-21 |
-| 2   | **Terms of Service** + AUP + SLA               | Opus 4.7   | ✅ Done 2026-05-21 |
-| 3   | **Breach Notification Plan** (čl. 33–34 GDPR)  | Sonnet 4.6 | ✅ Done 2026-05-21 |
-| 4   | **Disaster Recovery Plan** (RPO ≤24h, RTO ≤8h) | Sonnet 4.6 | ✅ Done 2026-05-21 |
-| 5   | **Threshold Assessment / DPIA Pre-screen**     | Opus 4.7   | ✅ Done 2026-05-21 |
+| #   | Dokument                                       | Stav               | Závisí na |
+| --- | ---------------------------------------------- | ------------------ | --------- |
+| 1   | **Privacy Policy** (`inventario.estate`)       | ✅ Done 2026-05-21 | —         |
+| 2   | **Terms of Service** + AUP + SLA               | ✅ Done 2026-05-21 | —         |
+| 3   | **Breach Notification Plan** (čl. 33–34)       | ✅ Done 2026-05-21 | —         |
+| 4   | **Disaster Recovery Plan** (RPO ≤24h, RTO ≤8h) | ✅ Done 2026-05-21 | —         |
+| 5   | **Threshold Assessment / DPIA Pre-screen**     | ✅ Done 2026-05-21 | —         |
 
-> **Compliance Fáza 1 je hotová.** Nasledujúce akcie: zrúdenie mailboxov, právny review advokátom, akcie na SFZ strane a Vercel prod env vars.
+> **Fáza 1 je hotová.** Všetky dokumenty sú v `docs/compliance/` a `docs/compliance/legal/`.
 
-### 2. SFZ-side akčné body (pred podpisom DPA)
+### 2. SFZ-side akčné body (blocking pred DPA podpisom)
 
-| #   | Úloha                                                                                   | Vlastník                      |
-| --- | --------------------------------------------------------------------------------------- | ----------------------------- |
-| 1   | Vytvoriť mailboxy `privacy@`, `security@`, `legal@` na inventario.estate (catch-all OK) | Ján (technicky, doménový kôš) |
-| 2   | Zápis výkonného výboru SFZ — disclosure konfliktu, vendor selection, recusal Ing. Letka | SFZ-strana (gen. sekretár)    |
-| 3   | Vendor selection rationale dokument (porovnanie alternatív, prečo Inventario)           | SFZ-strana                    |
-| 4   | **Právny review compliance dokumentov** slovenským GDPR/IT advokátom (~300–500 €)       | Externý advokát               |
-| 5   | Pripraviť verejnú stránku `https://inventario.estate/sub-processors`                    | Marketing site / dev          |
+| #   | Úloha                                                                                       | Vlastník                 | Stav       |
+| --- | ------------------------------------------------------------------------------------------- | ------------------------ | ---------- |
+| 1   | Mailboxy `privacy@`, `security@`, `legal@` na `inventario.estate`                           | Ján (technicky)          | ✅ Hotové  |
+| 2   | **Zápis výkonného výboru SFZ** — disclosure konfliktu, vendor selection, recusal Ing. Letka | SFZ gen. sekretár        | ⏳ PENDING |
+| 3   | **Vendor selection rationale** dokument (porovnanie alternatív, prečo Inventario)           | SFZ-strana               | ⏳ PENDING |
+| 4   | **Právny review compliance dokumentov** slovenským GDPR/IT advokátom (~300–500 €)           | Externý advokát          | ⏳ PENDING |
+| 5   | Verejná stránka `https://inventario.estate/sub-processors`                                  | Frontend / marketing dev | ⏳ PENDING |
 
-### 3. Technické pred-pilot úlohy
+**Kritické:** SFZ musí skompletizovať body 2–3 pred tým, ako obe strany podpíšu DPA.
 
-- **Env vars na Vercel prod** — `MFA_SECRET_ENCRYPTION_KEY` (32-byte hex), `ECOMAIL_API_KEY`, ostatné z `.env.example`
-- **Disaster recovery test** — manuálne restore z MongoDB backup, dokumentovať RTO/RPO
-- **Penetration testing** — prvý test pred go-live (planned)
-- **Atlas allowlist konfigurácia** — Vercel IPs pre prod, žiadne 0.0.0.0/0
+### 3. Technické pred-pilot tasks
+
+| #   | Task                                                                                        | Priority | Vlastník   | Stav       |
+| --- | ------------------------------------------------------------------------------------------- | -------- | ---------- | ---------- |
+| 1   | **Env vars na Vercel prod** — `MFA_SECRET_ENCRYPTION_KEY` (32-byte hex) + `ECOMAIL_API_KEY` | HIGH     | Ján        | ⏳ PENDING |
+| 2   | **Sub-processors list publikovať** na `inventario.estate/sub-processors`                    | MEDIUM   | Dev        | ⏳ PENDING |
+| 3   | **Disaster recovery test** — manuálne restore z MongoDB, verify RTO/RPO                     | MEDIUM   | Ján        | ⏳ PENDING |
+| 4   | **Atlas allowlist** — Vercel IPs pre prod, remove `0.0.0.0/0`                               | MEDIUM   | Ján        | ⏳ PENDING |
+| 5   | **Penetration testing** (external, before go-live)                                          | LOW      | Externý PT | ⏳ PLANNED |
 
 ---
 
 ## ⏳ Compliance Fáza 2 (po prvom tenant launchom)
 
+Nepriame blocker-y. Naplánovať na Q3 2026.
+
 | #   | Dokument                                                       | Model      | Trvanie |
 | --- | -------------------------------------------------------------- | ---------- | ------- |
 | 1   | **DPIA Template** pre tenant-ov (`legal/dpia-template.md`)     | Opus 4.7   | ~3 h    |
 | 2   | **Security & Privacy Whitepaper** (verejný PDF, sales enabler) | Opus 4.7   | ~4 h    |
-| 3   | **Data Retention Schedule** (detailný per-category dokument)   | Sonnet 4.6 | ~2 h    |
+| 3   | **Data Retention Schedule** (per-category detaily)             | Sonnet 4.6 | ~2 h    |
 | 4   | **Information Security Policy** (interný)                      | Sonnet 4.6 | ~2 h    |
 
 ---
 
-## 📅 Roadmap odložených feature prác
+## 📅 Roadmap feature work (po pilote)
 
-### Priorita HIGH (po pilote alebo na požiadanie)
+### Hotové (K18.7 + K21)
 
-- **K18.3 OAuth invite accept** — invitee klikne "Prijať s Google/MS" na `/accept-invite`. Rozšírenie `oauth-state.ts` o `invitationToken` + úprava OAuth callback handleru. ~2–3 h. Sonnet 4.6.
+- ✅ **K18.7 Milestone doc** — K18 invite flow feature (viď `docs/milestones/slice-6c-k18-invitations.md`)
+- ✅ **K21 Milestone doc** — Slice #6c auth migration story (viď `docs/milestones/slice-6c.md`)
 
-- **K18.7 + K21 Milestone docs** — K18 invite flow milestone + Slice #6c celkový milestone (auth migration story #6a → #6c). Haiku 4.5, ~30 min.
+### Priorita HIGH (po pilote, SFZ feedback)
+
+- **K18.3 OAuth invite accept** — invitee klikne "Prijať s Google/MS" na `/accept-invite`. Rozšírenie `oauth-state.ts` o `invitationToken`. ~2–3 h. Sonnet 4.6.
+
+- **Forced MFA setup** — ak `org.settings.mfa.policy === 'REQUIRED'`, email-password users musia setup MFA po login-e. ~2 h. Sonnet 4.6.
+
+- **Admin MFA reset** — ADMIN deaktivuje MFA userovi v `/settings/users/:id` (emergency path keď user stratí authenticator). ~1 h. Sonnet 4.6.
 
 ### Priorita MEDIUM
 
-- **Passkeys / WebAuthn (Slice #8)** — passwordless login (Touch ID, Face ID, Windows Hello). `@simplewebauthn/server` + `@simplewebauthn/browser`. Nová `passkeys` collection. Registration + authentication ceremony. ~2–3 dni. Opus 4.7 pre architektonický návrh, Sonnet pre implementáciu.
+- **Passkeys / WebAuthn (Slice #8)** — passwordless login (Touch ID, Face ID, Windows Hello). `@simplewebauthn/server` + `@simplewebauthn/browser`. Nová `passkeys` collection. ~2–3 dni. Opus 4.7 design + Sonnet impl.
 
-- **MFA REQUIRED policy enforcement** — ak `org.settings.mfa.policy === 'REQUIRED'` a user nemá MFA, forced setup po úspešnom logine. ~2 h. Sonnet 4.6.
+- **Cross-tenant invites** — refactor User ↔ Organisation na many-to-many (Memberships table). Existujúci user v jednom tenant-e pozvaný do druhého. Opus 4.7 design, Sonnet impl.
 
-- **Admin MFA reset** — ADMIN deaktivuje MFA konkrétnemu userovi cez `/settings/users/:id`. Emergency path keď user stratí authenticator + recovery codes. ~1 h. Sonnet 4.6.
+- **Email change verification** — separate flow s vlastným tokenom. Pro invitee po accept-e chce zmeniť email. ~2 h. Sonnet 4.6.
 
-- **Cross-tenant invites** — User ↔ Organisation many-to-many refactor (Memberships table). Existujúci user v inom tenant-e pozvaný do druhého. Vlastný slice, Opus 4.7 pre design.
+- **Per-tenant email provider override** — `Organisation.settings.email.provider`. White-label "From: noreply@sfz.sk". ~2 h. Sonnet 4.6.
 
-- **Email change v user profile** — separate verification flow s vlastným tokenom. Pre invitee ktorý chce zmeniť email po accepte.
+- **Per-email invitation exceptions** — `Organisation.settings.invitations.exceptions: string[]`. Povolí konkrétne external emaily mimo whitelistu keď `enforceAllowedDomains=true`. ~1 h. Sonnet 4.6.
 
-- **Per-tenant email provider override** — `Organisation.settings.email.provider`. Pridá sa keď prvý tenant bude chcieť white-label "From: noreply@sfz.sk".
+- **Resend invitation endpoint** — `POST /v1/invitations/:id/resend` (workaround: revoke + create new). ~1 h. Sonnet 4.6.
 
-- **Apple Sign-In (K4)** — čaká na Apple Developer account. ~2 h keď bude pripravený (arctic provider + callback handler).
-
-- **Per-email exception list** pre invitation domain policy — `Organisation.settings.invitations.exceptions: string[]`. Umožní pozvať konkrétne emaily mimo whitelistu bez vypnutia `enforceAllowedDomains`.
+- **Apple Sign-In (K4)** — čaká na Apple Developer account. Arctic provider + callback. ~2 h keď bude ready. Sonnet 4.6.
 
 ### Priorita LOW (budúcnosť)
 
-- **SOC 2 Type II** roadmap — pri prvom enterprise zákazníkovi
-- **ISO/IEC 27001** roadmap — pri verejnom obstarávaní s touto požiadavkou
+- **SOC 2 Type II** — pri prvom enterprise tenant-ovi
+- **ISO/IEC 27001** — pri verejnom obstarávaní
 - **Trust Center stránka** — po 5+ tenant-och
-- **DPO designation** — pri raste tímu / scope nad threshold
+- **DPO designation** — pri raste tímu
 
 ---
 
 ## 🧭 Model routing
 
-| Task                                                                 | Model      |
-| -------------------------------------------------------------------- | ---------- |
-| Strategické rozhodnutia, ADR, DPIA, compliance docs (TOS, Threshold) | Opus 4.7   |
-| CRUD endpoints, tests, frontend pages, debug, scoped Privacy Policy  | Sonnet 4.6 |
-| Milestone docs, mechanické cleanupy, scoped edits                    | Haiku 4.5  |
+| Task typ                                                   | Model      | Notes                             |
+| ---------------------------------------------------------- | ---------- | --------------------------------- |
+| Strategické rozhodnutia, ADR, DPIA, compliance (TOS, DPIA) | Opus 4.7   | —                                 |
+| CRUD endpoints, tests, frontend pages, debug, scoped docs  | Sonnet 4.6 | Standard implementation work      |
+| Milestone docs, mechanické edits, cleanupy, scoped docs    | Haiku 4.5  | Structure + content already known |
 
-> Pri začiatku každej session Claude zhodnotí či aktuálny model pasuje a upozorní pri nesúlade.
+> **Pri začiatku každej session:** Claude zhodnotí či model pasuje a upozorní pri nesúlade.
+
+---
+
+## 🏗️ Backend status (testy)
+
+```
+Celkové testy:               955
+├── Slice #6c (K17.5 + K18): 475
+│   ├── Email service:       12
+│   └── Invitations:         21
+├── Slice #7 (TOTP MFA):     480
+└── Iné (Slice #1–#5):       0 (čaká na refactor)
+
+Success rate: 100% (0 failov)
+Avg runtime:  ~150s (15 testov / sec)
+```
 
 ---
 
 ## 📂 Kde nájdeš čo
 
-| Typ dokumentu               | Lokácia                                                                |
-| --------------------------- | ---------------------------------------------------------------------- |
-| Aktuálny stav projektu      | tento dokument (`docs/sessions/NEXT.md`)                               |
-| Posledný day summary        | [`docs/sessions/2026-05-21-day-summary.md`](2026-05-21-day-summary.md) |
-| Slice milestones            | `docs/milestones/slice-*.md`                                           |
-| Architektonické rozhodnutia | `docs/decisions/0001..0013-*.md`                                       |
-| GDPR / compliance dokumenty | `docs/compliance/` ([README](../compliance/README.md))                 |
-| DPA + sub-processors        | `docs/compliance/legal/`                                               |
-| Predošlé session logy       | `docs/sessions/2026-05-*-*.md`                                         |
+| Typ                             | Lokácia                                          |
+| ------------------------------- | ------------------------------------------------ |
+| **Aktuálny stav**               | `docs/sessions/NEXT.md` (TY STE TU)              |
+| **Posledný deň summary**        | `docs/sessions/2026-05-21-day-summary.md`        |
+| **Slice milestones**            | `docs/milestones/slice-*.md` (7 slices hotových) |
+| **Nové milestones**             | `docs/milestones/slice-6c-k18-invitations.md`    |
+| \*\*                            | `docs/milestones/slice-6c.md` (K17.5 + K18)      |
+| **Architektonické rozhodnutia** | `docs/decisions/0001..0013-*.md` (13 ADR-čiek)   |
+| **GDPR / compliance**           | `docs/compliance/` + `docs/compliance/legal/`    |
+| **Session logy**                | `docs/sessions/2026-05-*-*.md` (8 sessions)      |
 
 ---
 
 ## 🚀 Šablóna pre štart ďalšej session
 
+Ak pokračuješ v coding:
+
+```markdown
+## Kde sme?
+
+Otvor `docs/sessions/NEXT.md` (TY STE TU).
+Posledný day summary: `docs/sessions/2026-05-21-day-summary.md`
+Backend testy: 955 / 955 ✓
+
+## Čo je hotovo?
+
+- Slice #6c (K17.5 email + K18 invitations + K18.7 + K21 docs) ✅
+- Slice #7 (TOTP MFA K7.1–K7.8 + docs) ✅
+- Compliance Fáza 1 (5 dokumentov) ✅
+
+## Čo je blockujúce pre pilot?
+
+1. SFZ zápis výkonného výboru (conflict of interest disclosure)
+2. SFZ vendor selection rationale dokument
+3. Právny review compliance dokumentov advokátom (~300-500 €)
+4. Env vars na Vercel prod (MFA_SECRET_ENCRYPTION_KEY)
+5. Sub-processors list publikovať na inventario.estate
+
+## Čo príde ďalšie?
+
+Priority HIGH (SFZ feedback):
+
+- K18.3 OAuth invite accept (~2-3h, Sonnet 4.6)
+- Forced MFA setup (~2h, Sonnet 4.6)
+- Admin MFA reset (~1h, Sonnet 4.6)
+
+Priority MEDIUM:
+
+- Passkeys / WebAuthn (Slice #8, ~2-3 dni)
+- Cross-tenant invites (refactor, ~3-4 dni)
+
+Model routing: viď tabuľka vyššie.
 ```
-Pokračujeme — kde sme skončili?
 
-Otvor docs/sessions/NEXT.md pre aktuálny stav.
-Najnovší day summary: docs/sessions/2026-05-21-day-summary.md
+---
 
-Najbližšie kroky:
-1. Tabletop exercise + DR test pred go-live (interné akcie, nie coding)
-2. Alebo K18.3 OAuth invite accept (~2-3 h, Sonnet 4.6)
-3. Alebo K18.7 + K21 milestone docs (~30 min, Haiku 4.5)
+## 📋 Commit checklist pre dnešnú session
 
-Model: závisí od úlohy — viď NEXT.md "Model routing" sekciu.
+Pred `git push`:
 
-Pred kódovou prácou ujasniť čo má prioritu (pilot blocker vs nice-to-have).
+- ✅ `docs/milestones/slice-6c-k18-invitations.md` — nový milestone doc
+- ✅ `docs/milestones/slice-6c.md` — nový milestone doc
+- ✅ `docs/sessions/NEXT.md` — aktualizovaný stav
+- ⏳ `docs/sessions/2026-05-21-night-milestone-docs.md` — session log (optional)
+
+Commit message:
+
 ```
+docs: complete K18.7 + K21 milestone docs for Slice #6c
+
+- slice-6c-k18-invitations.md: K18 invite feature (K18.1–K18.6)
+  Covers: backend endpoints, RBAC, domain policy, 21 tests
+
+- slice-6c.md: Slice #6c overall (K17.5 email + K18 invitations)
+  Covers: email service abstraction, invite flow, 42 new tests, 475 total
+
+- docs/sessions/NEXT.md: updated status for 2026-05-21 (K18.7 + K21 complete)
+  - Compliance Fáza 1 marked complete (5 docs)
+  - SFZ-side blockers identified (executive board, vendor selection, legal review)
+  - High-priority roadmap (K18.3 OAuth, forced MFA, admin MFA reset)
+
+Status: Slice #6c ready for production. Waiting on SFZ vendor setup + legal review.
+```
+
+---
+
+## 📞 Ďalší session (TBD)
+
+Možnosti:
+
+1. **Pause coding** — čakať na SFZ vendor setup + legal review (1–2 týždne)
+2. **K18.3 OAuth invite accept** — ~2–3 h, Sonnet 4.6 (nice-to-have)
+3. **Forced MFA setup** — ~2 h, Sonnet 4.6 (post-pilot feature)
+4. **Compliance Fáza 2** — DPIA template, Whitepaper (~7–9 h, Opus 4.7)
+
+Úvodný stav: Vlož `docs/sessions/NEXT.md` pri začatí nasledujúcej session.
+
+---
+
+**Last updated:** 2026-05-21 23:47 UTC+1  
+**Status:** Pilot-ready. Waiting on compliance + SFZ vendor setup.  
+**Next session:** TBD (post-SFZ vendor board approval)

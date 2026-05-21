@@ -223,17 +223,17 @@ pre zajtrajšiu Sonnet implementačnú session.
 
 ### K17.5 (email provider abstrakcia)
 
-| Súbor                                                      | Zmena                                        |
-| ---------------------------------------------------------- | -------------------------------------------- |
-| `apps/api/src/plugins/email-providers/types.ts`            | NOVÝ — `EmailProvider` interface             |
-| `apps/api/src/plugins/email-providers/ecomail.provider.ts` | NOVÝ — Ecomail.cz HTTP client                |
-| `apps/api/src/plugins/email-providers/resend.provider.ts`  | NOVÝ — Resend.com HTTP client                |
-| `apps/api/src/plugins/email-providers/stub.provider.ts`    | NOVÝ — log-only                              |
-| `apps/api/src/plugins/email.ts`                            | refactor: templates + provider selection     |
-| `apps/api/src/plugins/config.ts`                           | SMTP*\* → EMAIL_PROVIDER/ECOMAIL*_/RESEND\__ |
-| `apps/api/package.json`                                    | -nodemailer, -@types/nodemailer              |
-| `turbo.json`                                               | +email env vars v globalEnv                  |
-| `.env.example`                                             | email blok prepísaný                         |
+| Súbor                                                      | Zmena                                          |
+| ---------------------------------------------------------- | ---------------------------------------------- |
+| `apps/api/src/plugins/email-providers/types.ts`            | NOVÝ — `EmailProvider` interface               |
+| `apps/api/src/plugins/email-providers/ecomail.provider.ts` | NOVÝ — Ecomail.cz HTTP client                  |
+| `apps/api/src/plugins/email-providers/resend.provider.ts`  | NOVÝ — Resend.com HTTP client                  |
+| `apps/api/src/plugins/email-providers/stub.provider.ts`    | NOVÝ — log-only                                |
+| `apps/api/src/plugins/email.ts`                            | refactor: templates + provider selection       |
+| `apps/api/src/plugins/config.ts`                           | SMTP*\* → EMAIL_PROVIDER/ECOMAIL*\_/RESEND\_\_ |
+| `apps/api/package.json`                                    | -nodemailer, -@types/nodemailer                |
+| `turbo.json`                                               | +email env vars v globalEnv                    |
+| `.env.example`                                             | email blok prepísaný                           |
 
 ### K18 design
 
