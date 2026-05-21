@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                  |
 | ------------------------- | -------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-21 (noc — K18.7 + K21 hotové, Slice #7 hotový)   |
+| **Posledná aktualizácia** | 2026-05-21 (noc — K18.3 OAuth invite accept hotový)      |
 | **Aktuálna fáza**         | Pre-pilot compliance finalization + SFZ vendor setup     |
 | **Posledný session log**  | [`2026-05-21-day-summary.md`](2026-05-21-day-summary.md) |
 
@@ -21,16 +21,17 @@ SPDX-License-Identifier: CC-BY-4.0
 
 - **Slice #6c K18** invite flow (K18.1–K18.6) — backend + frontend kompletný
 - **Slice #6c K17.5** email service abstraction — plugin pattern, ready for multi-tenant
+- **Slice #6c K18.3** OAuth invite accept (Google + Microsoft) — kompletný, 7 nových testov
 - **Slice #6c K18.7 + K21** milestone docs — invite feature + Slice #6c story dokumentované
 - **Slice #7 TOTP MFA** (K7.1–K7.8) — kompletný, 480/480 testov
 - **Compliance Fáza 1** — 5 dokumentov (DPA, 2× ROPA, sub-processors, Threshold Assessment)
-- **Backend testy** — 475 (Slice #6c) + 480 (Slice #7) = 955 testov
+- **Backend testy** — 962 (955 + 7 nových K18.3)
 
 ### 📊 Globálny stav
 
 | Oblasť                | Status                                                  |
 | --------------------- | ------------------------------------------------------- |
-| **Slice #6c (auth)**  | ✅ HOTOVÝ — K17.5 + K18.1–K18.6 + docs                  |
+| **Slice #6c (auth)**  | ✅ HOTOVÝ — K17.5 + K18.1–K18.6 + K18.3 + docs          |
 | **Slice #7 (MFA)**    | ✅ HOTOVÝ — K7.1–K7.8 + docs                            |
 | **Compliance Fáza 1** | ✅ HOTOVÁ — 5 dokumentov                                |
 | **Frontend pages**    | ✅ 7/7 P0 stránok (Slice #4) + 2 nové (invite/settings) |
@@ -90,7 +91,7 @@ Pred prvým produkčným tenant-om treba:
 
 ## ⏳ Compliance Fáza 2 (po prvom tenant launchom)
 
-Nepriame blocker-y. Naplánovať na Q3 2026.
+Naplánovať na Q3 2026.
 
 | #   | Dokument                                                       | Model      | Trvanie |
 | --- | -------------------------------------------------------------- | ---------- | ------- |
@@ -103,14 +104,13 @@ Nepriame blocker-y. Naplánovať na Q3 2026.
 
 ## 📅 Roadmap feature work (po pilote)
 
-### Hotové (K18.7 + K21)
+### ✅ Hotové
 
-- ✅ **K18.7 Milestone doc** — K18 invite flow feature (viď `docs/milestones/slice-6c-k18-invitations.md`)
-- ✅ **K21 Milestone doc** — Slice #6c auth migration story (viď `docs/milestones/slice-6c.md`)
+- ✅ **K18.7** — K18 invite feature milestone doc (`docs/milestones/slice-6c-k18-invitations.md`)
+- ✅ **K21** — Slice #6c auth migration story (`docs/milestones/slice-6c.md`)
+- ✅ **K18.3** — OAuth invite accept (Google + Microsoft, 7 testov)
 
 ### Priorita HIGH (po pilote, SFZ feedback)
-
-- **K18.3 OAuth invite accept** — invitee klikne "Prijať s Google/MS" na `/accept-invite`. Rozšírenie `oauth-state.ts` o `invitationToken`. ~2–3 h. Sonnet 4.6.
 
 - **Forced MFA setup** — ak `org.settings.mfa.policy === 'REQUIRED'`, email-password users musia setup MFA po login-e. ~2 h. Sonnet 4.6.
 
@@ -122,15 +122,15 @@ Nepriame blocker-y. Naplánovať na Q3 2026.
 
 - **Cross-tenant invites** — refactor User ↔ Organisation na many-to-many (Memberships table). Existujúci user v jednom tenant-e pozvaný do druhého. Opus 4.7 design, Sonnet impl.
 
-- **Email change verification** — separate flow s vlastným tokenom. Pro invitee po accept-e chce zmeniť email. ~2 h. Sonnet 4.6.
+- **Email change verification** — separate flow s vlastným tokenom. Pre invitee po accept-e chce zmeniť email. ~2 h. Sonnet 4.6.
 
 - **Per-tenant email provider override** — `Organisation.settings.email.provider`. White-label "From: noreply@sfz.sk". ~2 h. Sonnet 4.6.
 
 - **Per-email invitation exceptions** — `Organisation.settings.invitations.exceptions: string[]`. Povolí konkrétne external emaily mimo whitelistu keď `enforceAllowedDomains=true`. ~1 h. Sonnet 4.6.
 
-- **Resend invitation endpoint** — `POST /v1/invitations/:id/resend` (workaround: revoke + create new). ~1 h. Sonnet 4.6.
+- **Resend invitation endpoint** — `POST /v1/invitations/:id/resend`. ~1 h. Sonnet 4.6.
 
-- **Apple Sign-In (K4)** — čaká na Apple Developer account. Arctic provider + callback. ~2 h keď bude ready. Sonnet 4.6.
+- **Apple Sign-In (K4)** — čaká na Apple Developer account. ~2 h keď bude ready. Sonnet 4.6.
 
 ### Priorita LOW (budúcnosť)
 
@@ -156,48 +156,44 @@ Nepriame blocker-y. Naplánovať na Q3 2026.
 ## 🏗️ Backend status (testy)
 
 ```
-Celkové testy:               955
-├── Slice #6c (K17.5 + K18): 475
-│   ├── Email service:       12
-│   └── Invitations:         21
-├── Slice #7 (TOTP MFA):     480
-└── Iné (Slice #1–#5):       0 (čaká na refactor)
+Celkové testy:               962
+├── Slice #6c (K17.5 + K18 + K18.3): 482
+│   ├── Email service:              12
+│   ├── Invitations (password):     21
+│   └── Invitations (OAuth K18.3):   7
+├── Slice #7 (TOTP MFA):            480
+└── Iné (Slice #1–#5):               0 (čaká na refactor)
 
 Success rate: 100% (0 failov)
-Avg runtime:  ~150s (15 testov / sec)
+Avg runtime:  ~150s
 ```
 
 ---
 
 ## 📂 Kde nájdeš čo
 
-| Typ                             | Lokácia                                          |
-| ------------------------------- | ------------------------------------------------ |
-| **Aktuálny stav**               | `docs/sessions/NEXT.md` (TY STE TU)              |
-| **Posledný deň summary**        | `docs/sessions/2026-05-21-day-summary.md`        |
-| **Slice milestones**            | `docs/milestones/slice-*.md` (7 slices hotových) |
-| **Nové milestones**             | `docs/milestones/slice-6c-k18-invitations.md`    |
-| \*\*                            | `docs/milestones/slice-6c.md` (K17.5 + K18)      |
-| **Architektonické rozhodnutia** | `docs/decisions/0001..0013-*.md` (13 ADR-čiek)   |
-| **GDPR / compliance**           | `docs/compliance/` + `docs/compliance/legal/`    |
-| **Session logy**                | `docs/sessions/2026-05-*-*.md` (8 sessions)      |
+| Typ                             | Lokácia                                        |
+| ------------------------------- | ---------------------------------------------- |
+| **Aktuálny stav**               | `docs/sessions/NEXT.md` (TY STE TU)            |
+| **Posledný deň summary**        | `docs/sessions/2026-05-21-day-summary.md`      |
+| **Slice milestones**            | `docs/milestones/slice-*.md`                   |
+| **Architektonické rozhodnutia** | `docs/decisions/0001..0013-*.md` (13 ADR-čiek) |
+| **GDPR / compliance**           | `docs/compliance/` + `docs/compliance/legal/`  |
+| **Session logy**                | `docs/sessions/2026-05-*-*.md`                 |
 
 ---
 
 ## 🚀 Šablóna pre štart ďalšej session
 
-Ak pokračuješ v coding:
-
 ```markdown
 ## Kde sme?
 
 Otvor `docs/sessions/NEXT.md` (TY STE TU).
-Posledný day summary: `docs/sessions/2026-05-21-day-summary.md`
-Backend testy: 955 / 955 ✓
+Backend testy: 962 / 962 ✓
 
 ## Čo je hotovo?
 
-- Slice #6c (K17.5 email + K18 invitations + K18.7 + K21 docs) ✅
+- Slice #6c (K17.5 + K18.1–K18.6 + K18.3 OAuth + K18.7 + K21 docs) ✅
 - Slice #7 (TOTP MFA K7.1–K7.8 + docs) ✅
 - Compliance Fáza 1 (5 dokumentov) ✅
 
@@ -205,71 +201,26 @@ Backend testy: 955 / 955 ✓
 
 1. SFZ zápis výkonného výboru (conflict of interest disclosure)
 2. SFZ vendor selection rationale dokument
-3. Právny review compliance dokumentov advokátom (~300-500 €)
+3. Právny review compliance dokumentov advokátom (~300–500 €)
 4. Env vars na Vercel prod (MFA_SECRET_ENCRYPTION_KEY)
-5. Sub-processors list publikovať na inventario.estate
+5. Sub-processors list na inventario.estate
 
 ## Čo príde ďalšie?
 
-Priority HIGH (SFZ feedback):
+Priorita HIGH (post-pilot):
 
-- K18.3 OAuth invite accept (~2-3h, Sonnet 4.6)
 - Forced MFA setup (~2h, Sonnet 4.6)
 - Admin MFA reset (~1h, Sonnet 4.6)
 
-Priority MEDIUM:
+Priorita MEDIUM:
 
-- Passkeys / WebAuthn (Slice #8, ~2-3 dni)
-- Cross-tenant invites (refactor, ~3-4 dni)
+- Passkeys / WebAuthn (Slice #8, ~2–3 dni, Opus design + Sonnet impl)
 
 Model routing: viď tabuľka vyššie.
 ```
 
 ---
 
-## 📋 Commit checklist pre dnešnú session
-
-Pred `git push`:
-
-- ✅ `docs/milestones/slice-6c-k18-invitations.md` — nový milestone doc
-- ✅ `docs/milestones/slice-6c.md` — nový milestone doc
-- ✅ `docs/sessions/NEXT.md` — aktualizovaný stav
-- ⏳ `docs/sessions/2026-05-21-night-milestone-docs.md` — session log (optional)
-
-Commit message:
-
-```
-docs: complete K18.7 + K21 milestone docs for Slice #6c
-
-- slice-6c-k18-invitations.md: K18 invite feature (K18.1–K18.6)
-  Covers: backend endpoints, RBAC, domain policy, 21 tests
-
-- slice-6c.md: Slice #6c overall (K17.5 email + K18 invitations)
-  Covers: email service abstraction, invite flow, 42 new tests, 475 total
-
-- docs/sessions/NEXT.md: updated status for 2026-05-21 (K18.7 + K21 complete)
-  - Compliance Fáza 1 marked complete (5 docs)
-  - SFZ-side blockers identified (executive board, vendor selection, legal review)
-  - High-priority roadmap (K18.3 OAuth, forced MFA, admin MFA reset)
-
-Status: Slice #6c ready for production. Waiting on SFZ vendor setup + legal review.
-```
-
----
-
-## 📞 Ďalší session (TBD)
-
-Možnosti:
-
-1. **Pause coding** — čakať na SFZ vendor setup + legal review (1–2 týždne)
-2. **K18.3 OAuth invite accept** — ~2–3 h, Sonnet 4.6 (nice-to-have)
-3. **Forced MFA setup** — ~2 h, Sonnet 4.6 (post-pilot feature)
-4. **Compliance Fáza 2** — DPIA template, Whitepaper (~7–9 h, Opus 4.7)
-
-Úvodný stav: Vlož `docs/sessions/NEXT.md` pri začatí nasledujúcej session.
-
----
-
-**Last updated:** 2026-05-21 23:47 UTC+1  
-**Status:** Pilot-ready. Waiting on compliance + SFZ vendor setup.  
+**Last updated:** 2026-05-21 (noc — K18.3 hotový)
+**Status:** Slice #6c kompletný. Pilot-ready. Waiting on SFZ vendor board + legal review.
 **Next session:** TBD (post-SFZ vendor board approval)
