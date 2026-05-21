@@ -24,6 +24,7 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 
 | Dokument                                                   | Účel                                                                                                                                |
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [`legal/privacy-policy.md`](./legal/privacy-policy.md)     | **Privacy Policy** — Ochrana súkromia pre navštevníkov webu a zákazníkov (čl. 13 GDPR)                                              |
 | [`legal/dpa-template.md`](./legal/dpa-template.md)         | **DPA Template** — Zmluva o spracúvaní osobných údajov medzi LTK a tenant-om (čl. 28 GDPR)                                          |
 | [`legal/terms-of-service.md`](./legal/terms-of-service.md) | **Terms of Service** — Všeobecné obchodné podmienky používania platformy Inventario (Hlavná zmluva v zmysle DPA), vrátane AUP a SLA |
 | [`legal/sub-processors.md`](./legal/sub-processors.md)     | **Verejný register sub-processors** — publikovaný na https://inventario.estate/sub-processors                                       |
@@ -49,6 +50,7 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 - ROPA Processor view (`gdpr-article-30.md` v2.0)
 - ROPA Controller view (`gdpr-article-30-controller.md`)
 - DPA Template (`legal/dpa-template.md`)
+- Privacy Policy (`legal/privacy-policy.md`)
 - Terms of Service + AUP + SLA (`legal/terms-of-service.md`)
 - Sub-processor list (`legal/sub-processors.md`)
 - Threshold Assessment / DPIA Pre-screen (`threshold-assessment.md`)
@@ -56,7 +58,6 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 
 ### ⏳ Pripravované — Fáza 1 (blocking pre go-live SFZ pilot)
 
-- **Privacy Policy** pre inventario.estate (verejná stránka)
 - **Breach Notification Plan** (interný procesný dokument, čl. 33 — 34 GDPR)
 - **Disaster Recovery Plan** (kontinuita prevádzky platformy)
 
