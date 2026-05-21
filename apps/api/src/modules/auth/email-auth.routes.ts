@@ -304,7 +304,8 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       }
 
       // Check provider allowed
-      if (!org.allowedAuthProviders.includes(AuthProvider.EMAIL)) {
+      const allowedProviders = org.allowedAuthProviders ?? [];
+      if (allowedProviders.length > 0 && !allowedProviders.includes(AuthProvider.EMAIL)) {
         throw new UnauthorizedError(
           'Vaša organizácia nepovoľuje prihlásenie e-mailom. Použite SSO.',
         );
