@@ -89,6 +89,12 @@ export default async function setup(): Promise<void> {
   process.env['JWT_ACCESS_TOKEN_TTL_SECONDS'] ??= '900';
   process.env['JWT_REFRESH_TOKEN_TTL_DAYS'] ??= '7';
 
+  // -- Generate ephemeral MFA encryption key for TOTP secrets --------------
+  // 32 bytes (64 hex chars). Used by AES-256-GCM to encrypt user TOTP
+  // secrets at rest. Different every test run (fresh DB anyway).
+  const { randomBytes } = await import('node:crypto');
+  process.env['MFA_SECRET_ENCRYPTION_KEY'] ??= randomBytes(32).toString('hex');
+
   console.info('🔑 Inventario JWT keypair generated for test run.\n');
 }
 

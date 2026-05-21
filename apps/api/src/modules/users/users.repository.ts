@@ -53,7 +53,7 @@ import { requireTenantId, tenantFilter } from '../../lib/organisation-scoping.js
 // Projection — fields never returned to callers of the public methods.
 // ---------------------------------------------------------------------------
 
-const PUBLIC_PROJECTION = { passwordHash: 0 } as const;
+const PUBLIC_PROJECTION = { passwordHash: 0, mfaSecret: 0, mfaRecoveryCodes: 0 } as const;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -195,10 +195,16 @@ export class UsersRepository {
     // Return the document we just inserted with the assigned _id.
     // Avoids Atlas Flex read-after-write latency (findOne after insertOne
     // can return null on shared clusters due to replication lag).
-    // passwordHash excluded via destructuring — same intent as PUBLIC_PROJECTION.
+    // passwordHash + MFA secrets excluded via destructuring — same intent
+    // as PUBLIC_PROJECTION.
 
-    const { passwordHash: _pw, ...userWithoutHash } = user as User;
-    return { ...userWithoutHash, _id: insertedId } as unknown as WithId<User>;
+    const {
+      passwordHash: _pw,
+      mfaSecret: _mfaSecret,
+      mfaRecoveryCodes: _mfaCodes,
+      ...userWithoutSecrets
+    } = user as User;
+    return { ...userWithoutSecrets, _id: insertedId } as unknown as WithId<User>;
   }
 
   /**

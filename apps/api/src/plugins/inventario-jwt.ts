@@ -71,6 +71,27 @@ export interface InventarioJwtService {
   verifyAccessToken(token: string): Promise<InventarioJwtPayload>;
 
   /**
+   * Issue a short-lived MFA challenge session token (Slice #7).
+   *
+   * Used in the login flow when a user has MFA enabled: after password
+   * verification succeeds, we issue this token instead of access cookies.
+   * The frontend submits it back together with the TOTP code to
+   * `POST /v1/auth/mfa/challenge`, which exchanges it for normal
+   * access+refresh cookies.
+   *
+   * Audience is `inventario-mfa-challenge` (distinct from access
+   * tokens' `inventario-api`), so a stolen MFA token cannot be used
+   * as a session cookie. TTL is 5 minutes.
+   */
+  issueMfaSessionToken(userId: string): Promise<string>;
+
+  /**
+   * Verify an MFA challenge session token. Returns the `sub` (userId)
+   * on success. Throws `UnauthorizedError` on invalid / expired tokens.
+   */
+  verifyMfaSessionToken(token: string): Promise<{ sub: string }>;
+
+  /**
    * Create a new refresh token for a user and persist its hash.
    * Returns the raw token to be set as an httpOnly cookie.
    */
@@ -136,6 +157,8 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
       isConfigured: false,
       issueAccessToken: notConfigured,
       verifyAccessToken: notConfigured,
+      issueMfaSessionToken: notConfigured,
+      verifyMfaSessionToken: notConfigured,
       issueRefreshToken: notConfigured,
       rotateRefreshToken: notConfigured,
       revokeRefreshToken: notConfigured,
@@ -208,6 +231,39 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
 
       assertInventarioPayload(payload);
       return payload;
+    },
+
+    async issueMfaSessionToken(userId) {
+      return new SignJWT({ purpose: 'mfa_challenge' })
+        .setProtectedHeader({ alg: 'RS256' })
+        .setSubject(userId)
+        .setIssuer('inventario')
+        .setAudience('inventario-mfa-challenge')
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+    },
+
+    async verifyMfaSessionToken(token) {
+      let payload: JWTPayload;
+      try {
+        ({ payload } = await jwtVerify(token, publicKey, {
+          issuer: 'inventario',
+          audience: 'inventario-mfa-challenge',
+          algorithms: ['RS256'],
+          clockTolerance: 5,
+        }));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'MFA session verification failed';
+        throw new UnauthorizedError(msg);
+      }
+      if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+        throw new UnauthorizedError('MFA session token missing sub claim');
+      }
+      if (payload['purpose'] !== 'mfa_challenge') {
+        throw new UnauthorizedError('MFA session token wrong purpose');
+      }
+      return { sub: payload.sub };
     },
 
     async issueRefreshToken(userId, request) {

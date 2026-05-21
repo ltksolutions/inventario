@@ -145,6 +145,45 @@ export const UserSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Či musí používateľ pri ďalšom prihlásení zmeniť heslo (pre LOCAL). */
     mustChangePassword: z.boolean().default(false),
 
+    // -----------------------------------------------------------------
+    // TOTP MFA (Slice #7)
+    // -----------------------------------------------------------------
+
+    /**
+     * Či má používateľ aktivované TOTP MFA. Default `false`.
+     * Zapína sa cez `POST /v1/auth/mfa/verify-setup`, vypína cez
+     * `POST /v1/auth/mfa/disable`. Pri login-e ak `true`, server
+     * vyžaduje druhý faktor (TOTP code alebo recovery code).
+     *
+     * OAuth (Google/Microsoft) sessions ignorujú tento flag — providers
+     * majú vlastné MFA na svojej strane.
+     */
+    mfaEnabled: z.boolean().default(false),
+
+    /**
+     * AES-256-GCM-encrypted base32 TOTP secret. Null keď MFA nie je
+     * aktívne. NIKDY do API response — repository projekcia ho
+     * filtruje rovnako ako `passwordHash`.
+     *
+     * Formát uloženia: `<iv-hex>:<authTag-hex>:<ciphertext-hex>` (split
+     * by ':'). Šifruje sa cez `MFA_SECRET_ENCRYPTION_KEY` env var.
+     */
+    mfaSecret: z.string().nullable().default(null),
+
+    /**
+     * Argon2id-hashed single-use recovery codes. Default 8 ks pri
+     * setup-e. Pri použití kódu sa odstráni z poľa.
+     *
+     * NIKDY do API response — okrem jedného momentu hneď po
+     * `verify-setup` keď server vráti plaintext kódy používateľovi
+     * (a uloží si len hashes). Po tom je už k dispozícii iba pre
+     * porovnanie počas challenge.
+     */
+    mfaRecoveryCodes: z.array(z.string()).default([]),
+
+    /** Kedy bolo MFA aktivované. Null = neaktivované. */
+    mfaEnabledAt: TimestampSchema.nullable().default(null),
+
     /** Preferencie používateľa. */
     preferences: z
       .object({
@@ -180,6 +219,10 @@ export const CreateUserSchema = UserSchema.omit({
   emailVerificationExpiresAt: true, // internal
   passwordResetToken: true, // internal security token
   passwordResetExpiresAt: true, // internal
+  mfaEnabled: true, // managed via /v1/auth/mfa endpoints
+  mfaSecret: true, // internal security material
+  mfaRecoveryCodes: true, // internal security material
+  mfaEnabledAt: true, // managed via /v1/auth/mfa endpoints
 }).extend({
   /** Pre LOCAL účty — počiatočné heslo. Musí byť zaslané cez secure channel. */
   initialPassword: z.string().min(12).max(128).optional(),
@@ -209,6 +252,10 @@ export const UpdateUserSchema = UserSchema.omit({
   emailVerificationExpiresAt: true, // internal
   passwordResetToken: true, // internal security token
   passwordResetExpiresAt: true, // internal
+  mfaEnabled: true, // managed via /v1/auth/mfa endpoints
+  mfaSecret: true, // internal security material
+  mfaRecoveryCodes: true, // internal security material
+  mfaEnabledAt: true, // managed via /v1/auth/mfa endpoints
 }).partial();
 
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;

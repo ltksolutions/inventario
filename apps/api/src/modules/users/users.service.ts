@@ -554,6 +554,10 @@ export class UsersService {
       lastLoginAt: now,
       invitationSentAt: null,
       mustChangePassword: false,
+      mfaEnabled: false,
+      mfaSecret: null,
+      mfaRecoveryCodes: [],
+      mfaEnabledAt: null,
       preferences: {
         language: 'sk',
         timezone: 'Europe/Bratislava',

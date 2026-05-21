@@ -315,6 +315,20 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         $set: { lastLoginAt: new Date().toISOString() },
       });
 
+      // -- MFA gate (Slice #7) ------------------------------------------
+      // If the user has MFA enabled, do NOT issue access cookies. Issue
+      // a short-lived mfaSessionToken instead; the frontend will collect
+      // a TOTP code and call POST /v1/auth/mfa/challenge to exchange
+      // both for the real cookies.
+      if (user.mfaEnabled === true) {
+        const mfaSessionToken = await fastify.inventarioJwt.issueMfaSessionToken(String(user._id));
+        fastify.log.info({ userId: String(user._id), email }, 'Email/password login: MFA required');
+        return reply.code(202).send({
+          mfaRequired: true,
+          mfaSessionToken,
+        });
+      }
+
       // Issue tokens
       const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);

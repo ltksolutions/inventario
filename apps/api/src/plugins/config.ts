@@ -111,6 +111,22 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().startsWith('re_', 'RESEND_API_KEY must start with re_').optional(),
 
   // ---------------------------------------------------------------------
+  // TOTP MFA (Slice #7)
+  // ---------------------------------------------------------------------
+  //
+  // 32-byte (64 hex chars) symmetric key for AES-256-GCM encryption of
+  // user TOTP secrets at rest. Generate with:
+  //   openssl rand -hex 32
+  // In tests: the test setup generates an ephemeral key. In production:
+  // set this env var to a stable 64-hex-char string. NEVER commit it.
+  //
+  // If unset, MFA endpoints fail at boot (mfa.routes.ts checks).
+  MFA_SECRET_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/i, 'MFA_SECRET_ENCRYPTION_KEY must be 64 hex chars (32 bytes)')
+    .optional(),
+
+  // ---------------------------------------------------------------------
   // JWT — Inventario JWT (ADR-0013)
   // ---------------------------------------------------------------------
   // RS256 key pair for signing/verifying Inventario access tokens.

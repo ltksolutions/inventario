@@ -110,7 +110,7 @@ export class InvitationsRepository {
           limit,
           skip,
           sort: { invitationSentAt: -1 },
-          projection: { passwordHash: 0 },
+          projection: { passwordHash: 0, mfaSecret: 0, mfaRecoveryCodes: 0 },
         })
         .toArray(),
       this.users.countDocuments(filter),

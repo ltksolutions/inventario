@@ -162,6 +162,10 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         lastLoginAt: null,
         invitationSentAt: now,
         mustChangePassword: false,
+        mfaEnabled: false,
+        mfaSecret: null,
+        mfaRecoveryCodes: [],
+        mfaEnabledAt: null,
         preferences: {
           language: 'sk',
           timezone: 'Europe/Bratislava',
