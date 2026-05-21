@@ -9,6 +9,7 @@ import {
   Home,
   Layers,
   Library,
+  Lock,
   Mail,
   MapPin,
   Menu,
@@ -79,6 +80,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/locations', label: 'Lokality', icon: MapPin },
   { href: '/users', label: 'Používatelia', icon: Users },
   { href: '/settings/invitations', label: 'Pozvánky', icon: Mail },
+  { href: '/settings/security', label: 'Bezpečnosť', icon: Lock },
 ] as const;
 
 const ROLE_LABELS: Record<string, string> = {

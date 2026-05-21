@@ -62,6 +62,16 @@ export function LoginPage(): JSX.Element {
         return;
       }
 
+      // MFA required — store session token and redirect to challenge page
+      if (res.status === 202) {
+        const body = (await res.json()) as { mfaRequired?: boolean; mfaSessionToken?: string };
+        if (body.mfaRequired && body.mfaSessionToken) {
+          sessionStorage.setItem('mfa_session_token', body.mfaSessionToken);
+          router.push('/login/mfa');
+          return;
+        }
+      }
+
       const body = (await res.json()) as { message?: string };
       setFormError(body.message ?? 'Nesprávny e-mail alebo heslo.');
     } catch {
