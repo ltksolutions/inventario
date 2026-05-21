@@ -352,18 +352,20 @@ describe('GET /v1/invitations', () => {
   });
 
   it('lists pending invitations after creation', async () => {
-    await app.inject({
+    const r1 = await app.inject({
       method: 'POST',
       url: '/v1/invitations',
       headers: { cookie: `inv_access=${adminToken}` },
-      payload: validInviteBody({ email: 'alpha@example.com' }),
+      payload: validInviteBody(),
     });
-    await app.inject({
+    const r2 = await app.inject({
       method: 'POST',
       url: '/v1/invitations',
       headers: { cookie: `inv_access=${adminToken}` },
-      payload: validInviteBody({ email: 'beta@example.com' }),
+      payload: validInviteBody(),
     });
+    expect(r1.statusCode).toBe(201);
+    expect(r2.statusCode).toBe(201);
     const res = await app.inject({
       method: 'GET',
       url: '/v1/invitations',

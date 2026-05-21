@@ -121,7 +121,12 @@ export class InvitationsRepository {
 
   /** Insert a new pending invite User document. Returns the inserted _id as string. */
   async insertInvite(doc: Omit<User, '_id'>): Promise<string> {
-    const { insertedId } = await this.users.insertOne(doc as unknown as User);
+    // entraOid must be ABSENT (not null) from invite documents.
+    // The sparse unique index on entraOid indexes null values, so two
+    // invite docs with entraOid:null would cause an E11000 duplicate key.
+    // Omitting the field entirely keeps invites outside the index.
+    const { entraOid: _omit, ...insertDoc } = doc;
+    const { insertedId } = await this.users.insertOne(insertDoc as unknown as User);
     return insertedId.toString();
   }
 
