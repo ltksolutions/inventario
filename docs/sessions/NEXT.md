@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                  |
 | ------------------------- | -------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-21 (noc — Threshold + ToS + Privacy Policy)      |
+| **Posledná aktualizácia** | 2026-05-21 (noc — Compliance Fáza 1 kompletná)           |
 | **Aktuálna fáza**         | Pre-pilot compliance preparation                         |
 | **Posledný session log**  | [`2026-05-21-day-summary.md`](2026-05-21-day-summary.md) |
 
@@ -21,7 +21,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 - **Slice #6c K18** invite flow (backend + frontend) — kompletný
 - **Slice #7 TOTP MFA** — kompletný, 480/480 testov
-- **8 compliance dokumentov** vyrobených (DPA Template, 2× ROPA, sub-processors, Compliance README, Threshold Assessment, ToS + AUP + SLA, Privacy Policy)
+- **10 compliance dokumentov** vyrobených (DPA, 2× ROPA, sub-processors, README, Threshold, ToS+AUP+SLA, Privacy Policy, Breach Plan, DR Plan)
+- **Compliance Fáza 1 kompletná** — všetky blocking dokumenty pre go-live SFZ pilot
 - **Strategický pivot ujasnený** — Inventario je komerčný produkt LTK Solutions, SFZ je tenant #1
 
 ### 🎯 Stratégia jasná
@@ -37,17 +38,17 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## ⏭️ Najbližšie kroky (priorita HIGH)
 
-### 1. Compliance Fáza 1 — dokončenie (~2 h zostáva)
+### 1. Compliance Fáza 1 — ✅ KOMPLETNÁ
 
-| #   | Dokument                                                           | Model      | Trvanie | Stav               |
-| --- | ------------------------------------------------------------------ | ---------- | ------- | ------------------ |
-| 1   | **Privacy Policy** pre `inventario.estate` (verejná stránka)       | Sonnet 4.6 | ~3 h    | ✅ Done 2026-05-21 |
-| 2   | **Terms of Service** LTK ↔ tenant (vrátane AUP + SLA príloh)       | Opus 4.7   | ~4 h    | ✅ Done 2026-05-21 |
-| 3   | **Breach Notification Plan** (interný, čl. 33–34)                  | Sonnet 4.6 | ~1 h    | ⏳ Pending         |
-| 4   | **Disaster Recovery Plan** (kontinuita prevádzky)                  | Sonnet 4.6 | ~1 h    | ⏳ Pending         |
-| 5   | **Threshold Assessment / DPIA Pre-screen** pre Inventario platform | Opus 4.7   | ~2 h    | ✅ Done 2026-05-21 |
+| #   | Dokument                                       | Model      | Stav               |
+| --- | ---------------------------------------------- | ---------- | ------------------ |
+| 1   | **Privacy Policy** pre `inventario.estate`     | Sonnet 4.6 | ✅ Done 2026-05-21 |
+| 2   | **Terms of Service** + AUP + SLA               | Opus 4.7   | ✅ Done 2026-05-21 |
+| 3   | **Breach Notification Plan** (čl. 33–34 GDPR)  | Sonnet 4.6 | ✅ Done 2026-05-21 |
+| 4   | **Disaster Recovery Plan** (RPO ≤24h, RTO ≤8h) | Sonnet 4.6 | ✅ Done 2026-05-21 |
+| 5   | **Threshold Assessment / DPIA Pre-screen**     | Opus 4.7   | ✅ Done 2026-05-21 |
 
-> Fáza 1 je na 97 % hotová — zostávajú len dva interné procesné dokumenty (Breach Plan + DR Plan), každý ~1h Sonnet 4.6. Hotové sú všetky verejné a zákaznícke dokumenty potrebné pred go-live.
+> **Compliance Fáza 1 je hotová.** Nasledujúce akcie: zrúdenie mailboxov, právny review advokátom, akcie na SFZ strane a Vercel prod env vars.
 
 ### 2. SFZ-side akčné body (pred podpisom DPA)
 
@@ -149,9 +150,9 @@ Otvor docs/sessions/NEXT.md pre aktuálny stav.
 Najnovší day summary: docs/sessions/2026-05-21-day-summary.md
 
 Najbližšie kroky:
-1. Compliance Fáza 1 dokončenie — Breach Plan (Sonnet, ~1h) + DR Plan (Sonnet, ~1h)
-2. Alebo K18.3 OAuth invite accept (~2-3 h, technický feature)
-3. Alebo K18.7 + K21 milestone docs (~30 min, rýchle uzavretie)
+1. Tabletop exercise + DR test pred go-live (interné akcie, nie coding)
+2. Alebo K18.3 OAuth invite accept (~2-3 h, Sonnet 4.6)
+3. Alebo K18.7 + K21 milestone docs (~30 min, Haiku 4.5)
 
 Model: závisí od úlohy — viď NEXT.md "Model routing" sekciu.
 

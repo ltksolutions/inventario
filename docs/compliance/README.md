@@ -29,6 +29,13 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 | [`legal/terms-of-service.md`](./legal/terms-of-service.md) | **Terms of Service** — Všeobecné obchodné podmienky používania platformy Inventario (Hlavná zmluva v zmysle DPA), vrátane AUP a SLA |
 | [`legal/sub-processors.md`](./legal/sub-processors.md)     | **Verejný register sub-processors** — publikovaný na https://inventario.estate/sub-processors                                       |
 
+### Interné procesné dokumenty
+
+| Dokument                                                       | Účel                                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [`breach-notification-plan.md`](./breach-notification-plan.md) | **Breach Notification Plan** — postup pri Porušení ochrany OÚ (čl. 33–34 GDPR) |
+| [`disaster-recovery-plan.md`](./disaster-recovery-plan.md)     | **Disaster Recovery Plan** — obnova po havárii, RPO ≤ 24h, RTO ≤ 8h            |
+
 ### Posúdenie rizika
 
 | Dokument                                               | Účel                                                                                                                      |
@@ -50,16 +57,15 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 - ROPA Processor view (`gdpr-article-30.md` v2.0)
 - ROPA Controller view (`gdpr-article-30-controller.md`)
 - DPA Template (`legal/dpa-template.md`)
+- Breach Notification Plan (`breach-notification-plan.md`)
+- Disaster Recovery Plan (`disaster-recovery-plan.md`)
 - Privacy Policy (`legal/privacy-policy.md`)
 - Terms of Service + AUP + SLA (`legal/terms-of-service.md`)
 - Sub-processor list (`legal/sub-processors.md`)
 - Threshold Assessment / DPIA Pre-screen (`threshold-assessment.md`)
 - WCAG 2.1 AA audit
 
-### ⏳ Pripravované — Fáza 1 (blocking pre go-live SFZ pilot)
-
-- **Breach Notification Plan** (interný procesný dokument, čl. 33 — 34 GDPR)
-- **Disaster Recovery Plan** (kontinuita prevádzky platformy)
+### ✅ Fáza 1 kompletná — všetky dokumenty pre go-live SFZ pilot
 
 ### ⏳ Pripravované — Fáza 2 (pred ďalšími tenant-mi po SFZ)
 
