@@ -25,13 +25,20 @@ Tým získaš okamžitý kontext za 30 sekúnd.
 
 ### 2026-05
 
-| Súbor                                                              | Typ               | Popis                                                                 |
-| ------------------------------------------------------------------ | ----------------- | --------------------------------------------------------------------- |
-| [`NEXT.md`](NEXT.md)                                               | **Living**        | **Continuation plan** — vždy aktuálny stav projektu a plán ďalej      |
-| [`2026-05-16-day-summary.md`](2026-05-16-day-summary.md)           | Day summary       | Marketing polish + interactive demo + Nextra docs deploy + clean URLs |
-| [`2026-05-15-design-pivot.md`](2026-05-15-design-pivot.md)         | Pre-session plan  | Plán dňa: pivot SFZ → Inventario, design exploration                  |
-| [`2026-05-15-day-summary.md`](2026-05-15-day-summary.md)           | Day summary       | Súhrn celej session: pivot + design + brand + marketing + pricing     |
-| [`2026-05-15-pricing-strategy.md`](2026-05-15-pricing-strategy.md) | Internal strategy | Cenová stratégia pre Sales calls (Free, Pro, Annual Contract)         |
+| Súbor                                                                            | Typ               | Popis                                                                                     |
+| -------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------- |
+| [`NEXT.md`](NEXT.md)                                                             | **Living**        | **Continuation plan** — vždy aktuálny stav projektu a plán ďalej                          |
+| [`2026-05-21-day-summary.md`](2026-05-21-day-summary.md)                         | Day summary       | Slice #6c K18 invite flow + Slice #7 TOTP MFA + DPIA strategia + 5 compliance dokumentov  |
+| [`2026-05-20-night-slice-6c-progress.md`](2026-05-20-night-slice-6c-progress.md) | Day summary       | Slice #6c K17 Bearer cutover + K17.5 email provider abstraction (Ecomail + Resend + stub) |
+| [`2026-05-20-slice-6c-k18-design.md`](2026-05-20-slice-6c-k18-design.md)         | Pre-session plan  | K18 invitations dizajn dokument (backend + frontend architektúra)                         |
+| [`2026-05-20-evening-day-summary.md`](2026-05-20-evening-day-summary.md)         | Day summary       | Slice #6c K17 údržba + plan pre K18                                                       |
+| [`2026-05-20-day-summary.md`](2026-05-20-day-summary.md)                         | Day summary       | Slice #6c K17 progress                                                                    |
+| [`2026-05-18-day-summary.md`](2026-05-18-day-summary.md)                         | Day summary       | Slice #6c K15+K16 (Inventario JWT + frontend cookie auth)                                 |
+| [`2026-05-17-day-summary.md`](2026-05-17-day-summary.md)                         | Day summary       | Slice #6a + K14 multi-provider auth foundation                                            |
+| [`2026-05-16-day-summary.md`](2026-05-16-day-summary.md)                         | Day summary       | Marketing polish + interactive demo + Nextra docs deploy + clean URLs                     |
+| [`2026-05-15-design-pivot.md`](2026-05-15-design-pivot.md)                       | Pre-session plan  | Plán dňa: pivot SFZ → Inventario, design exploration                                      |
+| [`2026-05-15-day-summary.md`](2026-05-15-day-summary.md)                         | Day summary       | Súhrn celej session: pivot + design + brand + marketing + pricing                         |
+| [`2026-05-15-pricing-strategy.md`](2026-05-15-pricing-strategy.md)               | Internal strategy | Cenová stratégia pre Sales calls (Free, Pro, Annual Contract)                             |
 
 ---
 
