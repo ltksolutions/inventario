@@ -84,19 +84,31 @@ const envSchema = z.object({
   FRONTEND_BASE_URL: z.string().url().default('http://localhost:3001'),
 
   // ---------------------------------------------------------------------
-  // Email (ADR-0013) — nodemailer + SMTP
+  // Email — provider-agnostic (Slice #6c K17.5)
   // ---------------------------------------------------------------------
-  // All optional — if not set, emails are logged to console (dev mode).
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
-  SMTP_SECURE: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((v) => v === 'true'),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
-  /** From address shown to recipients. */
-  EMAIL_FROM: z.string().default('Inventario <noreply@inventario.estate>'),
+  //
+  // EMAIL_PROVIDER selects the transport for all system emails:
+  //   - 'ecomail' → Ecomail.cz transactional API (production default)
+  //   - 'resend'  → Resend.com API
+  //   - 'stub'    → log to console (dev/test default)
+  //
+  // When provider is 'ecomail', ECOMAIL_API_KEY is required.
+  // When provider is 'resend',  RESEND_API_KEY  is required.
+  // The plugin validates this at boot.
+  EMAIL_PROVIDER: z.enum(['ecomail', 'resend', 'stub']).default('stub'),
+  /** From address shown to recipients. E.g. noreply@inventario.estate */
+  EMAIL_FROM_ADDRESS: z.string().email().default('noreply@inventario.estate'),
+  /** From display name. E.g. "Inventario" */
+  EMAIL_FROM_NAME: z.string().min(1).default('Inventario'),
+  /** Optional reply-to address. */
+  EMAIL_REPLY_TO: z.string().email().optional(),
+
+  // Ecomail.cz transactional API
+  // Get your key: Manage your account → For developers → Copy API Key
+  ECOMAIL_API_KEY: z.string().min(1).optional(),
+
+  // Resend.com API key. Format: re_xxxxx
+  RESEND_API_KEY: z.string().startsWith('re_', 'RESEND_API_KEY must start with re_').optional(),
 
   // ---------------------------------------------------------------------
   // JWT — Inventario JWT (ADR-0013)

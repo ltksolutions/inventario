@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * Email plugin — nodemailer SMTP transport, K6 per ADR-0013.
+ * Email plugin — templating + provider selection.
  *
- * Decorates `fastify.emailService` with typed send methods.
+ * Slice #6c K17.5: nodemailer/SMTP replaced with provider abstraction.
+ * Active provider is chosen via `EMAIL_PROVIDER` env var:
+ *   - 'ecomail' → Ecomail.cz transactional API (production default)
+ *   - 'resend'  → Resend.com
+ *   - 'stub'    → console logger (dev/test)
  *
- * Behaviour by environment:
- *   - SMTP_HOST set → real SMTP transport (production / staging)
- *   - SMTP_HOST not set → console stub (logs subject + recipient + URL)
- *
- * Templates are inline HTML strings — no template engine dependency.
+ * Templates remain inline HTML strings — no template engine dependency.
  * They use the Inventario brand colours (Navy #1A2D47, Blue #388FC3).
  *
  * Usage:
@@ -19,10 +19,13 @@
  */
 
 import fp from 'fastify-plugin';
-import nodemailer from 'nodemailer';
 
+import { createEcomailProvider } from './email-providers/ecomail.provider.js';
+import { createResendProvider } from './email-providers/resend.provider.js';
+import { createStubProvider } from './email-providers/stub.provider.js';
+
+import type { EmailProvider } from './email-providers/types.js';
 import type { FastifyPluginAsync } from 'fastify';
-import type { Transporter } from 'nodemailer';
 
 // ---------------------------------------------------------------------------
 // Service interface
@@ -46,7 +49,9 @@ export interface EmailService {
    */
   sendPasswordResetEmail(to: string, token: string, frontendUrl: string): Promise<void>;
 
-  /** Whether a real SMTP transport is configured. False = console stub. */
+  /** Name of the active provider — for diagnostics. */
+  readonly providerName: EmailProvider['name'];
+  /** Whether the active provider is a real transport (false for stub). */
   readonly isConfigured: boolean;
 }
 
@@ -65,55 +70,75 @@ declare module 'fastify' {
 // ---------------------------------------------------------------------------
 
 const emailPlugin: FastifyPluginAsync = async (fastify) => {
-  const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, EMAIL_FROM } = fastify.config;
+  const {
+    EMAIL_PROVIDER,
+    EMAIL_FROM_ADDRESS,
+    EMAIL_FROM_NAME,
+    EMAIL_REPLY_TO,
+    ECOMAIL_API_KEY,
+    RESEND_API_KEY,
+    NODE_ENV,
+  } = fastify.config;
 
-  let transporter: Transporter | null = null;
+  const providerCtx = {
+    fromAddress: EMAIL_FROM_ADDRESS,
+    fromName: EMAIL_FROM_NAME,
+    replyTo: EMAIL_REPLY_TO,
+    logger: fastify.log,
+  };
 
-  if (SMTP_HOST) {
-    transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_SECURE,
-      ...(SMTP_USER && SMTP_PASS ? { auth: { user: SMTP_USER, pass: SMTP_PASS } } : {}),
-    });
+  // -------------------------------------------------------------------------
+  // Provider selection + boot-time validation
+  // -------------------------------------------------------------------------
+  let provider: EmailProvider;
 
-    // Verify SMTP connection at startup
-    try {
-      await transporter.verify();
-      fastify.log.info({ host: SMTP_HOST, port: SMTP_PORT }, 'SMTP transport verified');
-    } catch (err) {
-      fastify.log.warn(
-        { err, host: SMTP_HOST },
-        'SMTP transport verify failed — emails may not send',
+  if (EMAIL_PROVIDER === 'ecomail') {
+    if (!ECOMAIL_API_KEY) {
+      throw new Error(
+        'EMAIL_PROVIDER=ecomail but ECOMAIL_API_KEY is not set. ' +
+          'Add ECOMAIL_API_KEY to .env.local or change EMAIL_PROVIDER.',
       );
     }
+    provider = createEcomailProvider({ ...providerCtx, apiKey: ECOMAIL_API_KEY });
+  } else if (EMAIL_PROVIDER === 'resend') {
+    if (!RESEND_API_KEY) {
+      throw new Error(
+        'EMAIL_PROVIDER=resend but RESEND_API_KEY is not set. ' +
+          'Add RESEND_API_KEY (re_xxx) to .env.local or change EMAIL_PROVIDER.',
+      );
+    }
+    provider = createResendProvider({ ...providerCtx, apiKey: RESEND_API_KEY });
   } else {
-    fastify.log.info('SMTP_HOST not set — email service in console stub mode');
+    provider = createStubProvider(providerCtx);
+    if (NODE_ENV === 'production') {
+      fastify.log.warn(
+        'EMAIL_PROVIDER=stub in production — emails will NOT be delivered. ' +
+          'Set EMAIL_PROVIDER=ecomail (or resend) and the matching API key.',
+      );
+    }
   }
 
+  fastify.log.info(
+    { provider: provider.name, fromAddress: EMAIL_FROM_ADDRESS, fromName: EMAIL_FROM_NAME },
+    'Email service ready',
+  );
+
+  // -------------------------------------------------------------------------
+  // Service surface
+  // -------------------------------------------------------------------------
   const service: EmailService = {
-    isConfigured: transporter !== null,
+    providerName: provider.name,
+    isConfigured: provider.isConfigured,
 
     async send({ to, subject, html, text }) {
-      if (!transporter) {
-        fastify.log.info({ to, subject }, '[EMAIL-STUB] Would send email');
-        return;
-      }
-      await transporter.sendMail({ from: EMAIL_FROM, to, subject, html, text });
+      await provider.send({ to, subject, html, ...(text ? { text } : {}) });
     },
 
     async sendVerificationEmail(to, token, apiBaseUrl) {
       const url = `${apiBaseUrl}/v1/auth/verify-email?token=${token}`;
-      const subject = 'Potvrďte svoju e-mailovú adresu — Inventario';
-
-      if (!transporter) {
-        fastify.log.info({ to, verificationUrl: url }, '[EMAIL-STUB] Verification email');
-        return;
-      }
-
-      await this.send({
+      await provider.send({
         to,
-        subject,
+        subject: 'Potvrďte svoju e-mailovú adresu — Inventario',
         html: verificationEmailHtml(url),
         text: `Potvrďte e-mail: ${url} (platnosť 24 hodín)`,
       });
@@ -121,16 +146,9 @@ const emailPlugin: FastifyPluginAsync = async (fastify) => {
 
     async sendPasswordResetEmail(to, token, frontendUrl) {
       const url = `${frontendUrl}/reset-password?token=${token}`;
-      const subject = 'Obnovenie hesla — Inventario';
-
-      if (!transporter) {
-        fastify.log.info({ to, resetUrl: url }, '[EMAIL-STUB] Password reset email');
-        return;
-      }
-
-      await this.send({
+      await provider.send({
         to,
-        subject,
+        subject: 'Obnovenie hesla — Inventario',
         html: passwordResetEmailHtml(url),
         text: `Obnovte heslo: ${url} (platnosť 1 hodinu)`,
       });
