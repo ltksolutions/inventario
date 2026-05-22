@@ -20,6 +20,7 @@
   ];
 
   const EXTERNAL_LINKS = {
+    app: 'https://app.inventario.estate',
     docs: 'https://docs.inventario.estate',
     github: 'https://github.com/ltksolutions/inventario',
     sportup: 'https://sportup.sk',
@@ -73,8 +74,8 @@
                             <button class="active" data-lang="sk" aria-pressed="true">SK</button>
                             <button disabled data-lang="en" aria-label="English (čoskoro)" title="Čoskoro">EN</button>
                         </div>
-                        <a href="${EXTERNAL_LINKS.github}" class="btn btn-primary" style="padding: 0.55rem 1rem; font-size: 0.85rem;" target="_blank" rel="noopener">
-                            Vyskúšať
+                        <a href="${EXTERNAL_LINKS.app}" class="btn btn-primary" style="padding: 0.55rem 1rem; font-size: 0.85rem;">
+                            Otvoriť aplikáciu
                         </a>
                         <button class="nav-mobile-toggle" id="nav-mobile-toggle" aria-label="Otvoriť menu" aria-expanded="false" aria-controls="site-nav">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
