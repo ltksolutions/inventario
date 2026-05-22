@@ -37,7 +37,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 ### Backend (slice #1 → #3 partial)
 
-- [x] pnpm monorepo s Turborepo (apps/api, apps/web, apps/mcp-server, packages/shared-types, design-tokens)
+- [x] pnpm monorepo s Turborepo (apps/api, apps/web, apps/docs, packages/shared-types, design-tokens)
 - [x] Fastify + TypeScript + Zod backend
 - [x] MongoDB Atlas Flex (dev + prod clustery)
 - [x] Microsoft Entra ID SSO (JWT verifikácia + JWKS rotation + JIT user provisioning)
@@ -57,7 +57,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [x] 4 demo tenanti s vlastnými brand identitámi
 - [x] Marketingový web (5 stránok + landing + demo wrapper)
 - [x] **Interactive demo** stranka (interactive-demo.html, 6 obrazoviek, dual-mode sticky bar)
-- [x] **Documentation site** (Nextra v4.6.0 + Next.js 15.5, 7 stránok, Pagefind search) — https://docs.inventario.sportup.sk
+- [x] **Documentation site** (Nextra v4.6.0 + Next.js 15.5, 7 stránok, Pagefind search) — https://docs.inventario.estate
 - [x] **Clean URLs** po celom marketing site (vrchná nav + footer + cross-page CTAs)
 - [x] Favicon, Open Graph meta tags
 - [x] Brand pattern overlay (CSS, scalable)
@@ -182,12 +182,15 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 **Cieľ:** AI-augmented user experience.
 
-### MCP server expansion
+### MCP server (nový `apps/mcp-server` workspace)
 
-- [ ] MCP server hostovaný (production endpoint)
-- [ ] AI tools: search assets, request loan, approve, generate reports
-- [ ] Documentation chatbot s RAG over docs.inventario.estate
-- [ ] Anthropic Claude API integration
+- [ ] **Bootstrap** `apps/mcp-server` workspace v monorepe (TypeScript + MCP SDK)
+- [ ] **Production endpoint** hostovaný na Vercel (`mcp.inventario.estate`)
+- [ ] **AI tools** — search assets, request loan, approve, generate reports
+- [ ] **OpenAPI 3.1 → MCP tools** auto-generovanie (z existujúceho API spec)
+- [ ] **Auth** — bearer JWT s tenant-scoped permissions (rovnaký RBAC ako REST API)
+- [ ] **Documentation chatbot** s RAG over docs.inventario.estate
+- [ ] **Anthropic Claude API** integration pre in-app chatbot
 
 ### Chatbot v aplikácii
 
@@ -303,10 +306,11 @@ Táto roadmapa sa **aktualizuje raz za quarter** alebo pri zásadných zmenách 
 
 Update history:
 
-| Dátum      | Verzia | Zmena                                       |
-| ---------- | ------ | ------------------------------------------- |
-| 2026-05-15 | v1.0   | Initial roadmap                             |
-| 2026-05-22 | v1.1   | Refresh — 962 testov, founding contributors |
+| Dátum      | Verzia | Zmena                                                                                                                                                                      |
+| ---------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-15 | v1.0   | Initial roadmap                                                                                                                                                            |
+| 2026-05-22 | v1.1   | Refresh — 962 testov, founding contributors                                                                                                                                |
+| 2026-05-22 | v1.2   | MCP server reframe — odstránený z Done (apps/mcp-server zatiaľ neexistuje), presúnutý do v0.7 ako proper backlog s konkrétnymi týmovi; opravená docs.inventario.estate URL |
 
 ---
 

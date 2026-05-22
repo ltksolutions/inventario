@@ -136,6 +136,53 @@ Backend testy:   962/962 (nezmenené)
 
 ---
 
+### D. Marketing site → app prepojenie + MCP server reframe
+
+Marketing site dostal kompletnú CTA migráciu na live appku `app.inventario.estate`:
+
+**`shared.js`:**
+
+- Pridaný `EXTERNAL_LINKS.app = 'https://app.inventario.estate'`
+- Nav tlačidlo "Vyskúšať" → "Otvoriť aplikáciu" (GitHub → app)
+
+**`index.html`:**
+
+- Stat: 257 → 962 Backend testov
+- Hero "Vyskúšať zadarmo" CTA → `app.inventario.estate/register`
+- REUSE badge: "175/175" odstránené (zastarané číslo)
+- EU compliance karta: odstránené "(175/175 súborov)" a "v plánoch"
+- "SFZ, hokejový zväz" → "Športové zväzy, hokejový zväz"
+- Bottom CTA: "Otvor si vlastný účet" → "Vyskúšaj Inventario už dnes" + primary CTA na `/register`
+
+**`pricing.html`:**
+
+- Free "Začať zadarmo" → `app.inventario.estate/register`
+- Pro Small "Začať 14-dňový trial" → `app.inventario.estate/register`
+
+**`technology.html` — MCP server reframe:**
+
+Marketing site sľuboval **MCP server** ako hotovú technológiu (tech stack karta + API & integrácie sekcia). V repe však `apps/mcp-server` neexistuje. Riesenie:
+
+- Obe spomenutia označené ako **"V roadmape"** badge
+- Tech stack karta: pridaný badge "V roadmape · v0.7"
+- API & integrácie karta: pridaný inline badge + spresnené "Plánované vo v0.7 (Q1 2027)"
+
+**`ROADMAP.md` — dve opravy:**
+
+- Odstránený `apps/mcp-server` z **Done** sekcie (workspace neexistuje) — nahradený `apps/docs`
+- v0.7 sekcia MCP servera prepracovaná z "expansion" na "nový workspace" s konkrétnymi týmami:
+  - Bootstrap `apps/mcp-server` (TypeScript + MCP SDK)
+  - Production endpoint na `mcp.inventario.estate`
+  - OpenAPI 3.1 → MCP tools auto-generovanie
+  - Tenant-scoped auth (bearer JWT, rovnaký RBAC ako REST)
+  - RAG chatbot nad `docs.inventario.estate`
+  - Anthropic Claude API integration
+- Opravená docs URL: `docs.inventario.sportup.sk` → `docs.inventario.estate`
+
+Commit: `feat(marketing): connect marketing site to live app + reframe MCP server as v0.7 roadmap`
+
+---
+
 ## Stav projektu na konci dňa
 
 | Oblasť                                | Status                     |

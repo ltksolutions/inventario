@@ -7,11 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                         |
-| ------------------------- | --------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-22 (SFZ naratívna migrácia + sub-processors + env vars) |
-| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review               |
-| **Posledný session log**  | [`2026-05-22-day-summary.md`](2026-05-22-day-summary.md)        |
+| Atribút                   | Hodnota                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Posledná aktualizácia** | 2026-05-22 (SFZ migrácia + sub-processors + env vars + marketing app prepojenie + MCP roadmap reframe) |
+| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review                                                      |
+| **Posledný session log**  | [`2026-05-22-day-summary.md`](2026-05-22-day-summary.md)                                               |
 
 ---
 
@@ -47,7 +47,8 @@ Pred prvým produkčným tenant-om treba:
 1. ✅ Compliance dokumenty (Fáza 1) — HOTOVO
 2. ✅ Env vars na Vercel prod — HOTOVO 2026-05-22
 3. ✅ Sub-processors verejná stránka — HOTOVO 2026-05-22
-4. ⏳ Právny review slovenským advokátom — PENDING
+4. ✅ Marketing site → live app prepojenie — HOTOVO 2026-05-22
+5. ⏳ Právny review slovenským advokátom — PENDING
 
 ---
 
@@ -67,11 +68,13 @@ Pred prvým produkčným tenant-om treba:
 
 ### 2. Pred-launch action items
 
-| #   | Úloha                                                                             | Vlastník        | Stav                 |
-| --- | --------------------------------------------------------------------------------- | --------------- | -------------------- |
-| 1   | Mailboxy `privacy@`, `security@`, `legal@` na `inventario.estate`                 | Ján (technicky) | ✅ Hotové            |
-| 2   | **Právny review compliance dokumentov** slovenským GDPR/IT advokátom (~300–500 €) | Externý advokát | ⏳ PENDING           |
-| 3   | Verejná stránka `https://inventario.estate/sub-processors`                        | Dev             | ✅ Hotové 2026-05-22 |
+| #   | Úloha                                                                                   | Vlastník        | Stav                 |
+| --- | --------------------------------------------------------------------------------------- | --------------- | -------------------- |
+| 1   | Mailboxy `privacy@`, `security@`, `legal@` na `inventario.estate`                       | Ján (technicky) | ✅ Hotové            |
+| 2   | **Právny review compliance dokumentov** slovenským GDPR/IT advokátom (~300–500 €)       | Externý advokát | ⏳ PENDING           |
+| 3   | Verejná stránka `https://inventario.estate/sub-processors`                              | Dev             | ✅ Hotové 2026-05-22 |
+| 4   | **Marketing site CTAs → `app.inventario.estate`** (shared.js, index.html, pricing.html) | Dev             | ✅ Hotové 2026-05-22 |
+| 5   | **MCP server reframe** v `technology.html` + `ROADMAP.md` (z Done → v0.7 backlog)       | Dev             | ✅ Hotové 2026-05-22 |
 
 ### 3. Technické pred-launch tasks
 
@@ -113,6 +116,8 @@ Naplánovať na Q3 2026.
 - **Admin MFA reset** — ADMIN deaktivuje MFA userovi v `/settings/users/:id` (emergency path keď user stratí authenticator). ~1 h. Sonnet 4.6.
 
 ### Priorita MEDIUM
+
+- **MCP server (`apps/mcp-server`)** — Marketing site už propaguje (v0.7 / Q1 2027). Bootstrap nového workspace v monorepe: TypeScript + MCP SDK, OpenAPI 3.1 → MCP tools auto-generovanie, tenant-scoped JWT auth, hosting na `mcp.inventario.estate`. Opus 4.7 design (~2 h) + Sonnet 4.6 impl (~1–2 dni).
 
 - **Passkeys / WebAuthn (Slice #8)** — passwordless login (Touch ID, Face ID, Windows Hello). `@simplewebauthn/server` + `@simplewebauthn/browser`. Nová `passkeys` collection. ~2–3 dni. Opus 4.7 design + Sonnet impl.
 
@@ -215,6 +220,6 @@ Model routing: viď tabuľka vyššie.
 
 ---
 
-**Last updated:** 2026-05-22 (SFZ naratívna migrácia hotová — Inventario je LTK Solutions produkt, SFZ je founding contributor)
-**Status:** Slice #6c + #7 kompletné. 962 testov. Sub-processors live. Launch-ready 90%. Waiting on legal review.
+**Last updated:** 2026-05-22 (marketing site → app prepojenie + MCP server reframe z Done na v0.7 roadmap backlog)
+**Status:** Slice #6c + #7 kompletné. 962 testov. Sub-processors live. Marketing site prepojený s app.inventario.estate. Launch-ready 90%. Waiting on legal review.
 **Next session:** TBD
