@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 > **Status:** Interný dokument pre Sales calls a vyjednávanie.
 > **Audience:** Maintainers, Sales kontakt osoby.
 > **Posledná aktualizácia:** 15. máj 2026
-> **Verzia:** v1.0 (post-pivot)
+> **Verzia:** v1.0
 
 ---
 
@@ -16,7 +16,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Inventario používa **hybrid pricing model**:
 
-- Na webe (`inventario.sportup.sk/pricing`): **Free a Pro Small s konkrétnymi cenami**, vyššie tieri "Kontakt"
+- Na webe (`inventario.estate/pricing`): **Free a Pro Small s konkrétnymi cenami**, vyššie tieri "Kontakt"
 - V Sales calls (verejný sektor): **Annual contract model** s 4 veľkostnými kategóriami
 - Pre B2B SaaS zákazníkov: **Mesačné per-organisation flat pricing**
 

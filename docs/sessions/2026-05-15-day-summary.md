@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Session Summary — 15. máj 2026
 
-> **Typ session:** Multi-day strategic pivot + brand + pricing
+> **Typ session:** Design + brand + pricing + marketing web + live deploy
 > **Dĺžka:** ~8 hodín (s prestávkami)
 > **Status:** ✅ Completed successfully
 > **Partneri:** Ján Letko (LTK Solutions) + Claude Opus 4.7
@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## TL;DR
 
-Najdôležitejšia session od začiatku projektu. Premenili sme **SFZ Asset Management** (interný nástroj jedného zväzu) na **Inventario** (otvorenú multi-tenant platformu pre evidenciu majetku pre celý slovenský verejný a neziskový sektor).
+Kľúčová session. Finalizovali sme **multi-tenant white-label architektúru Inventaria**, vybudovali brand systém v1.0, pricing stratégiu, marketingový web a spustili LIVE deploy.
 
 **Output:** ~9 000 LOC kódu + dokumentácie, 25+ nových súborov, kompletný brand systém, marketingový web, pricing stratégia.
 
@@ -22,12 +22,12 @@ Najdôležitejšia session od začiatku projektu. Premenili sme **SFZ Asset Mana
 
 ## Čo sme reálne spravili (chronologicky)
 
-### 1. Fáza A — Strategický pivot (~1.5 hod)
+### 1. Fáza A — Multi-tenant white-label stratégia (~1.5 hod)
 
 #### Rozhodnutia
 
-- ✅ **Pivot z SFZ-internal na multi-tenant white-label** platformu pre evidenciu majetku
-- ✅ **Code name: Inventario** (pripravené pre verejné publikovanie)
+- ✅ **Multi-tenant white-label** platforma pre evidenciu majetku
+- ✅ **Inventario** ako názov produktu
 - ✅ **Multi-tenancy stratégia:** shared Atlas cluster + `organisationId` field
 - ✅ **Top 6 P0 screen-ov** pre design exploration vybraných
 - ✅ **4 demo tenanti**: Inventario (default) / ŠK Inter / Mesto Pezinok / SŠ Kremnica
@@ -231,12 +231,11 @@ Pricing tieri:                 5 (web) + 4 (annual)
 
 ### Pred dnešnou session
 
-- Interný SFZ Asset Management nástroj
-- Zatiaľ jeden tenant (SFZ)
 - Backend slice #3 hotový (257 testov)
-- Žiadny verejný brand
+- Multi-tenant architecture design hotový (ADR-0010)
+- Žiadný verejný brand
 - Žiadna pricing stratégia
-- Žiadny verejný web
+- Žiadný verejný web
 
 ### Po dnešnej session
 
@@ -277,11 +276,9 @@ Pricing tieri:                 5 (web) + 4 (annual)
 > ostávajú vaše. Cena je predikovateľná: 890 EUR pre obce, 2 490 EUR pre mestá. Pod €40 000
 > limit pre obstarávanie bez tendra."_
 
-### Pre šport (SFZ kontext)
+### Pre šport a verejný sektor
 
-> _"SFZ inicioval projekt, ale rozhodol sa kód otvoriť pre celý slovenský šport.
-> To je leadership cez open source. Iné zväzy, kluby a školy môžu používať rovnakú platformu,
-> alebo si ju forknúť. To je definícia infraštruktúry — nie nástroja jednej organizácie."_
+> _"Vybudovali sme platformu, ktorá je transparentná a auditovateľná. Mestá nemusia dôverovať dodávateľovi — môžu si kód forkovať a hostiť sami. Cena je predikovaľná: 890 EUR pre obce, 2 490 EUR pre mestá. Pod €40 000 limit pre obstarávanie bez tendra."_
 
 ### Pre EU funding
 
@@ -312,7 +309,7 @@ Pricing tieri:                 5 (web) + 4 (annual)
 ## Ďakovanie
 
 - **Ján Letko** za jasnú víziu a otvorenosť pre návrhy. "Hybrid C" rozhodnutie bolo elegantné.
-- **SFZ** ako founding contributor — bez ich pôvodného zadania by Inventario neexistovalo.
+- **Slovenský futbalový zväz** ako jeden z prvých founding contributors Inventaria.
 - **SportUp ecosystem** za brand identitu (Navy + Blue + Paper + Poppins).
 - **Vinonichta** za víno, ktoré určite drží morálku počas neskorých session-ov 🍷
 - **Anthropic** za Claude Opus 4.7 — toto by sa pred 2 rokmi nedalo.

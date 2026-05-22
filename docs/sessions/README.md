@@ -36,7 +36,7 @@ Tým získaš okamžitý kontext za 30 sekúnd.
 | [`2026-05-18-day-summary.md`](2026-05-18-day-summary.md)                         | Day summary       | Slice #6c K15+K16 (Inventario JWT + frontend cookie auth)                                 |
 | [`2026-05-17-day-summary.md`](2026-05-17-day-summary.md)                         | Day summary       | Slice #6a + K14 multi-provider auth foundation                                            |
 | [`2026-05-16-day-summary.md`](2026-05-16-day-summary.md)                         | Day summary       | Marketing polish + interactive demo + Nextra docs deploy + clean URLs                     |
-| [`2026-05-15-design-pivot.md`](2026-05-15-design-pivot.md)                       | Pre-session plan  | Plán dňa: pivot SFZ → Inventario, design exploration                                      |
+| [`2026-05-15-design-pivot.md`](2026-05-15-design-pivot.md)                       | Pre-session plan  | Plán dňa: multi-tenant white-label design exploration a brand systém                      |
 | [`2026-05-15-day-summary.md`](2026-05-15-day-summary.md)                         | Day summary       | Súhrn celej session: pivot + design + brand + marketing + pricing                         |
 | [`2026-05-15-pricing-strategy.md`](2026-05-15-pricing-strategy.md)               | Internal strategy | Cenová stratégia pre Sales calls (Free, Pro, Annual Contract)                             |
 

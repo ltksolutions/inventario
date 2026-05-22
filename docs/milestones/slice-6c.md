@@ -69,7 +69,7 @@ Kompletný invite flow — všetky tri accept paths:
                         ┌────────────────────────────────┐
                         │ Outcome:                       │
                         │ Production invite flow         │
-                        │ Ready for SFZ pilot            │
+                        │ Ready for pilot tenant         │
                         └────────────────────────────────┘
 ```
 
@@ -159,9 +159,9 @@ window.location.href = loginUrl.toString();
 | --- | ---------------------------------------- | -------------------------------------------------------- |
 | 1   | Pending users v User collection          | Reuse `email` unique index, audit trail, backward compat |
 | 2   | Email locked (žiadna zmena pri accept)   | Security token binding, domain policy, audit integrity   |
-| 3   | Domain whitelist `enforceAllowedDomains` | SFZ security requirement, per-email exception future     |
+| 3   | Domain whitelist `enforceAllowedDomains` | Tenant security requirement, per-email exception future  |
 | 4   | RBAC: ASSET_MANAGER nemôže pozvať ADMIN  | Privilege escalation prevention                          |
-| 5   | 7-dní token lifetime                     | Konzervatívne vs SFZ "rýchly onboarding" requirement     |
+| 5   | 7-dní token lifetime                     | Konzervatívne vs "rýchly onboarding" requirement         |
 | 6   | Email plugin pattern (K17.5)             | Flexibilita na multi-tenant, mock testing, future scale  |
 | 7   | invitationToken v HMAC state cookie      | Kryptograficky bezpečné, bez server-side session store   |
 

@@ -219,7 +219,7 @@ INFO Configuration loaded
 
 Slice #2 vyžaduje **dve app registrations** v Entra ID:
 
-### 1. API app — `SFZ Asset Management API (dev)`
+### 1. API app — `Inventario API (dev)`
 
 - **Supported account types:** Single tenant
 - **Redirect URI:** none (API app)
@@ -230,7 +230,7 @@ Slice #2 vyžaduje **dve app registrations** v Entra ID:
 - **Manifest:** `"accessTokenAcceptedVersion": 2`
 - **Authentication:** žiadne platform configs potrebné
 
-### 2. CLI app — `SFZ Asset Management CLI (dev test)`
+### 2. CLI app — `Inventario CLI (dev test)`
 
 - **Supported account types:** Single tenant
 - **Platform:** Mobile and desktop applications, redirect URI `http://localhost`
@@ -324,7 +324,8 @@ Output (redacted):
 ✓ Same _id on both /v1/me calls — JIT idempotent
 ```
 
-Mongo Atlas → `sfz_asset_management.users` collection:
+Mongo Atlas → `inventario.users` collection (pozn.: DB názov bol následne prer-
+menovaný na `inventario`):
 
 - 1 document (`Ján Letko`)
 - 4 indexes (`_id_`, `entraOid_unique`, `email_unique`, `isActive_deletedAt`)

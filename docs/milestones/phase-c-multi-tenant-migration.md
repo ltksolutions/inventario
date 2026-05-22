@@ -293,14 +293,14 @@ Otestovať že tenant A nevidí tenant B dáta:
 ```bash
 # 1. Sign in ako prvý user z Entra tenantu A → JIT vytvorí Org A.
 # 2. Vytvor asset:
-curl -X POST https://api.inventario.sportup.sk/v1/assets \
+curl -X POST https://api.inventario.estate/v1/assets \
   -H "Authorization: Bearer ${TOKEN_A}" \
   -H "Content-Type: application/json" \
   -d '{"inventoryNumberPrefix":"A","name":"Tenant A asset", ...}'
 
 # 3. Sign in ako prvý user z Entra tenantu B → JIT vytvorí Org B.
 # 4. Skús GET asset_A_id ako tenant B aktér:
-curl https://api.inventario.sportup.sk/v1/assets/${ASSET_A_ID} \
+curl https://api.inventario.estate/v1/assets/${ASSET_A_ID} \
   -H "Authorization: Bearer ${TOKEN_B}"
 # → 404 Not Found  (nie 403; existence sa nesmie leaknúť)
 ```

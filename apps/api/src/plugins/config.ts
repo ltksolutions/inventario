@@ -32,7 +32,7 @@ const envSchema = z.object({
       (val) => val.startsWith('mongodb://') || val.startsWith('mongodb+srv://'),
       'MONGO_URI must start with mongodb:// or mongodb+srv://',
     ),
-  MONGO_DB_NAME: z.string().min(1).default('sfz_asset_management'),
+  MONGO_DB_NAME: z.string().min(1).default('inventario'),
 
   // CORS
   // Accepts either:

@@ -11,14 +11,14 @@ Vybudovať **produkčnú Next.js 15 webovú aplikáciu** (`apps/web`) pre
 Inventario — všetkých 7 P0 stránok s MSAL autentifikáciou, RBAC, mobile
 responsive layoutom a napojením na produkčné Fastify API.
 
-Deploynuté na `app.inventario.sportup.sk` (Vercel, `inventario-app`
+Deploynuté na `app.inventario.estate` (Vercel, `inventario-app`
 projekt, `ltksolutions-projects` team).
 
 ## Výsledok
 
 ✅ **7/7 P0 stránok LIVE:**
 
-| Stránka          | Komponent(y)                                         | Build size | Commit       |
+| Stage            | Komponent(y)                                         | Build size | Commit       |
 | ---------------- | ---------------------------------------------------- | ---------- | ------------ |
 | `/` Dashboard    | `DashboardContent` + `StatCard`                      | 5.2 kB     | `77b51e8`    |
 | `/assets`        | `AssetsListContent` + `AssetsTable`                  | 6.1 kB     | `a5e8b2e`    |
@@ -30,7 +30,7 @@ projekt, `ltksolutions-projects` team).
 | `/loans/request` | `LoanRequestContent` — formulár + asset multi-select | ~4 kB      | (2026-05-20) |
 | `/my-loans`      | `MyLoansContent` — výpožičky + čakajúce žiadosti     | ~5 kB      | (2026-05-20) |
 
-✅ **Smoke test** 10/10 PASS na `app.inventario.sportup.sk`
+✅ **Smoke test** 10/10 PASS na `app.inventario.estate`
 (Microsoft Entra ID login → JIT provisioning → RBAC → mobile drawer → logout).
 Detaily v `docs/sessions/2026-05-18-day-summary.md` sekcia 8.
 
@@ -169,7 +169,7 @@ Skrátený súhrn:
 2. **`engines.node` syntax** — v `apps/web/package.json` musí byť `"node": "22.x"`, nie `">=22"` (Vercel parsuje range-y inak ako npm)
 3. **Stale UI overrides** — Vercel UI Build/Install Command override `null` neznamená "použiť vercel.json", ale "žiadny command". Explicitne vymaž a ulož
 4. **Node.js version selector** — nastaviť na `22.x` v Vercel Project Settings (nie 20.x default)
-5. **CORS + Atlas** — backend CORS allowlist musí mať `https://app.inventario.sportup.sk`; Atlas Network Access `0.0.0.0/0` (Vercel dynamic egress IPs)
+5. **CORS + Atlas** — backend CORS allowlist musí mať `https://app.inventario.estate`; Atlas Network Access `0.0.0.0/0` (Vercel dynamic egress IPs)
 
 Deploy guide: `infra/vercel/APP-DEPLOYMENT.md`
 

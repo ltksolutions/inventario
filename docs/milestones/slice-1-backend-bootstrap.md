@@ -80,7 +80,7 @@ Obidva volajú `buildServer()` z `src/server.ts`, ktorá je test-friendly factor
 
 ### Schema-on-write, trust-on-read
 
-`GET /v1/assets` vracia `data: z.array(z.record(z.string(), z.unknown()))` — bez plnej Asset validácie na read path. Schémy z `@sfz/shared-types` sa použijú pri zápise v slice #2.
+`GET /v1/assets` vracia `data: z.array(z.record(z.string(), z.unknown()))` — bez plnej Asset validácie na read path. Schémy z `@inventario/shared-types` sa použijú pri zápise v slice #2.
 
 ## Issues vyriešené počas sedenia
 
@@ -128,7 +128,7 @@ Vedome odložené do ďalších slices:
 - ❌ **Frontend** (`apps/web`) → vlastná fáza
 - ❌ **MCP server** (`apps/mcp-server`) → fáza 3
 - ❌ **Tests** — pridajú sa per-module v slices #2+
-- ❌ **Production URL alias** (`api.sfz.sk`) → po stabilizácii
+- ❌ **Production URL alias** (`api.inventario.estate`) → po stabilizácii
 - ❌ **Seed dáta** v Atlas → manuálne alebo seed script (TBD)
 
 ## Časová investícia

@@ -73,7 +73,7 @@ preHandler chain, audit log service, `runInTransaction` pattern.
 ### Stack (zmeny oproti slice #2c)
 
 Žiadne nové npm dependencies. Slice #3 je čisto applicational rozšírenie
-postavené na existujúcom `mongodb`, `fastify`, `zod`, `@sfz/shared-types`.
+postavené na existujúcom `mongodb`, `fastify`, `zod`, `@inventario/shared-types`.
 
 ### Štruktúra zmien
 
@@ -551,7 +551,7 @@ nad existujúcim API. Stack rozdelený:
 
 1. Fix `categories.routes.ts isActive` (rovnaký pattern ako K10)
 2. Export `LOCATION_TYPE_VALUES`, `UpdateCategorySchema`, `UpdateLocationSchema`
-   do `@sfz/shared-types`
+   do `@inventario/shared-types`
 3. `audit.test.ts` timeout investigation
 
 ### Multi-tenant `organisationId` migration

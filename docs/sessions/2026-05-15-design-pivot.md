@@ -1,4 +1,4 @@
-# Session plán — Design exploration & strategický pivot na white-label platformu
+# Session plán — Design exploration: multi-tenant white-label platforma a brand systém
 
 > **✅ STATUS UPDATE (15. máj 2026, večer):** Session **úspešne zexekuovaná**. Viď kompletný výsledok v
 > [`2026-05-15-day-summary.md`](2026-05-15-day-summary.md). Táto fáza prekročila pôvodný scope a obsiahla aj:
@@ -14,11 +14,11 @@
 
 ---
 
-## 1. Strategický kontext — prečo tento pivot
+## 1. Strategický kontext — finalizovanie multi-tenant smerovania
 
-### 1.1 Pôvodný scope
+### 1.1 Východzí stav
 
-Projekt sa volá _SFZ Asset Management_ a vychádza z konkrétneho zadania pre Slovenský futbalový zväz. Backend, dátový model, design tokens — všetko nesie SFZ branding. Funkčná špec hovorí o "katalógu majetku SFZ", "reprezentačných výjazdoch" a "trénerov".
+Backend Inventaria je v slice #3 (kategórie, lokácie, FK protection). Technicky ide o clean multi-tenant systém. Nasledujúca session sa zameraná na finalizovanie brand identity, design token systému a marketingovej prezentácie platformy.
 
 ### 1.2 Nový smer
 

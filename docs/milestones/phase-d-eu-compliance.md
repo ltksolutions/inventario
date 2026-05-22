@@ -32,7 +32,7 @@ Doplniť EU-readiness fundamenty, ktoré sú potrebné **pred** spustením Slice
 
 - Swagger plugin (`apps/api/src/plugins/swagger.ts`) re-branded zo SFZ na Inventario:
   - Title, description, contact, license (MIT → **EUPL-1.2** s `joinup.ec.europa.eu` canonical URL)
-  - Production server URL `https://api.inventario.sportup.sk`, externalDocs link na `docs.inventario.sportup.sk`
+  - Production server URL `https://api.inventario.estate`, externalDocs link na `docs.inventario.estate`
   - Bearer auth description rozšírený o popis multi-tenant `tid+oid` claim modelu
   - Tagy rozšírené z 3 na 6 (Health, Organisations, Users, Assets, Categories, Locations) — každý s jednou-vetnou popisom tenant-scopingu kde relevantné
 - Nový skript `apps/api/scripts/export-openapi.ts`:
