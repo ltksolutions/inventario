@@ -428,7 +428,7 @@ EUPL-1.2 vyžaduje:
 1. **SPDX license headery v kóde** — každý zdrojový súbor musí mať svoje SPDX metadáta
 2. **Zachovať `LICENSE` súbor** s plným textom EUPL-1.2
 3. **Atribúciu pôvodného projektu** v dokumentácii (EUPL-1.2 §5):
-   > "Tento produkt je založený na projekte Inventario (https://inventario.sportup.sk) od LTK Solutions, licencovanom pod EUPL-1.2."
+   > "Tento produkt je založený na projekte Inventario (https://inventario.estate) od LTK Solutions, licencovanom pod EUPL-1.2."
 4. **REUSE 3.3 compliance** — strojovo overiteľné `reuse lint`
 
 ### Brand-specific pravidlá pre forks
@@ -447,14 +447,14 @@ V README fork-u:
 # MestoInventár
 
 Open-source nástroj pre správu majetku miest a obcí.
-Založený na projekte [Inventario](https://inventario.sportup.sk)
+Založený na projekte [Inventario](https://inventario.estate)
 od LTK Solutions, licencovanom pod EUPL-1.2.
 ```
 
 V UI fork-u (footer alebo `/about`):
 
 ```
-Based on Inventario (EUPL-1.2) · github.com/Slovensky-futbalovy-zvaz/Asset-Management
+Based on Inventario (EUPL-1.2) · github.com/ltksolutions/inventario
 ```
 
 ---
@@ -528,7 +528,7 @@ Plné screenshots pre prezentácie:
 Tento BRAND.md udržiavame ako **living document**. Otázky / PR / suggestions:
 
 - 📧 Email: **inventario@ltk.solutions**
-- 🐙 GitHub: [Slovensky-futbalovy-zvaz/Asset-Management](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management)
+- 🐙 GitHub: [ltksolutions/inventario](https://github.com/ltksolutions/inventario)
 - 💬 Issues s tagom `brand` pre brand-related diskusie
 
 ---

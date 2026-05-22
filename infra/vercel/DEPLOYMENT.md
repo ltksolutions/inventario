@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Inventario — Vercel deployment guide
 
-> **Cieľ:** Nasadiť marketingový web na `inventario.sportup.sk` cez Vercel.
+> **Cieľ:** Nasadiť marketingový web na `inventario.estate` cez Vercel.
 > **Predpokladaná dĺžka:** ~25–30 minút (vrátane DNS propagácie)
 > **Status:** Pripravený, čaká na execution
 
@@ -28,10 +28,10 @@ SPDX-License-Identifier: CC-BY-4.0
 Slovensky-futbalovy-zvaz/Asset-Management
 │
 ├── apps/api/                       → vercel project: asset-management-api
-│                                     URL: api.inventario.sportup.sk (budúce)
+│                                     URL: api.inventario.estate (budúce)
 │
 └── docs/marketing-site/            → vercel project: inventario-marketing
-                                      URL: inventario.sportup.sk
+                                      URL: inventario.estate
 ```
 
 **Konfigurácia** pre marketing site je v `infra/vercel/marketing-site.vercel.json` (template), ktorý sa môže symlink-núť alebo skopírovať do `vercel.json` v root podľa zvolenej stratégie.
@@ -95,16 +95,16 @@ V `docs/marketing-site/` sú dva HTML súbory ktoré si zaslužujú vysvetlenie:
 
 **Production routing** (cez `vercel.json` rewrites):
 
-| URL                                | Slúži                 |
-| ---------------------------------- | --------------------- |
-| `inventario.sportup.sk/`           | `_home.html`          |
-| `inventario.sportup.sk/use-cases`  | `_use-cases.html`     |
-| `inventario.sportup.sk/pricing`    | `_pricing.html`       |
-| `inventario.sportup.sk/technology` | `_technology.html`    |
-| `inventario.sportup.sk/about`      | `_about.html`         |
-| `inventario.sportup.sk/demo`       | `demo.html` (interný) |
-| `inventario.sportup.sk/index.html` | 301 redirect na `/`   |
-| `inventario.sportup.sk/_home.html` | 302 redirect na `/`   |
+| URL                            | Slúži                 |
+| ------------------------------ | --------------------- |
+| `inventario.estate/`           | `_home.html`          |
+| `inventario.estate/use-cases`  | `_use-cases.html`     |
+| `inventario.estate/pricing`    | `_pricing.html`       |
+| `inventario.estate/technology` | `_technology.html`    |
+| `inventario.estate/about`      | `_about.html`         |
+| `inventario.estate/demo`       | `demo.html` (interný) |
+| `inventario.estate/index.html` | 301 redirect na `/`   |
+| `inventario.estate/_home.html` | 302 redirect na `/`   |
 
 ### Krok 4: Pridaj custom doménu
 
@@ -173,7 +173,7 @@ vercel deploy --prod
 ### Krok 6: Pridaj doménu
 
 ```bash
-vercel domains add inventario.sportup.sk inventario-marketing
+vercel domains add inventario.estate inventario-marketing
 # Alebo cez dashboard (Settings → Domains)
 ```
 

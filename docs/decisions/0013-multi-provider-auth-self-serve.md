@@ -103,7 +103,7 @@ interface InventarioJwtPayload {
 }
 ```
 
-**Access token:** 15 min expiry, httpOnly cookie na `.inventario.sportup.sk`.
+**Access token:** 15 min expiry, httpOnly cookie na `.inventario.estate`.
 **Refresh token:** 30 dní, httpOnly cookie s `Path=/v1/auth/refresh`, uložený v DB (revokable). Refresh token rotation — každý refresh vydá nový refresh token a staý invaliduje.
 
 Frontend nepotrebuje žiadnu auth knižnicu — cookies sa posielajú automaticky. Pre non-browser klientov (mobile, CLI, MCP) sa token posiela v `Authorization: Bearer` header.
@@ -185,9 +185,9 @@ GET    /v1/auth/me                 → current user (replaces /v1/me, alebo alia
 ### Self-serve registration flow
 
 ```
-inventario.sportup.sk/pricing
+inventario.estate/pricing
   → klik "Začať zadarmo"
-  → app.inventario.sportup.sk/register
+  → app.inventario.estate/register
 
 /register (pre-auth stránka):
   1. Org name (povinné)
@@ -229,7 +229,7 @@ Pridanie do existujúcej organizácie je **výhradne cez pozvánku** (`memberJoi
 ADMIN v /users → "Pozvať kolegu" → zadá email
   → server: POST /v1/invites { email, roles }
   → server: vytvorí invite record + odošle email s invite linkom
-  → invite link: app.inventario.sportup.sk/invite/:code
+  → invite link: app.inventario.estate/invite/:code
   → nový user: klikne link → vyberie auth provider → OAuth / email register
   → server: overi že provider je v `org.allowedAuthProviders` (ak nie → error)
   → JIT provision: User s assigned roles v existujúcej Organisation
@@ -249,8 +249,8 @@ Konfigurácia cez env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, 
 ### Token transport — httpOnly cookies
 
 ```
-Set-Cookie: inv_access=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; Domain=.inventario.sportup.sk; Max-Age=900
-Set-Cookie: inv_refresh=<token>; HttpOnly; Secure; SameSite=Lax; Path=/v1/auth/refresh; Domain=.inventario.sportup.sk; Max-Age=2592000
+Set-Cookie: inv_access=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; Domain=.inventario.estate; Max-Age=900
+Set-Cookie: inv_refresh=<token>; HttpOnly; Secure; SameSite=Lax; Path=/v1/auth/refresh; Domain=.inventario.estate; Max-Age=2592000
 ```
 
 API prijíma token z cookie ALEBO z `Authorization: Bearer` header (pre non-browser klientov). Cookie má prednosť ak sú prítomné obe.
@@ -319,7 +319,7 @@ Existujúci test JWT systém (`urn:sfz-test:dev` issuer) sa adaptuje na Inventar
 | **K13** | `/onboarding` wizard: 4-krokový sprievodca (org detaily, kategórie, lokalita, pozvánka).                                                    | Sonnet |
 | **K14** | `/forgot-password`, `/reset-password`, `/verify-email` utility stránky.                                                                     | Sonnet |
 | **K15** | Drop MSAL dependencies: remove `@azure/msal-*`, `msal-config.ts`, MSAL token middleware z `api-client.ts`. Pridať `credentials: 'include'`. | Sonnet |
-| **K16** | Pricing page CTA: link na `app.inventario.sportup.sk/register` z cenníka.                                                                   | Haiku  |
+| **K16** | Pricing page CTA: link na `app.inventario.estate/register` z cenníka.                                                                       | Haiku  |
 
 ### Fáza 3: Cutover + docs (Slice #6c, ~1 deň)
 
@@ -356,7 +356,7 @@ Existujúci test JWT systém (`urn:sfz-test:dev` issuer) sa adaptuje na Inventar
 ### Riziká, ktoré treba sledovať
 
 - **Apple Sign-In quirks** — `form_post` response mode, user name len pri prvom logine, sandbox testing je komplikovaný
-- **Cookie cross-domain** — `api.inventario.sportup.sk` a `app.inventario.sportup.sk` zdieľajú `.inventario.sportup.sk` domain, ale `SameSite=Lax` blokuje cross-site POST requests. Treba overiť že refresh endpoint funguje z app subdomain-y
+- **Cookie cross-domain** — `api.inventario.estate` a `app.inventario.estate` zdieľajú `.inventario.estate` domain, ale `SameSite=Lax` blokuje cross-site POST requests. Treba overiť že refresh endpoint funguje z app subdomain-y
 - **Rate limiting** — email/password login a registration endpointy musia byť rate-limited (bruteforce). Fastify `@fastify/rate-limit` plugin
 - **Email deliverability** — verifikačné emaily nesmú skončiť v spam-e. SPF/DKIM/DMARC konfigurácia na `sportup.sk` DNS
 - **Refresh token leak** — ak útočník získa refresh cookie, má 30-dňový prístup. Mitigácia: token rotation (každý refresh invaliduje starý), device fingerprinting (budúcnosť)

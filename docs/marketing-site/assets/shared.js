@@ -20,8 +20,8 @@
   ];
 
   const EXTERNAL_LINKS = {
-    docs: 'https://docs.inventario.sportup.sk',
-    github: 'https://github.com/Slovensky-futbalovy-zvaz/Asset-Management',
+    docs: 'https://docs.inventario.estate',
+    github: 'https://github.com/ltksolutions/inventario',
     sportup: 'https://sportup.sk',
     email: 'inventario@ltk.solutions',
   };

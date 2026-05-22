@@ -107,8 +107,8 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 ### DevOps
 
 - [ ] Vercel deploy pipeline pre `apps/web`
-- [ ] Production doména `app.inventario.sportup.sk`
-- [ ] Staging environment `staging.inventario.sportup.sk`
+- [ ] Production doména `app.inventario.estate`
+- [ ] Staging environment `staging.inventario.estate`
 
 ---
 
@@ -165,7 +165,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [ ] **SportUp identity** ako druhý SSO provider
 - [ ] **Webhooks** (Slack, Microsoft Teams notifications)
 - [ ] **OIDC / SAML** support pre Enterprise (Okta, Auth0, Keycloak)
-- [ ] **REST API public docs** na `docs.inventario.sportup.sk`
+- [ ] **REST API public docs** na `docs.inventario.estate`
 - [ ] **Postman collection** export
 
 ### Frontend enhancements
@@ -186,7 +186,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 - [ ] MCP server hostovaný (production endpoint)
 - [ ] AI tools: search assets, request loan, approve, generate reports
-- [ ] Documentation chatbot s RAG over docs.inventario.sportup.sk
+- [ ] Documentation chatbot s RAG over docs.inventario.estate
 - [ ] Anthropic Claude API integration
 
 ### Chatbot v aplikácii

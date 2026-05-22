@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue.svg)](LICENSE)
 [![Docs: CC-BY-4.0](https://img.shields.io/badge/Docs-CC--BY--4.0-lightgrey.svg)](LICENSE-DOCS)
-[![REUSE status](https://api.reuse.software/badge/github.com/Slovensky-futbalovy-zvaz/Asset-Management)](https://api.reuse.software/info/github.com/Slovensky-futbalovy-zvaz/Asset-Management)
+[![REUSE status](https://api.reuse.software/badge/github.com/ltksolutions/inventario)](https://api.reuse.software/info/github.com/ltksolutions/inventario)
 [![Status](https://img.shields.io/badge/status-foundation--ready-orange)]()
 [![Tests](https://img.shields.io/badge/tests-257%20passing-brightgreen.svg)]()
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
@@ -209,8 +209,8 @@ Detaily v [`docs/milestones/`](docs/milestones/).
 
 ```bash
 # 1. Klonuj repo a nainštaluj závislosti
-git clone https://github.com/Slovensky-futbalovy-zvaz/Asset-Management.git
-cd Asset-Management
+git clone https://github.com/ltksolutions/inventario.git
+cd inventario
 pnpm install
 
 # 2. Nakopíruj environment template

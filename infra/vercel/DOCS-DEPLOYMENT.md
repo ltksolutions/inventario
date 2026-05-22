@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Inventario docs site — Vercel deployment guide
 
-> **Cieľ:** Nasadiť `apps/docs/` (Nextra v4.6.0 + Next.js 15.5) na `docs.inventario.sportup.sk`
+> **Cieľ:** Nasadiť `apps/docs/` (Nextra v4.6.0 + Next.js 15.5) na `docs.inventario.estate`
 > **Predpokladaná dĺžka:** ~15 minút (vrátane DNS propagácie)
 > **Status:** Pripravené na execution
 
@@ -71,7 +71,7 @@ Po deploy klikni do search bar-u (Cmd+K) a vyhľadaj napr. **"multi-tenant"** al
 ### Krok 4: Pridaj custom doménu
 
 1. Vercel dashboard → projekt `inventario-docs` → **Settings** → **Domains**
-2. Klik **Add** → zadaj: `docs.inventario.sportup.sk`
+2. Klik **Add** → zadaj: `docs.inventario.estate`
 3. Vercel ukáže DNS údaje: CNAME `docs` → `cname.vercel-dns.com`
 
 ### Krok 5: DNS na Websupport
@@ -89,11 +89,11 @@ Po deploy klikni do search bar-u (Cmd+K) a vyhľadaj napr. **"multi-tenant"** al
 
 ```bash
 # Kontroluj DNS propagáciu
-dig docs.inventario.sportup.sk CNAME +short
+dig docs.inventario.estate CNAME +short
 # Očakávaný výsledok: cname.vercel-dns.com.
 
 # Po DNS propagácii → SSL Let's Encrypt sa vystaví automaticky (cca 5 min)
-curl -sI https://docs.inventario.sportup.sk
+curl -sI https://docs.inventario.estate
 # HTTP/2 200 ✓
 ```
 
@@ -103,18 +103,18 @@ DNS propagácia trvá obvykle **5-30 min** pre Websupport.
 
 ```bash
 # Homepage
-curl -sI https://docs.inventario.sportup.sk
+curl -sI https://docs.inventario.estate
 
 # Hlavné stránky
-curl -sI https://docs.inventario.sportup.sk/getting-started
-curl -sI https://docs.inventario.sportup.sk/architecture
-curl -sI https://docs.inventario.sportup.sk/api
-curl -sI https://docs.inventario.sportup.sk/product-ui-tour
-curl -sI https://docs.inventario.sportup.sk/deployment
-curl -sI https://docs.inventario.sportup.sk/about
+curl -sI https://docs.inventario.estate/getting-started
+curl -sI https://docs.inventario.estate/architecture
+curl -sI https://docs.inventario.estate/api
+curl -sI https://docs.inventario.estate/product-ui-tour
+curl -sI https://docs.inventario.estate/deployment
+curl -sI https://docs.inventario.estate/about
 
 # Search index dostupný
-curl -sI https://docs.inventario.sportup.sk/_pagefind/pagefind.js
+curl -sI https://docs.inventario.estate/_pagefind/pagefind.js
 ```
 
 Všetko by malo vrátiť **HTTP/2 200**.
@@ -140,7 +140,7 @@ git revert <hash>
 git push origin main
 ```
 
-Vercel `inventario-marketing` automaticky redeployne s aktívnymi linkmi na `docs.inventario.sportup.sk`.
+Vercel `inventario-marketing` automaticky redeployne s aktívnymi linkmi na `docs.inventario.estate`.
 
 ---
 
@@ -174,7 +174,7 @@ Ak je `public/_pagefind/` prázdny, skontroluj `pagefind --site .next/server/app
 
 ```bash
 # Skontroluj DNS
-dig docs.inventario.sportup.sk CNAME +short
+dig docs.inventario.estate CNAME +short
 
 # Ak je prázdne → DNS ešte nepropagoval, počkaj
 # Ak je niečo iné než cname.vercel-dns.com → oprav CNAME na Websupporte
@@ -197,11 +197,11 @@ dig docs.inventario.sportup.sk CNAME +short
 ```
 Asset-Management repo
 ├── apps/api/                  → Vercel: asset-management-api
-│                                URL: api.inventario.sportup.sk (Q3)
+│                                URL: api.inventario.estate (Q3)
 ├── apps/docs/                 → Vercel: inventario-docs
-│                                URL: docs.inventario.sportup.sk ← NEW
+│                                URL: docs.inventario.estate ← NEW
 └── docs/marketing-site/       → Vercel: inventario-marketing
-                                 URL: inventario.sportup.sk (LIVE)
+                                 URL: inventario.estate (LIVE)
 ```
 
 3 Vercel projekty z jedného repa, každý na svojej subdoméne. Všetko cez Websupport DNS pre `sportup.sk`.
@@ -212,7 +212,7 @@ Asset-Management repo
 
 Deploy je **úspešný** keď:
 
-- [ ] `https://docs.inventario.sportup.sk` vráti HTTP/2 200
+- [ ] `https://docs.inventario.estate` vráti HTTP/2 200
 - [ ] Všetkých 7 stránok funguje (homepage, getting-started, architecture, api, product-ui-tour, deployment, about)
 - [ ] Sidebar nav funguje (kliknutia medzi stránkami)
 - [ ] Search funguje (Cmd+K → vyhľadaj "multi-tenant")

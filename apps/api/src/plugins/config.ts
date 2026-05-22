@@ -63,7 +63,7 @@ const envSchema = z.object({
 
   /** 32+ char HMAC secret for signing OAuth state params. */
   OAUTH_STATE_SECRET: z.string().min(32).optional(),
-  /** Absolute URL for OAuth callbacks. E.g. https://api.inventario.sportup.sk/v1/auth/callback */
+  /** Absolute URL for OAuth callbacks. E.g. https://api.inventario.estate/v1/auth/callback */
   OAUTH_REDIRECT_BASE_URL: z.string().url().optional(),
 
   // Google

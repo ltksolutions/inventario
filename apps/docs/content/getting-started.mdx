@@ -5,7 +5,7 @@ description: Spustenie Inventaria lokálne za 5 minút. Predpoklady, klonovanie 
 
 # Začíname s Inventariom
 
-Tento návod vás prevedie **lokálnym spustením** Inventaria na vašom počítači. Ak chcete platformu **iba používať** (nie vyvíjať), prejdite na [inventario.sportup.sk](https://inventario.sportup.sk).
+Tento návod vás prevedie **lokálnym spustením** Inventaria na vašom počítači. Ak chcete platformu **iba používať** (nie vyvíjať), prejdite na [inventario.estate](https://inventario.estate).
 
 ## Cieľ tohto návodu
 
@@ -32,8 +32,8 @@ Odporúčame **MongoDB Atlas Free tier** (M0 cluster zadarmo, 512 MB). Vyhne vá
 ## Krok 1: Klonovanie repa
 
 ```bash
-git clone https://github.com/Slovensky-futbalovy-zvaz/Asset-Management.git
-cd Asset-Management
+git clone https://github.com/ltksolutions/inventario.git
+cd inventario
 ```
 
 ## Krok 2: Inštalácia dependencies
@@ -125,4 +125,4 @@ Ak vám niečo nefunguje:
 3. **MongoDB connection refused?** Skontrolujte IP whitelist v MongoDB Atlas (Network Access)
 4. **Entra ID 401?** Skontrolujte `ENTRA_TENANT_ID` a `ENTRA_API_CLIENT_ID` v `.env.local`
 
-Stále nič? [Otvorte issue na GitHube](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/issues/new) alebo napíšte na [inventario@ltk.solutions](mailto:inventario@ltk.solutions).
+Stále nič? [Otvorte issue na GitHube](https://github.com/ltksolutions/inventario/issues/new) alebo napíšte na [inventario@ltk.solutions](mailto:inventario@ltk.solutions).

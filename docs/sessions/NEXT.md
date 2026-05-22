@@ -7,11 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                  |
-| ------------------------- | -------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-21 (noc — K18.3 OAuth invite accept hotový)      |
-| **Aktuálna fáza**         | Pre-pilot compliance finalization + SFZ vendor setup     |
-| **Posledný session log**  | [`2026-05-21-day-summary.md`](2026-05-21-day-summary.md) |
+| Atribút                   | Hodnota                                                                   |
+| ------------------------- | ------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-22 (doménová migrácia `inventario.estate` + GitHub rename hotové) |
+| **Aktuálna fáza**         | Pre-pilot compliance finalization + SFZ vendor setup                      |
+| **Posledný session log**  | [`2026-05-22-domain-rename.md`](2026-05-22-domain-rename.md)              |
 
 ---
 
@@ -35,7 +35,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Slice #7 (MFA)**    | ✅ HOTOVÝ — K7.1–K7.8 + docs                            |
 | **Compliance Fáza 1** | ✅ HOTOVÁ — 5 dokumentov                                |
 | **Frontend pages**    | ✅ 7/7 P0 stránok (Slice #4) + 2 nové (invite/settings) |
-| **Production deploy** | ✅ LIVE — inventario.sportup.sk + docs                  |
+| **Production deploy** | ✅ LIVE — inventario.estate + docs                      |
 | **Pilot ready**       | ⏳ 80% — čaká na SFZ-side actions                       |
 
 ### 🎯 Strategická pozícia
@@ -221,6 +221,6 @@ Model routing: viď tabuľka vyššie.
 
 ---
 
-**Last updated:** 2026-05-21 (noc — K18.3 hotový)
-**Status:** Slice #6c kompletný. Pilot-ready. Waiting on SFZ vendor board + legal review.
+**Last updated:** 2026-05-22 (doménová migrácia hotová — `inventario.estate` everywhere)
+**Status:** Slice #6c kompletný. Domain rename hotový (~35 súbory). Pilot-ready. Waiting on SFZ vendor board + legal review.
 **Next session:** TBD (post-SFZ vendor board approval)

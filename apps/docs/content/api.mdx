@@ -7,7 +7,7 @@ description: Inventario REST API — OpenAPI 3.1 spec, authentication, endpoints
 
 Inventario poskytuje **REST API** dokumentované cez **OpenAPI 3.1** špecifikáciu. API je single source of truth pre všetky klienti (Next.js web, mobilné aplikácie, MCP server, integrácie).
 
-**OpenAPI spec** bude dostupný na produkčnej URL: `https://api.inventario.sportup.sk/openapi.json` (po deploy slice #4).
+**OpenAPI spec** bude dostupný na produkčnej URL: `https://api.inventario.estate/openapi.json` (po deploy slice #4).
 
 V dev móde s `ENABLE_SWAGGER=true` máte **Swagger UI** na `http://localhost:3000/docs`.
 
@@ -17,7 +17,7 @@ Všetky API endpointy (okrem `/health`) vyžadujú **Bearer token** v `Authoriza
 
 ```http
 GET /v1/assets HTTP/1.1
-Host: api.inventario.sportup.sk
+Host: api.inventario.estate
 Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
 ```
 
@@ -163,11 +163,11 @@ X-RateLimit-Reset: 1746387600
 
 ```bash
 # Health check (no auth)
-curl https://api.inventario.sportup.sk/health
+curl https://api.inventario.estate/health
 
 # Get assets (with auth)
 curl -H "Authorization: Bearer $TOKEN" \
-  https://api.inventario.sportup.sk/v1/assets
+  https://api.inventario.estate/v1/assets
 
 # Create asset
 curl -X POST \
@@ -178,7 +178,7 @@ curl -X POST \
     "categoryId": "65f...",
     "locationId": "65g..."
   }' \
-  https://api.inventario.sportup.sk/v1/assets
+  https://api.inventario.estate/v1/assets
 ```
 
 ### Postman / Insomnia
@@ -193,11 +193,11 @@ Inventario bude mať **MCP (Model Context Protocol) server** ktorý dovolí AI a
 - `inventario_create_loan` — vytvorenie výpožičky
 - `inventario_get_audit_log` — query audit logu
 
-Pre dev kontext si pozrite [Roadmap](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/ROADMAP.md).
+Pre dev kontext si pozrite [Roadmap](https://github.com/ltksolutions/inventario/blob/main/ROADMAP.md).
 
 ## Ďalšie zdroje
 
-- **OpenAPI spec** (production): `https://api.inventario.sportup.sk/openapi.json` (čoskoro)
-- **Swagger UI** (production): `https://api.inventario.sportup.sk/docs` (čoskoro)
-- [Backend source code](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/tree/main/apps/api)
-- [Zod schemas](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/tree/main/packages/shared-types)
+- **OpenAPI spec** (production): `https://api.inventario.estate/openapi.json` (čoskoro)
+- **Swagger UI** (production): `https://api.inventario.estate/docs` (čoskoro)
+- [Backend source code](https://github.com/ltksolutions/inventario/tree/main/apps/api)
+- [Zod schemas](https://github.com/ltksolutions/inventario/tree/main/packages/shared-types)

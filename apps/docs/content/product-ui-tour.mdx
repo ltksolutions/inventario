@@ -5,7 +5,7 @@ description: Prehliadka 6 hlavných obrazoviek aplikácie Inventario. Login, das
 
 # Product UI tour
 
-Tento dokument vás prevedie **6 hlavnými obrazovkami** aplikácie Inventario. Pre **interaktívne demo** (kde môžete kliknúť, prepínať tenanty a viewporty) navštívte [inventario.sportup.sk/interactive-demo](https://inventario.sportup.sk/interactive-demo).
+Tento dokument vás prevedie **6 hlavnými obrazovkami** aplikácie Inventario. Pre **interaktívne demo** (kde môžete kliknúť, prepínať tenanty a viewporty) navštívte [inventario.estate/interactive-demo](https://inventario.estate/interactive-demo).
 
 ## Prehľad obrazoviek
 
@@ -24,9 +24,9 @@ Inventario v0.3 má **6 P0 obrazoviek** pokrývajúcich celý user journey:
 
 ## 01 · Prihlásenie
 
-**URL pattern**: `https://{tenant}.inventario.sportup.sk/login`
+**URL pattern**: `https://{tenant}.inventario.estate/login`
 
-Login obrazovka je **prvý dotyk používateľa s aplikáciou**. Tenant (organizácia) sa identifikuje cez subdoménu — napríklad `pezinok.inventario.sportup.sk`. Login obrazovka okamžite zobrazuje **brand tej organizácie** (logo, farby, tagline), takže používateľ vie kam patrí.
+Login obrazovka je **prvý dotyk používateľa s aplikáciou**. Tenant (organizácia) sa identifikuje cez subdoménu — napríklad `pezinok.inventario.estate`. Login obrazovka okamžite zobrazuje **brand tej organizácie** (logo, farby, tagline), takže používateľ vie kam patrí.
 
 ### Hlavné funkcie
 
@@ -55,7 +55,7 @@ Detaily v [Architektúra → Security](/architecture).
 
 ## 02 · Dashboard (role-aware)
 
-**URL**: `https://{tenant}.inventario.sportup.sk/`
+**URL**: `https://{tenant}.inventario.estate/`
 
 Dashboard sa **dynamicky mení podľa role** používateľa. Každá rola vidí čo potrebuje, žiadne preplnené menu.
 
@@ -95,7 +95,7 @@ Pre administrátora systému:
 
 ## 03 · Zoznam majetku
 
-**URL**: `https://{tenant}.inventario.sportup.sk/assets`
+**URL**: `https://{tenant}.inventario.estate/assets`
 
 Hlavná pracovná plocha asset managera. **Všetok majetok** v organizácii na jednom mieste.
 
@@ -123,7 +123,7 @@ Detaily v [REST API → Assets](/api).
 
 ## 04 · Detail majetku
 
-**URL**: `https://{tenant}.inventario.sportup.sk/assets/{id}`
+**URL**: `https://{tenant}.inventario.estate/assets/{id}`
 
 **Digitálna evidenčná karta** nahradzujúca papierové formuláre. 5 tabov organizovaných podľa workflow:
 
@@ -169,7 +169,7 @@ GET /v1/assets/{id}
 
 ## 05 · Žiadosť o výpožičku
 
-**URL**: `https://{tenant}.inventario.sportup.sk/loans/new`
+**URL**: `https://{tenant}.inventario.estate/loans/new`
 
 **Najčastejšia akcia zamestnanca** — vypožičať si niečo. Wizard rozdelený do 3 krokov aby to nebolo overwhelming na mobile:
 
@@ -209,7 +209,7 @@ Content-Type: application/json
 
 ## 06 · Moje výpožičky
 
-**URL**: `https://{tenant}.inventario.sportup.sk/my-loans`
+**URL**: `https://{tenant}.inventario.estate/my-loans`
 
 **Osobný cockpit zamestnanca.** Všetko čo som si požičal, čo čaká na schválenie, a história.
 
@@ -269,7 +269,7 @@ Pre Pro Standard+ tenantov je možné customizovať:
 - **OG image** pre social sharing
 - **Custom doména** (`assets.bratislava.sk`)
 
-Detaily v [BRAND.md](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/BRAND.md).
+Detaily v [BRAND.md](https://github.com/ltksolutions/inventario/blob/main/BRAND.md).
 
 ---
 
@@ -277,7 +277,7 @@ Detaily v [BRAND.md](https://github.com/Slovensky-futbalovy-zvaz/Asset-Managemen
 
 Pre **interaktívnu prehliadku** (kde môžete kliknúť cez všetky obrazovky a prepínať tenanty / viewporty) navštívte:
 
-➡️ **[inventario.sportup.sk/interactive-demo](https://inventario.sportup.sk/interactive-demo)**
+➡️ **[inventario.estate/interactive-demo](https://inventario.estate/interactive-demo)**
 
 Tam môžete:
 
@@ -288,7 +288,7 @@ Tam môžete:
 
 ## Ďalšie zdroje
 
-- **Mockup zdrojový kód**: [docs/design/screens/](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/tree/main/docs/design/screens) — všetky 6 obrazoviek ako self-contained HTML
-- **Marketing wrapper**: [docs/marketing-site/interactive-demo.html](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/docs/marketing-site/interactive-demo.html) — verejne nasadený demo na inventario.sportup.sk
+- **Mockup zdrojový kód**: [docs/design/screens/](https://github.com/ltksolutions/inventario/tree/main/docs/design/screens) — všetky 6 obrazoviek ako self-contained HTML
+- **Marketing wrapper**: [docs/marketing-site/interactive-demo.html](https://github.com/ltksolutions/inventario/blob/main/docs/marketing-site/interactive-demo.html) — verejne nasadený demo na inventario.estate
 - **Backend pripojenie**: [REST API dokumentácia](/api)
 - **Multi-tenancy detaily**: [Architektúra](/architecture)

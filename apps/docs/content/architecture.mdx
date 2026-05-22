@@ -9,7 +9,7 @@ Inventario je **multi-tenant SaaS platforma** postavená na **TypeScript** end-t
 
 ## Architektonické princípy
 
-Inventario je postavené na 5 princípoch (viď [ADR-0010](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/docs/decisions/0010-multi-tenant-white-label.md)):
+Inventario je postavené na 5 princípoch (viď [ADR-0010](https://github.com/ltksolutions/inventario/blob/main/docs/decisions/0010-multi-tenant-white-label.md)):
 
 1. **Multi-tenancy first** — žiadny tenant nie je hardcoded, všetko cez `organisationId`
 2. **EU compliance first** — REUSE, GDPR, WCAG od dňa 1, nie ako dodatočné
@@ -169,7 +169,7 @@ Inventario je deployované na **Vercel** (frontend + backend) + **MongoDB Atlas*
 │  │  marketing         │    │  api                 │    │
 │  │  (static HTML)     │    │  (Fastify on        │    │
 │  │  inventario.       │    │   serverless         │    │
-│  │  sportup.sk        │    │   functions)         │    │
+│  │  estate            │    │   functions)         │    │
 │  └─────────────────────┘    └──────────────────────┘    │
 │                                                          │
 │  ┌─────────────────────┐                                 │
@@ -177,7 +177,7 @@ Inventario je deployované na **Vercel** (frontend + backend) + **MongoDB Atlas*
 │  │  (Next.js +         │                                 │
 │  │   Nextra)           │                                 │
 │  │  docs.inventario.   │                                 │
-│  │  sportup.sk         │                                 │
+│  │  estate             │                                 │
 │  └─────────────────────┘                                 │
 └─────────────────────────────────────────────────────────┘
                             │
@@ -198,6 +198,6 @@ Detaily v [Deployment](/deployment).
 
 ## Ďalšie čítanie
 
-- [ADR-0010: Multi-tenant white-label](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/docs/decisions/0010-multi-tenant-white-label.md)
-- [ADR-0011: Licensing EUPL + REUSE](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/docs/decisions/0011-licensing-eupl-reuse.md)
-- [ROADMAP.md](https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/ROADMAP.md)
+- [ADR-0010: Multi-tenant white-label](https://github.com/ltksolutions/inventario/blob/main/docs/decisions/0010-multi-tenant-white-label.md)
+- [ADR-0011: Licensing EUPL + REUSE](https://github.com/ltksolutions/inventario/blob/main/docs/decisions/0011-licensing-eupl-reuse.md)
+- [ROADMAP.md](https://github.com/ltksolutions/inventario/blob/main/ROADMAP.md)

@@ -138,9 +138,9 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ---
 
-[Unreleased]: https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/releases/tag/v0.3.0
-[0.2.0]: https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/releases/tag/v0.2.0
-[0.1.5]: https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/releases/tag/v0.1.5
-[0.1.0]: https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/releases/tag/v0.1.0
-[0.0.1]: https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/releases/tag/v0.0.1
+[Unreleased]: https://github.com/ltksolutions/inventario/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ltksolutions/inventario/releases/tag/v0.3.0
+[0.2.0]: https://github.com/ltksolutions/inventario/releases/tag/v0.2.0
+[0.1.5]: https://github.com/ltksolutions/inventario/releases/tag/v0.1.5
+[0.1.0]: https://github.com/ltksolutions/inventario/releases/tag/v0.1.0
+[0.0.1]: https://github.com/ltksolutions/inventario/releases/tag/v0.0.1

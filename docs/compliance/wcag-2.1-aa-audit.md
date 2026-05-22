@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # WCAG 2.1 AA — Marketing site audit
 
-> **Phase D Blok 3 deliverable.** Baseline audit prístupnosti pre statický marketing site (`inventario.sportup.sk`) a interactive demo. Slice #4 (`apps/web`) má vlastný audit pred produkčným launchom.
+> **Phase D Blok 3 deliverable.** Baseline audit prístupnosti pre statický marketing site (`inventario.estate`) a interactive demo. Slice #4 (`apps/web`) má vlastný audit pred produkčným launchom.
 
 | Pole         | Hodnota                                                                                                                                                                                                                                         |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

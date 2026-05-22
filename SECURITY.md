@@ -60,7 +60,7 @@ Pre zraniteľnosti, ktoré sú aktívne zneužívané, môže byť timeline krat
 **V rozsahu (in-scope):**
 
 - Kód v tomto repe (`apps/`, `packages/`, `infra/`)
-- Verejne dostupné inštancie projektu (po nasadení, napr. `inventario.sk`)
+- Verejne dostupné inštancie projektu (po nasadení, napr. `inventario.estate`)
 - MCP servery v repe (po nasadení)
 - Závislosti, ak ich zraniteľnosť priamo ovplyvňuje náš projekt
 

@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Inventario web app — Vercel deployment guide
 
-> **Cieľ:** Nasadiť `apps/web/` (Next.js 15 + MSAL + design tokens) na `app.inventario.sportup.sk`
+> **Cieľ:** Nasadiť `apps/web/` (Next.js 15 + MSAL + design tokens) na `app.inventario.estate`
 > **Predpokladaná dĺžka:** ~45 minút (vrátane Azure Portal + DNS propagácie)
 > **Status:** ✅ **KOMPLET (2026-05-18 night)**. Všetky kroky 1-9 hotové, 10/10 smoke test PASS, ADMIN promote re-test OK.
 
@@ -16,8 +16,8 @@ SPDX-License-Identifier: CC-BY-4.0
 ✅ **Krok 1 KOMPLET**: `asset-management-api` Vercel projekt LIVE
 
 - Node 24 LTS runtime (Active LTS, supported do Apr 2028)
-- `CORS_ORIGINS` env var: `https://app.inventario.sportup.sk,http://localhost:3001`
-- Live URL: `https://api.inventario.sportup.sk`
+- `CORS_ORIGINS` env var: `https://app.inventario.estate,http://localhost:3001`
+- Live URL: `https://api.inventario.estate`
 - CORS verified live
 
 ✅ **Krok 2-4 KOMPLET**: `inventario-app` Vercel projekt vytvorený a deploynutý
@@ -29,12 +29,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ✅ **Krok 5 KOMPLET**: Azure Portal frontend SPA redirect URI pridaný
 
-- `https://app.inventario.sportup.sk` v Authentication → Redirect URIs
+- `https://app.inventario.estate` v Authentication → Redirect URIs
 - `http://localhost:3001` zachovaný pre dev work
 
 ✅ **Krok 6 KOMPLET**: Vercel custom doména pridaná
 
-- `app.inventario.sportup.sk` v `inventario-app` Settings → Domains
+- `app.inventario.estate` v `inventario-app` Settings → Domains
 
 ✅ **Krok 7 KOMPLET**: Websupport DNS CNAME pridaný
 
@@ -85,7 +85,7 @@ CORS_ORIGINS: z.string().default('http://localhost:3001').transform((val) => {
 Update (alebo pridať ak neexistuje) `CORS_ORIGINS` pre **Production** environment:
 
 ```
-CORS_ORIGINS=https://app.inventario.sportup.sk,http://localhost:3001
+CORS_ORIGINS=https://app.inventario.estate,http://localhost:3001
 ```
 
 Po Save → Vercel `asset-management-api` redeployne automaticky (~2 min).
@@ -119,12 +119,12 @@ Po Save → Vercel `asset-management-api` redeployne automaticky (~2 min).
 
 Pred kliknutím **Deploy** vyplň environment variables. Tieto sa **embed-ujú do client bundle** (`NEXT_PUBLIC_*` prefix), takže každý kto si stiahne `.js` ich uvidí — to je **OK pre Entra public client IDs** (sú navrhnuté pre verejnú expozíciu), ale **žiadne secrets sem nikdy**.
 
-| Variable                          | Value                                                                                           | Pôvod                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_BASE_URL`        | `https://<asset-management-api>.vercel.app` alebo cez `api.inventario.sportup.sk` keď bude live | Vercel deployment URL existing `asset-management-api` projektu |
-| `NEXT_PUBLIC_ENTRA_CLIENT_ID`     | `<frontend SPA client ID>`                                                                      | Azure Portal → Entra ID → App registrations → frontend SPA app |
-| `NEXT_PUBLIC_ENTRA_TENANT_ID`     | `<tenant UUID>` alebo `organizations`                                                           | Azure Portal → Entra ID → Overview → Tenant ID                 |
-| `NEXT_PUBLIC_ENTRA_API_CLIENT_ID` | `<backend API client ID>`                                                                       | Azure Portal → Entra ID → App registrations → backend API app  |
+| Variable                          | Value                                                                                       | Pôvod                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL`        | `https://<asset-management-api>.vercel.app` alebo cez `api.inventario.estate` keď bude live | Vercel deployment URL existing `asset-management-api` projektu |
+| `NEXT_PUBLIC_ENTRA_CLIENT_ID`     | `<frontend SPA client ID>`                                                                  | Azure Portal → Entra ID → App registrations → frontend SPA app |
+| `NEXT_PUBLIC_ENTRA_TENANT_ID`     | `<tenant UUID>` alebo `organizations`                                                       | Azure Portal → Entra ID → Overview → Tenant ID                 |
+| `NEXT_PUBLIC_ENTRA_API_CLIENT_ID` | `<backend API client ID>`                                                                   | Azure Portal → Entra ID → App registrations → backend API app  |
 
 > ⚠️ **Najčastejšia chyba:** zmiešať frontend SPA client ID s backend API client ID. Sú to **dve rôzne app registrations**.
 >
@@ -162,9 +162,9 @@ Mali by vrátiť **HTTP/2 200**.
 
 1. Choď do Azure Portal → Entra ID → App registrations → **frontend SPA app**
 2. **Authentication** → **Redirect URIs** → klikni **Add URI**:
-   - Pridaj: `https://app.inventario.sportup.sk`
+   - Pridaj: `https://app.inventario.estate`
    - Necháj zachovaný: `http://localhost:3001` (pre dev work)
-3. (Volitelné) **Front-channel logout URL** → `https://app.inventario.sportup.sk` (pre clean logout)
+3. (Volitelné) **Front-channel logout URL** → `https://app.inventario.estate` (pre clean logout)
 4. **Save**
 
 > 💡 **Prečo nepridávame preview URL ako redirect?** Preview URLs sú dynamické (`inventario-app-abc123.vercel.app` sa mení per-commit). Pridaj iba production canonical URL. Pre testing preview deploys treba buď: (a) pridať wildcard redirect URI ak Azure podporuje (zvyčajne nepodporuje pre SPA), alebo (b) testovať login flow až po DNS bind-e.
@@ -190,11 +190,11 @@ Mali by vrátiť **HTTP/2 200**.
 
 ```bash
 # Kontroluj DNS propagáciu
-dig app.inventario.sportup.sk CNAME +short
+dig app.inventario.estate CNAME +short
 # Očakávaný výsledok: cname.vercel-dns.com.
 
 # Po DNS propagácii → SSL Let's Encrypt sa vystaví automaticky (cca 5 min)
-curl -sI https://app.inventario.sportup.sk
+curl -sI https://app.inventario.estate
 # HTTP/2 200 ✓
 ```
 
@@ -202,16 +202,16 @@ DNS propagácia trvá obvykle **5-30 min** pre Websupport.
 
 ### Krok 9: Smoke test — full E2E flow
 
-Otvor `https://app.inventario.sportup.sk` v browseri (incognito mode pre čistý MSAL state) a postupne klikni cez:
+Otvor `https://app.inventario.estate` v browseri (incognito mode pre čistý MSAL state) a postupne klikni cez:
 
 ```
-1. https://app.inventario.sportup.sk
+1. https://app.inventario.estate
    → vidí Login screen ("Prihlásiť sa cez Microsoft")
 
 2. Klik "Prihlásiť sa cez Microsoft"
    → redirect na login.microsoftonline.com
    → consent dialóg (prvý raz) → Accept
-   → redirect späť na app.inventario.sportup.sk
+   → redirect späť na app.inventario.estate
 
 3. /dashboard
    → vidí "Vitajte, [Meno]" + role badge "Administrátor"
@@ -343,13 +343,13 @@ Debug session rýchlo vyčerpá. Pro tier ($20/month) je rozumné pre production
 ```
 Asset-Management repo
 ├── apps/api/                  → Vercel: asset-management-api
-│                                URL: api.inventario.sportup.sk (Q3 2026)
+│                                URL: api.inventario.estate (Q3 2026)
 ├── apps/docs/                 → Vercel: inventario-docs
-│                                URL: docs.inventario.sportup.sk (LIVE)
+│                                URL: docs.inventario.estate (LIVE)
 ├── apps/web/                  → Vercel: inventario-app          ← NEW
-│                                URL: app.inventario.sportup.sk
+│                                URL: app.inventario.estate
 └── docs/marketing-site/       → Vercel: inventario-marketing
-                                 URL: inventario.sportup.sk (LIVE)
+                                 URL: inventario.estate (LIVE)
 ```
 
 4 Vercel projekty z jedného repa, každý na svojej subdoméne. Všetko cez Websupport DNS pre `sportup.sk`, jeden monorepo z Slovensky-futbalovy-zvaz/Asset-Management.
@@ -360,7 +360,7 @@ Asset-Management repo
 
 Deploy je **úspešný** keď:
 
-- [ ] `https://app.inventario.sportup.sk` vráti HTTP/2 200 na všetky public routes (`/`, `/login`)
+- [ ] `https://app.inventario.estate` vráti HTTP/2 200 na všetky public routes (`/`, `/login`)
 - [ ] Login flow end-to-end funguje (Microsoft consent → redirect späť → /dashboard)
 - [ ] Všetkých 5 P0 stránok renderuje data z backendu (`/dashboard`, `/assets`, `/assets/[id]`, `/categories`, `/locations`, `/users`)
 - [ ] Edit operations fungujú (asset PATCH, category create, location create, user update)
@@ -379,7 +379,7 @@ Po splnení → pripraviť emailovú správu pre prvého pilot tenant (Mesto Pez
 ## 🔗 Po deploy — update tracking docs
 
 - [x] `docs/sessions/2026-05-18-day-summary.md` — deploy story zaznamenaná (sekcie 7-8)
-- [x] `docs/sessions/NEXT.md` — Production stav: `app.inventario.sportup.sk` ⏳ → ✅ LIVE
+- [x] `docs/sessions/NEXT.md` — Production stav: `app.inventario.estate` ⏳ → ✅ LIVE
 - [x] `infra/vercel/README.md` — `inventario-app` table riadok → LIVE
 - [ ] `docs/milestones/slice-4-frontend-web.md` — milestone doc (može ďakať do ďalšej session)
 
