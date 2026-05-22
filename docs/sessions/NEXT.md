@@ -7,11 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                   |
-| ------------------------- | ------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-22 (doménová migrácia `inventario.estate` + GitHub rename hotové) |
-| **Aktuálna fáza**         | Pre-pilot compliance finalization + SFZ vendor setup                      |
-| **Posledný session log**  | [`2026-05-22-domain-rename.md`](2026-05-22-domain-rename.md)              |
+| Atribút                   | Hodnota                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| **Posledná aktualizácia** | 2026-05-22 (Vercel env vars + sub-processors page)           |
+| **Aktuálna fáza**         | Pre-pilot compliance finalization + SFZ vendor setup         |
+| **Posledný session log**  | [`2026-05-22-domain-rename.md`](2026-05-22-domain-rename.md) |
 
 ---
 
@@ -79,13 +79,13 @@ Pred prvým produkčným tenant-om treba:
 
 ### 3. Technické pred-pilot tasks
 
-| #   | Task                                                                                        | Priority | Vlastník   | Stav       |
-| --- | ------------------------------------------------------------------------------------------- | -------- | ---------- | ---------- |
-| 1   | **Env vars na Vercel prod** — `MFA_SECRET_ENCRYPTION_KEY` (32-byte hex) + `ECOMAIL_API_KEY` | HIGH     | Ján        | ⏳ PENDING |
-| 2   | **Sub-processors list publikovať** na `inventario.estate/sub-processors`                    | MEDIUM   | Dev        | ⏳ PENDING |
-| 3   | **Disaster recovery test** — manuálne restore z MongoDB, verify RTO/RPO                     | MEDIUM   | Ján        | ⏳ PENDING |
-| 4   | **Atlas allowlist** — Vercel IPs pre prod, remove `0.0.0.0/0`                               | MEDIUM   | Ján        | ⏳ PENDING |
-| 5   | **Penetration testing** (external, before go-live)                                          | LOW      | Externý PT | ⏳ PLANNED |
+| #   | Task                                                                                        | Priority | Vlastník   | Stav                 |
+| --- | ------------------------------------------------------------------------------------------- | -------- | ---------- | -------------------- |
+| 1   | **Env vars na Vercel prod** — `MFA_SECRET_ENCRYPTION_KEY` (32-byte hex) + `ECOMAIL_API_KEY` | HIGH     | Ján        | ⏳ PENDING           |
+| 2   | **Sub-processors list publikovať** na `inventario.estate/sub-processors`                    | MEDIUM   | Dev        | ✅ Hotové 2026-05-22 |
+| 3   | **Disaster recovery test** — manuálne restore z MongoDB, verify RTO/RPO                     | MEDIUM   | Ján        | ⏳ PENDING           |
+| 4   | **Atlas allowlist** — Vercel IPs pre prod, remove `0.0.0.0/0`                               | MEDIUM   | Ján        | ⏳ PENDING           |
+| 5   | **Penetration testing** (external, before go-live)                                          | LOW      | Externý PT | ⏳ PLANNED           |
 
 ---
 
