@@ -14,18 +14,18 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Kontext
 
-Projekt vznikol ako interný nástroj Slovenského futbalového zväzu (SFZ) na evidenciu a vypožičiavanie majetku. Pôvodný scope obsahoval SFZ-špecifický branding (názov projektu, design tokens, terminológia v dátovom modeli, copywriting), Entra ID s jedným tenant-om a katalóg majetku navrhnutý pre konkrétne SFZ použitie.
+Pri návrhu Inventaria v LTK Solutions sme riešili strategickú otázku: ako postaviť platformu pre evidenciu majetku tak, aby bola použiteľná pre výrazne rôzne typy organizácií, bola ekonomicky udržateľná v prevádzke, a zároveň dávala veľkým subjektom možnosť plnej kontroly nad vlastnou inštanciou.
 
-Počas slice #3 (kategórie, lokality, FK protection) vznikla strategická úvaha: rovnaký funkčný problém — _„kde čo máme a kto si to vzal?"_ — rieši nielen SFZ, ale aj:
+Funkčný problém — _„kde čo máme a kto si to vzal?"_ — riešia rôzne sektory paralelne:
 
-- iné športové zväzy (hokej, basketbal, atletika, vodný motorizmus),
+- športové zväzy (futbal, hokej, basketbal, atletika, vodný motorizmus),
 - mestá a obce (mobiliár, služobné vozidlá, IT vybavenie),
 - vyššie územné celky (krajský majetok),
 - športové kluby (mládežnícke dresy, tréningové pomôcky),
 - školy a školské zariadenia (IT, učebné pomôcky, hudobné nástroje),
 - občianske združenia a neziskové organizácie.
 
-Súčasný stav backendu po slice #3 je relatívne flexibilný — kategórie a lokality sú konfigurovateľné, dátový model neobsahuje SFZ-špecifické polia. Frontend (slice #4+) ešte neexistuje, takže rozhodnutie o multi-tenancy nemá retroaktívny dopad.
+Dátový model navrhujeme bez sektor-špecifických polí — kategórie a lokality sú konfigurovateľné per tenant, takto sa celý model adaptuje na každý kontext bez špeciálnych vetiev v kóde.
 
 Paralelne s týmto rozhodnutím vzniká platforma [sportup.sk](https://sportup.sk) — _Good Idea Sport Slovakia_ — národný register osôb, organizácií, aktivít a športovísk. Inventario má potenciál stať sa jej modulom pre správu majetku, čo prirodzene vyžaduje multi-tenancy.
 
@@ -101,7 +101,7 @@ Pri SSR/CSR injektujeme CSS variables do `:root` podľa current tenanta. Default
 Existujúce kolekcie (assets, categories, locations, users, audit_log) v slice #3 ešte nemajú `organisationId`. Migráciu spravíme v slice #3.5 alebo na začiatku slice #4:
 
 1. Pridať `organisationId: ObjectId` field do shared-types schém ako required.
-2. Spustiť migration script ktorý priradí všetkým existujúcim dokumentom default `organisationId` (vytvoríme „SFZ — Slovenský futbalový zväz" organisation ako prvého tenanta).
+2. Spustiť migration script ktorý priradí všetkým existujúcim dokumentom default `organisationId` (vytvoríme „Inventario" default tenant organisation ako technického prvého tenanta).
 3. Aktualizovať všetky repository queries aby filtrovali podľa current tenant.
 4. Pridať middleware ktorý odmietne request bez tenant context-u (okrem public health-check endpointov).
 
@@ -110,7 +110,7 @@ Existujúce kolekcie (assets, categories, locations, users, audit_log) v slice #
 Microsoft Entra ID už podporuje multi-tenant aplikácie. Konfigurácia:
 
 - Aplikácia bude registrovaná ako _multi-tenant_ v Azure AD (`signInAudience: AzureADMultipleOrgs`).
-- Každá organizácia (SFZ, Mesto Pezinok, ŠŠ Kremnica, ...) má vlastný Entra tenant.
+- Každá organizácia (športový zväz, Mesto Pezinok, ŠŠ Kremnica, ...) má vlastný Entra tenant.
 - Pri prvom prihlásení sa užívateľ priradí k organisation podľa Entra tenantId — vytvoríme novú `Organisation` ak ešte neexistuje (JIT tenant provisioning, paralela existujúceho JIT user provisioningu).
 - V budúcnosti pridáme SportUp identita ako druhý OIDC provider.
 

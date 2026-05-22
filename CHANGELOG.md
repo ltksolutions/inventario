@@ -35,14 +35,14 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
   - `docs/assets/brand/inventario/` — 4 SVG varianty (logo, logo-container, logotype, pattern)
   - `docs/marketing-site/assets/favicon.svg` — browser tab icon
   - CSS pattern systeme (`.hero-gradient::after`, `.pattern-bg`, `.pattern-bg.pattern-dark` utility classes)
-  - Aktualizovaný `docs/assets/brand/README.md` pre post-pivot reačitu
+  - Aktualizovaný `docs/assets/brand/README.md` pre Inventario brand identitu
 - **Pricing strategy v1.0**:
   - Hybrid C model implementovaný na webe (Free a Pro Small s konkrétnymi cenami: 0 €, 29 €/mes alebo 290 €/rok)
   - 3 vyššie tieri s indikatívnymi cenami a Kontakt CTA (Pro Standard od 79 €, Pro Plus od 199 €, Enterprise od 4 990 €/rok)
   - **Annual Contract model** pre verejný sektor (Malá 890 €, Stredná 2 490 €, Veľká 5 990 €, XL od 12 000 €/rok)
   - Komplet comparison tabuľka 4 stĺpce
   - 8 FAQ otázok pre verejné prípady
-  - **Interný Sales playbook** (`docs/sessions/2026-05-15-pricing-strategy.md`, ~700 riadkov): princípy cenotvorby, sanity check vs konkurencia, námietky a odpovede, 5 case studies (Pezinok, Inter, Kremnica, SFZ, BSK)
+  - **Interný Sales playbook** (`docs/sessions/2026-05-15-pricing-strategy.md`, ~700 riadkov): princípy cenotvorby, sanity check vs konkurencia, námietky a odpovede, 5 case studies (Pezinok, Inter, Kremnica, BSK, mládežnícky futbalový klub)
 - **Open Graph + Twitter Card meta tags** v `_home.html` pre social media preview.
 - **Favicon link** vo všetkých 6 marketingových HTML súboroch (`<link rel="icon" type="image/svg+xml">`).
 - **Session dokumentácia**:
@@ -60,12 +60,12 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
-- Strategický pivot z _SFZ Asset Management_ na **Inventario** — multi-tenant white-label platformu pre športové zväzy, mestá a obce, VÚC, kluby, školy a neziskové organizácie.
+- Verejný open-source release pod názvom **Inventario** — multi-tenant white-label platforma pre športové zväzy, mestá a obce, VÚC, kluby, školy a neziskové organizácie.
 - Licencia zmenená z MIT na **EUPL-1.2** (zdrojový kód) + **CC-BY-4.0** (dokumentácia) — pripravené pre EU verejný sektor a EU rozvojové fondy.
 - Brand identita prevzatá z [SportUp ekosystému](https://github.com/ltksolutions/sportup.sk) — Navy `#1A2D47`, Blue `#388FC3`, Paper `#F8F6F1`, font Poppins.
-- README.md kompletne prepísaný — Inventario branding, SFZ pozícia ako _founding contributor_, link na `BRAND.md`.
+- README.md kompletne prepísaný — Inventario branding, link na `BRAND.md`, Founding contributors sekcia.
 - `REUSE.toml` rozsírený — `BRAND.md` registrovaný pod CC-BY-4.0, REUSE compliance ostal 100 % (175/175 súborov).
-- `docs/assets/brand/README.md` prepísaný — odráža post-pivot realítu (Inventario primárne, SFZ ako founding contributor).
+- `docs/assets/brand/README.md` prepísaný — odráža Inventario brand identitu.
 
 ### Added (compliance & infrastructure)
 

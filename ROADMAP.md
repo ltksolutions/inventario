@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Roadmap — Inventario
 
-> **Last updated:** 16. máj 2026
-> **Status:** Active, post-pivot
+> **Last updated:** 22. máj 2026
+> **Status:** Active
 > **Current version:** v0.3
 
 ---
@@ -20,7 +20,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 1. **Backend pred frontendom** — silný API foundation umožňuje rýchlejší frontend vývoj
 2. **Compliance pred features** — EU public sector pripravenosť je core value
 3. **Open source pred proprietárnou stratégiou** — všetko musí byť forkovateľné
-4. **Tests pred speed** — backend má 257 testov, frontend bude mať Playwright E2E
+4. **Tests pred speed** — backend má 962 testov, frontend bude mať Playwright E2E
 5. **Slovak language native** — i18n je možnosť, ale SK má prioritu
 
 ---
@@ -48,7 +48,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [x] Locations module (paritný s categories)
 - [x] FK protection v oboch smeroch (assets ↔ categories/locations)
 - [x] Audit log s typmi pre všetky entity
-- [x] 257 integration testov (CI green proti Atlas dev)
+- [x] 962 integration testov (CI green proti Atlas dev)
 - [x] Pre-commit hooks (lint-staged + typecheck) + GitHub Desktop kompatibilita
 
 ### Design + Marketing + Docs
@@ -141,7 +141,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 ### Production readiness
 
-- [ ] Prvý production tenant: SFZ (founding customer)
+- [ ] Prvý production tenant z founding contributors
 - [ ] Sentry / Datadog monitoring
 - [ ] Disaster Recovery Plan
 - [ ] Backup strategy + recovery testing
@@ -222,8 +222,8 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 ### Launch milestones
 
-- [ ] SFZ ako prvý production tenant
-- [ ] 5 ďalších founding customers (mestá, kluby, školy)
+- [ ] Prvý production tenant z founding contributors
+- [ ] 5 ďalších founding contributors (mestá, kluby, školy, športové zväzy)
 - [ ] EU rozvojové fondy aplikácia (OPII / Digital Europe / Horizon)
 - [ ] Verejná publikácia v Slovak tech press
 
@@ -303,9 +303,10 @@ Táto roadmapa sa **aktualizuje raz za quarter** alebo pri zásadných zmenách 
 
 Update history:
 
-| Dátum      | Verzia | Zmena                      |
-| ---------- | ------ | -------------------------- |
-| 2026-05-15 | v1.0   | Initial roadmap post-pivot |
+| Dátum      | Verzia | Zmena                                       |
+| ---------- | ------ | ------------------------------------------- |
+| 2026-05-15 | v1.0   | Initial roadmap                             |
+| 2026-05-22 | v1.1   | Refresh — 962 testov, founding contributors |
 
 ---
 

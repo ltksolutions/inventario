@@ -10,7 +10,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | Atribút                   | Hodnota                                                      |
 | ------------------------- | ------------------------------------------------------------ |
 | **Posledná aktualizácia** | 2026-05-22 (Vercel env vars + sub-processors page)           |
-| **Aktuálna fáza**         | Pre-pilot compliance finalization + SFZ vendor setup         |
+| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review            |
 | **Posledný session log**  | [`2026-05-22-domain-rename.md`](2026-05-22-domain-rename.md) |
 
 ---
@@ -36,18 +36,18 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Compliance Fáza 1** | ✅ HOTOVÁ — 5 dokumentov                                |
 | **Frontend pages**    | ✅ 7/7 P0 stránok (Slice #4) + 2 nové (invite/settings) |
 | **Production deploy** | ✅ LIVE — inventario.estate + docs                      |
-| **Pilot ready**       | ⏳ 80% — čaká na SFZ-side actions                       |
+| **Launch ready**      | ⏳ 90% — čaká na legal review                           |
 
 ### 🎯 Strategická pozícia
 
-**LTK Solutions, s.r.o. je multi-tenant SaaS poskytovateľ.** Inventario je _product_, SFZ je _tenant #1_.
+**LTK Solutions, s.r.o. je multi-tenant SaaS poskytovateľ.** Inventario je _product_, otvorený pod EUPL-1.2.
 
 Pred prvým produkčným tenant-om treba:
 
 1. ✅ Compliance dokumenty (Fáza 1) — HOTOVO
-2. ⏳ Právny review slovenským advokátom — PENDING
-3. ⏳ SFZ-side: conflict of interest + vendor selection — PENDING
-4. ⏳ Env vars na Vercel prod — PENDING
+2. ✅ Env vars na Vercel prod — HOTOVO 2026-05-22
+3. ✅ Sub-processors verejná stránka — HOTOVO 2026-05-22
+4. ⏳ Právny review slovenským advokátom — PENDING
 
 ---
 
@@ -55,36 +55,32 @@ Pred prvým produkčným tenant-om treba:
 
 ### 1. Compliance Fáza 1 — ✅ KOMPLETNÁ
 
-| #   | Dokument                                       | Stav               | Závisí na |
-| --- | ---------------------------------------------- | ------------------ | --------- |
-| 1   | **Privacy Policy** (`inventario.estate`)       | ✅ Done 2026-05-21 | —         |
-| 2   | **Terms of Service** + AUP + SLA               | ✅ Done 2026-05-21 | —         |
-| 3   | **Breach Notification Plan** (čl. 33–34)       | ✅ Done 2026-05-21 | —         |
-| 4   | **Disaster Recovery Plan** (RPO ≤24h, RTO ≤8h) | ✅ Done 2026-05-21 | —         |
-| 5   | **Threshold Assessment / DPIA Pre-screen**     | ✅ Done 2026-05-21 | —         |
+| #   | Dokument                                       | Stav               |
+| --- | ---------------------------------------------- | ------------------ |
+| 1   | **Privacy Policy** (`inventario.estate`)       | ✅ Done 2026-05-21 |
+| 2   | **Terms of Service** + AUP + SLA               | ✅ Done 2026-05-21 |
+| 3   | **Breach Notification Plan** (čl. 33–34)       | ✅ Done 2026-05-21 |
+| 4   | **Disaster Recovery Plan** (RPO ≤24h, RTO ≤8h) | ✅ Done 2026-05-21 |
+| 5   | **Threshold Assessment / DPIA Pre-screen**     | ✅ Done 2026-05-21 |
 
 > **Fáza 1 je hotová.** Všetky dokumenty sú v `docs/compliance/` a `docs/compliance/legal/`.
 
-### 2. SFZ-side akčné body (blocking pred DPA podpisom)
+### 2. Pred-launch action items
 
-| #   | Úloha                                                                                       | Vlastník                 | Stav       |
-| --- | ------------------------------------------------------------------------------------------- | ------------------------ | ---------- |
-| 1   | Mailboxy `privacy@`, `security@`, `legal@` na `inventario.estate`                           | Ján (technicky)          | ✅ Hotové  |
-| 2   | **Zápis výkonného výboru SFZ** — disclosure konfliktu, vendor selection, recusal Ing. Letka | SFZ gen. sekretár        | ⏳ PENDING |
-| 3   | **Vendor selection rationale** dokument (porovnanie alternatív, prečo Inventario)           | SFZ-strana               | ⏳ PENDING |
-| 4   | **Právny review compliance dokumentov** slovenským GDPR/IT advokátom (~300–500 €)           | Externý advokát          | ⏳ PENDING |
-| 5   | Verejná stránka `https://inventario.estate/sub-processors`                                  | Frontend / marketing dev | ⏳ PENDING |
+| #   | Úloha                                                                             | Vlastník        | Stav                 |
+| --- | --------------------------------------------------------------------------------- | --------------- | -------------------- |
+| 1   | Mailboxy `privacy@`, `security@`, `legal@` na `inventario.estate`                 | Ján (technicky) | ✅ Hotové            |
+| 2   | **Právny review compliance dokumentov** slovenským GDPR/IT advokátom (~300–500 €) | Externý advokát | ⏳ PENDING           |
+| 3   | Verejná stránka `https://inventario.estate/sub-processors`                        | Dev             | ✅ Hotové 2026-05-22 |
 
-**Kritické:** SFZ musí skompletizovať body 2–3 pred tým, ako obe strany podpíšu DPA.
-
-### 3. Technické pred-pilot tasks
+### 3. Technické pred-launch tasks
 
 | #   | Task                                                                                        | Priority | Vlastník   | Stav                 |
 | --- | ------------------------------------------------------------------------------------------- | -------- | ---------- | -------------------- |
-| 1   | **Env vars na Vercel prod** — `MFA_SECRET_ENCRYPTION_KEY` (32-byte hex) + `ECOMAIL_API_KEY` | HIGH     | Ján        | ⏳ PENDING           |
+| 1   | **Env vars na Vercel prod** — `MFA_SECRET_ENCRYPTION_KEY` (32-byte hex) + `ECOMAIL_API_KEY` | HIGH     | Ján        | ✅ Hotové 2026-05-22 |
 | 2   | **Sub-processors list publikovať** na `inventario.estate/sub-processors`                    | MEDIUM   | Dev        | ✅ Hotové 2026-05-22 |
 | 3   | **Disaster recovery test** — manuálne restore z MongoDB, verify RTO/RPO                     | MEDIUM   | Ján        | ⏳ PENDING           |
-| 4   | **Atlas allowlist** — Vercel IPs pre prod, remove `0.0.0.0/0`                               | MEDIUM   | Ján        | ⏳ PENDING           |
+| 4   | **Atlas allowlist** — odložené (Vercel serverless = dynamické IP, vyžaduje Secure Compute)  | LOW      | Ján        | ⏳ POST-LAUNCH       |
 | 5   | **Penetration testing** (external, before go-live)                                          | LOW      | Externý PT | ⏳ PLANNED           |
 
 ---
@@ -102,7 +98,7 @@ Naplánovať na Q3 2026.
 
 ---
 
-## 📅 Roadmap feature work (po pilote)
+## 📅 Roadmap feature work (po launchu)
 
 ### ✅ Hotové
 
@@ -110,7 +106,7 @@ Naplánovať na Q3 2026.
 - ✅ **K21** — Slice #6c auth migration story (`docs/milestones/slice-6c.md`)
 - ✅ **K18.3** — OAuth invite accept (Google + Microsoft, 7 testov)
 
-### Priorita HIGH (po pilote, SFZ feedback)
+### Priorita HIGH (po launchu, na základe spätnej väzby)
 
 - **Forced MFA setup** — ak `org.settings.mfa.policy === 'REQUIRED'`, email-password users musia setup MFA po login-e. ~2 h. Sonnet 4.6.
 
@@ -124,7 +120,7 @@ Naplánovať na Q3 2026.
 
 - **Email change verification** — separate flow s vlastným tokenom. Pre invitee po accept-e chce zmeniť email. ~2 h. Sonnet 4.6.
 
-- **Per-tenant email provider override** — `Organisation.settings.email.provider`. White-label "From: noreply@sfz.sk". ~2 h. Sonnet 4.6.
+- **Per-tenant email provider override** — `Organisation.settings.email.provider`. White-label "From: noreply@tenant.sk". ~2 h. Sonnet 4.6.
 
 - **Per-email invitation exceptions** — `Organisation.settings.invitations.exceptions: string[]`. Povolí konkrétne external emaily mimo whitelistu keď `enforceAllowedDomains=true`. ~1 h. Sonnet 4.6.
 
@@ -196,18 +192,16 @@ Backend testy: 962 / 962 ✓
 - Slice #6c (K17.5 + K18.1–K18.6 + K18.3 OAuth + K18.7 + K21 docs) ✅
 - Slice #7 (TOTP MFA K7.1–K7.8 + docs) ✅
 - Compliance Fáza 1 (5 dokumentov) ✅
+- Vercel env vars (MFA + Ecomail) + sub-processors page ✅
 
-## Čo je blockujúce pre pilot?
+## Čo je blockujúce pre launch?
 
-1. SFZ zápis výkonného výboru (conflict of interest disclosure)
-2. SFZ vendor selection rationale dokument
-3. Právny review compliance dokumentov advokátom (~300–500 €)
-4. Env vars na Vercel prod (MFA_SECRET_ENCRYPTION_KEY)
-5. Sub-processors list na inventario.estate
+1. Právny review compliance dokumentov advokátom (~300–500 €)
+2. Disaster recovery test (manuálne, ~30 min)
 
 ## Čo príde ďalšie?
 
-Priorita HIGH (post-pilot):
+Priorita HIGH (post-launch):
 
 - Forced MFA setup (~2h, Sonnet 4.6)
 - Admin MFA reset (~1h, Sonnet 4.6)
@@ -221,6 +215,6 @@ Model routing: viď tabuľka vyššie.
 
 ---
 
-**Last updated:** 2026-05-22 (doménová migrácia hotová — `inventario.estate` everywhere)
-**Status:** Slice #6c kompletný. Domain rename hotový (~35 súbory). Pilot-ready. Waiting on SFZ vendor board + legal review.
-**Next session:** TBD (post-SFZ vendor board approval)
+**Last updated:** 2026-05-22 (Vercel env vars + sub-processors page hotové)
+**Status:** Slice #6c kompletný. Launch-ready 90%. Waiting on legal review.
+**Next session:** TBD

@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 >
 > **Status:** Living document. Updates vítané cez PR s typom `docs(brand): ...`.
 >
-> **Verzia brandu:** v1.0 (15. máj 2026, post-pivot)
+> **Verzia brandu:** v1.0 (15. máj 2026, otvorenie pod EUPL-1.2)
 
 ---
 

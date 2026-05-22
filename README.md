@@ -1,6 +1,5 @@
 <!--
 SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
-SPDX-FileCopyrightText: 2026 Slovenský futbalový zväz
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -10,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 [![Docs: CC-BY-4.0](https://img.shields.io/badge/Docs-CC--BY--4.0-lightgrey.svg)](LICENSE-DOCS)
 [![REUSE status](https://api.reuse.software/badge/github.com/ltksolutions/inventario)](https://api.reuse.software/info/github.com/ltksolutions/inventario)
 [![Status](https://img.shields.io/badge/status-foundation--ready-orange)]()
-[![Tests](https://img.shields.io/badge/tests-257%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-962%20passing-brightgreen.svg)]()
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 [![Slovak](https://img.shields.io/badge/Lang-Slovak-blue.svg)]()
@@ -21,7 +20,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 |                           |                                                                            |
 | ------------------------- | -------------------------------------------------------------------------- |
-| **Status**                | 🟢 Foundation ready · backend slice #3 v progrese                          |
+| **Status**                | 🟢 Foundation ready · launch-ready 90%                                     |
 | **Verzia**                | 0.3 (predfáza beta)                                                        |
 | **Posledná aktualizácia** | máj 2026                                                                   |
 | **Licencia (kód)**        | [EUPL-1.2](LICENSE) — European Union Public Licence                        |
@@ -35,14 +34,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 **Inventario** je otvorená platforma pre evidenciu a vypožičiavanie majetku. Pomáha organizáciám vedieť **kde čo majú**, **kto si to vzal**, **kedy to vráti** a **akou cestou to prešlo**.
 
-Vznikla zo zadania **Slovenského futbalového zväzu** — ale s vedomím, že **rovnaký problém riešia všetci**: kluby, mestá, školy, samosprávy, neziskové organizácie. SFZ sa preto rozhodol vybudovať riešenie ako **otvorený open-source produkt**, ktorý prináša všetkým — nielen sebe.
+Vznikol v **LTK Solutions, s.r.o.** ako riešenie pre evidenciu majetku v športových organizáciách, mestách a obciach, školách a neziskových organizáciách — všade tam, kde **rovnaký problém riešia všetci**: kde čo je a kto to má. Otvorili sme ho ako open-source pod **EUPL-1.2** licenciou — aby z neho mohli profitovať všetci, nielen jeden zadávateľ.
 
 **Nie je to účtovný systém.** Inventario je evidenčný a workflow nástroj. Neslúži na odpisy, fakturáciu ani účtovné súvzťažnosti. Slúži na to aby každá organizácia presne vedela kde má svoj majetok a v akom je stave.
 
 ### Kľúčové princípy
 
 1. **Multi-tenant od základu** — jedna inštancia, mnoho organizácií. Každá má svoj priestor, svoje farby, svoje workflow.
-2. **White-label** — žiadne značky tretích strán. Mesto Pezinok vidí "Mesto Pezinok"; SFZ vidí "SFZ"; klub vidí svoju klubovú identitu.
+2. **White-label** — žiadne značky tretích strán. Mesto Pezinok vidí "Mesto Pezinok"; športový zväz vidí svoju identitu; klub vidí svoju klubovú identitu.
 3. **Transparentné a auditovateľné** — open-source kód, REUSE compliance, audit log každej zmeny.
 4. **Bez vendor lock-in** — veľké organizácie si môžu kód forkovať a hostiť vlastnú inštanciu (EUPL-1.2 to plne umožňuje).
 5. **Pripravené pre EU verejný sektor** — EUPL licencia, REUSE, GDPR audit log, plánovaná WCAG 2.1 AA, SBOM, OpenAPI 3.1.
@@ -66,7 +65,7 @@ Vznikla zo zadania **Slovenského futbalového zväzu** — ale s vedomím, že 
 - 🔄 Workflow vypožičania, predĺženia a vrátenia s elektronickými protokolmi
 - ✍️ Digitálne podpisy preberacích a vratných protokolov
 - 📜 Plná história pohybov a kompletný audit log
-- 🔐 SSO cez Microsoft Entra ID + plánovaná SportUp identity federácia
+- 🔐 Multi-provider auth — Microsoft Entra ID, Google, Apple (plán) + email/heslo
 - 👥 Multi-tenant s per-tenant brandingom (logo, farby, slogan)
 - 🌐 Otvorené REST API (OpenAPI 3.1)
 - 📱 Mobile-first web app + budúca natívna Flutter aplikácia
@@ -86,8 +85,6 @@ Vznikla zo zadania **Slovenského futbalového zväzu** — ale s vedomím, že 
 | **Kompatibilita**      | EUPL je kompatibilný s GPL, AGPL, MPL a ďalšími open-source licenciami                                     |
 | **EU fondy**           | Splnené podmienky pre OPII, OP Slovensko, Digital Europe Programme, Horizon Europe                         |
 
-**SFZ ako _founding organisation_ projektu** prináša Inventario ako svoj príspevok do otvorenej infraštruktúry slovenského verejného sektora a športu. Inventario nie je _len SFZ aplikácia_ — je to platforma, ktorú SFZ vyvinul a otvoril všetkým.
-
 ---
 
 ## Technologický stack
@@ -98,7 +95,7 @@ Vznikla zo zadania **Slovenského futbalového zväzu** — ale s vedomím, že 
 | **Frontend (web)** | React, TypeScript, Vite, Tailwind CSS, shadcn/ui (mobile-first)                              |
 | **Mobile (plán)**  | Flutter (fáza 4, zdieľané design tokens)                                                     |
 | **Databáza**       | MongoDB Atlas + Native driver + Zod ([ADR-0005](docs/decisions/0005-mongo-native-driver.md)) |
-| **Autentifikácia** | Microsoft Entra ID (OIDC / SSO) + plánovaná SportUp identita                                 |
+| **Autentifikácia** | Inventario JWT (RS256, cookie-based) + OAuth (Google, Microsoft, Apple plán) + email/heslo   |
 | **MCP server**     | Node.js, `@modelcontextprotocol/sdk`                                                         |
 | **Monorepo**       | pnpm workspaces + Turborepo                                                                  |
 | **CI/CD**          | GitHub Actions + Vercel                                                                      |
@@ -113,7 +110,7 @@ Vznikla zo zadania **Slovenského futbalového zväzu** — ale s vedomím, že 
 Inventario/
 ├── apps/
 │   ├── api/                  # ✅ Fastify backend (REST API, RBAC, audit, FK protection)
-│   ├── web/                  # 📅 React webová aplikácia (mobile-first)
+│   ├── web/                  # ✅ Next.js webová aplikácia (mobile-first)
 │   ├── mcp-server/           # 📅 MCP server pre AI integrácie
 │   └── mobile/               # 📅 Flutter aplikácia (fáza 4)
 ├── packages/
@@ -126,14 +123,15 @@ Inventario/
 │   ├── functional-spec.md    # ✅ Funkčná špecifikácia
 │   ├── architecture/         # ✅ Dátový model, MCP server spec
 │   ├── api/                  # ✅ OpenAPI 3.1
-│   ├── decisions/            # ✅ Architecture Decision Records
-│   ├── design/               # 📅 Mockupy a design system
+│   ├── decisions/            # ✅ Architecture Decision Records (13×)
+│   ├── design/               # ✅ Design tokens + mockupy
 │   ├── milestones/           # ✅ Slice-by-slice milestone docs
 │   ├── sessions/             # ✅ Session plány (work-in-progress)
-│   └── user-guide/           # ✅ Diátaxis dokumentácia
+│   ├── compliance/           # ✅ GDPR, DPA, ROPA, sub-processors, DR plan
+│   └── marketing-site/       # ✅ inventario.estate (static HTML)
 ├── infra/
 │   ├── docker-compose.yml    # ✅ Lokálna Mongo + MailHog + MinIO
-│   └── terraform/            # 📅 IaC pre cloudovú infraštruktúru
+│   └── vercel/               # ✅ Deployment docs pre Vercel
 ├── LICENSES/                 # ✅ Plné texty licencií (EUPL-1.2, CC-BY-4.0)
 ├── REUSE.toml                # ✅ Centrálne licenčné mapovanie
 ├── CITATION.cff              # ✅ Citačné metadata
@@ -148,29 +146,9 @@ Legenda: ✅ hotové · 🟡 v progrese · 📅 plánované
 
 ## Aktuálny stav
 
-**Backend (apps/api):** 5 z 5 plánovaných slíc dokončených na 80%.
+**Backend (apps/api):** 962 testov passing, launch-ready 90%, čaká na právny review.
 
-| Slice | Modul                                                | Status                  |
-| ----- | ---------------------------------------------------- | ----------------------- |
-| #1    | Backend bootstrap (Fastify + Mongo + TS + monorepo)  | ✅ hotové               |
-| #2    | Entra ID autentifikácia + JWT verifikácia            | ✅ hotové               |
-| #2b   | Assets CRUD + RBAC + audit + transactions            | ✅ hotové               |
-| #2c   | Integration tests + pre-commit hooks + CI Atlas      | ✅ hotové               |
-| #3    | Categories + Locations + FK protection + users admin | 🟡 9/11 K-úloh hotových |
-| #3.5  | Design pivot na multi-tenant + EUPL + REUSE          | 📅 plánované            |
-| #4    | Web frontend (React, mobile-first)                   | 📅 plánované            |
-| #5    | Loans workflow (žiadosti, schvaľovanie, protokoly)   | 📅 plánované            |
-| #6    | QR kódy + scan v mobile                              | 📅 plánované            |
-
-**Metriky:**
-
-- 🧪 **257 integration testov** beží proti reálnej MongoDB Atlas v CI
-- 📂 **16 test files** pokrývajú backend od auth po FK protection
-- ⏱️ **~158 sekúnd** lokálna test duration (CI ~5–6 min)
-- 🔐 **5 funkčných modulov** (auth, audit, assets, categories, locations)
-- 📦 **2 utility libraries** napísané od základov (slugify, hierarchy validation)
-
-Detaily v [`docs/milestones/`](docs/milestones/).
+Detaily v [`docs/milestones/`](docs/milestones/) a [`docs/sessions/NEXT.md`](docs/sessions/NEXT.md).
 
 ---
 
@@ -182,17 +160,17 @@ Detaily v [`docs/milestones/`](docs/milestones/).
 
 ### Pre vývojárov a integrátorov
 
-| Dokument                                                 | Popis                                       | Status               |
-| -------------------------------------------------------- | ------------------------------------------- | -------------------- |
-| [Funkčná špecifikácia](docs/functional-spec.md)          | Čo systém robí (moduly, roly, user stories) | ✅ v0.1 draft        |
-| [Architektúra](docs/architecture/README.md)              | Architektonický prehľad, C4 diagramy        | 🟡 čiastočne         |
-| [Dátový model](docs/architecture/data-model.md)          | MongoDB kolekcie a vzťahy                   | ✅ v0.1 draft        |
-| [API špecifikácia](docs/api/openapi.yaml)                | OpenAPI 3.1 (57 endpointov)                 | ✅ v0.1 draft        |
-| [MCP server](docs/architecture/mcp-server.md)            | Špecifikácia MCP integrácie                 | ✅ v0.1 draft        |
-| [ADR](docs/decisions/README.md)                          | Architecture Decision Records               | ✅ 5× ADR            |
-| [Milestones](docs/milestones/)                           | Slice-by-slice progress documentation       | ✅ slice 1–2c hotové |
-| [shared-types README](packages/shared-types/README.md)   | Single source of truth pre dátový model     | ✅                   |
-| [design-tokens README](packages/design-tokens/README.md) | Multi-vrstvový token systém                 | ✅                   |
+| Dokument                                                 | Popis                                       |
+| -------------------------------------------------------- | ------------------------------------------- |
+| [Funkčná špecifikácia](docs/functional-spec.md)          | Čo systém robí (moduly, roly, user stories) |
+| [Architektúra](docs/architecture/README.md)              | Architektonický prehľad, C4 diagramy        |
+| [Dátový model](docs/architecture/data-model.md)          | MongoDB kolekcie a vzťahy                   |
+| [API špecifikácia](docs/api/openapi.yaml)                | OpenAPI 3.1                                 |
+| [MCP server](docs/architecture/mcp-server.md)            | Špecifikácia MCP integrácie                 |
+| [ADR](docs/decisions/README.md)                          | Architecture Decision Records (13×)         |
+| [Milestones](docs/milestones/)                           | Slice-by-slice progress documentation       |
+| [shared-types README](packages/shared-types/README.md)   | Single source of truth pre dátový model     |
+| [design-tokens README](packages/design-tokens/README.md) | Multi-vrstvový token systém                 |
 
 ---
 
@@ -231,7 +209,7 @@ pnpm build
 pnpm test
 
 # 6. Spustenie API dev servera
-pnpm --filter @sfz/api dev
+pnpm --filter @inventario/api dev
 #   → API na http://localhost:3000
 #   → Swagger UI na http://localhost:3000/docs
 ```
@@ -259,7 +237,7 @@ CI automaticky overuje REUSE compliance pri každom PR.
 Pre organizácie ktoré potrebujú **plnú kontrolu** nad svojou inštanciou (GDPR, compliance, suverenita dát):
 
 1. **Fork** tento repozitár na vlastný GitHub account / GitLab inštanciu
-2. **Konfiguruj** vlastné Entra ID / SSO provider
+2. **Konfiguruj** vlastný OAuth provider alebo email/heslo flow
 3. **Deploy** na vlastnú infraštruktúru (Vercel, Azure, Hetzner, AWS, on-premise)
 4. **Customizuj** branding cez design tokens
 5. **Synchronizuj** zmeny z upstream cez Git remote
@@ -304,9 +282,9 @@ Inventario používa **dual licensing model** v súlade s odporúčaniami Európ
 
 Inventario používa vizuálnu identitu **[SportUp — Good Idea Sport Slovakia](https://github.com/ltksolutions/sportup.sk)** ako _default tenant branding_. Ak forkujete projekt pre vlastnú organizáciu:
 
-- ✅ **SportUp brand assets môžete použiť** ak ostávate v _SportUp ekosystéme_ (kluby, zväzy, slovenské organizácie sa odporúča používať pre vizuálnu jednotnosť)
+- ✅ **SportUp brand assets môžete použiť** ak ostávate v _SportUp ekosystéme_ (kluby, zväzy, slovenské športové organizácie sa odporúča používať pre vizuálnu jednotnosť)
 - ⚠️ **Pre nezávislé inštancie** si vytvorte vlastnú vizuálnu identitu cez design tokens (`packages/design-tokens/`)
-- 🚫 **Loga konkrétnych organizácií** (SFZ, Mesto Pezinok, atď.) nie sú súčasťou Inventaria — sú vlastníctvom príslušných organizácií
+- 🚫 **Loga konkrétnych organizácií** nie sú súčasťou Inventaria — sú vlastníctvom príslušných organizácií
 
 📘 **Detailný brand guide pre developerov a designerov nájdete v [`BRAND.md`](BRAND.md)** — obsahuje použitie loga, farebnú paletu, typografiu, brand pattern, copywriting tonalitu a pravidlá pre forks & derivatives.
 
@@ -331,25 +309,20 @@ Inventario **funguje samostatne** — integrácia na SportUp je voliteľná a po
 
 ---
 
-## Founding contributor
+## Founding contributors
 
-Inventario vznikol zo zadania a investície **Slovenského futbalového zväzu** (SFZ), ktorý ho otvoril komunite ako svoj príspevok do verejnej digitálnej infraštruktúry Slovenska.
-
-> _„Postavili sme nástroj, ktorý sme potrebovali. Zistili sme, že ho potrebuje aj veľa iných organizácií — kluby, mestá, školy. Namiesto toho aby sme ho držali pre seba, otvárame ho všetkým."_
->
-> — Slovenský futbalový zväz, 2026
+Medzi prvých _founding contributors_ Inventaria patrí **Slovenský futbalový zväz** ako jeden z prvých používateľov platformy.
 
 ---
 
 ## Kontakty
 
-| Rola             | Osoba                                     | Kontakt                                                     |
-| ---------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| **Maintainer**   | Ján Letko / LTK Solutions                 | [inventario@ltk.solutions](mailto:inventario@ltk.solutions) |
-| **Founding org** | SFZ — Slovenský futbalový zväz            | [futbalsfz.sk](https://futbalsfz.sk)                        |
-| **Ecosystem**    | SportUp — Good Idea Sport Slovakia        | [sportup.sk](https://sportup.sk)                            |
-| **Partner**      | Vinonichta — gastronomický a wine partner | [jakub@vinonichta.sk](mailto:jakub@vinonichta.sk)           |
-| **Security**     | _viď [SECURITY.md](SECURITY.md)_          | Coordinated Vulnerability Disclosure                        |
+| Rola           | Osoba                                     | Kontakt                                                     |
+| -------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| **Maintainer** | Ján Letko / LTK Solutions                 | [inventario@ltk.solutions](mailto:inventario@ltk.solutions) |
+| **Ecosystem**  | SportUp — Good Idea Sport Slovakia        | [sportup.sk](https://sportup.sk)                            |
+| **Partner**    | Vinonichta — gastronomický a wine partner | [jakub@vinonichta.sk](mailto:jakub@vinonichta.sk)           |
+| **Security**   | _viď [SECURITY.md](SECURITY.md)_          | Coordinated Vulnerability Disclosure                        |
 
 ---
 
@@ -357,9 +330,9 @@ Inventario vznikol zo zadania a investície **Slovenského futbalového zväzu**
 
 Inventario by nevznikol bez:
 
-- **Slovenského futbalového zväzu** — founding contributor, ktorý sa rozhodol prispieť späť do komunity tým, že interný nástroj sprístupní pod otvorenou licenciou
+- **LTK Solutions** — vyvinula a otvorila Inventario komunite pod EUPL-1.2
+- **Slovenského futbalového zväzu** — prvý founding contributor a early adopter platformy
 - **SportUp ekosystému** — vizuálna identita, design language a budúca platformová integrácia
-- **LTK Solutions** — implementácia, architektúra a maintaining
 - **Vinonichta** — gastronomický a wine partner, ktorý drží morálku pri večerných strategických session-ách 🍷
 - **Open-source komunity** okolo Fastify, MongoDB, React, Tailwind, Vitest, Zod a Model Context Protocol
 - **Európskej komisie** — za EUPL-1.2 licenciu a podporu open-source vo verejnom sektore
