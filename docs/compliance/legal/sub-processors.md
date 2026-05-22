@@ -10,7 +10,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | Atribút                         | Hodnota                                                                                                 |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | **Verzia**                      | 1.0                                                                                                     |
-| **Posledná aktualizácia**       | _\[doplniť pri prvej publikácii\]_                                                                      |
+| **Posledná aktualizácia**       | 2026-05-22                                                                                              |
 | **Verejná URL (po publikácii)** | https://inventario.estate/sub-processors                                                                |
 | **Notifikácia o zmenách**       | E-mail na kontakt GDPR Zákazníka + zverejnenie aktualizácie na tejto stránke najmenej **30 dní vopred** |
 | **Námietkové právo Zákazníka**  | 14 kalendárnych dní od oznámenia (viď DPA bod 3.4)                                                      |
@@ -164,9 +164,9 @@ Nasledujúce subjekty LTK Solutions používa pri prevádzke alebo vývoji, ale 
 
 Každá zmena tohto zoznamu (pridanie, odstránenie, podstatná úprava existujúceho záznamu) sa pridáva do tabuľky nižšie. Zákazníci sú informovaní podľa procesu z bodu 3.4 DPA.
 
-| Verzia | Dátum                              | Zmena                                                                                                        |
-| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 1.0    | _\[doplniť pri prvej publikácii\]_ | Prvá verzia zoznamu. Iniciálne sub-processors: Vercel, MongoDB, Ecomail, Microsoft, Google, Apple (planned). |
+| Verzia | Dátum      | Zmena                                                                                                        |
+| ------ | ---------- | ------------------------------------------------------------------------------------------------------------ |
+| 1.0    | 2026-05-22 | Prvá verzia zoznamu. Iniciálne sub-processors: Vercel, MongoDB, Ecomail, Microsoft, Google, Apple (planned). |
 
 ---
 

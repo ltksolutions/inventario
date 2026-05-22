@@ -1,0 +1,523 @@
+<!--
+SPDX-FileCopyrightText: 2026 LTK Solutions, s.r.o.
+SPDX-License-Identifier: CC-BY-4.0
+
+Inventario marketing site · Sub-procesori
+-->
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sub-procesori · Inventario</title>
+    <meta name="description" content="Verejný register sub-processorov používaných LTK Solutions pri poskytovaní platformy Inventario. Aktualizovaný pri každej zmene a odoslaný zákazníkom 30 dní vopred." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/shared.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+
+    <!-- Open Graph / Twitter Card -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sub-procesori · Inventario" />
+    <meta property="og:description" content="Verejný register sub-processorov platformy Inventario — Vercel, MongoDB, Ecomail, Microsoft, Google." />
+    <meta property="og:url" content="https://inventario.estate/sub-processors" />
+    <meta property="og:image" content="https://inventario.estate/assets/og-image.png" />
+    <meta property="og:site_name" content="Inventario" />
+    <meta property="og:locale" content="sk_SK" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <style>
+        .sp-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            margin-top: 2rem;
+        }
+        .sp-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .sp-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .sp-card-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-primary);
+            margin: 0;
+        }
+        .sp-card-purpose {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin: 0;
+        }
+        .sp-card-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .sp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .sp-table tr {
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+        }
+        .sp-table tr:last-child {
+            border-bottom: none;
+        }
+        .sp-table td {
+            padding: 0.65rem 1.5rem;
+            vertical-align: top;
+            line-height: 1.5;
+        }
+        .sp-table td:first-child {
+            width: 200px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .sp-table td:last-child {
+            color: var(--text-primary);
+        }
+        .sp-table a {
+            color: var(--brand-primary);
+            text-decoration: none;
+        }
+        .sp-table a:hover {
+            text-decoration: underline;
+        }
+        .badge-eu {
+            background: color-mix(in srgb, #388fc3 12%, white);
+            color: #1a5f85;
+            border: 1px solid color-mix(in srgb, #388fc3 25%, transparent);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .badge-planned {
+            background: color-mix(in srgb, #f59e0b 12%, white);
+            color: #92400e;
+            border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .badge-optional {
+            background: color-mix(in srgb, #8b5cf6 12%, white);
+            color: #5b21b6;
+            border: 1px solid color-mix(in srgb, #8b5cf6 25%, transparent);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .badge-notsp {
+            background: color-mix(in srgb, #6b7280 12%, white);
+            color: #374151;
+            border: 1px solid color-mix(in srgb, #6b7280 25%, transparent);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .notice-box {
+            background: color-mix(in srgb, var(--brand-primary) 6%, white);
+            border: 1px solid color-mix(in srgb, var(--brand-primary) 20%, transparent);
+            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2.5rem;
+            font-size: 0.9rem;
+            line-height: 1.65;
+            color: var(--text-secondary);
+        }
+        .notice-box strong {
+            color: var(--text-primary);
+        }
+        .changelog-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .changelog-table th {
+            text-align: left;
+            padding: 0.65rem 1rem;
+            background: var(--bg-subtle, #f9fafb);
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+        .changelog-table td {
+            padding: 0.65rem 1rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+            line-height: 1.5;
+        }
+        .changelog-table tr:last-child td {
+            border-bottom: none;
+        }
+        @media (max-width: 640px) {
+            .sp-table td:first-child {
+                width: auto;
+                white-space: normal;
+            }
+            .sp-table td {
+                padding: 0.5rem 1rem;
+                display: block;
+            }
+            .sp-table tr {
+                border-bottom: none;
+                padding: 0.25rem 0;
+            }
+            .sp-table td:first-child {
+                padding-bottom: 0.1rem;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: var(--text-tertiary, #9ca3af);
+            }
+        }
+    </style>
+</head>
+<body data-page="sub-processors">
+
+    <main id="main">
+
+    <!-- HERO -->
+    <section class="hero-gradient">
+        <div class="container" style="padding: 4rem 1.5rem;">
+            <div class="mono-label" style="color: rgba(255,255,255,0.6); margin-bottom: 0.75rem;">GDPR · ČL. 28</div>
+            <h1 style="color: white; max-width: 760px;">Sub-procesori Inventaria.</h1>
+            <p class="lead-white" style="max-width: 680px; margin-top: 1rem;">
+                Verejný register sub-processorov — tretích strán, ktorým LTK Solutions odovzdáva
+                osobné údaje zákazníkov pri prevádzke platformy Inventario. Aktualizovaný pri každej zmene.
+            </p>
+            <div style="display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap; align-items: center;">
+                <span class="badge badge-white">Verzia 1.0</span>
+                <span class="badge badge-white">Publikované 2026-05-22</span>
+                <span class="badge badge-white">🔒 GDPR čl. 28</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- INFO BOX -->
+    <section class="section" style="background: var(--bg-page, #f8fafc); padding-top: 3rem; padding-bottom: 0;">
+        <div class="container-narrow">
+            <div class="notice-box">
+                <strong>Ako funguje proces zmien:</strong> Pri každom pridaní, odobraní alebo podstatnej úprave
+                sub-processora informujeme zákazníkov e-mailom na kontakt GDPR uvedený v DPA,
+                a to najmenej <strong>30 dní vopred</strong>. Zákazník má <strong>14 kalendárnych dní</strong>
+                od oznámenia na podanie námietky (viď DPA bod 3.4). Námietky posielajte na
+                <a href="mailto:privacy@inventario.estate">privacy@inventario.estate</a>.
+            </div>
+        </div>
+    </section>
+
+    <!-- ACTIVE SUB-PROCESSORS -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">AKTÍVNI</div>
+            <h2>Sub-procesori zapojení pre všetkých zákazníkov.</h2>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 0;">
+                Nasledujúce subjekty spracúvajú osobné údaje v mene LTK Solutions pre každý tenant platformy.
+            </p>
+
+            <div class="sp-grid">
+
+                <!-- Vercel -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Vercel Inc.</p>
+                            <p class="sp-card-purpose">Hosting frontendu (Next.js) a API (Fastify serverless functions)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-eu">🇪🇺 EÚ (Paríž · Frankfurt)</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Sídlo</td><td>340 S Lemon Ave #4133, Walnut, CA 91789, USA</td></tr>
+                        <tr><td>Kategórie dát</td><td>Všetky osobné údaje prechádzajúce HTTP request/response cyklom (autentifikačné tokeny, používateľské vstupy, API odpovede)</td></tr>
+                        <tr><td>Retencia</td><td>Stateless runtime — žiadne perzistentné dáta. Logy uchovávané 7 dní (Vercel Standard plan)</td></tr>
+                        <tr><td>Certifikácie</td><td>SOC 2 Type II · ISO/IEC 27001 · EU–US Data Privacy Framework</td></tr>
+                        <tr><td>Transfer mechanizmus</td><td>EU–US Data Privacy Framework + EU SCCs (modul 2)</td></tr>
+                        <tr><td>DPA</td><td><a href="https://vercel.com/legal/dpa" target="_blank" rel="noopener">vercel.com/legal/dpa ↗</a></td></tr>
+                    </table>
+                </div>
+
+                <!-- MongoDB -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">MongoDB, Inc.</p>
+                            <p class="sp-card-purpose">Hosting produkčnej databázy (MongoDB Atlas Flex tier)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-eu">🇪🇺 EÚ (Frankfurt)</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Sídlo</td><td>1633 Broadway, 38th Floor, New York, NY 10019, USA</td></tr>
+                        <tr><td>Kategórie dát</td><td>Všetky perzistentné osobné údaje platformy (používatelia, audit log, výpožičky, organizácie)</td></tr>
+                        <tr><td>Retencia</td><td>Trvanie zmluvy + 90 dní backup retention po skončení (cyklické prepisovanie)</td></tr>
+                        <tr><td>Šifrovanie</td><td>AES-256 transparent encryption at rest (default) · TLS 1.3 in transit</td></tr>
+                        <tr><td>Certifikácie</td><td>SOC 2 Type II · ISO/IEC 27001 · ISO/IEC 27017 · ISO/IEC 27018 · PCI DSS Level 1</td></tr>
+                        <tr><td>Transfer mechanizmus</td><td>EU–US Data Privacy Framework + EU SCCs (modul 2)</td></tr>
+                        <tr><td>DPA</td><td><a href="https://www.mongodb.com/legal/dpa" target="_blank" rel="noopener">mongodb.com/legal/dpa ↗</a></td></tr>
+                    </table>
+                </div>
+
+                <!-- Ecomail -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Ecomail.cz, s.r.o.</p>
+                            <p class="sp-card-purpose">Doručovanie transakčných e-mailov (verifikácia účtu, reset hesla, pozvánky, notifikácie)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-eu">🇨🇿 EÚ (Praha)</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Sídlo</td><td>Na Zderaze 1275/15, 120 00 Praha 2, Česká republika · IČO: 029 22 022</td></tr>
+                        <tr><td>Kategórie dát</td><td>E-mailové adresy príjemcov, mená v salutácii, telo transakčného e-mailu (môže obsahovať identifikátor organizácie, link s tokenom)</td></tr>
+                        <tr><td>Retencia</td><td>30 dní pre delivery logs (Ecomail default)</td></tr>
+                        <tr><td>Transfer mechanizmus</td><td>Žiadny — spracúvanie výhradne v rámci EÚ</td></tr>
+                        <tr><td>DPA</td><td><a href="https://www.ecomail.cz/podminky/ochrana-osobnich-udaju/" target="_blank" rel="noopener">ecomail.cz ↗</a></td></tr>
+                    </table>
+                </div>
+
+                <!-- Microsoft -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Microsoft Ireland Operations Limited</p>
+                            <p class="sp-card-purpose">OAuth identity provider (Sign in with Microsoft / Microsoft Entra ID)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-eu">🇮🇪 EÚ (Dublin)</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Sídlo</td><td>One Microsoft Place, South County Business Park, Dublin 18, D18 P521, Írsko</td></tr>
+                        <tr><td>Kategórie dát</td><td>E-mailová adresa, meno, OAuth identifikátor (oid), tenant ID — iba pri prihlásení cez Microsoft</td></tr>
+                        <tr><td>Certifikácie</td><td>SOC 1/2/3 · ISO/IEC 27001 · ISO/IEC 27017 · ISO/IEC 27018 · HIPAA · FedRAMP High</td></tr>
+                        <tr><td>Transfer mechanizmus</td><td>Microsoft DPA + EU SCCs</td></tr>
+                        <tr><td>DPA</td><td><a href="https://www.microsoft.com/licensing/docs/view/Microsoft-Products-and-Services-Data-Protection-Addendum-DPA" target="_blank" rel="noopener">Microsoft DPA ↗</a></td></tr>
+                    </table>
+                </div>
+
+                <!-- Google -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Google Ireland Limited</p>
+                            <p class="sp-card-purpose">OAuth identity provider (Sign in with Google)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-eu">🇮🇪 EÚ (Dublin)</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Sídlo</td><td>Gordon House, Barrow Street, Dublin 4, Írsko</td></tr>
+                        <tr><td>Kategórie dát</td><td>E-mailová adresa, meno, OAuth sub identifikátor, profilový obrázok URL — iba pri prihlásení cez Google</td></tr>
+                        <tr><td>Certifikácie</td><td>SOC 1/2/3 · ISO/IEC 27001 · ISO/IEC 27017 · ISO/IEC 27018</td></tr>
+                        <tr><td>Transfer mechanizmus</td><td>Google DPA + EU SCCs</td></tr>
+                        <tr><td>DPA</td><td><a href="https://workspace.google.com/terms/dpa_terms.html" target="_blank" rel="noopener">Google DPA ↗</a></td></tr>
+                    </table>
+                </div>
+
+                <!-- Apple -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Apple Distribution International Ltd.</p>
+                            <p class="sp-card-purpose">OAuth identity provider (Sign in with Apple)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-planned">⏳ Plánované</span>
+                            <span class="badge-eu">🇮🇪 EÚ (Cork)</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Status</td><td>Plánované — aktivácia po získaní Apple Developer Program enrollmentu. Zákazníci budú informovaní 30 dní vopred podľa štandardného procesu.</td></tr>
+                        <tr><td>Sídlo</td><td>Hollyhill Industrial Estate, Hollyhill, Cork, T23 YK84, Írsko</td></tr>
+                        <tr><td>Kategórie dát</td><td>Apple ID identifikátor (sub), e-mailová adresa (môže byť anonymizovaná cez Hide My Email)</td></tr>
+                        <tr><td>Certifikácie</td><td>SOC 2 Type II · ISO/IEC 27001</td></tr>
+                        <tr><td>Transfer mechanizmus</td><td>Apple DPA + EU SCCs</td></tr>
+                        <tr><td>DPA</td><td><a href="https://www.apple.com/legal/enterprise/" target="_blank" rel="noopener">apple.com/legal/enterprise ↗</a></td></tr>
+                    </table>
+                </div>
+
+            </div><!-- .sp-grid -->
+        </div>
+    </section>
+
+    <!-- OPTIONAL SUB-PROCESSORS -->
+    <section class="section" style="background: white;">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">VOLITEĽNÍ</div>
+            <h2>Per-tenant sub-procesori.</h2>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 0;">
+                Tieto subjekty sú zapojené <strong>iba na explicitnú žiadosť konkrétneho zákazníka</strong>, nie ako predvolené nastavenie.
+            </p>
+
+            <div class="sp-grid">
+                <!-- Resend -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Resend, Inc.</p>
+                            <p class="sp-card-purpose">Alternatívna doručovacia služba transakčných e-mailov (namiesto Ecomail.cz)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-optional">Per-tenant</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Sídlo</td><td>2261 Market Street #4493, San Francisco, CA 94114, USA</td></tr>
+                        <tr><td>Kategórie dát</td><td>E-mailové adresy príjemcov, telo transakčného e-mailu, delivery logs</td></tr>
+                        <tr><td>Lokalita dát</td><td>USA (základný plán) · EÚ Data Residency dostupná v Resend Pro plane</td></tr>
+                        <tr><td>Retencia</td><td>30 dní (Resend default)</td></tr>
+                        <tr><td>Certifikácie</td><td>SOC 2 Type II</td></tr>
+                        <tr><td>Transfer mechanizmus</td><td>EU–US Data Privacy Framework + EU SCCs</td></tr>
+                        <tr><td>Aktivácia</td><td>Vyžaduje explicitnú písomnú žiadosť zákazníka a zmenu konfigurácie organizácie</td></tr>
+                        <tr><td>DPA</td><td><a href="https://resend.com/legal/dpa" target="_blank" rel="noopener">resend.com/legal/dpa ↗</a></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- NOT SUB-PROCESSORS -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">MIMO ROZSAHU</div>
+            <h2>Subjekty, ktoré nie sú sub-procesormi.</h2>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 2rem;">
+                Nasledujúce subjekty LTK Solutions používa pri prevádzke alebo vývoji, ale
+                <strong>nespracúvajú osobné údaje zákazníka</strong>, preto nie sú sub-procesormi v zmysle čl. 28 GDPR.
+            </p>
+
+            <div class="sp-grid">
+                <!-- Anthropic -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Anthropic, PBC</p>
+                            <p class="sp-card-purpose">AI asistent (Claude) — výhradne pri vývoji platformy</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-notsp">Nie je sub-procesor</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Vysvetlenie</td><td>Anthropic nemá runtime prístup k platforme Inventario ani k osobným údajom zákazníka. LTK Solutions sa zaväzuje neposlať žiadne reálne osobné údaje zákazníka do Anthropic produktov v rámci vývoja.</td></tr>
+                    </table>
+                </div>
+
+                <!-- GitHub -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">GitHub, Inc.</p>
+                            <p class="sp-card-purpose">Hosting verejného zdrojového kódu Inventario (open-source)</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-notsp">Nie je sub-procesor</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Vysvetlenie</td><td>Repozitár obsahuje iba zdrojový kód, testy so syntetickými dátami a dokumentáciu. Žiadne osobné údaje zákazníkov nie sú súčasťou kódovej bázy.</td></tr>
+                    </table>
+                </div>
+
+                <!-- Google Fonts -->
+                <div class="sp-card">
+                    <div class="sp-card-header">
+                        <div>
+                            <p class="sp-card-title">Google Ireland Limited — Fonts CDN</p>
+                            <p class="sp-card-purpose">Webfonty (Poppins, JetBrains Mono) na marketingovom webe</p>
+                        </div>
+                        <div class="sp-card-badges">
+                            <span class="badge-notsp">Nie je sub-procesor</span>
+                        </div>
+                    </div>
+                    <table class="sp-table">
+                        <tr><td>Vysvetlenie</td><td>Pri requeste browser → Google Fonts CDN sa nevysiela žiadny identifikátor zákazníka. Pre zákazníkov so striktnými on-prem požiadavkami sú fonty dostupné aj v self-hosted variante.</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CHANGELOG -->
+    <section class="section" style="background: white;">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">HISTÓRIA ZMIEN</div>
+            <h2>Changelog.</h2>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 2rem;">
+                Každá zmena zoznamu sub-processorov je zaznamenávaná tu a zákazníci sú informovaní 30 dní vopred.
+            </p>
+            <table class="changelog-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Verzia</th>
+                        <th style="width: 120px;">Dátum</th>
+                        <th>Zmena</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono-label" style="margin: 0; font-size: 0.75rem;">1.0</span></td>
+                        <td>2026-05-22</td>
+                        <td>Prvá verzia zoznamu. Iniciálni sub-procesori: Vercel, MongoDB, Ecomail, Microsoft, Google, Apple (plánované). Voliteľný: Resend.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="card" style="background: white;">
+                <h3 style="margin-top: 0;">Kontakt pre GDPR záležitosti</h3>
+                <table class="sp-table" style="margin-top: 0.5rem;">
+                    <tr><td style="width: 260px;">Otázky k tomuto zoznamu</td><td><a href="mailto:privacy@inventario.estate">privacy@inventario.estate</a></td></tr>
+                    <tr><td>Námietka voči novému sub-processorovi</td><td><a href="mailto:privacy@inventario.estate">privacy@inventario.estate</a></td></tr>
+                    <tr><td>Hlásenie security incidentu</td><td><a href="mailto:security@inventario.estate">security@inventario.estate</a></td></tr>
+                    <tr><td>Právne otázky / zmluvná korešpondencia</td><td><a href="mailto:legal@inventario.estate">legal@inventario.estate</a></td></tr>
+                    <tr><td>Konateľ</td><td>Ing. Ján Letko, LTK Solutions, s.r.o.</td></tr>
+                </table>
+                <p style="margin-top: 1.5rem; margin-bottom: 0; font-size: 0.8rem; color: var(--text-secondary);">
+                    <strong>LTK Solutions, s.r.o.</strong> · Banícka 1894/17, 968 01 Nová Baňa ·
+                    IČO: 45 949 310 · IČ DPH: SK2023148017 ·
+                    OR OŽ Banská Bystrica, odd. Sro, vložka 19280/S
+                </p>
+            </div>
+        </div>
+    </section>
+
+    </main>
+
+    <script src="assets/shared.js"></script>
+</body>
+</html>

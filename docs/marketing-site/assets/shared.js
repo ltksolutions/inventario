@@ -136,6 +136,10 @@
                                 <li><a href="/about">O projekte</a></li>
                                 <li><a href="${EXTERNAL_LINKS.sportup}" target="_blank" rel="noopener">${EXTERNAL_LINKS.sportup} <span aria-hidden="true">↗</span><span class="sr-only"> (otvorí v novom okne)</span></a></li>
                             </ul>
+                            <h4 class="footer-heading" style="margin-top: 1.5rem;">Právne</h4>
+                            <ul class="footer-links">
+                                <li><a href="/sub-processors">Sub-procesori (GDPR)</a></li>
+                            </ul>
                         </div>
                     </div>
                     <div class="footer-bottom">
