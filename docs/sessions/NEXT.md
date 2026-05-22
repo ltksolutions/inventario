@@ -7,11 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                      |
-| ------------------------- | ------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-05-22 (Vercel env vars + sub-processors page)           |
-| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review            |
-| **Posledný session log**  | [`2026-05-22-domain-rename.md`](2026-05-22-domain-rename.md) |
+| Atribút                   | Hodnota                                                         |
+| ------------------------- | --------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-22 (SFZ naratívna migrácia + sub-processors + env vars) |
+| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review               |
+| **Posledný session log**  | [`2026-05-22-day-summary.md`](2026-05-22-day-summary.md)        |
 
 ---
 
@@ -215,6 +215,6 @@ Model routing: viď tabuľka vyššie.
 
 ---
 
-**Last updated:** 2026-05-22 (Vercel env vars + sub-processors page hotové)
-**Status:** Slice #6c kompletný. Launch-ready 90%. Waiting on legal review.
+**Last updated:** 2026-05-22 (SFZ naratívna migrácia hotová — Inventario je LTK Solutions produkt, SFZ je founding contributor)
+**Status:** Slice #6c + #7 kompletné. 962 testov. Sub-processors live. Launch-ready 90%. Waiting on legal review.
 **Next session:** TBD
