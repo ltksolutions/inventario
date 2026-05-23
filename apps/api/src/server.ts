@@ -29,6 +29,7 @@ import {
 
 import assetsRoutes from './modules/assets/assets.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
+import authSessionRoutes from './modules/auth/auth-session.routes.js';
 import emailAuthRoutes from './modules/auth/email-auth.routes.js';
 import mfaRoutes from './modules/auth/mfa/mfa.routes.js';
 import oauthRoutes from './modules/auth/oauth.routes.js';
@@ -130,6 +131,7 @@ export async function buildServer(
   await app.register(inventarioJwtPlugin);
   await app.register(authPlugin);
   await app.register(oauthRoutes);
+  await app.register(authSessionRoutes);
   await app.register(emailAuthRoutes);
   await app.register(registrationRoutes);
   await app.register(mfaRoutes);

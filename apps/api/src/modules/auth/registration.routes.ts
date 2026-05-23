@@ -36,6 +36,7 @@ import fp from 'fastify-plugin';
 import { z } from 'zod';
 
 import { BadRequestError } from '../../plugins/error-handler.js';
+import { MembershipsRepository } from '../memberships/memberships.repository.js';
 
 import {
   OAUTH_STATE_COOKIE,
@@ -137,6 +138,8 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         const slugExists = await orgsCol.findOne({ slug, deletedAt: null });
         const finalSlug = slugExists ? `${slug}-${Date.now().toString(36)}` : slug;
 
+        const membershipsRepo = new MembershipsRepository(db);
+
         const orgInsert = await orgsCol.insertOne({
           displayName: orgName,
           slug: finalSlug,
@@ -214,6 +217,29 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         } as never);
 
         const userId = userInsert.insertedId;
+
+        // K9: Create default Membership for the new user (ADR-0015)
+        await membershipsRepo.create({
+          userId: userId.toString(),
+          organisationId: orgId.toString(),
+          roles: [UserRole.ADMIN],
+          organizationalUnit: null,
+          teams: [],
+          status: 'ACTIVE',
+          isDefault: true,
+          invitedBy: 'SYSTEM',
+          invitedAt: now,
+          acceptedAt: now,
+          mustChangePassword: false,
+          lastAccessedAt: null,
+          notifications: { email: true, push: false },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'SYSTEM',
+          updatedBy: 'SYSTEM',
+          deletedAt: null,
+          deletedBy: null,
+        } as never);
 
         await orgsCol.updateOne(
           { _id: orgId },
@@ -305,29 +331,7 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // GET /v1/auth/me — current user info (Inventario JWT)
-  // ---------------------------------------------------------------------------
-
-  fastify.get('/v1/auth/me', async (request, reply) => {
-    const token = request.cookies?.['inv_access'];
-    if (!token) {
-      return reply.code(401).send({ error: 'Not authenticated' });
-    }
-
-    try {
-      const payload = await fastify.inventarioJwt.verifyAccessToken(token);
-      return reply.send({
-        sub: payload.sub,
-        org: payload.org,
-        roles: payload.roles,
-        email: payload.email,
-        name: payload.name,
-      });
-    } catch {
-      return reply.code(401).send({ error: 'Invalid or expired token' });
-    }
-  });
+  // GET /v1/auth/me is now handled by auth-session.routes.ts (K8).
 };
 
 export default fp(registrationRoutesPlugin, {
