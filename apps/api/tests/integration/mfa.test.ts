@@ -726,6 +726,6 @@ describe('Full MFA E2E flow', () => {
       headers: { cookie: `inv_access=${accessCookie!.value}` },
     });
     expect(meRes.statusCode).toBe(200);
-    expect(meRes.json<{ email: string }>().email).toBe(user.email);
+    expect(meRes.json<{ user: { email: string } }>().user.email).toBe(user.email);
   });
 });

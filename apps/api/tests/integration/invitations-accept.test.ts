@@ -341,7 +341,7 @@ describe('POST /v1/auth/accept-invitation', () => {
         headers: { cookie: `inv_access=${accessCookie.value}` },
       });
       expect(meRes.statusCode).toBe(200);
-      expect(meRes.json<{ email: string }>().email).toBe('loginafter@example.com');
+      expect(meRes.json<{ user: { email: string } }>().user.email).toBe('loginafter@example.com');
     });
   });
 });

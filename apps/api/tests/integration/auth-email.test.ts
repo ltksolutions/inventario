@@ -345,10 +345,13 @@ describe('Email auth flows', () => {
       });
 
       expect(meRes.statusCode).toBe(200);
-      const body = meRes.json<{ sub: string; email: string; roles: string[] }>();
-      expect(body.email).toBe(BASE_ORG.email);
-      expect(body.roles).toContain('ADMIN');
-      expect(typeof body.sub).toBe('string');
+      const body = meRes.json<{
+        user: { _id: string; email: string };
+        activeMembership: { roles: string[] } | null;
+      }>();
+      expect(body.user.email).toBe(BASE_ORG.email);
+      expect(body.activeMembership?.roles ?? body.user).toBeTruthy();
+      expect(typeof body.user._id).toBe('string');
     });
   });
 
