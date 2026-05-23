@@ -976,6 +976,47 @@
         }
       }
     },
+    "/v1/users/{id}/mfa": {
+      "delete": {
+        "summary": "Reset MFA for a user (admin)",
+        "tags": [
+          "Users"
+        ],
+        "description": "Clears MFA enrollment for the target user. Use when a user has lost access to their authenticator app. The user must re-enroll on next login. Admin cannot reset their own MFA via this endpoint — use POST /v1/auth/mfa/disable. Records MFA_RESET_BY_ADMIN audit event. Requires ADMIN role.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "MFA reset successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true,
+                  "description": "MFA reset successfully"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/assets": {
       "get": {
         "summary": "List assets",
