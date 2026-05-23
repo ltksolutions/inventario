@@ -5,6 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # 0014. Passkeys / WebAuthn — phishing-resistant a passwordless auth
 
+> ⚠️ **Partially superseded by [ADR-0016](0016-passkeys-implementation-plan.md)** (2026-05-25).  
+> ADR-0016 nahrádza schema design, audit log strategy a recovery rules pre post-Slice #9 (cross-tenant memberships) sveť. Foundation rationale (Možnosť C, knižnice, WebAuthn config, login UX), kontext a tento dokument zostáva aktuálny pre historickú stopu rozhodnutia. Implementácia Slice #8 sa riadi ADR-0016.
+
 |                   |                                                                                                                                                                       |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Status**        | ✅ Accepted                                                                                                                                                           |
