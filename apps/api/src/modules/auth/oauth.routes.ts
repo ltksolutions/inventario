@@ -505,9 +505,9 @@ async function provisionOrFindUser(args: {
   if (existingUser) {
     // Existing user — check org + provider policy
     const org = (await orgsCol.findOne({
-      _id: existingUser.organisationId,
+      _id: existingUser.organisationId as string,
       deletedAt: null,
-    })) as WithId<Organisation> | null;
+    } as never)) as WithId<Organisation> | null;
     if (!org) return { success: false, errorCode: 'org_not_found' };
     if (org.status !== 'ACTIVE') return { success: false, errorCode: 'org_inactive' };
 

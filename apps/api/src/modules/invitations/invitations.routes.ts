@@ -321,7 +321,10 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       return reply.code(410).send({ error: 'Invitation not found or expired' });
     }
 
-    if (new Date(user.emailVerificationExpiresAt ?? 0) < new Date()) {
+    if (
+      new Date(((user as Record<string, unknown>)['expiresAt'] as string) ?? user.expiresAt ?? 0) <
+      new Date()
+    ) {
       return reply.code(410).send({ error: 'Invitation not found or expired' });
     }
 
@@ -374,7 +377,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       inviter: {
         displayName: correctInviter?.displayName ?? 'Inventario',
       },
-      expiresAt: user.emailVerificationExpiresAt,
+      expiresAt: ((user as Record<string, unknown>)['expiresAt'] as string) ?? user.expiresAt,
     });
   });
 
@@ -392,7 +395,10 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     if (!user) {
       throw new BadRequestError('Invitation is invalid or has already been used.');
     }
-    if (new Date(user.emailVerificationExpiresAt ?? 0) < new Date()) {
+    if (
+      new Date(((user as Record<string, unknown>)['expiresAt'] as string) ?? user.expiresAt ?? 0) <
+      new Date()
+    ) {
       throw new BadRequestError(
         'Invitation has expired. Ask your administrator to send a new one.',
       );
@@ -450,7 +456,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     // Issue JWT cookies
     const updatedUser = { ...user, firstName, lastName, displayName, emailVerified: true };
     const accessToken = await fastify.inventarioJwt.issueAccessToken(
-      updatedUser as unknown as typeof user,
+      updatedUser as unknown as Parameters<typeof fastify.inventarioJwt.issueAccessToken>[0],
       org as never,
     );
     const refreshToken = await fastify.inventarioJwt.issueRefreshToken(
