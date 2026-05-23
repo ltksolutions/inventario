@@ -28,6 +28,7 @@ Tým získaš okamžitý kontext za 30 sekúnd.
 | Súbor                                                                            | Typ               | Popis                                                                                     |
 | -------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------- |
 | [`NEXT.md`](NEXT.md)                                                             | **Living**        | **Continuation plan** — vždy aktuálny stav projektu a plán ďalej                          |
+| [`2026-05-23-day-summary.md`](2026-05-23-day-summary.md)                         | Day summary       | K12a Forced MFA setup + K12b Admin MFA reset — 511/511 testov                             |
 | [`2026-05-22-day-summary.md`](2026-05-22-day-summary.md)                         | Day summary       | Vercel env vars + sub-processors page + SFZ naratívna migrácia (Phase A-C)                |
 | [`2026-05-22-domain-rename.md`](2026-05-22-domain-rename.md)                     | Day summary       | Doménová migrácia inventario.estate + GitHub rename (~35 súbory)                          |
 | [`2026-05-21-day-summary.md`](2026-05-21-day-summary.md)                         | Day summary       | Slice #6c K18 invite flow + Slice #7 TOTP MFA + DPIA strategia + 5 compliance dokumentov  |
