@@ -645,10 +645,6 @@ async function provisionOrFindUser(args: {
   return { success: true, user: newUser, org: newOrg, isNew: true, wasInvite: false };
 }
 
-// ---------------------------------------------------------------------------
-// K18.3: Invite accept via OAuth
-// ---------------------------------------------------------------------------
-
 async function acceptInviteViaOAuth(args: {
   db: Db;
   invitationToken: string;
@@ -658,9 +654,157 @@ async function acceptInviteViaOAuth(args: {
   const { db, invitationToken, authProviderEnum, providerUser } = args;
   const usersCol = db.collection<User>('users');
   const orgsCol = db.collection<Organisation>('organisations');
+  const membershipsCol = db.collection('memberships');
+  const invitationsCol = db.collection('invitations');
   const { ObjectId } = await import('mongodb');
+  const now = new Date().toISOString();
 
-  // Find the pending invite by token
+  // ----- Try new invitations collection first (K13) -----
+  const newInv = await invitationsCol.findOne({
+    token: invitationToken,
+    status: 'PENDING',
+    deletedAt: null,
+  });
+
+  if (newInv) {
+    // Check expiry
+    if (new Date(newInv['expiresAt'] as string) < new Date()) {
+      return { success: false, errorCode: 'invite_expired' };
+    }
+
+    const invEmail = (newInv['email'] as string).toLowerCase();
+    if (invEmail !== providerUser.email.toLowerCase()) {
+      return { success: false, errorCode: 'invite_email_mismatch' };
+    }
+
+    const org = (await orgsCol.findOne({
+      _id: new ObjectId(newInv['organisationId'] as string) as never,
+      deletedAt: null,
+    })) as WithId<Organisation> | null;
+    if (!org) return { success: false, errorCode: 'org_not_found' };
+    if (org.status !== 'ACTIVE') return { success: false, errorCode: 'org_inactive' };
+
+    const invitedUserId = newInv['invitedUserId'] as string | null;
+
+    let user: WithId<User>;
+
+    if (invitedUserId) {
+      // K13: Cross-tenant — existing user joins new org
+      const existingUser = (await usersCol.findOne({
+        _id: new ObjectId(invitedUserId) as never,
+        deletedAt: null,
+      })) as WithId<User> | null;
+      if (!existingUser) return { success: false, errorCode: 'user_not_found' };
+
+      // Link OAuth provider if not already linked
+      const alreadyLinked = (
+        (existingUser.authProviders ?? []) as Array<{ provider: string; providerId: string }>
+      ).some((p) => p.provider === authProviderEnum && p.providerId === providerUser.providerId);
+
+      if (!alreadyLinked) {
+        await usersCol.updateOne(
+          { _id: existingUser._id },
+          {
+            $push: {
+              authProviders: {
+                provider: authProviderEnum,
+                providerId: providerUser.providerId,
+                email: providerUser.email,
+                linkedAt: now,
+              },
+            } as never,
+            $set: { lastLoginAt: now, updatedAt: now },
+          },
+        );
+      } else {
+        await usersCol.updateOne(
+          { _id: existingUser._id },
+          { $set: { lastLoginAt: now, updatedAt: now } },
+        );
+      }
+
+      user = (await usersCol.findOne({ _id: existingUser._id } as never)) as WithId<User>;
+    } else {
+      // New-user invite via OAuth — create User
+      const userInsert = await usersCol.insertOne({
+        email: invEmail,
+        firstName: newInv['firstName'] ?? providerUser.firstName,
+        lastName: newInv['lastName'] ?? providerUser.lastName,
+        displayName: providerUser.displayName,
+        accountType: AccountType.ENTRA_ID,
+        entraOid: null,
+        authProviders: [
+          {
+            provider: authProviderEnum,
+            providerId: providerUser.providerId,
+            email: providerUser.email,
+            linkedAt: now,
+          },
+        ],
+        emailVerified: providerUser.emailVerified,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        passwordHash: null,
+        roles: newInv['roles'],
+        isActive: true,
+        lastLoginAt: now,
+        mfaEnabled: false,
+        mfaSecret: null,
+        mfaRecoveryCodes: [],
+        mfaEnabledAt: null,
+        preferences: { language: 'sk', timezone: 'Europe/Bratislava' },
+        createdAt: now,
+        updatedAt: now,
+        createdBy: 'SYSTEM',
+        updatedBy: 'SYSTEM',
+        deletedAt: null,
+        deletedBy: null,
+      } as never);
+      user = (await usersCol.findOne({ _id: userInsert.insertedId } as never)) as WithId<User>;
+    }
+
+    // Create Membership in target org
+    const membershipInsert = await membershipsCol.insertOne({
+      userId: String(user._id),
+      organisationId: newInv['organisationId'],
+      roles: newInv['roles'],
+      organizationalUnit: null,
+      teams: [],
+      status: 'ACTIVE',
+      isDefault: invitedUserId ? false : true,
+      invitedBy: newInv['invitedBy'],
+      invitedAt: newInv['createdAt'],
+      acceptedAt: now,
+      mustChangePassword: false,
+      lastAccessedAt: now,
+      notifications: { email: true, push: false },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: String(user._id),
+      updatedBy: String(user._id),
+      deletedAt: null,
+      deletedBy: null,
+    });
+
+    // Mark invitation ACCEPTED
+    await invitationsCol.updateOne(
+      { _id: newInv['_id'] },
+      {
+        $set: {
+          status: 'ACCEPTED',
+          acceptedAt: now,
+          membershipId: String(membershipInsert.insertedId),
+          updatedAt: now,
+        },
+      },
+    );
+
+    return { success: true, user, org, isNew: !invitedUserId, wasInvite: true };
+  }
+
+  // ----- Legacy ghost-user fallback (pre-K10 invitations) -----
   const pendingUser = (await usersCol.findOne({
     emailVerificationToken: invitationToken,
     passwordHash: null,
@@ -672,37 +816,27 @@ async function acceptInviteViaOAuth(args: {
     return { success: false, errorCode: 'invite_not_found' };
   }
 
-  // Check token expiry
   if (new Date(pendingUser.emailVerificationExpiresAt ?? 0) < new Date()) {
     return { success: false, errorCode: 'invite_expired' };
   }
 
-  // Verify email match (case-insensitive)
   if (pendingUser.email.toLowerCase() !== providerUser.email.toLowerCase()) {
     return { success: false, errorCode: 'invite_email_mismatch' };
   }
 
-  // Load org
   const org = (await orgsCol.findOne({
-    _id: new ObjectId(pendingUser.organisationId) as never,
+    _id: new ObjectId(pendingUser.organisationId as string) as never,
     deletedAt: null,
   })) as WithId<Organisation> | null;
 
   if (!org) return { success: false, errorCode: 'org_not_found' };
   if (org.status !== 'ACTIVE') return { success: false, errorCode: 'org_inactive' };
 
-  const now = new Date().toISOString();
-
-  // Activate the account via OAuth identity
-  // All OAuth users (Google / Microsoft) use ENTRA_ID as accountType
-  // (same pattern as self-serve registration in oauth.routes.ts).
-  const accountType = AccountType.ENTRA_ID;
-
   await usersCol.updateOne(
     { _id: pendingUser._id },
     {
       $set: {
-        accountType,
+        accountType: AccountType.ENTRA_ID,
         authProviders: [
           {
             provider: authProviderEnum,
@@ -714,7 +848,6 @@ async function acceptInviteViaOAuth(args: {
         emailVerified: true,
         emailVerificationToken: null,
         emailVerificationExpiresAt: null,
-        // Use provider name if invite did not pre-fill firstName/lastName
         ...(pendingUser.firstName ? {} : { firstName: providerUser.firstName }),
         ...(pendingUser.lastName ? {} : { lastName: providerUser.lastName }),
         displayName:
@@ -729,7 +862,6 @@ async function acceptInviteViaOAuth(args: {
   );
 
   const activatedUser = (await usersCol.findOne({ _id: pendingUser._id } as never)) as WithId<User>;
-
   return { success: true, user: activatedUser, org, isNew: false, wasInvite: true };
 }
 
