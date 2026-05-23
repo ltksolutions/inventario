@@ -89,8 +89,13 @@ const ForgotPasswordSchema = z.object({
 });
 
 const ResetPasswordSchema = z.object({
-  token: z.string().length(64), // 32 bytes hex = 64 chars
+  token: z.string().length(64),
   password: z.string().min(12).max(128),
+});
+
+const ChangeEmailSchema = z.object({
+  newEmail: z.string().email().toLowerCase().trim(),
+  password: z.string().min(1).max(128),
 });
 
 // ---------------------------------------------------------------------------
@@ -492,11 +497,153 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     fastify.log.info({ userId: String(user._id), email: user.email }, 'Password reset successful');
     return reply.code(204).send();
   });
+
+  // -------------------------------------------------------------------------
+  // POST /v1/auth/change-email — request email change
+  // -------------------------------------------------------------------------
+
+  fastify.post(
+    '/v1/auth/change-email',
+    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }) },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+
+      const body = ChangeEmailSchema.safeParse(request.body);
+      if (!body.success) {
+        throw new BadRequestError(body.error.issues[0]?.message ?? 'Neplatný vstup.');
+      }
+      const { newEmail, password } = body.data;
+
+      const user = request.currentUser;
+      const userId = String(user._id);
+
+      // Len LOCAL účty môžu meniť email cez heslo
+      if (user.accountType !== 'LOCAL' || !user.passwordHash) {
+        throw new BadRequestError(
+          'Zmena e-mailu je dostupná len pre účty s heslom. OAuth účty majú email spravovaný providerom.',
+        );
+      }
+
+      // Overiť heslo
+      let passwordValid: boolean;
+      try {
+        passwordValid = await argon2.verify(user.passwordHash, password);
+      } catch {
+        passwordValid = false;
+      }
+      if (!passwordValid) {
+        throw new BadRequestError('Neplatné heslo.');
+      }
+
+      // Nový email nesmie byť obsadený
+      const conflict = await usersCol.findOne({ email: newEmail, deletedAt: null });
+      if (conflict) {
+        throw new BadRequestError('Táto e-mailová adresa je už používaná.');
+      }
+
+      // Nesmie byť rovnaká ako aktuálna
+      if (newEmail === user.email) {
+        throw new BadRequestError('Nová e-mailová adresa sa musí líšiť od aktuálnej.');
+      }
+
+      const changeToken = generateToken();
+      const changeExpiresAt = tokenExpiresAt(60); // 1 hodina
+      const now = new Date().toISOString();
+
+      await usersCol.updateOne({ _id: user._id } as never, {
+        $set: {
+          emailChangePendingTo: newEmail,
+          emailChangeToken: changeToken,
+          emailChangeExpiresAt: changeExpiresAt,
+          updatedAt: now,
+        },
+      });
+
+      const apiBase = fastify.config.OAUTH_REDIRECT_BASE_URL ?? 'http://localhost:3000';
+      await fastify.emailService.sendEmailChangeEmail(newEmail, changeToken, apiBase);
+
+      fastify.log.info({ userId, currentEmail: user.email, newEmail }, 'Email change requested');
+      return reply.code(204).send();
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /v1/auth/confirm-email-change — potvrdenie zmeny cez token
+  // -------------------------------------------------------------------------
+
+  fastify.get<{ Querystring: { token?: string } }>(
+    '/v1/auth/confirm-email-change',
+    async (request, reply) => {
+      const { token } = request.query;
+      if (!token || token.length !== 64) {
+        return reply.redirect(
+          `${FRONTEND_BASE_URL}/settings/security?error=invalid_email_change_token`,
+        );
+      }
+
+      const now = new Date().toISOString();
+      const user = (await usersCol.findOne({
+        emailChangeToken: token,
+        emailChangeExpiresAt: { $gt: now } as never,
+        deletedAt: null,
+      })) as WithId<User> | null;
+
+      if (!user || !(user as Record<string, unknown>)['emailChangePendingTo']) {
+        return reply.redirect(
+          `${FRONTEND_BASE_URL}/settings/security?error=email_change_token_expired`,
+        );
+      }
+
+      const newEmail = (user as Record<string, unknown>)['emailChangePendingTo'] as string;
+
+      // Posledná kontrola duplicity (niekto mohol obsadiť email počas 1h okna)
+      const conflict = await usersCol.findOne({
+        email: newEmail,
+        _id: { $ne: user._id } as never,
+        deletedAt: null,
+      });
+      if (conflict) {
+        return reply.redirect(`${FRONTEND_BASE_URL}/settings/security?error=email_already_taken`);
+      }
+
+      await usersCol.updateOne({ _id: user._id } as never, {
+        $set: {
+          email: newEmail,
+          emailChangePendingTo: null,
+          emailChangeToken: null,
+          emailChangeExpiresAt: null,
+          updatedAt: now,
+        },
+      });
+
+      // Revokovať všetky refresh tokeny — zmena emailu = všetky sessions neplatné
+      await fastify.inventarioJwt.revokeAllForUser(String(user._id));
+
+      fastify.log.info(
+        { userId: String(user._id), oldEmail: user.email, newEmail },
+        'Email changed successfully',
+      );
+
+      // Audit
+      await fastify.mongo.db.collection('audit_logs').insertOne({
+        action: 'USER_UPDATED',
+        severity: 'WARNING',
+        actor: { userId: String(user._id), email: user.email },
+        target: { entityType: 'User', entityId: String(user._id) },
+        organisationId: request.inventarioClaims?.org ?? 'unknown',
+        metadata: { changedField: 'email', newEmail },
+        createdAt: now,
+      });
+
+      return reply.redirect(`${FRONTEND_BASE_URL}/settings/security?emailChanged=true`);
+    },
+  );
 };
 
 export default fp(emailAuthRoutesPlugin, {
   name: 'email-auth-routes',
-  dependencies: ['config', 'mongo', 'inventario-jwt'],
+  dependencies: ['config', 'mongo', 'inventario-jwt', 'auth'],
 });
 
 // ---------------------------------------------------------------------------

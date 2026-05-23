@@ -65,6 +65,13 @@ export interface EmailService {
     },
   ): Promise<void>;
 
+  /**
+   * Send email change confirmation link to the NEW address.
+   * @param token  Raw 64-char hex token.
+   * @param apiBaseUrl  E.g. https://api.inventario.estate
+   */
+  sendEmailChangeEmail(to: string, token: string, apiBaseUrl: string): Promise<void>;
+
   /** Name of the active provider — for diagnostics. */
   readonly providerName: EmailProvider['name'];
   /** Whether the active provider is a real transport (false for stub). */
@@ -181,6 +188,16 @@ const emailPlugin: FastifyPluginAsync = async (fastify) => {
           `Prijmite pozvánku: ${url} (platnosť ${INVITE_TEMPLATE_TTL_DAYS} dní)`,
       });
     },
+
+    async sendEmailChangeEmail(to, token, apiBaseUrl) {
+      const url = `${apiBaseUrl}/v1/auth/confirm-email-change?token=${token}`;
+      await provider.send({
+        to,
+        subject: 'Potvrdte zmenu e-mailovej adresy — Inventario',
+        html: emailChangeHtml(url),
+        text: `Potvrdte zmenu e-mailu: ${url} (platnosť 1 hodinu)`,
+      });
+    },
   };
 
   fastify.decorate('emailService', service);
@@ -258,6 +275,32 @@ function verificationEmailHtml(url: string): string {
     </a>
     <p style="margin:20px 0 0;color:#94A3B8;font-size:12px;">
       Ak ste sa neregistrovali v Inventario, ignorujte tento e-mail.
+    </p>
+    `,
+  );
+}
+
+function emailChangeHtml(url: string): string {
+  return emailLayout(
+    'Zmena e-mailovej adresy',
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">
+      Potvrdenie zmeny e-mailu
+    </h1>
+    <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
+      Dostali sme žiadosti o zmenu e-mailovej adresy vášho účtu Inventario.
+      Kliknite na tlačidlo nižšie pre potvrdenie novej adresy.
+      Odkaz je platný <strong>1 hodinu</strong>.
+    </p>
+    <a href="${url}"
+       style="display:inline-block;background-color:#388FC3;color:#FFFFFF;text-decoration:none;
+              font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;">
+      Potvrdiť novú e-mailovú adresu
+    </a>
+    <p style="margin:20px 0 0;color:#94A3B8;font-size:12px;">
+      Ak ste o zmenu e-mailu nepúdali, kontaktujte nás na
+      <a href="mailto:security@inventario.estate" style="color:#388FC3;">security@inventario.estate</a>.
+      Vaša e-mailová adresa zostane nezmenená.
     </p>
     `,
   );

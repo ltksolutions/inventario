@@ -640,7 +640,7 @@ export class UsersService {
       updatedBy: 'SYSTEM',
       deletedAt: null,
       deletedBy: null,
-    };
+    } as never;
   }
 
   // -------------------------------------------------------------------------

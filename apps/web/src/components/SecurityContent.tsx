@@ -23,10 +23,13 @@
  *   Password re-entry → POST /v1/auth/mfa/disable
  */
 
-import { CheckCircle2, Copy, Loader2, ShieldCheck, ShieldOff, X } from 'lucide-react';
+import { CheckCircle2, Copy, Loader2, Mail, ShieldCheck, ShieldOff, X } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import type { FormEvent, JSX } from 'react';
+
+import { useAuth } from '@/lib/auth-context';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -51,6 +54,10 @@ interface SetupData {
 // ---------------------------------------------------------------------------
 
 export function SecurityContent(): JSX.Element {
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const emailChanged = searchParams.get('emailChanged') === 'true';
+
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [statusLoaded, setStatusLoaded] = useState(false);
@@ -101,8 +108,19 @@ export function SecurityContent(): JSX.Element {
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <div>
         <h1 className="text-xl font-semibold text-text-primary">Bezpečnosť</h1>
-        <p className="mt-0.5 text-sm text-text-secondary">Správa dvojfaktorového overenia (MFA).</p>
+        <p className="mt-0.5 text-sm text-text-secondary">
+          Správa dvojfaktorového overenia (MFA) a e-mailovej adresy.
+        </p>
       </div>
+
+      {emailChanged && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          ✅ E-mailová adresa bola úspešne zmená. Boli ste odhlásený zo všetkých last sessions.
+        </div>
+      )}
+
+      {/* Email change — len pre LOCAL účty s heslom */}
+      {user?.accountType === 'LOCAL' && <EmailChangePanel currentEmail={user.email} />}
 
       {status?.enabled ? (
         <MfaEnabledPanel status={status} onDisabled={() => void refreshStatus()} />
@@ -360,6 +378,139 @@ function MfaDisabledPanel({ onEnabled }: { onEnabled: () => void }): JSX.Element
             {loading && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
             Aktivovať MFA
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EmailChangePanel — zmena e-mailovej adresy (len LOCAL účty)
+// ---------------------------------------------------------------------------
+
+function EmailChangePanel({ currentEmail }: { currentEmail: string }): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/v1/auth/change-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ newEmail, password }),
+      });
+      if (res.ok) {
+        setSent(true);
+        return;
+      }
+      const body = (await res.json()) as { message?: string };
+      setError(body.message ?? 'Nastala chyba. Skúste znova.');
+    } catch {
+      setError('Sieťová chyba. Skúste znova.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-card p-6">
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-surface-subtle">
+          <Mail className="h-5 w-5 text-text-muted" aria-hidden="true" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-text-primary">E-mailová adresa</h2>
+              <p className="mt-0.5 text-sm text-text-secondary">{currentEmail}</p>
+            </div>
+            {!open && !sent && (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle"
+              >
+                Zmeniť
+              </button>
+            )}
+          </div>
+
+          {sent && (
+            <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              Potvrdzovací e-mail bol odoslaný na <strong>{newEmail}</strong>. Platnosť 1 hodinu.
+            </div>
+          )}
+
+          {open && !sent && (
+            <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-3">
+              {error && (
+                <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+              )}
+              <div>
+                <label htmlFor="new-email" className="block text-sm font-medium text-text-primary">
+                  Nová e-mailová adresa
+                </label>
+                <input
+                  id="new-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="nova@adresa.sk"
+                  className="mt-1 block w-full max-w-sm rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="change-email-pw"
+                  className="block text-sm font-medium text-text-primary"
+                >
+                  Potvrdiť heslom
+                </label>
+                <input
+                  id="change-email-pw"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Vaše aktuálne heslo"
+                  className="mt-1 block w-full max-w-sm rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {loading && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+                  Odoslať potvrdenie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    setError('');
+                    setNewEmail('');
+                    setPassword('');
+                  }}
+                  className="rounded-lg border border-border-default px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-surface-subtle"
+                >
+                  Zrušiť
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

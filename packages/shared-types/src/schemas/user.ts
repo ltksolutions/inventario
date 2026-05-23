@@ -110,6 +110,18 @@ export const UserSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     passwordHash: z.string().nullable().default(null),
 
     // -----------------------------------------------------------------
+    // Email change verification (post-Slice #9)
+    // -----------------------------------------------------------------
+
+    /** Nová e-mailová adresa čakajúca na potvrdenie. */
+    emailChangePendingTo: z.string().email().nullable().default(null),
+
+    /** Token pre potvrdenie zmeny e-mailu. NIKDY do API response. */
+    emailChangeToken: z.string().nullable().default(null),
+
+    emailChangeExpiresAt: z.string().datetime().nullable().default(null),
+
+    // -----------------------------------------------------------------
     // @deprecated per-tenant fields — presunúť na Membership po K3
     // -----------------------------------------------------------------
 
