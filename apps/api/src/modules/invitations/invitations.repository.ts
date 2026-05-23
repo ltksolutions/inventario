@@ -178,6 +178,7 @@ export class InvitationsRepository {
   }: ListInvitationsParams): Promise<{ items: WithId<Invitation>[]; total: number }> {
     const filter: Record<string, unknown> = {
       organisationId,
+      status: 'PENDING',
       deletedAt: null,
     };
     if (q) {
