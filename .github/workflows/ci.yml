@@ -148,23 +148,15 @@ jobs:
 
   # ──────────────────────────────────────────────────────────────
   # Job 3: OpenAPI freshness check — the openapi.json committed to git
-  # must match what `pnpm openapi:export` would produce from the current
-  # source. Catches API changes where someone forgot to regenerate.
+  # must match what `pnpm openapi:export:offline` would produce from the
+  # current source. Uses MongoMemoryServer (no Atlas needed) so the check
+  # runs on all PRs including dependabot.
   # ──────────────────────────────────────────────────────────────
   openapi:
     name: OpenAPI Spec Freshness
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: quality
-    # Skipped for dependabot PRs because GitHub does not expose repo
-    # secrets to dependabot-authored PRs (security policy: external bot
-    # PRs are treated as untrusted). Without MONGO_URI / ENTRA_* the
-    # export script can't boot Fastify (the swagger plugin transitively
-    # depends on the mongo plugin). Dependabot bumps almost never touch
-    # the OpenAPI surface anyway — they're npm patch/minor and GitHub
-    # Action version bumps. Real OpenAPI-affecting changes come through
-    # human-authored PRs which DO get secrets.
-    if: github.actor != 'dependabot[bot]'
 
     steps:
       - name: Checkout code
@@ -188,19 +180,7 @@ jobs:
         run: pnpm --filter @inventario/shared-types build
 
       - name: Check openapi.json is up to date
-        run: pnpm --filter @inventario/api openapi:export -- --check
-        env:
-          NODE_ENV: test
-          # Same Atlas / Entra credentials as the test job — the export
-          # script boots the real server (which connects to Mongo) and
-          # then dumps the OpenAPI document. We can't avoid the DB
-          # connection without a deeper refactor of the swagger plugin.
-          # The openapi:export script in apps/api/package.json uses
-          # --env-file-if-exists so the missing .env.local on CI is fine
-          # — these env vars take over.
-          MONGO_URI: ${{ secrets.MONGO_URI_TEST }}
-          ENTRA_API_CLIENT_ID: ${{ secrets.ENTRA_API_CLIENT_ID_TEST }}
-          ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID_TEST }}
+        run: pnpm --filter @inventario/api openapi:export:offline -- --check
 
   # ─────────────────────────────────────────────────────────────────
   # Job 4: Commitlint — overiť, že commit messages spĺňajú konvenciu
