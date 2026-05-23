@@ -95,6 +95,12 @@ export const AuditLogSchema = z.object({
     'DATA_DELETION_REQUESTED',
     'USER_PSEUDONYMIZED',
 
+    // Membership (slice #9d K18)
+    'MEMBERSHIP_CREATED',
+    'MEMBERSHIP_ROLES_CHANGED',
+    'MEMBERSHIP_REMOVED',
+    'USER_SWITCHED_ORGANISATION',
+
     // System
     'SYSTEM_CONFIG_CHANGED',
     'BULK_IMPORT_EXECUTED',
@@ -113,6 +119,7 @@ export const AuditLogSchema = z.object({
         'LoanRequest',
         'Category',
         'Location',
+        'Membership',
         'System',
       ]),
       entityId: ObjectIdSchema.nullable(),

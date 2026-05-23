@@ -1,0 +1,334 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
+/**
+ * Memberships routes — K15 (Slice #9d).
+ *
+ * GET    /v1/memberships/:id           — ADMIN alebo vlastná membership
+ * PATCH  /v1/memberships/:id           — ADMIN only; roles/status/notifications
+ * DELETE /v1/memberships/:id           — ADMIN only; soft-delete + cache invalidation
+ * POST   /v1/memberships/:id/default   — self-service; nastavenie default org
+ *
+ * RBAC matrix:
+ *   GET    — ADMIN alebo membership.userId === actor
+ *   PATCH  — ADMIN only
+ *   DELETE — ADMIN only (K16 doplní assertNotLastAdmin transakčnú ochranu)
+ *   POST default — any authenticated; len vlastná membership (cross-org OK)
+ *
+ * Cache invalidation:
+ *   Každý write path volá invalidateMembershipCache() z auth.ts
+ *   aby rola zmena bola viditeľná do 1 requestu (nie až po 60s TTL).
+ *
+ * Audit events:
+ *   MEMBERSHIP_ROLES_CHANGED, MEMBERSHIP_REMOVED — pridané v K18.
+ *   Tu sú iba TODO komentáre na príslušných miestach.
+ *
+ * Dependency note:
+ *   assertNotLastAdmin() bude extrahovaná v K16 a zapojená do
+ *   DELETE endpoint-u. V K15 je inline fallback kontrola.
+ */
+
+import fp from 'fastify-plugin';
+import { z } from 'zod';
+
+import { invalidateMembershipCache } from '../../plugins/auth.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
+
+import { MembershipsRepository } from './memberships.repository.js';
+import { MembershipsService } from './memberships.service.js';
+
+import type { UserRole } from '@inventario/shared-types';
+import type { FastifyPluginAsync } from 'fastify';
+
+// ---------------------------------------------------------------------------
+// Validation schemas
+// ---------------------------------------------------------------------------
+
+const MembershipIdParamsSchema = z.object({
+  id: z.string().regex(/^[a-f\d]{24}$/i),
+});
+void MembershipIdParamsSchema; // Referenced in future typed routes
+
+/**
+ * PATCH body — len per-tenant mutable polia.
+ * roles, status, mustChangePassword, notifications.
+ * organizationalUnit + teams sú vynechané (rezervované pre neskorší slice).
+ */
+const PatchMembershipBodySchema = z
+  .object({
+    roles: z
+      .array(
+        z.enum(['EMPLOYEE', 'TEAM_MANAGER', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as [
+          UserRole,
+          ...UserRole[],
+        ]),
+      )
+      .min(1, 'Membership musí mať aspoň jednu rolu.'),
+    status: z.enum(['ACTIVE', 'SUSPENDED']),
+    mustChangePassword: z.boolean(),
+    notifications: z.object({
+      email: z.boolean(),
+      push: z.boolean(),
+    }),
+  })
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Prázdny PATCH body — aspoň jedno pole musí byť uvedené.',
+  });
+
+// ---------------------------------------------------------------------------
+// Plugin
+// ---------------------------------------------------------------------------
+
+const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
+  const repo = new MembershipsRepository(fastify.mongo.db);
+  const service = new MembershipsService(repo);
+  await repo.ensureIndexes();
+
+  // =========================================================================
+  // GET /v1/memberships/:id
+  // =========================================================================
+
+  fastify.get('/v1/memberships/:id', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+
+    const { id } = request.params as { id: string };
+    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+      throw new BadRequestError('Neplatný formát ID.');
+    }
+
+    const membership = await repo.findById(id);
+    if (!membership || membership.organisationId !== request.organisationId) {
+      throw new NotFoundError('Membership', id);
+    }
+
+    const actorId = String(request.currentUser._id);
+    const isAdmin = request.activeMembership.roles.includes('ADMIN' as UserRole);
+    const isSelf = membership.userId === actorId;
+
+    if (!isAdmin && !isSelf) {
+      throw new ForbiddenError(
+        'Môžete zobraziť len vlastnú membership alebo vyžadujete rolu ADMIN.',
+      );
+    }
+
+    return reply.send(toPublic(membership));
+  });
+
+  // =========================================================================
+  // PATCH /v1/memberships/:id
+  // =========================================================================
+
+  fastify.patch('/v1/memberships/:id', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+    await fastify.requireRole(['ADMIN'] as UserRole[]).call(fastify, request, reply);
+
+    const { id } = request.params as { id: string };
+    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+      throw new BadRequestError('Neplatný formát ID.');
+    }
+
+    const parsed = PatchMembershipBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Neplatný vstup.');
+    }
+    const patch = parsed.data;
+
+    const existing = await repo.findById(id);
+    if (!existing || existing.organisationId !== request.organisationId) {
+      throw new NotFoundError('Membership', id);
+    }
+
+    const actorId = String(request.currentUser._id);
+
+    // K16: assertNotLastAdmin — ak sa menia roles a cieľový user je ADMIN,
+    // skontroluje, že v org zostane aspoň jeden iný ADMIN.
+    if (patch.roles !== undefined && !patch.roles.includes('ADMIN' as UserRole)) {
+      await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.roles);
+    }
+
+    const now = new Date().toISOString();
+    const updated = await repo.update(id, {
+      ...patch,
+      updatedAt: now,
+      updatedBy: actorId,
+    });
+
+    if (!updated) throw new NotFoundError('Membership', id);
+
+    // Invalidate auth cache — rola/status sa mohla zmeniť
+    invalidateMembershipCache(existing.userId, request.organisationId);
+
+    // K18: MEMBERSHIP_ROLES_CHANGED audit event
+    await fastify.mongo.db.collection('audit_logs').insertOne({
+      action: 'MEMBERSHIP_ROLES_CHANGED',
+      severity: 'INFO',
+      actor: { userId: actorId, email: request.currentUser.email },
+      target: { entityType: 'Membership', entityId: id },
+      organisationId: request.organisationId,
+      metadata: {
+        targetUserId: existing.userId,
+        membershipId: id,
+        changedFields: Object.keys(patch),
+        rolesAfter: patch.roles ?? existing.roles,
+      },
+      createdAt: now,
+    });
+
+    fastify.log.info(
+      { membershipId: id, actorId, patch: Object.keys(patch) },
+      'Membership updated',
+    );
+
+    return reply.send(toPublic(updated));
+  });
+
+  // =========================================================================
+  // DELETE /v1/memberships/:id
+  // =========================================================================
+
+  fastify.delete('/v1/memberships/:id', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+    await fastify.requireRole(['ADMIN'] as UserRole[]).call(fastify, request, reply);
+
+    const { id } = request.params as { id: string };
+    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+      throw new BadRequestError('Neplatný formát ID.');
+    }
+
+    const existing = await repo.findById(id);
+    if (!existing || existing.organisationId !== request.organisationId) {
+      throw new NotFoundError('Membership', id);
+    }
+
+    const actorId = String(request.currentUser._id);
+
+    // K16: assertNotLastAdmin — chráni pred odstránením posledného ADMINa
+    await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.roles);
+
+    const now = new Date().toISOString();
+    const deleted = await repo.softDelete(id, {
+      deletedAt: now,
+      deletedBy: actorId,
+      updatedAt: now,
+      updatedBy: actorId,
+    });
+
+    if (!deleted) throw new NotFoundError('Membership', id);
+
+    // Invalidate auth cache
+    invalidateMembershipCache(existing.userId, request.organisationId);
+
+    // K18: MEMBERSHIP_REMOVED audit event
+    await fastify.mongo.db.collection('audit_logs').insertOne({
+      action: 'MEMBERSHIP_REMOVED',
+      severity: 'WARNING',
+      actor: { userId: actorId, email: request.currentUser.email },
+      target: { entityType: 'Membership', entityId: id },
+      organisationId: request.organisationId,
+      metadata: {
+        targetUserId: existing.userId,
+        membershipId: id,
+        rolesAtDeletion: existing.roles,
+      },
+      createdAt: now,
+    });
+
+    fastify.log.info(
+      { membershipId: id, targetUserId: existing.userId, actorId },
+      'Membership soft-deleted',
+    );
+
+    return reply.code(204).send();
+  });
+
+  // =========================================================================
+  // POST /v1/memberships/:id/default — self-service default org
+  // =========================================================================
+
+  fastify.post('/v1/memberships/:id/default', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+
+    const { id } = request.params as { id: string };
+    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+      throw new BadRequestError('Neplatný formát ID.');
+    }
+
+    const actorId = String(request.currentUser._id);
+
+    // Načítame membership bez org-scope (isDefault je cross-org operácia)
+    const membership = await repo.findById(id);
+    if (!membership || membership.deletedAt !== null) {
+      throw new NotFoundError('Membership', id);
+    }
+
+    // Len vlastná membership — nie je povolené meniť default iného používateľa
+    if (membership.userId !== actorId) {
+      throw new ForbiddenError('Môžete nastaviť ako default len vlastnú membership.');
+    }
+
+    // Membership musí byť ACTIVE — SUSPENDED membership nemôže byť default
+    if (membership.status !== 'ACTIVE') {
+      throw new BadRequestError(
+        'MEMBERSHIP_SUSPENDED: Suspended membership nemôže byť nastavená ako default.',
+      );
+    }
+
+    const session = fastify.mongo.client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const now = new Date().toISOString();
+        const ok = await repo.setDefault(id, actorId, now, session);
+        if (!ok) throw new NotFoundError('Membership', id);
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    // TODO K18: USER_SWITCHED_ORGANISATION emitovaný v auth-session.routes.ts (K7)
+    // Pre post/:id/default nie je potrebný špeciálny audit event.
+
+    fastify.log.info(
+      { membershipId: id, actorId, organisationId: membership.organisationId },
+      'Default membership updated',
+    );
+
+    return reply.code(204).send();
+  });
+};
+
+export default fp(membershipsRoutesPlugin, {
+  name: 'memberships-routes',
+  dependencies: ['config', 'mongo', 'auth'],
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Konvertuje MongoDB membership dokument na verejné API telo.
+ * Vynecháva interné polia (deletedAt, deletedBy, invitedBy, ...).
+ */
+function toPublic(membership: Record<string, unknown>): Record<string, unknown> {
+  return {
+    _id: String(membership['_id']),
+    userId: membership['userId'],
+    organisationId: membership['organisationId'],
+    roles: membership['roles'],
+    organizationalUnit: membership['organizationalUnit'] ?? null,
+    teams: membership['teams'] ?? [],
+    status: membership['status'],
+    isDefault: membership['isDefault'],
+    mustChangePassword: membership['mustChangePassword'] ?? false,
+    lastAccessedAt: membership['lastAccessedAt'] ?? null,
+    notifications: membership['notifications'] ?? { email: true, push: false },
+    acceptedAt: membership['acceptedAt'] ?? null,
+    createdAt: membership['createdAt'],
+    updatedAt: membership['updatedAt'],
+  };
+}

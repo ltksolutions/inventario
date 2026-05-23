@@ -117,7 +117,7 @@ export class AuditLogService {
  *
  * Compliance referenčný dokument: `docs/compliance/gdpr-article-30.md`.
  */
-function defaultLegalBasisFor(action: AuditLog['action']): AuditLog['legalBasis'] {
+function defaultLegalBasisFor(action: string): AuditLog['legalBasis'] {
   // Auth events — prevencia podvodov a security → legitimate interest.
   if (
     action === 'USER_LOGIN' ||
@@ -172,6 +172,16 @@ function defaultLegalBasisFor(action: AuditLog['action']): AuditLog['legalBasis'
     return 'legal_obligation';
   }
 
+  // Membership lifecycle (slice #9d) — plnenie zmluvy s tenantom.
+  if (
+    action === 'MEMBERSHIP_CREATED' ||
+    action === 'MEMBERSHIP_ROLES_CHANGED' ||
+    action === 'MEMBERSHIP_REMOVED' ||
+    action === 'USER_SWITCHED_ORGANISATION'
+  ) {
+    return 'contract';
+  }
+
   // System actions — žiadne osobné údaje.
   return 'n/a';
 }
@@ -184,9 +194,7 @@ function defaultLegalBasisFor(action: AuditLog['action']): AuditLog['legalBasis'
  * niektorých fields (napr. update štítkov assetu sa nedotýka
  * `asset_custody`).
  */
-function defaultDataCategoriesFor(
-  action: AuditLog['action'],
-): NonNullable<AuditLog['dataCategories']> {
+function defaultDataCategoriesFor(action: string): NonNullable<AuditLog['dataCategories']> {
   // Auth
   if (action === 'USER_LOGIN' || action === 'USER_LOGIN_FAILED' || action === 'USER_LOGOUT') {
     return ['authentication', 'identification'];
@@ -245,6 +253,18 @@ function defaultDataCategoriesFor(
     action === 'USER_PSEUDONYMIZED'
   ) {
     return ['identification', 'contact', 'account', 'authentication'];
+  }
+
+  // Membership lifecycle (slice #9d)
+  if (
+    action === 'MEMBERSHIP_CREATED' ||
+    action === 'MEMBERSHIP_ROLES_CHANGED' ||
+    action === 'MEMBERSHIP_REMOVED'
+  ) {
+    return ['account', 'audit_metadata'];
+  }
+  if (action === 'USER_SWITCHED_ORGANISATION') {
+    return ['account'];
   }
 
   // System actions — väčšinou nič.

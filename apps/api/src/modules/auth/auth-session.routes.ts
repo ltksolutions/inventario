@@ -24,6 +24,7 @@ import { z } from 'zod';
 
 import { ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
 import { MembershipsRepository } from '../memberships/memberships.repository.js';
+import { MembershipsService } from '../memberships/memberships.service.js';
 
 import { setAuthCookies } from './cookie-helpers.js';
 
@@ -46,6 +47,7 @@ const IS_TEST = process.env['NODE_ENV'] === 'test';
 
 const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   const membershipsRepo = new MembershipsRepository(fastify.mongo.db);
+  const membershipsService = new MembershipsService(membershipsRepo);
   const { JWT_ACCESS_TOKEN_TTL_SECONDS, JWT_REFRESH_TOKEN_TTL_DAYS } = fastify.config;
 
   // -------------------------------------------------------------------------
@@ -226,6 +228,96 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         : null,
       availableOrganisations,
     });
+  });
+  // -------------------------------------------------------------------------
+  // DELETE /v1/auth/me — GDPR right-to-erasure (K17)
+  // -------------------------------------------------------------------------
+
+  fastify.delete('/v1/auth/me', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+
+    const userId = String(request.currentUser._id);
+
+    // Zoznam všetkých aktívnych memberships (cross-org)
+    const allMemberships = await membershipsRepo.findByUser(userId);
+    const activeOrgs = allMemberships
+      .filter((m) => m.status === 'ACTIVE' && m.deletedAt === null)
+      .map((m) => m.organisationId);
+
+    // K16: per-org LAST_ADMIN check — user nemôže odísť ak je posledný ADMIN
+    // v niektorom tente. Beží mimo transakcie (read-only kontrola pred write-om).
+    for (const orgId of activeOrgs) {
+      await membershipsService.assertNotLastAdminForDeletion(orgId, userId);
+    }
+
+    const now = new Date().toISOString();
+
+    // Transakcne: soft-delete všetkých memberships + pseudonymizácia User
+    const session = fastify.mongo.client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // 1. Soft-delete všetkých memberships
+        await membershipsRepo.softDeleteAllForUser(
+          userId,
+          { deletedAt: now, deletedBy: userId, updatedAt: now, updatedBy: userId },
+          session,
+        );
+
+        // 2. Pseudonymizácia User — zachováme _id pre audit trail
+        const pseudoEmail = `deleted-${userId}@deleted.inventario`;
+        await fastify.mongo.db.collection('users').updateOne(
+          { _id: new ObjectId(userId) as never },
+          {
+            $set: {
+              email: pseudoEmail,
+              firstName: 'Deleted',
+              lastName: 'User',
+              displayName: 'Deleted User',
+              passwordHash: null,
+              isActive: false,
+              authProviders: [],
+              entraOid: null,
+              emailVerified: false,
+              emailVerificationToken: null,
+              passwordResetToken: null,
+              mfaSecret: null,
+              mfaRecoveryCodes: [],
+              deletedAt: now,
+              deletedBy: userId,
+              updatedAt: now,
+              updatedBy: userId,
+            },
+          },
+          { session },
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    // Audit
+    await fastify.mongo.db.collection('audit_logs').insertOne({
+      action: 'DATA_DELETION_REQUESTED',
+      severity: 'WARNING',
+      actor: { userId, email: request.currentUser.email },
+      target: { entityType: 'User', entityId: userId },
+      organisationId: request.organisationId,
+      metadata: {
+        deletedMemberships: allMemberships.length,
+        orgs: activeOrgs,
+      },
+      createdAt: now,
+    });
+
+    // Zmazanie JWT cookies
+    reply
+      .clearCookie('inv_access', { path: '/' })
+      .clearCookie('inv_refresh', { path: '/v1/auth/refresh' });
+
+    fastify.log.info({ userId, orgs: activeOrgs.length }, 'User account deleted (GDPR erasure)');
+
+    return reply.code(204).send();
   });
 };
 

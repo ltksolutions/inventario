@@ -40,6 +40,7 @@ import invitationsRoutes from './modules/invitations/invitations.routes.js';
 import loanRequestsRoutes from './modules/loans/loan-requests.routes.js';
 import loansRoutes from './modules/loans/loans.routes.js';
 import locationsRoutes from './modules/locations/locations.routes.js';
+import membershipsRoutes from './modules/memberships/memberships.routes.js';
 import organisationsRoutes from './modules/organisations/organisations.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import authPlugin from './plugins/auth.js';
@@ -152,6 +153,7 @@ export async function buildServer(
   await app.register(loanRequestsRoutes);
   await app.register(loansRoutes);
   await app.register(invitationsRoutes);
+  await app.register(membershipsRoutes);
 
   // --- Root redirect to /docs ----------------------------------------------
   app.get('/', async (_request, reply) => {
