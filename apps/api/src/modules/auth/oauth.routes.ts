@@ -229,10 +229,10 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         return reply.redirect(`${FRONTEND_BASE_URL}/login?error=${result.errorCode}`);
       }
 
-      const { user, org, isNew, wasInvite } = result;
+      const { user, org, membershipId, isNew, wasInvite } = result;
 
-      // Issue tokens
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
+      // Issue tokens — always include membershipId (K5 mid claim)
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org, membershipId);
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
       // Set cookies
@@ -254,10 +254,10 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           severity: 'INFO',
           actor: { userId: String(user._id), email: user.email },
           target: { entityType: 'User', entityId: String(user._id) },
-          organisationId: user.organisationId,
+          organisationId: String(org._id),
           metadata: {
             via: authProviderEnum === AuthProvider.GOOGLE ? 'oauth-google' : 'oauth-microsoft',
-            roles: user.roles,
+            membershipId,
           },
           createdAt: now,
         });
@@ -309,9 +309,10 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       request,
     );
 
-    // Load user + org directly from DB (auth module avoids service layer dependency)
+    // Load user + active membership + org from DB
     const usersCol = fastify.mongo.db.collection<User>('users');
     const orgsCol = fastify.mongo.db.collection<Organisation>('organisations');
+    const membershipsCol = fastify.mongo.db.collection('memberships');
 
     const { ObjectId } = await import('mongodb');
     const user = (await usersCol.findOne({
@@ -320,13 +321,26 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     } as never)) as WithId<User> | null;
     if (!user) throw new UnauthorizedError('User not found');
 
-    const org = (await orgsCol.findOne({
-      _id: new ObjectId(String(user.organisationId)),
+    // Find default membership to get active org (K9 — users no longer carry organisationId)
+    const defaultMembership = await membershipsCol.findOne({
+      userId,
+      isDefault: true,
+      status: 'ACTIVE',
       deletedAt: null,
-    } as never)) as WithId<Organisation> | null;
+    });
+    if (!defaultMembership) throw new UnauthorizedError('No active membership found');
+
+    const org = (await orgsCol.findOne({
+      _id: new ObjectId(defaultMembership['organisationId'] as string) as never,
+      deletedAt: null,
+    })) as WithId<Organisation> | null;
     if (!org) throw new UnauthorizedError('Organisation not found');
 
-    const newAccessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
+    const newAccessToken = await fastify.inventarioJwt.issueAccessToken(
+      user,
+      org,
+      String(defaultMembership['_id']),
+    );
     setAuthCookies(
       reply,
       newAccessToken,
@@ -476,8 +490,8 @@ type ProvisionResult =
       success: true;
       user: WithId<User>;
       org: WithId<Organisation>;
+      membershipId: string;
       isNew: boolean;
-      /** True when this callback completed an invite accept (K18.3). */
       wasInvite: boolean;
     }
   | { success: false; errorCode: string };
@@ -493,6 +507,7 @@ async function provisionOrFindUser(args: {
 
   const usersCol = db.collection<User>('users');
   const orgsCol = db.collection<Organisation>('organisations');
+  const membershipsCol = db.collection('memberships');
 
   // Find existing user by provider ID
   const existingUser = (await usersCol.findOne({
@@ -503,16 +518,27 @@ async function provisionOrFindUser(args: {
   })) as WithId<User> | null;
 
   if (existingUser) {
-    // Existing user — check org + provider policy
-    const org = (await orgsCol.findOne({
-      _id: existingUser.organisationId as string,
+    // Existing user — find their default membership to get the active org
+    const defaultMembership = await membershipsCol.findOne({
+      userId: String(existingUser._id),
+      isDefault: true,
+      status: 'ACTIVE',
       deletedAt: null,
-    } as never)) as WithId<Organisation> | null;
+    });
+
+    if (!defaultMembership) return { success: false, errorCode: 'membership_not_found' };
+
+    const { ObjectId } = await import('mongodb');
+    const org = (await orgsCol.findOne({
+      _id: new ObjectId(defaultMembership['organisationId'] as string) as never,
+      deletedAt: null,
+    })) as WithId<Organisation> | null;
     if (!org) return { success: false, errorCode: 'org_not_found' };
     if (org.status !== 'ACTIVE') return { success: false, errorCode: 'org_inactive' };
 
     // Check allowedAuthProviders
-    if (!org.allowedAuthProviders.includes(authProviderEnum)) {
+    const allowedProviders: string[] = org.allowedAuthProviders ?? [];
+    if (allowedProviders.length > 0 && !allowedProviders.includes(authProviderEnum)) {
       return { success: false, errorCode: 'provider_not_allowed' };
     }
 
@@ -522,7 +548,14 @@ async function provisionOrFindUser(args: {
       { $set: { lastLoginAt: new Date().toISOString() } },
     );
 
-    return { success: true, user: existingUser, org, isNew: false, wasInvite: false };
+    return {
+      success: true,
+      user: existingUser,
+      org,
+      membershipId: String(defaultMembership['_id']),
+      isNew: false,
+      wasInvite: false,
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -642,7 +675,40 @@ async function provisionOrFindUser(args: {
   const newUser = (await usersCol.findOne({ _id: userId } as never)) as WithId<User>;
   const newOrg = (await orgsCol.findOne({ _id: orgId } as never)) as WithId<Organisation>;
 
-  return { success: true, user: newUser, org: newOrg, isNew: true, wasInvite: false };
+  // Create default Membership for the new ADMIN user (K9 pattern)
+  const { ObjectId: ObjId2 } = await import('mongodb');
+  const membershipNow = new Date().toISOString();
+  const membershipInsert = await db.collection('memberships').insertOne({
+    userId: userId.toString(),
+    organisationId: orgId.toString(),
+    roles: [UserRole.ADMIN],
+    organizationalUnit: null,
+    teams: [],
+    status: 'ACTIVE',
+    isDefault: true,
+    invitedBy: 'SYSTEM',
+    invitedAt: membershipNow,
+    acceptedAt: membershipNow,
+    mustChangePassword: false,
+    lastAccessedAt: membershipNow,
+    notifications: { email: true, push: false },
+    createdAt: membershipNow,
+    updatedAt: membershipNow,
+    createdBy: userId.toString(),
+    updatedBy: userId.toString(),
+    deletedAt: null,
+    deletedBy: null,
+  });
+  void ObjId2; // suppress unused import warning
+
+  return {
+    success: true,
+    user: newUser,
+    org: newOrg,
+    membershipId: String(membershipInsert.insertedId),
+    isNew: true,
+    wasInvite: false,
+  };
 }
 
 async function acceptInviteViaOAuth(args: {
@@ -801,7 +867,14 @@ async function acceptInviteViaOAuth(args: {
       },
     );
 
-    return { success: true, user, org, isNew: !invitedUserId, wasInvite: true };
+    return {
+      success: true,
+      user,
+      org,
+      membershipId: String(membershipInsert.insertedId),
+      isNew: !invitedUserId,
+      wasInvite: true,
+    };
   }
 
   // ----- Legacy ghost-user fallback (pre-K10 invitations) -----
@@ -862,7 +935,14 @@ async function acceptInviteViaOAuth(args: {
   );
 
   const activatedUser = (await usersCol.findOne({ _id: pendingUser._id } as never)) as WithId<User>;
-  return { success: true, user: activatedUser, org, isNew: false, wasInvite: true };
+  return {
+    success: true,
+    user: activatedUser,
+    org,
+    membershipId: '',
+    isNew: false,
+    wasInvite: true,
+  };
 }
 
 // ---------------------------------------------------------------------------

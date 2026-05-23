@@ -140,14 +140,16 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         throw new BadRequestError('Only ADMIN can invite another ADMIN.');
       }
 
-      // Domain policy check
+      // Domain policy check — s per-email exceptions
       const orgSettings = (org.settings ?? {}) as {
-        invitations?: { enforceAllowedDomains?: boolean };
+        invitations?: { enforceAllowedDomains?: boolean; exceptions?: string[] };
       };
       if (orgSettings.invitations?.enforceAllowedDomains) {
         const domain = email.split('@')[1] ?? '';
         const allowed: string[] = org.autoJoinDomains ?? [];
-        if (!allowed.includes(domain)) {
+        const exceptions: string[] = orgSettings.invitations.exceptions ?? [];
+        // Exceptions: konkrétne emaily mogú byť pozvané napriek domené politike
+        if (!allowed.includes(domain) && !exceptions.includes(email)) {
           throw new BadRequestError(
             `Email domain '@${domain}' is not allowed. Allowed: ${allowed.map((d) => `@${d}`).join(', ')}`,
           );
@@ -355,6 +357,91 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       metadata: { revokedEmail: existing.email },
       createdAt: now,
     });
+
+    return reply.code(204).send();
+  });
+
+  // =========================================================================
+  // POST /v1/invitations/:id/resend — resend pending invite email
+  // =========================================================================
+
+  fastify.post('/v1/invitations/:id/resend', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+    await fastify
+      .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
+      .call(fastify, request, reply);
+
+    const { id } = request.params as { id: string };
+    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+      throw new BadRequestError('Invalid invitation id');
+    }
+
+    const existing = await invRepo.findById(request.organisationId, id);
+    if (!existing) throw new NotFoundError('Invitation', id);
+
+    if ((existing as Record<string, unknown>)['status'] !== 'PENDING') {
+      throw new BadRequestError('Only PENDING invitations can be resent.');
+    }
+
+    // Generate a new token + extended expiry
+    const now = new Date().toISOString();
+    const newToken = randomBytes(32).toString('hex');
+    const newExpiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString();
+
+    await fastify.mongo.db
+      .collection('invitations')
+      .updateOne({ _id: (existing as Record<string, unknown>)['_id'] } as never, {
+        $set: {
+          token: newToken,
+          expiresAt: newExpiresAt,
+          updatedAt: now,
+          updatedBy: String(request.currentUser._id),
+        },
+      });
+
+    const org = request.organisation;
+    const inviter = request.currentUser;
+    const email = existing.email;
+    const roles: UserRole[] = existing.roles as UserRole[];
+    const roleLabels = roles.map((r) => ROLE_LABELS[r] ?? r).join(', ');
+    const invitedUserId =
+      ((existing as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
+    const isRejoin = !!(await fastify.mongo.db.collection('memberships').findOne({
+      userId: invitedUserId,
+      organisationId: request.organisationId,
+      deletedAt: { $ne: null },
+    }));
+
+    try {
+      if (isRejoin) {
+        await fastify.emailService.send({
+          to: email,
+          subject: `Ste pozvaný späť do ${org.displayName} — Inventario`,
+          html: rejoinInviteHtml({
+            url: `${frontendUrl}/accept-invite?token=${newToken}`,
+            tenantName: org.displayName,
+            roleLabels,
+          }),
+          text: `Boli ste pozvaný späť do ${org.displayName} (${roleLabels}). Prijmite pozvánku: ${frontendUrl}/accept-invite?token=${newToken}`,
+        });
+      } else {
+        await fastify.emailService.sendInvitationEmail(email, {
+          inviterName: inviter.displayName,
+          tenantName: org.displayName,
+          roleLabels,
+          token: newToken,
+          frontendUrl,
+        });
+      }
+    } catch (err) {
+      fastify.log.error({ err, to: email }, 'Resend invitation email failed');
+    }
+
+    fastify.log.info(
+      { invitationId: id, invitedEmail: email, resentBy: String(inviter._id) },
+      'Invitation resent',
+    );
 
     return reply.code(204).send();
   });
