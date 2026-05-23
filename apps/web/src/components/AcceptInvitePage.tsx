@@ -26,6 +26,8 @@ import { useEffect, useState } from 'react';
 
 import type { FormEvent, JSX } from 'react';
 
+import { useAuth } from '@/lib/auth-context';
+
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +47,11 @@ interface InvitePreview {
     displayName: string;
   };
   expiresAt: string;
+  acceptMode: 'new-user' | 'existing-user';
+  existingUserPreview: {
+    displayName: string;
+    authProviders: string[];
+  } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -63,10 +70,11 @@ export function AcceptInvitePage(): JSX.Element {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get('token') ?? '';
+  const { user, isAuthenticated, refresh: refreshAuth } = useAuth();
 
-  const [state, setState] = useState<'loading' | 'invalid' | 'ready' | 'submitting' | 'error'>(
-    'loading',
-  );
+  const [state, setState] = useState<
+    'loading' | 'invalid' | 'ready' | 'submitting' | 'confirming' | 'error'
+  >('loading');
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [invalidMsg, setInvalidMsg] = useState('');
 
@@ -120,6 +128,32 @@ export function AcceptInvitePage(): JSX.Element {
       }
     })();
   }, [token]);
+
+  // -------------------------------------------------------------------------
+  // Existing-user accept handler (K20)
+  // -------------------------------------------------------------------------
+  const handleExistingUserAccept = async (): Promise<void> => {
+    setState('confirming');
+    try {
+      const res = await fetch(`${API_BASE}/v1/auth/accept-invitation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ token }),
+      });
+      if (res.ok) {
+        await refreshAuth();
+        router.push('/?invited=accepted');
+        return;
+      }
+      const body = (await res.json()) as { message?: string };
+      setFormError(body.message ?? 'Nastala chyba. Skúste znova.');
+      setState('error');
+    } catch {
+      setFormError('Sieťová chyba. Skúste znova.');
+      setState('error');
+    }
+  };
 
   // -------------------------------------------------------------------------
   // Password accept handler
@@ -263,9 +297,6 @@ export function AcceptInvitePage(): JSX.Element {
             </div>
           )}
 
-          <h1 className="text-base font-semibold text-text-primary">Nastavte si účet</h1>
-          <p className="mt-0.5 text-sm text-text-secondary">Vyplňte údaje alebo použite SSO.</p>
-
           {/* Error banner */}
           {formError && (
             <div className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -273,112 +304,167 @@ export function AcceptInvitePage(): JSX.Element {
             </div>
           )}
 
-          {/* Password form */}
-          <form onSubmit={(e) => void handlePasswordAccept(e)} className="mt-5 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-text-primary">
-                  Meno
-                </label>
-                <input
-                  id="firstName"
-                  type="text"
-                  autoComplete="given-name"
-                  required
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Ján"
-                  className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                />
-              </div>
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-text-primary">
-                  Priezvisko
-                </label>
-                <input
-                  id="lastName"
-                  type="text"
-                  autoComplete="family-name"
-                  required
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Novák"
-                  className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text-primary">
-                Heslo
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={12}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="min. 12 znakov"
-                className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-              />
-              <PasswordStrengthBar password={password} />
-            </div>
-
-            <div>
-              <label htmlFor="confirm" className="block text-sm font-medium text-text-primary">
-                Potvrdiť heslo
-              </label>
-              <input
-                id="confirm"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={12}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="••••••••••••"
-                className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={state === 'submitting'}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {state === 'submitting' && (
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          {/* === Existing-user path (K20) === */}
+          {preview?.acceptMode === 'existing-user' ? (
+            <div className="mt-5 space-y-4">
+              <h1 className="text-base font-semibold text-text-primary">Pridať organizáciu</h1>
+              <p className="text-sm text-text-secondary">
+                Táto pozvánka je určená pre existujúceho používateľa.
+              </p>
+              {isAuthenticated && user ? (
+                <>
+                  <div className="rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm">
+                    <p className="font-medium text-text-primary">
+                      Prihlásený ako: {user.displayName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-text-muted">{user.email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleExistingUserAccept()}
+                    disabled={state === 'confirming'}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  >
+                    {state === 'confirming' && (
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    )}
+                    Prijať pozvánku
+                  </button>
+                </>
+              ) : (
+                <div className="rounded-lg border border-border-subtle bg-surface-subtle p-4">
+                  <p className="text-sm font-medium text-text-primary">Najprv sa prihlás</p>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    Prihláste sa ako{' '}
+                    <strong>{preview.existingUserPreview?.displayName ?? preview.email}</strong> a
+                    pozvánka sa automaticky potvrdí.
+                  </p>
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/accept-invite?token=${token}`)}`}
+                    className="mt-3 inline-block rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary-fg transition hover:opacity-90"
+                  >
+                    Prihlásiť sa
+                  </Link>
+                </div>
               )}
-              Prijať pozvánku a nastaviť heslo
-            </button>
-          </form>
+            </div>
+          ) : (
+            /* === New-user path: password form + SSO === */
+            <>
+              <h1 className="mt-4 text-base font-semibold text-text-primary">Nastavte si účet</h1>
+              <p className="mt-0.5 text-sm text-text-secondary">Vyplňte údaje alebo použite SSO.</p>
 
-          {/* Divider */}
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border-subtle" />
-            <span className="text-xs text-text-muted">alebo</span>
-            <div className="h-px flex-1 bg-border-subtle" />
-          </div>
+              <form onSubmit={(e) => void handlePasswordAccept(e)} className="mt-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="firstName"
+                      className="block text-sm font-medium text-text-primary"
+                    >
+                      Meno
+                    </label>
+                    <input
+                      id="firstName"
+                      type="text"
+                      autoComplete="given-name"
+                      required
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Ján"
+                      className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="lastName"
+                      className="block text-sm font-medium text-text-primary"
+                    >
+                      Priezvisko
+                    </label>
+                    <input
+                      id="lastName"
+                      type="text"
+                      autoComplete="family-name"
+                      required
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Novák"
+                      className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                    />
+                  </div>
+                </div>
 
-          {/* SSO buttons */}
-          <div className="space-y-3">
-            <SsoButton
-              provider="google"
-              label="Prijať s Google"
-              loading={ssoLoading === 'google'}
-              onClick={() => handleSso('google')}
-              disabled={state === 'submitting'}
-            />
-            <SsoButton
-              provider="microsoft"
-              label="Prijať s Microsoft"
-              loading={ssoLoading === 'microsoft'}
-              onClick={() => handleSso('microsoft')}
-              disabled={state === 'submitting'}
-            />
-          </div>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-text-primary">
+                    Heslo
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={12}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="min. 12 znakov"
+                    className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                  />
+                  <PasswordStrengthBar password={password} />
+                </div>
+
+                <div>
+                  <label htmlFor="confirm" className="block text-sm font-medium text-text-primary">
+                    Potvrdiť heslo
+                  </label>
+                  <input
+                    id="confirm"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={12}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={state === 'submitting'}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  {state === 'submitting' && (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  )}
+                  Prijať pozvánku a nastaviť heslo
+                </button>
+              </form>
+
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border-subtle" />
+                <span className="text-xs text-text-muted">alebo</span>
+                <div className="h-px flex-1 bg-border-subtle" />
+              </div>
+
+              <div className="space-y-3">
+                <SsoButton
+                  provider="google"
+                  label="Prijať s Google"
+                  loading={ssoLoading === 'google'}
+                  onClick={() => handleSso('google')}
+                  disabled={state === 'submitting'}
+                />
+                <SsoButton
+                  provider="microsoft"
+                  label="Prijať s Microsoft"
+                  loading={ssoLoading === 'microsoft'}
+                  onClick={() => handleSso('microsoft')}
+                  disabled={state === 'submitting'}
+                />
+              </div>
+            </>
+          )}
 
           <p className="mt-5 text-center text-xs text-text-muted">
             Prijatím pozvánky súhlasíte s podmienkami používania Inventario.

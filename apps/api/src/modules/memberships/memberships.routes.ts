@@ -86,6 +86,43 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   await repo.ensureIndexes();
 
   // =========================================================================
+  // GET /v1/memberships — list členov org (ADMIN only, K19)
+  // =========================================================================
+
+  fastify.get('/v1/memberships', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+    await fastify.requireRole(['ADMIN'] as UserRole[]).call(fastify, request, reply);
+
+    const q = request.query as Record<string, unknown>;
+    const limit = Math.min(Number(q['limit'] ?? 50), 200);
+    const skip = Number(q['skip'] ?? 0);
+
+    const { items, total } = await repo.listByOrganisation(request.organisationId, { limit, skip });
+
+    // Obohatiť o user displayName + email (single batch lookup)
+    const { ObjectId } = await import('mongodb');
+    const userIds = items.map((m) => m.userId).filter((id) => /^[a-f0-9]{24}$/i.test(id));
+    const usersRaw = userIds.length
+      ? await fastify.mongo.db
+          .collection('users')
+          .find({ _id: { $in: userIds.map((id) => new ObjectId(id)) } as never })
+          .project({ _id: 1, displayName: 1, email: 1 })
+          .toArray()
+      : [];
+    const userMap = new Map(usersRaw.map((u) => [String(u['_id']), u]));
+
+    return reply.send({
+      data: items.map((m) => ({
+        ...toPublic(m as unknown as Record<string, unknown>),
+        userEmail: userMap.get(m.userId)?.['email'] ?? null,
+        userDisplayName: userMap.get(m.userId)?.['displayName'] ?? null,
+      })),
+      pagination: { total, limit, skip, hasMore: skip + items.length < total },
+    });
+  });
+
+  // =========================================================================
   // GET /v1/memberships/:id
   // =========================================================================
 
@@ -192,7 +229,6 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.delete('/v1/memberships/:id', async (request, reply) => {
     await fastify.requireAuth(request);
     await fastify.loadCurrentUser(request);
-    await fastify.requireRole(['ADMIN'] as UserRole[]).call(fastify, request, reply);
 
     const { id } = request.params as { id: string };
     if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
@@ -205,6 +241,15 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     }
 
     const actorId = String(request.currentUser._id);
+    const isAdmin = request.activeMembership.roles.includes('ADMIN' as UserRole);
+    const isSelf = existing.userId === actorId;
+
+    // RBAC: ADMIN môže odstraňovať kohokovek; user môže len seba samého (opustenie org)
+    if (!isAdmin && !isSelf) {
+      throw new ForbiddenError(
+        'Môžete odstrániť len vlastnú membership alebo vyžadujete rolu ADMIN.',
+      );
+    }
 
     // K16: assertNotLastAdmin — chráni pred odstránením posledného ADMINa
     await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.roles);

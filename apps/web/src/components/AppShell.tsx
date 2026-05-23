@@ -3,13 +3,29 @@
 
 'use client';
 
+/**
+ * AppShell — K19 update: tenant switcher dropdown.
+ *
+ * Header now shows the active org name. If the user has access to
+ * more than one organisation, a chevron button opens a dropdown
+ * listing all available orgs. Clicking one calls switchOrg() from
+ * auth context (POST /v1/auth/switch-organisation + refresh).
+ *
+ * New nav items:
+ *   /settings/members       — admin member list (K21)
+ *   /settings/organisations — user's org list / leave org (K22)
+ */
+
 import {
   Boxes,
+  Building2,
+  ChevronDown,
   ClipboardList,
   Home,
   Layers,
   Library,
   Lock,
+  Loader2,
   Mail,
   MapPin,
   Menu,
@@ -19,7 +35,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { LogoutButton } from './LogoutButton';
 
@@ -28,47 +44,11 @@ import type { JSX, ReactNode } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/cn';
 
-/**
- * Authenticated app shell — header with branding, user menu, and a
- * sidebar with primary navigation. Wraps the page content (`children`).
- *
- * Rendered ONLY for authenticated users — the page-level component
- * decides whether to render this or the LoginScreen.
- *
- * Responsive behaviour (post mobile-polish pass):
- *
- *   Desktop (md+):
- *   ┌─ Header ────────────────────────────────────────────────┐
- *   │ [logo] Inventario          [user name + roles] [logout] │
- *   ├──────┬──────────────────────────────────────────────────┤
- *   │ Side │                                                  │
- *   │ bar  │  <main id="main">  page content                  │
- *   └──────┴──────────────────────────────────────────────────┘
- *
- *   Mobile (< md):
- *   ┌─ Header ────────────────────────────────────────────────┐
- *   │ [☰] [logo] Inventario              [user] [logout]      │
- *   ├──────────────────────────────────────────────────────────┤
- *   │  <main id="main">  page content                          │
- *   └──────────────────────────────────────────────────────────┘
- *
- *   Tapping the hamburger opens a slide-in drawer with the same nav
- *   items, dimming the rest of the page behind a backdrop. The
- *   drawer auto-closes when the route changes (so a tap on "Majetok"
- *   navigates AND dismisses) and when Escape is pressed.
- *
- * Focus management:
- *   We don't implement a focus trap inside the drawer in this pass —
- *   Escape and backdrop-click close it, and Tab order naturally
- *   continues past the drawer into the page below. A real focus trap
- *   plus body-scroll lock can come in a later polish round once
- *   keyboard-only mobile usage is a tested scenario.
- */
-
 interface NavItem {
   href: string;
   label: string;
   icon: typeof Home;
+  adminOnly?: boolean;
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
@@ -78,8 +58,10 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/my-loans', label: 'Moje výpožičky', icon: Library },
   { href: '/categories', label: 'Kategórie', icon: Tags },
   { href: '/locations', label: 'Lokality', icon: MapPin },
-  { href: '/users', label: 'Používatelia', icon: Users },
+  { href: '/users', label: 'Používatelia', icon: Users, adminOnly: true },
+  { href: '/settings/members', label: 'Členovia', icon: Users, adminOnly: true },
   { href: '/settings/invitations', label: 'Pozvánky', icon: Mail },
+  { href: '/settings/organisations', label: 'Moje organizácie', icon: Building2 },
   { href: '/settings/security', label: 'Bezpečnosť', icon: Lock },
 ] as const;
 
@@ -96,10 +78,8 @@ function formatRoles(roles: readonly string[]): string {
 }
 
 export function AppShell({ children }: { children: ReactNode }): JSX.Element {
-  const { user } = useAuth();
+  const { user, availableOrganisations, activeMembership } = useAuth();
   const pathname = usePathname();
-
-  // Mobile drawer open/close state.
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -109,9 +89,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   useEffect(() => {
     if (!drawerOpen) return;
     function onKeyDown(e: KeyboardEvent): void {
-      if (e.key === 'Escape') {
-        setDrawerOpen(false);
-      }
+      if (e.key === 'Escape') setDrawerOpen(false);
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -120,46 +98,70 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   const displayName = user?.displayName ?? user?.email ?? 'Používateľ';
   const roles = user?.roles ?? [];
 
+  // Current org name
+  const currentOrg = availableOrganisations.find(
+    (o) => o.organisationId === activeMembership?.organisationId,
+  );
+  const currentOrgName = currentOrg?.organisationName ?? 'Inventario';
+
+  // Filter nav items by role
+  const isAdmin = roles.includes('ADMIN');
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+
   return (
     <div className="min-h-screen bg-surface-page">
       <Header
         userName={displayName}
         roles={roles}
+        currentOrgName={currentOrgName}
+        availableOrganisations={availableOrganisations}
+        activeMembershipOrgId={activeMembership?.organisationId ?? null}
         onOpenDrawer={() => setDrawerOpen(true)}
         drawerOpen={drawerOpen}
       />
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <DesktopSidebar pathname={pathname} />
+        <DesktopSidebar pathname={pathname} navItems={visibleNavItems} />
         <main id="main" className="min-w-0 flex-1">
           {children}
         </main>
       </div>
-      <MobileDrawer pathname={pathname} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <MobileDrawer
+        pathname={pathname}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        navItems={visibleNavItems}
+      />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Header (with mobile hamburger)
+// Header
 // ---------------------------------------------------------------------------
 
 interface HeaderProps {
   userName: string;
   roles: readonly string[];
+  currentOrgName: string;
+  availableOrganisations: ReturnType<typeof useAuth>['availableOrganisations'];
+  activeMembershipOrgId: string | null;
   onOpenDrawer: () => void;
   drawerOpen: boolean;
 }
 
-function Header({ userName, roles, onOpenDrawer, drawerOpen }: HeaderProps): JSX.Element {
+function Header({
+  userName,
+  roles,
+  currentOrgName,
+  availableOrganisations,
+  activeMembershipOrgId,
+  onOpenDrawer,
+  drawerOpen,
+}: HeaderProps): JSX.Element {
   return (
     <header className="border-b border-border-subtle bg-surface-card">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-2">
-          {/*
-            Hamburger — visible only below md. aria-controls points at
-            the drawer element so AT can associate the trigger with
-            the disclosed region; aria-expanded tracks state.
-          */}
           <button
             type="button"
             onClick={onOpenDrawer}
@@ -177,7 +179,15 @@ function Header({ userName, roles, onOpenDrawer, drawerOpen }: HeaderProps): JSX
             <Layers aria-hidden="true" className="h-6 w-6 shrink-0" />
             <span className="truncate">Inventario</span>
           </Link>
+
+          {/* Tenant switcher */}
+          <TenantSwitcher
+            currentOrgName={currentOrgName}
+            availableOrganisations={availableOrganisations}
+            activeMembershipOrgId={activeMembershipOrgId}
+          />
         </div>
+
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden min-w-0 text-right sm:block">
             <p className="truncate text-sm font-medium text-text-primary">{userName}</p>
@@ -193,14 +203,144 @@ function Header({ userName, roles, onOpenDrawer, drawerOpen }: HeaderProps): JSX
 }
 
 // ---------------------------------------------------------------------------
-// Desktop sidebar (md+, always visible)
+// Tenant switcher dropdown (K19)
 // ---------------------------------------------------------------------------
 
-function DesktopSidebar({ pathname }: { pathname: string }): JSX.Element {
+function TenantSwitcher({
+  currentOrgName,
+  availableOrganisations,
+  activeMembershipOrgId,
+}: {
+  currentOrgName: string;
+  availableOrganisations: ReturnType<typeof useAuth>['availableOrganisations'];
+  activeMembershipOrgId: string | null;
+}): JSX.Element | null {
+  const { switchOrg } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Only render if there's more than 1 org
+  if (availableOrganisations.length <= 1) return null;
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent): void {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleSwitch = async (orgId: string): Promise<void> => {
+    if (orgId === activeMembershipOrgId || switching) return;
+    setSwitching(orgId);
+    try {
+      await switchOrg(orgId);
+      setOpen(false);
+    } catch {
+      // ignore — user stays in current org
+    } finally {
+      setSwitching(null);
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative hidden sm:block">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-1 rounded-lg border border-border-subtle px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+      >
+        <Building2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        <span className="max-w-[140px] truncate">{currentOrgName}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn('h-3 w-3 transition', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Prepnúť organizáciu"
+          className="absolute left-0 top-full z-50 mt-1 w-56 rounded-xl border border-border-subtle bg-surface-card py-1 shadow-lg"
+        >
+          {availableOrganisations.map((org) => {
+            const isActive = org.organisationId === activeMembershipOrgId;
+            const isLoading = switching === org.organisationId;
+            return (
+              <button
+                key={org.organisationId}
+                role="option"
+                aria-selected={isActive}
+                type="button"
+                onClick={() => void handleSwitch(org.organisationId)}
+                disabled={isActive || !!switching}
+                className={cn(
+                  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition',
+                  isActive
+                    ? 'bg-surface-subtle font-medium text-text-primary'
+                    : 'text-text-secondary hover:bg-surface-subtle hover:text-text-primary',
+                  switching && !isLoading && 'opacity-50',
+                )}
+              >
+                {isLoading ? (
+                  <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin shrink-0" />
+                ) : (
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
+                    style={{ background: orgColor(org.organisationId) }}
+                    aria-hidden="true"
+                  >
+                    {org.organisationName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="truncate">{org.organisationName}</span>
+                {isActive && <span className="ml-auto text-xs text-brand-accent">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Deterministická farba z org ID (hex seed) */
+function orgColor(id: string): string {
+  const palette = [
+    '#1A2D47',
+    '#388FC3',
+    '#2E7D32',
+    '#6A1B9A',
+    '#BF360C',
+    '#00695C',
+    '#4527A0',
+    '#AD1457',
+  ];
+  const seed = parseInt(id.slice(-4), 16);
+  return palette[seed % palette.length] ?? '#1A2D47';
+}
+
+// ---------------------------------------------------------------------------
+// Desktop sidebar
+// ---------------------------------------------------------------------------
+
+function DesktopSidebar({
+  pathname,
+  navItems,
+}: {
+  pathname: string;
+  navItems: readonly NavItem[];
+}): JSX.Element {
   return (
     <nav aria-label="Hlavná navigácia" className="hidden w-56 shrink-0 md:block">
       <ul className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavLi key={item.href} item={item} pathname={pathname} />
         ))}
       </ul>
@@ -209,32 +349,25 @@ function DesktopSidebar({ pathname }: { pathname: string }): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Mobile drawer (< md, controlled by hamburger)
+// Mobile drawer
 // ---------------------------------------------------------------------------
 
 interface MobileDrawerProps {
   pathname: string;
   open: boolean;
   onClose: () => void;
+  navItems: readonly NavItem[];
 }
 
-function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps): JSX.Element | null {
-  // Whole drawer is conditionally mounted so its DOM doesn't sit in
-  // the tree (and accept tabs) when closed. The CSS transitions
-  // shipped with Tailwind would let us animate-fade instead, but
-  // the unmount keeps the implementation simple and the AT story
-  // clean (closed drawer is genuinely not in the tree).
+function MobileDrawer({
+  pathname,
+  open,
+  onClose,
+  navItems,
+}: MobileDrawerProps): JSX.Element | null {
   if (!open) return null;
-
   return (
     <div className="fixed inset-0 z-40 md:hidden">
-      {/*
-        Backdrop — click closes the drawer. role="button" + onKeyDown
-        would let us also accept Enter / Space, but the visible Close
-        button + Escape handler in AppShell already cover keyboard
-        users. The backdrop's only purpose for keyboard users is the
-        focus-trap break-out, which Escape solves more directly.
-      */}
       <div
         aria-hidden="true"
         onClick={onClose}
@@ -257,7 +390,7 @@ function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps): JSX.Eleme
           </button>
         </div>
         <ul className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLi key={item.href} item={item} pathname={pathname} />
           ))}
         </ul>
@@ -267,7 +400,7 @@ function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps): JSX.Eleme
 }
 
 // ---------------------------------------------------------------------------
-// Shared nav item — used by both desktop sidebar and mobile drawer
+// Shared nav item
 // ---------------------------------------------------------------------------
 
 function NavLi({ item, pathname }: { item: NavItem; pathname: string }): JSX.Element {

@@ -4,22 +4,22 @@
 'use client';
 
 /**
- * Inventario auth context — Slice #6b.
+ * Inventario auth context — Slice #6b + #9e K19.
  *
- * Replaces MSAL (Entra ID) with the Inventario JWT cookie flow.
+ * K19 update: fetchMe now calls GET /v1/auth/me (extended) instead of
+ * GET /v1/me. The extended endpoint returns:
+ *   - user: global identity fields
+ *   - activeMembership: current org membership with authoritative roles
+ *   - availableOrganisations: list for tenant switcher
  *
- * The `inv_access` cookie is httpOnly — the browser sends it automatically
- * with every same-origin request (`credentials: 'include'`). This
- * AuthProvider reads the current user + session state by calling
- * GET /v1/me on mount.
+ * AuthUser.roles is populated from activeMembership.roles so all
+ * existing consumers of useAuth().user.roles continue to work
+ * with the authoritative per-tenant roles.
  *
- * AuthProvider sits INSIDE QueryClientProvider in providers.tsx so it can
- * be above the route tree while QueryClientProvider sits above it — but
- * it uses plain `fetch` internally (not TanStack Query) to avoid the
- * circular dependency of needing context to create context.
- *
- * Usage:
- *   const { user, isAuthenticated, isLoading, logout } = useAuth();
+ * New context values:
+ *   availableOrganisations  — for AppShell tenant switcher (K19)
+ *   activeMembership        — current membership details
+ *   switchOrg()             — POST /v1/auth/switch-organisation + refresh
  */
 
 import { useRouter } from 'next/navigation';
@@ -38,30 +38,58 @@ export interface AuthUser {
   lastName: string;
   displayName: string;
   accountType: string;
-  roles: string[];
+  roles: string[]; // populated from activeMembership.roles (authoritative)
   isActive: boolean;
   lastLoginAt: string | null;
   preferences: Record<string, unknown>;
-  createdAt: string;
+  mfaEnabled?: boolean;
+}
+
+export interface ActiveMembership {
+  membershipId: string;
+  organisationId: string;
+  roles: string[];
+  status: string;
+  isDefault: boolean;
+}
+
+export interface AvailableOrganisation {
+  organisationId: string;
+  organisationName: string;
+  slug: string;
+  brandKit: unknown;
+  roles: string[];
+  isDefault: boolean;
+  lastAccessedAt: string | null;
+  membershipId: string;
+}
+
+interface AuthMeResponse {
+  user: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    displayName: string;
+    accountType: string;
+    isActive: boolean;
+    lastLoginAt: string | null;
+    preferences: Record<string, unknown>;
+    mfaEnabled: boolean;
+  };
+  activeMembership: ActiveMembership | null;
+  availableOrganisations: AvailableOrganisation[];
 }
 
 interface AuthContextValue {
-  /** Currently authenticated user, or null when not logged in / loading. */
   user: AuthUser | null;
-  /** True while the initial /v1/me check is in flight. */
+  activeMembership: ActiveMembership | null;
+  availableOrganisations: AvailableOrganisation[];
   isLoading: boolean;
-  /** True when user is non-null and session is valid. */
   isAuthenticated: boolean;
-  /**
-   * POST /v1/auth/logout — clears cookies server-side, resets state,
-   * and navigates to /login.
-   */
   logout: () => Promise<void>;
-  /**
-   * Re-fetch the current user from the API. Call after operations that
-   * change the user's own data (role change, password reset, etc.).
-   */
   refresh: () => Promise<void>;
+  switchOrg: (organisationId: string) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,17 +104,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const API_BASE_URL = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
-/**
- * Wraps the app with the auth state. Must be rendered inside
- * QueryClientProvider (so children can use TanStack hooks) but above
- * the authenticated page tree (so AuthGate and AppShell can read auth
- * state before rendering).
- */
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [activeMembership, setActiveMembership] = useState<ActiveMembership | null>(null);
+  const [availableOrganisations, setAvailableOrganisations] = useState<AvailableOrganisation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Track if a refresh is already in flight so we don't fire two at once.
   const refreshing = useRef(false);
 
   const fetchMe = useCallback(async (): Promise<void> => {
@@ -94,15 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     refreshing.current = true;
 
     try {
-      let res = await fetch(`${API_BASE_URL}/v1/me`, {
+      let res = await fetch(`${API_BASE_URL}/v1/auth/me`, {
         credentials: 'include',
         cache: 'no-store',
       });
 
-      // Access token expired — try a silent refresh before giving up.
-      // This covers the page-load case where the user had a valid
-      // refresh token but the access token expired while the tab was
-      // in the background.
       if (res.status === 401) {
         try {
           const refreshRes = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
@@ -110,34 +129,41 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
             credentials: 'include',
           });
           if (refreshRes.ok) {
-            // New cookie set — retry the /v1/me call.
-            res = await fetch(`${API_BASE_URL}/v1/me`, {
+            res = await fetch(`${API_BASE_URL}/v1/auth/me`, {
               credentials: 'include',
               cache: 'no-store',
             });
           }
         } catch {
-          // Refresh network error — fall through to the null path below.
+          // ignore
         }
       }
 
       if (res.ok) {
-        const data = (await res.json()) as AuthUser;
-        setUser(data);
+        const data = (await res.json()) as AuthMeResponse;
+        const membership = data.activeMembership;
+        // Populate roles from activeMembership (authoritative) or fall back to empty
+        setUser({
+          ...data.user,
+          roles: membership?.roles ?? [],
+        });
+        setActiveMembership(membership);
+        setAvailableOrganisations(data.availableOrganisations ?? []);
       } else {
-        // 401 even after refresh (or 403/5xx) — no valid session.
         setUser(null);
+        setActiveMembership(null);
+        setAvailableOrganisations([]);
       }
     } catch {
-      // Network error — treat as unauthenticated.
       setUser(null);
+      setActiveMembership(null);
+      setAvailableOrganisations([]);
     } finally {
       refreshing.current = false;
       setIsLoading(false);
     }
   }, []);
 
-  // Fetch once on mount.
   useEffect(() => {
     void fetchMe();
   }, [fetchMe]);
@@ -149,10 +175,11 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         credentials: 'include',
       });
     } catch {
-      // Ignore network errors on logout — we still want to clear local
-      // state and redirect so the user ends up on the login screen.
+      // ignore
     } finally {
       setUser(null);
+      setActiveMembership(null);
+      setAvailableOrganisations([]);
       router.push('/login');
     }
   }, [router]);
@@ -161,14 +188,35 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     await fetchMe();
   }, [fetchMe]);
 
+  const switchOrg = useCallback(
+    async (organisationId: string): Promise<void> => {
+      const res = await fetch(`${API_BASE_URL}/v1/auth/switch-organisation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ organisationId }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? 'Failed to switch organisation');
+      }
+      // Re-fetch me to get new membership + roles
+      await fetchMe();
+    },
+    [fetchMe],
+  );
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        activeMembership,
+        availableOrganisations,
         isLoading,
         isAuthenticated: user !== null,
         logout,
         refresh,
+        switchOrg,
       }}
     >
       {children}
@@ -180,9 +228,6 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
 // Hook
 // ---------------------------------------------------------------------------
 
-/**
- * Access the auth context. Throws if called outside <AuthProvider>.
- */
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) {
