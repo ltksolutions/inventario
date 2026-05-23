@@ -46,11 +46,12 @@ async function createInvite(
     throw new Error(`createInvite failed: ${res.statusCode} ${res.body}`);
   }
   const inviteId = res.json<{ _id: string }>()._id;
+  // K10: invitations are now stored in the `invitations` collection (not `users`).
   const { ObjectId } = await import('mongodb');
   const doc = await app.mongo.db
-    .collection<{ emailVerificationToken: string }>('users')
+    .collection<{ token: string }>('invitations')
     .findOne({ _id: new ObjectId(inviteId) });
-  return { inviteId, token: doc!.emailVerificationToken, email: body['email'] as string };
+  return { inviteId, token: doc!.token, email: body['email'] as string };
 }
 
 // ---------------------------------------------------------------------------
@@ -116,12 +117,12 @@ describe('GET /v1/auth/invitations/:token', () => {
   it('returns 410 for expired token', async () => {
     const { inviteId, token } = await createInvite(app, adminToken);
     const { ObjectId } = await import('mongodb');
-    // Push expiry into the past
+    // Push expiry into the past in invitations collection (K10)
     await app.mongo.db
-      .collection('users')
+      .collection('invitations')
       .updateOne(
         { _id: new ObjectId(inviteId) },
-        { $set: { emailVerificationExpiresAt: new Date(Date.now() - 1000).toISOString() } },
+        { $set: { expiresAt: new Date(Date.now() - 1000).toISOString() } },
       );
     const res = await app.inject({ method: 'GET', url: `/v1/auth/invitations/${token}` });
     expect(res.statusCode).toBe(410);
@@ -130,12 +131,10 @@ describe('GET /v1/auth/invitations/:token', () => {
   it('returns 410 for already accepted token (emailVerified=true)', async () => {
     const { inviteId, token } = await createInvite(app, adminToken);
     const { ObjectId } = await import('mongodb');
+    // Mark invitation as ACCEPTED in invitations collection (K10)
     await app.mongo.db
-      .collection('users')
-      .updateOne(
-        { _id: new ObjectId(inviteId) },
-        { $set: { emailVerified: true, passwordHash: 'some-hash' } },
-      );
+      .collection('invitations')
+      .updateOne({ _id: new ObjectId(inviteId) }, { $set: { status: 'ACCEPTED' } });
     const res = await app.inject({ method: 'GET', url: `/v1/auth/invitations/${token}` });
     expect(res.statusCode).toBe(410);
   });
@@ -188,14 +187,14 @@ describe('POST /v1/auth/accept-invitation', () => {
     });
 
     it('activates the user account in DB (emailVerified=true, passwordHash set)', async () => {
-      const { inviteId, token } = await createInvite(app, adminToken);
+      const { token, email } = await createInvite(app, adminToken);
       await app.inject({
         method: 'POST',
         url: '/v1/auth/accept-invitation',
         payload: { token, password: 'securePassw0rd!!', firstName: 'Ján', lastName: 'Letko' },
       });
-      const { ObjectId } = await import('mongodb');
-      const doc = await app.mongo.db.collection('users').findOne({ _id: new ObjectId(inviteId) });
+      // K10: new user is created with a new _id — find by email
+      const doc = await app.mongo.db.collection('users').findOne({ email });
       expect(doc!['emailVerified']).toBe(true);
       expect(doc!['passwordHash']).toBeTruthy();
       expect(doc!['emailVerificationToken']).toBeNull();
@@ -205,39 +204,45 @@ describe('POST /v1/auth/accept-invitation', () => {
     });
 
     it('clears the invite token from DB', async () => {
-      const { inviteId, token } = await createInvite(app, adminToken);
+      const { token, email } = await createInvite(app, adminToken);
       await app.inject({
         method: 'POST',
         url: '/v1/auth/accept-invitation',
         payload: { token, password: 'securePassw0rd!!', firstName: 'Ján', lastName: 'Letko' },
       });
-      const { ObjectId } = await import('mongodb');
-      const doc = await app.mongo.db.collection('users').findOne({ _id: new ObjectId(inviteId) });
-      expect(doc!['emailVerificationToken']).toBeNull();
-      expect(doc!['emailVerificationExpiresAt']).toBeNull();
+      // K10: find user by email; invitation token is on the invitation doc, not the user
+      const invDoc = await app.mongo.db.collection('invitations').findOne({ email });
+      expect(invDoc!['status']).toBe('ACCEPTED');
+      expect(invDoc!['acceptedAt']).not.toBeNull();
     });
 
     it('stores a refresh token in DB', async () => {
-      const { inviteId, token } = await createInvite(app, adminToken);
+      const { token, email } = await createInvite(app, adminToken);
       await app.inject({
         method: 'POST',
         url: '/v1/auth/accept-invitation',
         payload: { token, password: 'securePassw0rd!!', firstName: 'Ján', lastName: 'Letko' },
       });
-      const rt = await app.mongo.db.collection('refresh_tokens').findOne({ userId: inviteId });
+      // K10: find new user by email to get their actual _id
+      const user = await app.mongo.db.collection('users').findOne({ email });
+      expect(user).not.toBeNull();
+      const rt = await app.mongo.db
+        .collection('refresh_tokens')
+        .findOne({ userId: String(user!['_id']) });
       expect(rt).not.toBeNull();
     });
 
     it('emits USER_INVITATION_ACCEPTED audit event', async () => {
-      const { inviteId, token } = await createInvite(app, adminToken);
+      const { token, email } = await createInvite(app, adminToken);
       await app.inject({
         method: 'POST',
         url: '/v1/auth/accept-invitation',
         payload: { token, password: 'securePassw0rd!!', firstName: 'Ján', lastName: 'Letko' },
       });
+      // K10: audit action is USER_INVITATION_ACCEPTED, actor email matches invite email
       const audit = await app.mongo.db
         .collection('audit_logs')
-        .findOne({ action: 'USER_INVITATION_ACCEPTED', 'target.entityId': inviteId });
+        .findOne({ action: 'USER_INVITATION_ACCEPTED', 'actor.email': email });
       expect(audit).not.toBeNull();
       expect(audit!['metadata']).toMatchObject({ via: 'password' });
     });
@@ -261,11 +266,12 @@ describe('POST /v1/auth/accept-invitation', () => {
     it('returns 400 for expired token', async () => {
       const { inviteId, token } = await createInvite(app, adminToken);
       const { ObjectId } = await import('mongodb');
+      // Expire the invite in invitations collection (K10)
       await app.mongo.db
-        .collection('users')
+        .collection('invitations')
         .updateOne(
           { _id: new ObjectId(inviteId) },
-          { $set: { emailVerificationExpiresAt: new Date(Date.now() - 1000).toISOString() } },
+          { $set: { expiresAt: new Date(Date.now() - 1000).toISOString() } },
         );
       const res = await app.inject({
         method: 'POST',

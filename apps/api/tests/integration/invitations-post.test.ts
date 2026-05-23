@@ -95,7 +95,7 @@ describe('POST /v1/invitations', () => {
       expect(res.statusCode).toBe(201);
     });
 
-    it('creates a pending User document in DB', async () => {
+    it('creates a pending invitation in the invitations collection (K10)', async () => {
       const body = validInviteBody();
       const res = await app.inject({
         method: 'POST',
@@ -106,11 +106,12 @@ describe('POST /v1/invitations', () => {
       expect(res.statusCode).toBe(201);
       const id = res.json<{ _id: string }>()._id;
       const { ObjectId } = await import('mongodb');
-      const doc = await app.mongo.db.collection('users').findOne({ _id: new ObjectId(id) });
+      // K10: invitation is in `invitations` collection, not `users`
+      const doc = await app.mongo.db.collection('invitations').findOne({ _id: new ObjectId(id) });
       expect(doc).not.toBeNull();
-      expect(doc!['passwordHash']).toBeNull();
-      expect(doc!['emailVerified']).toBe(false);
-      expect(doc!['emailVerificationToken']).toMatch(/^[a-f0-9]{64}$/);
+      expect(doc!['status']).toBe('PENDING');
+      expect(doc!['token']).toMatch(/^[a-f0-9]{64}$/);
+      expect(doc!['invitedUserId']).toBeNull();
     });
 
     it('emits USER_INVITED audit event', async () => {
@@ -128,7 +129,7 @@ describe('POST /v1/invitations', () => {
       expect(audit!['severity']).toBe('INFO');
     });
 
-    it('pre-fills firstName + lastName in the pending User doc', async () => {
+    it('pre-fills firstName + lastName in the invitation doc (K10)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
@@ -137,7 +138,8 @@ describe('POST /v1/invitations', () => {
       });
       const id = res.json<{ _id: string }>()._id;
       const { ObjectId } = await import('mongodb');
-      const doc = await app.mongo.db.collection('users').findOne({ _id: new ObjectId(id) });
+      // K10: check invitations collection
+      const doc = await app.mongo.db.collection('invitations').findOne({ _id: new ObjectId(id) });
       expect(doc!['firstName']).toBe('Marta');
       expect(doc!['lastName']).toBe('Kováčová');
     });
@@ -204,7 +206,8 @@ describe('POST /v1/invitations', () => {
       expect(res.json<{ message: string }>().message).toMatch(/already exists/i);
     });
 
-    it('returns 400 when email exists in another tenant', async () => {
+    it('allows cross-tenant invite to same email (K10 — ADR-0015 core feature)', async () => {
+      // Tenant B invites cross@example.com
       const tenantB = await seedTestTenant(app, { slug: 'invite-tenant-b' });
       const { token: adminB } = await provisionUser(app, {
         oid: 'admin-b-inv',
@@ -217,13 +220,16 @@ describe('POST /v1/invitations', () => {
         headers: { cookie: `inv_access=${adminB}` },
         payload: validInviteBody({ email: 'cross@example.com' }),
       });
+      // Tenant A can also invite the same email — cross-tenant invite is now allowed
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
         payload: validInviteBody({ email: 'cross@example.com' }),
       });
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(201);
+      // acceptMode is 'new-user' because cross@example.com has no User document yet
+      expect(res.json<{ acceptMode: string }>().acceptMode).toBe('new-user');
     });
   });
 
@@ -383,14 +389,11 @@ describe('GET /v1/invitations', () => {
       payload: validInviteBody(),
     });
     const id = inv.json<{ _id: string }>()._id;
-    // Simulate accept by setting passwordHash + emailVerified
+    // K10: mark as ACCEPTED in invitations collection
     const { ObjectId } = await import('mongodb');
     await app.mongo.db
-      .collection('users')
-      .updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { passwordHash: 'some-hash', emailVerified: true } },
-      );
+      .collection('invitations')
+      .updateOne({ _id: new ObjectId(id) }, { $set: { status: 'ACCEPTED' } });
     const res = await app.inject({
       method: 'GET',
       url: '/v1/invitations',
@@ -494,7 +497,7 @@ describe('DELETE /v1/invitations/:id', () => {
     expect(res.statusCode).toBe(204);
   });
 
-  it('soft-deletes the user document', async () => {
+  it('soft-deletes the invitation document (K10)', async () => {
     const inv = await app.inject({
       method: 'POST',
       url: '/v1/invitations',
@@ -508,7 +511,8 @@ describe('DELETE /v1/invitations/:id', () => {
       headers: { cookie: `inv_access=${adminToken}` },
     });
     const { ObjectId } = await import('mongodb');
-    const doc = await app.mongo.db.collection('users').findOne({ _id: new ObjectId(id) });
+    // K10: invitation is in `invitations` collection
+    const doc = await app.mongo.db.collection('invitations').findOne({ _id: new ObjectId(id) });
     expect(doc!['deletedAt']).not.toBeNull();
   });
 
@@ -583,12 +587,10 @@ describe('DELETE /v1/invitations/:id', () => {
     });
     const id = inv.json<{ _id: string }>()._id;
     const { ObjectId } = await import('mongodb');
+    // K10: mark as ACCEPTED in invitations collection
     await app.mongo.db
-      .collection('users')
-      .updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { passwordHash: 'argon2hash', emailVerified: true } },
-      );
+      .collection('invitations')
+      .updateOne({ _id: new ObjectId(id) }, { $set: { status: 'ACCEPTED' } });
     const res = await app.inject({
       method: 'DELETE',
       url: `/v1/invitations/${id}`,
