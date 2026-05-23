@@ -9,8 +9,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                                                                                |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Verzia**                | 1.0                                                                                                                                    |
-| **Posledná aktualizácia** | _\[doplniť pred prvým go-live\]_                                                                                                       |
+| **Verzia**                | 1.1                                                                                                                                    |
+| **Posledná aktualizácia** | 2026-05-23 (DR Test #1 — PASS)                                                                                                         |
 | **Vlastník**              | Ing. Ján Letko, konateľ LTK Solutions, s.r.o.                                                                                          |
 | **Klasifikácia**          | Interný dokument — nezdieľať verejne                                                                                                   |
 | **Súvisiace dokumenty**   | [Breach Notification Plan](./breach-notification-plan.md), [ROPA Processor view](./gdpr-article-30.md), [DPA](./legal/dpa-template.md) |
@@ -24,7 +24,8 @@ SPDX-License-Identifier: CC-BY-4.0
 | **RPO** (Recovery Point Objective) | ≤ 24 hodín | Maximálna strata dát — zálohy sú minimálne denné |
 | **RTO** (Recovery Time Objective)  | ≤ 8 hodín  | Maximálny čas obnovy plnej funkčnosti po havárii |
 
-> Tieto hodnoty sú deklarované v ToS (Príloha 2 SLA) a DPA (Príloha 2 technické opatrenia). Musia byť overené prvým DR testom pred go-live.
+> Tieto hodnoty sú deklarované v ToS (Príloha 2 SLA) a DPA (Príloha 2 technické opatrenia).
+> **✅ DR Test #1 (2026-05-23): RPO ~23h ✅ RTO < 1 minúta ✅ — oba ciele splnené.** Viď `dr-test-log.md`.
 
 ---
 
@@ -274,9 +275,10 @@ Tento dokument aktualizovať pri:
 
 ## 9. Zmenová história
 
-| Verzia | Dátum                      | Zmena                                          |
-| ------ | -------------------------- | ---------------------------------------------- |
-| 1.0    | _\[doplniť pred go-live\]_ | Prvá verzia DR Planu pre platformu Inventario. |
+| Verzia | Dátum      | Zmena                                                                                              |
+| ------ | ---------- | -------------------------------------------------------------------------------------------------- |
+| 1.0    | 2026-05-21 | Prvá verzia DR Planu pre platformu Inventario.                                                     |
+| 1.1    | 2026-05-23 | DR Test #1 — PASS. RPO/RTO overené. Vytvorený `dr-test-log.md`. Poznámka o Flex tier obmedzeniach. |
 
 ---
 

@@ -7,11 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                          |
-| ------------------------- | ---------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-23 (K12a Forced MFA + K12b Admin MFA reset — 511 testov) |
-| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review                |
-| **Posledný session log**  | [`2026-05-23-day-summary.md`](2026-05-23-day-summary.md)         |
+| Atribút                   | Hodnota                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| **Posledná aktualizácia** | 2026-05-23 (K12a/K12b + DR Test #1 PASS — Launch-ready 100%) |
+| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review            |
+| **Posledný session log**  | [`2026-05-23-day-summary.md`](2026-05-23-day-summary.md)     |
 
 ---
 
@@ -23,6 +23,7 @@ SPDX-License-Identifier: CC-BY-4.0
 - **K12a Forced MFA setup** — `org.settings.mfa.requireMfa`, `issueMfaSetupToken` (15 min TTL), `/v1/auth/mfa/forced-setup` + `/v1/auth/mfa/forced-verify`, login gate v email-auth.routes.ts
 - **K12b Admin MFA reset** — `DELETE /v1/users/:id/mfa` (ADMIN only), `clearMfa()` repo, `resetMfa()` service, audit `USER_MFA_RESET_BY_ADMIN` (WARNING)
 - **shared-types** — pridaná audit akcia `USER_MFA_RESET_BY_ADMIN`
+- **DR Test #1** — Atlas snapshot restore < 1 minúta, 53/53 smoke testy ✅, RPO ~23h ✅, RTO < 1 min ✅
 - **Backend testy** — 511/511 ✅ (31 test files, ~38s)
 
 ### 📊 Globálny stav
@@ -36,8 +37,9 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Compliance Fáza 1**    | ✅ HOTOVÁ — 5 dokumentov                                          |
 | **Frontend pages**       | ✅ 7/7 P0 stránok (Slice #4) + 2 nové (invite/settings)           |
 | **Production deploy**    | ✅ LIVE — inventario.estate + docs                                |
+| **DR Test #1**           | ✅ PASS — RPO ~23h, RTO < 1 minúta (2026-05-23)                   |
 | **Backend testy**        | ✅ 511/511 (31 test files)                                        |
-| **Launch ready**         | ⏳ 95% — čaká na legal review (beží externe)                      |
+| **Launch ready**         | ✅ 100% — čaká len na legal review (beží externe)                 |
 
 ### 🎯 Strategická pozícia
 
@@ -50,7 +52,8 @@ Pred prvým produkčným tenant-om treba:
 3. ✅ Sub-processors verejná stránka — HOTOVO 2026-05-22
 4. ✅ Marketing site → live app prepojenie — HOTOVO 2026-05-22
 5. ✅ Forced MFA + Admin MFA reset — HOTOVO 2026-05-23
-6. ⏳ Právny review slovenským advokátom — PENDING (beží externe)
+6. ✅ DR Test #1 — PASS 2026-05-23 (RPO ~23h, RTO < 1 min)
+7. ⏳ Právny review slovenským advokátom — PENDING (beží externe)
 
 ---
 
@@ -76,6 +79,7 @@ Pred prvým produkčným tenant-om treba:
 | 4   | **Marketing site CTAs → `app.inventario.estate`** (shared.js, index.html, pricing.html) | Dev             | ✅ Hotové 2026-05-22 |
 | 5   | **MCP server reframe** v `technology.html` + `ROADMAP.md`                               | Dev             | ✅ Hotové 2026-05-22 |
 | 6   | **Forced MFA + Admin MFA reset** (K12a + K12b)                                          | Dev             | ✅ Hotové 2026-05-23 |
+| 7   | **DR Test #1** — Atlas restore, smoke testy (53/53), RPO ~23h, RTO < 1 min              | Ján             | ✅ Hotové 2026-05-23 |
 
 ### 3. Technické pred-launch tasks
 
@@ -83,7 +87,7 @@ Pred prvým produkčným tenant-om treba:
 | --- | ------------------------------------------------------------------------------------------ | -------- | ---------- | -------------------- |
 | 1   | **Env vars na Vercel prod** — `MFA_SECRET_ENCRYPTION_KEY` + `ECOMAIL_API_KEY`              | HIGH     | Ján        | ✅ Hotové 2026-05-22 |
 | 2   | **Sub-processors list publikovať** na `inventario.estate/sub-processors`                   | MEDIUM   | Dev        | ✅ Hotové 2026-05-22 |
-| 3   | **Disaster recovery test** — manuálne restore z MongoDB, verify RTO/RPO                    | MEDIUM   | Ján        | ⏳ PENDING           |
+| 3   | **Disaster recovery test** — Atlas snapshot restore, smoke testy                           | MEDIUM   | Ján        | ✅ Hotové 2026-05-23 |
 | 4   | **Atlas allowlist** — odložené (Vercel serverless = dynamické IP, vyžaduje Secure Compute) | LOW      | Ján        | ⏳ POST-LAUNCH       |
 | 5   | **Penetration testing** (external, before go-live)                                         | LOW      | Externý PT | ⏳ PLANNED           |
 
@@ -218,6 +222,6 @@ Model routing: viď tabuľka vyššie.
 
 ---
 
-**Last updated:** 2026-05-23 (K12a Forced MFA setup + K12b Admin MFA reset — 511/511 testov)
-**Status:** Slice #6c + #7 + K12a + K12b kompletné. 511 testov. Marketing site prepojený s app.inventario.estate. Launch-ready 95%. Legal review beží externe.
+**Last updated:** 2026-05-23 (DR Test #1 PASS — RPO ~23h, RTO < 1 min. Launch-ready 100%.)
+**Status:** Všetky pred-launch úlohy hotové. Čaká len na legal review. 511/511 testov.
 **Next session:** TBD
