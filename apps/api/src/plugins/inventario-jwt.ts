@@ -92,6 +92,25 @@ export interface InventarioJwtService {
   verifyMfaSessionToken(token: string): Promise<{ sub: string }>;
 
   /**
+   * Issue a short-lived MFA setup token (K12a — Forced MFA).
+   *
+   * Used in the login flow when org policy requires MFA but the user
+   * hasn't set it up yet. The frontend uses this token to call
+   * `POST /v1/auth/mfa/forced-setup` and `POST /v1/auth/mfa/forced-verify`
+   * without needing auth cookies.
+   *
+   * Audience is `inventario-mfa-setup`. TTL is 15 minutes (long enough
+   * to scan a QR code and copy recovery codes).
+   */
+  issueMfaSetupToken(userId: string): Promise<string>;
+
+  /**
+   * Verify an MFA setup token. Returns the `sub` (userId) on success.
+   * Throws `UnauthorizedError` on invalid / expired tokens.
+   */
+  verifyMfaSetupToken(token: string): Promise<{ sub: string }>;
+
+  /**
    * Create a new refresh token for a user and persist its hash.
    * Returns the raw token to be set as an httpOnly cookie.
    */
@@ -159,6 +178,8 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
       verifyAccessToken: notConfigured,
       issueMfaSessionToken: notConfigured,
       verifyMfaSessionToken: notConfigured,
+      issueMfaSetupToken: notConfigured,
+      verifyMfaSetupToken: notConfigured,
       issueRefreshToken: notConfigured,
       rotateRefreshToken: notConfigured,
       revokeRefreshToken: notConfigured,
@@ -262,6 +283,39 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
       }
       if (payload['purpose'] !== 'mfa_challenge') {
         throw new UnauthorizedError('MFA session token wrong purpose');
+      }
+      return { sub: payload.sub };
+    },
+
+    async issueMfaSetupToken(userId) {
+      return new SignJWT({ purpose: 'mfa_setup' })
+        .setProtectedHeader({ alg: 'RS256' })
+        .setSubject(userId)
+        .setIssuer('inventario')
+        .setAudience('inventario-mfa-setup')
+        .setIssuedAt()
+        .setExpirationTime('15m')
+        .sign(privateKey);
+    },
+
+    async verifyMfaSetupToken(token) {
+      let payload: JWTPayload;
+      try {
+        ({ payload } = await jwtVerify(token, publicKey, {
+          issuer: 'inventario',
+          audience: 'inventario-mfa-setup',
+          algorithms: ['RS256'],
+          clockTolerance: 5,
+        }));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'MFA setup token verification failed';
+        throw new UnauthorizedError(msg);
+      }
+      if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+        throw new UnauthorizedError('MFA setup token missing sub claim');
+      }
+      if (payload['purpose'] !== 'mfa_setup') {
+        throw new UnauthorizedError('MFA setup token wrong purpose');
       }
       return { sub: payload.sub };
     },

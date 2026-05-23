@@ -126,7 +126,8 @@ function defaultLegalBasisFor(action: AuditLog['action']): AuditLog['legalBasis'
     action === 'USER_PASSWORD_CHANGED' ||
     action === 'USER_PASSWORD_RESET_REQUESTED' ||
     action === 'USER_MFA_ENABLED' ||
-    action === 'USER_MFA_DISABLED'
+    action === 'USER_MFA_DISABLED' ||
+    action === 'USER_MFA_RESET_BY_ADMIN'
   ) {
     return 'legitimate_interest';
   }
@@ -194,7 +195,8 @@ function defaultDataCategoriesFor(
     action === 'USER_PASSWORD_CHANGED' ||
     action === 'USER_PASSWORD_RESET_REQUESTED' ||
     action === 'USER_MFA_ENABLED' ||
-    action === 'USER_MFA_DISABLED'
+    action === 'USER_MFA_DISABLED' ||
+    action === 'USER_MFA_RESET_BY_ADMIN'
   ) {
     return ['authentication'];
   }

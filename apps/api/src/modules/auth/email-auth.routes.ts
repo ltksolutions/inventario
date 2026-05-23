@@ -330,6 +330,26 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // -- Forced MFA setup gate (K12a) ------------------------------------
+      // If the org policy requires MFA but the user hasn't set it up yet,
+      // issue a short-lived mfaSetupToken. The frontend uses it to go
+      // through the forced setup flow (POST /v1/auth/mfa/forced-setup +
+      // POST /v1/auth/mfa/forced-verify) before receiving real auth cookies.
+      const orgSettings = (org.settings ?? {}) as Record<string, unknown>;
+      const mfaSettings = (orgSettings['mfa'] ?? {}) as Record<string, unknown>;
+      const mfaRequired = mfaSettings['requireMfa'] === true;
+      if (mfaRequired && !user.mfaEnabled) {
+        const mfaSetupToken = await fastify.inventarioJwt.issueMfaSetupToken(String(user._id));
+        fastify.log.info(
+          { userId: String(user._id), email },
+          'Email/password login: forced MFA setup required',
+        );
+        return reply.code(202).send({
+          mfaSetupRequired: true,
+          mfaSetupToken,
+        });
+      }
+
       // Issue tokens
       const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);

@@ -43,6 +43,15 @@ const VerifySetupSchema = z.object({
   code: z.string().regex(/^\d{6}$/, 'TOTP code must be 6 digits'),
 });
 
+const ForcedSetupSchema = z.object({
+  mfaSetupToken: z.string().min(20),
+});
+
+const ForcedVerifySchema = z.object({
+  mfaSetupToken: z.string().min(20),
+  code: z.string().regex(/^\d{6}$/, 'TOTP code must be 6 digits'),
+});
+
 const DisableSchema = z.object({
   password: z.string().min(1).max(128),
 });
@@ -91,6 +100,8 @@ const mfaRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     fastify.post('/v1/auth/mfa/disable', notConfigured);
     fastify.post('/v1/auth/mfa/challenge', notConfigured);
     fastify.get('/v1/auth/mfa/status', notConfigured);
+    fastify.post('/v1/auth/mfa/forced-setup', notConfigured);
+    fastify.post('/v1/auth/mfa/forced-verify', notConfigured);
     return;
   }
 
@@ -290,6 +301,175 @@ const mfaRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       recoveryCodesRemaining: user.mfaEnabled ? (user.mfaRecoveryCodes?.length ?? 0) : 0,
     });
   });
+
+  // -------------------------------------------------------------------------
+  // POST /v1/auth/mfa/forced-setup  (K12a)
+  // -------------------------------------------------------------------------
+  // Token-authenticated variant of /setup for the forced-MFA flow.
+  // The caller provides the mfaSetupToken issued by POST /v1/auth/login/email
+  // when org.settings.mfa.requireMfa is true and the user hasn't set up MFA.
+  // Returns the same payload as /setup (secret, otpauthUrl, recoveryCodes).
+  fastify.post(
+    '/v1/auth/mfa/forced-setup',
+    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }) },
+    async (request, reply) => {
+      const parsed = ForcedSetupSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid input');
+      }
+
+      const { sub: userId } = await fastify.inventarioJwt.verifyMfaSetupToken(
+        parsed.data.mfaSetupToken,
+      );
+      if (!ObjectId.isValid(userId)) {
+        throw new UnauthorizedError('Invalid MFA setup session.');
+      }
+
+      const user = (await usersCol.findOne({
+        _id: new ObjectId(userId),
+        deletedAt: null,
+        isActive: true,
+      } as never)) as WithId<User> | null;
+
+      if (!user) {
+        throw new UnauthorizedError('User not found or inactive.');
+      }
+      if (user.mfaEnabled === true) {
+        throw new BadRequestError(
+          'MFA is already enabled. Disable it first to set up a new authenticator.',
+        );
+      }
+
+      const secretPlaintext = generateTotpSecret();
+      const secretEncrypted = encryptMfaSecret(secretPlaintext, MFA_SECRET_ENCRYPTION_KEY);
+      const { plaintext: recoveryPlain, hashes: recoveryHashes } = await generateRecoveryCodes();
+
+      const now = new Date().toISOString();
+      await usersCol.updateOne({ _id: user._id } as never, {
+        $set: {
+          mfaSecret: secretEncrypted,
+          mfaRecoveryCodes: recoveryHashes,
+          updatedAt: now,
+        },
+      });
+
+      const otpauthUrl = buildOtpauthUrl({
+        issuer: 'Inventario',
+        accountName: user.email,
+        secret: secretPlaintext,
+      });
+
+      fastify.log.info(
+        { userId: String(user._id), email: user.email },
+        'Forced MFA setup initiated',
+      );
+
+      return reply.code(200).send({
+        secret: secretPlaintext,
+        otpauthUrl,
+        recoveryCodes: recoveryPlain,
+      });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /v1/auth/mfa/forced-verify  (K12a)
+  // -------------------------------------------------------------------------
+  // Confirms the pending forced-setup secret and issues real auth cookies.
+  // Accepts mfaSetupToken + 6-digit TOTP code. On success: enables MFA
+  // and issues access + refresh cookies (same as a normal successful login).
+  fastify.post(
+    '/v1/auth/mfa/forced-verify',
+    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }) },
+    async (request, reply) => {
+      const parsed = ForcedVerifySchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid input');
+      }
+      const { mfaSetupToken, code } = parsed.data;
+
+      const { sub: userId } = await fastify.inventarioJwt.verifyMfaSetupToken(mfaSetupToken);
+      if (!ObjectId.isValid(userId)) {
+        throw new UnauthorizedError('Invalid MFA setup session.');
+      }
+
+      // Fetch full user with mfaSecret
+      const user = (await usersCol.findOne({
+        _id: new ObjectId(userId),
+        deletedAt: null,
+        isActive: true,
+      } as never)) as WithId<User> | null;
+
+      if (!user) {
+        throw new UnauthorizedError('User not found or inactive.');
+      }
+      if (user.mfaEnabled === true) {
+        throw new BadRequestError('MFA is already active. Use /v1/auth/mfa/challenge instead.');
+      }
+
+      // Re-fetch mfaSecret (projected out by PUBLIC_PROJECTION in other places)
+      const secretDoc = (await usersCol.findOne({ _id: user._id } as never, {
+        projection: { mfaSecret: 1 },
+      })) as { mfaSecret: string | null } | null;
+
+      if (!secretDoc?.mfaSecret) {
+        throw new BadRequestError(
+          'No pending MFA setup. Call POST /v1/auth/mfa/forced-setup first.',
+        );
+      }
+
+      let secretPlain: string;
+      try {
+        secretPlain = decryptMfaSecret(secretDoc.mfaSecret, MFA_SECRET_ENCRYPTION_KEY);
+      } catch (err) {
+        fastify.log.error({ err, userId }, 'MFA secret decrypt failed in forced-verify');
+        throw new BadRequestError('MFA setup is in an invalid state. Try forced-setup again.');
+      }
+
+      if (!verifyTotpCode(code, secretPlain)) {
+        throw new BadRequestError('Invalid code. Try again with a fresh code from your app.');
+      }
+
+      // Load org for token issuance
+      const org = (await orgsCol.findOne({
+        _id: new ObjectId(user.organisationId),
+        deletedAt: null,
+      } as never)) as WithId<Organisation> | null;
+
+      if (!org || org.status !== 'ACTIVE') {
+        throw new UnauthorizedError('Organisation unavailable.');
+      }
+
+      // Enable MFA
+      const now = new Date().toISOString();
+      await usersCol.updateOne({ _id: user._id } as never, {
+        $set: {
+          mfaEnabled: true,
+          mfaEnabledAt: now,
+          updatedAt: now,
+        },
+      });
+
+      // Issue real auth cookies
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
+      const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
+
+      setAuthCookies(
+        reply,
+        accessToken,
+        refreshToken,
+        JWT_ACCESS_TOKEN_TTL_SECONDS,
+        JWT_REFRESH_TOKEN_TTL_DAYS,
+      );
+
+      fastify.log.info(
+        { userId: String(user._id), email: user.email },
+        'Forced MFA setup confirmed — session issued',
+      );
+
+      return reply.code(204).send();
+    },
+  );
 
   // -------------------------------------------------------------------------
   // POST /v1/auth/mfa/challenge

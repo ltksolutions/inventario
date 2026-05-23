@@ -46,6 +46,7 @@ export const AuditLogSchema = z.object({
     'USER_PASSWORD_RESET_REQUESTED',
     'USER_MFA_ENABLED',
     'USER_MFA_DISABLED',
+    'USER_MFA_RESET_BY_ADMIN',
 
     // User management
     'USER_CREATED',

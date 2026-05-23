@@ -445,6 +445,76 @@ export class UsersService {
   }
 
   // -------------------------------------------------------------------------
+  // K12b — Admin MFA reset
+  // -------------------------------------------------------------------------
+
+  /**
+   * Admin clears MFA for a target user within the same tenant.
+   *
+   * Use cases:
+   *   - User lost their phone / authenticator app
+   *   - Admin bulk-reset after security incident
+   *
+   * Guardrails:
+   *   - Admin cannot reset their own MFA via this path (use /v1/auth/mfa/disable)
+   *   - Target must have MFA enabled (clearing already-cleared MFA is a no-op / error)
+   *   - Cross-tenant access blocked via tenant-scoped repo call (returns 404)
+   *
+   * Emits audit event MFA_RESET_BY_ADMIN.
+   */
+  async resetMfa(id: string, actor: WithId<User>, request: FastifyRequest): Promise<void> {
+    if (!this.auditLog || !this.mongoClient) {
+      throw new Error('UsersService.resetMfa requires auditLog and mongoClient.');
+    }
+    const auditLog = this.auditLog;
+    const actorId = String(actor._id);
+    const tenantId = String(actor.organisationId);
+
+    // Self-reset guard: admin must use /v1/auth/mfa/disable for their own MFA
+    if (id === actorId) {
+      throw new BadRequestError('Use POST /v1/auth/mfa/disable to manage your own MFA.');
+    }
+
+    await this.runInTransaction(async (session) => {
+      const target = await this.repo.findById(tenantId, id, session);
+      if (!target) {
+        throw new NotFoundError('User', id);
+      }
+
+      if (!target.mfaEnabled) {
+        throw new BadRequestError('MFA is not enabled for this user.');
+      }
+
+      const now = new Date().toISOString();
+      const after = await this.repo.clearMfa(
+        tenantId,
+        id,
+        { updatedAt: now, updatedBy: actorId },
+        session,
+      );
+      if (!after) {
+        throw new NotFoundError('User', id);
+      }
+
+      await auditLog.record(
+        actor,
+        request,
+        {
+          action: 'USER_MFA_RESET_BY_ADMIN',
+          target: {
+            entityType: 'User',
+            entityId: String(after._id),
+            snapshot: { email: after.email, displayName: after.displayName },
+          },
+          description: `Admin reset MFA for "${after.displayName}" (${after.email})`,
+          severity: 'WARNING',
+        },
+        session,
+      );
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
 

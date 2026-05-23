@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Users routes — endpoints for user management.
  *
@@ -9,6 +12,9 @@
  *   - `GET    /v1/users/:id`  ADMIN — single user
  *   - `PATCH  /v1/users/:id`  ADMIN — update roles + isActive
  *
+ * K12b scope: admin MFA reset.
+ *   - `DELETE /v1/users/:id/mfa` ADMIN — clear MFA enrollment for a user
+ *
  * RBAC matrix:
  *   - `GET /v1/me`            any authenticated user (self)
  *   - admin endpoints         ADMIN only
@@ -17,13 +23,7 @@
  *   PATCH emits one or more of `USER_ROLE_GRANTED`, `USER_ROLE_REVOKED`,
  *   `USER_DEACTIVATED`, `USER_REACTIVATED` per the diff between before
  *   and after. See `users.service.ts` for the event-emission rules.
- *
- * Body schema notes:
- *   The admin PATCH body intentionally exposes only the two fields K10
- *   covers (`roles`, `isActive`). The service supports more (name,
- *   preferences, organisation unit), but those wait for either:
- *     - a self-service `PATCH /v1/me` endpoint, or
- *     - a future admin extension when a concrete use case lands.
+ *   DELETE /mfa emits `MFA_RESET_BY_ADMIN`.
  */
 
 import { USER_ROLE_VALUES } from '@inventario/shared-types';
@@ -42,27 +42,12 @@ import type { Filter } from 'mongodb';
 // Shared schemas
 // ---------------------------------------------------------------------------
 
-/**
- * Path parameter for routes that take a user ID.
- * Format: 24-char hex (MongoDB ObjectId).
- */
 const UserIdParamsSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát ID (očakáva sa 24 hex znakov).'),
 });
 
-/**
- * Permissive user response — we return the full (non-sensitive) user
- * document. `passwordHash` is stripped at the repository layer; we use
- * a record schema here to avoid having to enumerate every field at the
- * route boundary. Validation lives on write paths.
- */
 const UserResponseSchema = z.record(z.string(), z.unknown());
 
-/**
- * Shape of `GET /v1/me`. Intentionally narrower than the full `User`
- * schema — we never expose sensitive fields (passwordHash is already
- * stripped at the repo layer, but explicit is better than implicit).
- */
 const MeResponseSchema = z.object({
   _id: z.string(),
   email: z.string(),
@@ -84,7 +69,6 @@ const MeResponseSchema = z.object({
 const ListUsersQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   skip: z.coerce.number().int().min(0).default(0),
-  /** Filter by role (one of the UserRole values). */
   role: z.enum(USER_ROLE_VALUES as unknown as [string, ...string[]]).optional(),
   /**
    * Filter by active flag.
@@ -99,7 +83,6 @@ const ListUsersQuerySchema = z.object({
     .enum(['true', 'false', '1', '0'])
     .optional()
     .transform((v) => (v === undefined ? undefined : v === 'true' || v === '1')),
-  /** Free-text search across email + displayName + firstName + lastName (case-insensitive). */
   q: z.string().min(1).max(200).trim().optional(),
 });
 
@@ -184,14 +167,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      // /v1/me uses requireAuth + loadCurrentUser chain because we now
-      // need the resolved tenant before JIT-provisioning the user. The
-      // loadCurrentUser middleware does the heavy lifting (resolve
-      // tenant from JWT tid, JIT-provision Organisation if needed,
-      // resolve / JIT-provision User in that tenant), so the route
-      // handler just returns the result.
       const user = request.currentUser;
-
       return {
         _id: String(user._id),
         email: user.email,
@@ -238,17 +214,12 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
       // of typed assignments.
       const filterObj: Record<string, unknown> = {};
       if (role !== undefined) {
-        // `roles` is an array column; the Mongo driver treats a single
-        // string here as "this value appears in the array".
         filterObj['roles'] = role;
       }
       if (isActive !== undefined) {
         filterObj['isActive'] = isActive;
       }
       if (q !== undefined) {
-        // Escape regex meta-characters so a search for "a.b" doesn't
-        // become a wildcard. Backslash escape on each meta char turns
-        // it into a literal in the resulting RegExp.
         const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const re = { $regex: escaped, $options: 'i' };
         filterObj['$or'] = [
@@ -315,6 +286,32 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         request.currentUser,
         request,
       );
+    },
+  );
+
+  // --- DELETE /v1/users/:id/mfa --------------------------------------------
+  app.delete(
+    '/v1/users/:id/mfa',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canAdmin],
+      schema: {
+        tags: ['Users'],
+        summary: 'Reset MFA for a user (admin)',
+        description:
+          'Clears MFA enrollment for the target user. Use when a user has lost access ' +
+          'to their authenticator app. The user must re-enroll on next login. ' +
+          'Admin cannot reset their own MFA via this endpoint — use POST /v1/auth/mfa/disable. ' +
+          'Records MFA_RESET_BY_ADMIN audit event. Requires ADMIN role.',
+        security: [{ bearerAuth: [] }],
+        params: UserIdParamsSchema,
+        response: {
+          204: z.null().describe('MFA reset successfully'),
+        },
+      },
+    },
+    async (request, reply) => {
+      await service.resetMfa(request.params.id, request.currentUser, request);
+      return reply.code(204).send(null);
     },
   );
 };

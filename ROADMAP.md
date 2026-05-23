@@ -70,14 +70,14 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 ### Backend (dokončenie slice #3)
 
-- [ ] **K10**: Users admin module (ADMIN-only)
+- [x] **K10**: Users admin module (ADMIN-only) — done 2026-05-16
   - GET /v1/users (list + pagination + filtre)
   - GET /v1/users/:id
   - PATCH /v1/users/:id (role, isActive)
-  - Edge cases: admin sa nemôže deaktivovať, posledný ADMIN je chránený
-  - Audit log USER_ROLE_CHANGED
-  - ~30-40 testov
-- [ ] **K11**: Slice #3 milestone dokument
+  - Self-deactivate guard + last-admin guard
+  - Audit log USER_ROLE_GRANTED / USER_ROLE_REVOKED / USER_DEACTIVATED
+  - 53 testov
+- [x] **K11**: Slice #3 milestone dokument — done 2026-05-16
 
 ### Backend (slice #4 príprava)
 
@@ -306,11 +306,12 @@ Táto roadmapa sa **aktualizuje raz za quarter** alebo pri zásadných zmenách 
 
 Update history:
 
-| Dátum      | Verzia | Zmena                                                                                                                                                                      |
-| ---------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-15 | v1.0   | Initial roadmap                                                                                                                                                            |
-| 2026-05-22 | v1.1   | Refresh — 962 testov, founding contributors                                                                                                                                |
-| 2026-05-22 | v1.2   | MCP server reframe — odstránený z Done (apps/mcp-server zatiaľ neexistuje), presúnutý do v0.7 ako proper backlog s konkrétnymi týmovi; opravená docs.inventario.estate URL |
+| Dátum      | Verzia | Zmena                                                                                |
+| ---------- | ------ | ------------------------------------------------------------------------------------ |
+| 2026-05-15 | v1.0   | Initial roadmap                                                                      |
+| 2026-05-22 | v1.1   | Refresh — 962 testov, founding contributors                                          |
+| 2026-05-22 | v1.2   | MCP server reframe — odstránený z Done, presúnutý do v0.7 backlog; opravená docs URL |
+| 2026-05-23 | v1.3   | K10 + K11 označené ako done — boli hotové od 2026-05-16, zabudnuté checkboxy         |
 
 ---
 

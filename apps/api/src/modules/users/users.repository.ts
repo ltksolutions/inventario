@@ -314,9 +314,51 @@ export class UsersRepository {
   }
 
   /**
+   * Clear all MFA fields for a user (admin reset path).
+   *
+   * Sets mfaEnabled=false, mfaSecret=null, mfaRecoveryCodes=[],
+   * mfaEnabledAt=null. The user must re-enroll on next login
+   * (or immediately if org policy requireMfa is true).
+   *
+   * Tenant-scoped: admin in tenant A cannot reset a user in tenant B.
+   * Caller must also set updatedAt/updatedBy.
+   */
+  async clearMfa(
+    organisationId: string,
+    id: string,
+    patch: { updatedAt: string; updatedBy: string },
+    session?: ClientSession,
+  ): Promise<WithId<User> | null> {
+    const tenantId = requireTenantId(organisationId);
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      tenantFilter<User>(tenantId, {
+        _id: new ObjectId(id) as unknown as User['_id'],
+      } as Filter<User>),
+      {
+        $set: {
+          mfaEnabled: false,
+          mfaSecret: null,
+          mfaRecoveryCodes: [],
+          mfaEnabledAt: null,
+          updatedAt: patch.updatedAt,
+          updatedBy: patch.updatedBy,
+        },
+      },
+      {
+        returnDocument: 'after',
+        projection: PUBLIC_PROJECTION,
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
+
+  /**
    * Count users who are active AND have the ADMIN role within the
-   * tenant, excluding the given userId (so the service can ask "would
-   * there still be an admin AFTER I deactivate / demote this one?").
+   * tenant, excluding the given userId
    *
    * Used by the last-admin guardrail in `UsersService.update` to
    * refuse patches that would leave a tenant with zero ADMINs. Runs
