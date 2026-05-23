@@ -99,6 +99,24 @@ declare module 'fastify' {
 // ---------------------------------------------------------------------------
 
 const mongoPlugin: FastifyPluginAsync = async (fastify) => {
+  // EXPORT_ONLY mode: spin up an in-process MongoDB for schema-export scripts.
+  // Routes register + Swagger collects them, but no Atlas connection needed.
+  if (process.env['EXPORT_ONLY'] === 'true') {
+    const { MongoMemoryServer } = await import('mongodb-memory-server');
+    const mongod = await MongoMemoryServer.create();
+    const uri = mongod.getUri();
+    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5_000 });
+    await client.connect();
+    const db = client.db('export_stub');
+    fastify.log.info('EXPORT_ONLY=true — using in-process MongoMemoryServer');
+    fastify.decorate('mongo', { client, db });
+    fastify.addHook('onClose', async () => {
+      await client.close();
+      await mongod.stop();
+    });
+    return;
+  }
+
   const { MONGO_URI, MONGO_DB_NAME } = fastify.config;
 
   const { client, db } = await getMongoConnection(MONGO_URI, MONGO_DB_NAME, fastify.log);

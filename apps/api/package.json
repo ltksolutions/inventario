@@ -16,6 +16,7 @@
     "migrate:organisation-id": "tsx --env-file-if-exists=.env.local scripts/migrate-organisation-id.ts",
     "migrate:auth-providers": "tsx --env-file-if-exists=.env.local scripts/migrate-auth-providers.ts",
     "openapi:export": "tsx --env-file-if-exists=.env.local scripts/export-openapi.ts",
+    "openapi:export:offline": "EXPORT_ONLY=true MONGO_URI=mongodb://localhost:27017 MONGO_DB_NAME=export_stub tsx scripts/export-openapi.ts",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
