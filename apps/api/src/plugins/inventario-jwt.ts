@@ -2,33 +2,18 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * Inventario JWT plugin — ADR-0013.
+ * Inventario JWT plugin — ADR-0013, ADR-0015.
  *
  * Issues and verifies Inventario's own RS256-signed access tokens.
- * Replaces the Entra ID JWKS path for clients using the new auth flow.
  *
- * What this plugin provides:
- *   app.inventarioJwt.issueAccessToken(user, org)  → signed JWT string
- *   app.inventarioJwt.verifyAccessToken(token)     → InventarioJwtPayload
- *   app.inventarioJwt.issueRefreshToken(...)       → raw opaque token
- *   app.inventarioJwt.rotateRefreshToken(...)      → new raw token
- *   app.inventarioJwt.revokeRefreshToken(raw)      → void
- *   app.inventarioJwt.revokeAllForUser(userId)     → count
+ * K5 (Slice #9b): JWT payload extended with `mid` claim (membershipId).
+ * `issueAccessToken` now accepts an optional `membershipId` parameter.
+ * When present, the token carries `mid` so the auth middleware can
+ * validate the active membership on every request (K6).
  *
- * Cookie transport:
- *   The route handlers (K8) set httpOnly cookies. This plugin only deals
- *   with token creation and verification — it has no opinion on transport.
- *
- * Key material:
- *   JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are PEM-encoded RS256 keys loaded
- *   from environment variables. If not set, the plugin skips initialization
- *   and all methods throw "JWT keys not configured". This allows the
- *   existing MSAL auth path (auth.ts) to continue working during the
- *   transition period (until K17 cutover).
- *
- * Refresh tokens:
- *   See refresh-tokens.repository.ts. Raw tokens are 256-bit random hex
- *   strings; only SHA-256 hashes are stored in MongoDB.
+ * Backward compat: `mid` is optional in the payload type so existing
+ * tokens (without `mid`) continue to verify. Auth middleware handles
+ * the missing-mid case by fetching the default membership from DB.
  */
 
 import fp from 'fastify-plugin';
@@ -47,22 +32,33 @@ import type { WithId } from 'mongodb';
 // ---------------------------------------------------------------------------
 
 export interface InventarioJwtPayload extends JWTPayload {
-  sub: string; // user _id
-  org: string; // organisationId
+  sub: string; // user _id (global identity)
+  org: string; // active organisationId
+  /** Active membershipId (ADR-0015 K5). Optional for backward compat with pre-K5 tokens. */
+  mid?: string;
   roles: string[];
   email: string;
   name: string;
 }
 
 // ---------------------------------------------------------------------------
-// Service interface decorated onto Fastify
+// Service interface
 // ---------------------------------------------------------------------------
 
 export interface InventarioJwtService {
   /**
-   * Sign and return an access token for a user. Short-lived (15 min default).
+   * Sign and return an access token for a user.
+   *
+   * @param user          - Global user document
+   * @param org           - Active organisation
+   * @param membershipId  - Active membership _id (optional; omitted for
+   *                        legacy flows until K6 wires memberships fully)
    */
-  issueAccessToken(user: WithId<User>, org: WithId<Organisation>): Promise<string>;
+  issueAccessToken(
+    user: WithId<User>,
+    org: WithId<Organisation>,
+    membershipId?: string,
+  ): Promise<string>;
 
   /**
    * Verify an Inventario access token. Returns the payload on success.
@@ -70,74 +66,19 @@ export interface InventarioJwtService {
    */
   verifyAccessToken(token: string): Promise<InventarioJwtPayload>;
 
-  /**
-   * Issue a short-lived MFA challenge session token (Slice #7).
-   *
-   * Used in the login flow when a user has MFA enabled: after password
-   * verification succeeds, we issue this token instead of access cookies.
-   * The frontend submits it back together with the TOTP code to
-   * `POST /v1/auth/mfa/challenge`, which exchanges it for normal
-   * access+refresh cookies.
-   *
-   * Audience is `inventario-mfa-challenge` (distinct from access
-   * tokens' `inventario-api`), so a stolen MFA token cannot be used
-   * as a session cookie. TTL is 5 minutes.
-   */
   issueMfaSessionToken(userId: string): Promise<string>;
-
-  /**
-   * Verify an MFA challenge session token. Returns the `sub` (userId)
-   * on success. Throws `UnauthorizedError` on invalid / expired tokens.
-   */
   verifyMfaSessionToken(token: string): Promise<{ sub: string }>;
-
-  /**
-   * Issue a short-lived MFA setup token (K12a — Forced MFA).
-   *
-   * Used in the login flow when org policy requires MFA but the user
-   * hasn't set it up yet. The frontend uses this token to call
-   * `POST /v1/auth/mfa/forced-setup` and `POST /v1/auth/mfa/forced-verify`
-   * without needing auth cookies.
-   *
-   * Audience is `inventario-mfa-setup`. TTL is 15 minutes (long enough
-   * to scan a QR code and copy recovery codes).
-   */
   issueMfaSetupToken(userId: string): Promise<string>;
-
-  /**
-   * Verify an MFA setup token. Returns the `sub` (userId) on success.
-   * Throws `UnauthorizedError` on invalid / expired tokens.
-   */
   verifyMfaSetupToken(token: string): Promise<{ sub: string }>;
 
-  /**
-   * Create a new refresh token for a user and persist its hash.
-   * Returns the raw token to be set as an httpOnly cookie.
-   */
   issueRefreshToken(userId: string, request?: FastifyRequest): Promise<string>;
-
-  /**
-   * Validate a raw refresh token and rotate it: revoke old, issue new.
-   * Returns the new raw token to replace the cookie.
-   * Throws UnauthorizedError if token is expired, revoked, or unknown.
-   */
   rotateRefreshToken(
     rawToken: string,
     request?: FastifyRequest,
   ): Promise<{ newRawToken: string; userId: string }>;
-
-  /**
-   * Revoke a single refresh token (logout).
-   */
   revokeRefreshToken(rawToken: string): Promise<void>;
-
-  /**
-   * Revoke all refresh tokens for a user (password change, security event).
-   * Returns count of revoked tokens.
-   */
   revokeAllForUser(userId: string): Promise<number>;
 
-  /** Whether the JWT service is fully configured (keys present). */
   readonly isConfigured: boolean;
 }
 
@@ -163,15 +104,10 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
     JWT_REFRESH_TOKEN_TTL_DAYS,
   } = fastify.config;
 
-  // If keys are not configured, register a stub service that fails loudly.
-  // This lets the existing MSAL auth path continue working during the
-  // transition period (Slice #6a → K17 cutover).
   if (!JWT_PRIVATE_KEY || !JWT_PUBLIC_KEY) {
     fastify.log.info(
-      'JWT_PRIVATE_KEY / JWT_PUBLIC_KEY not set — Inventario JWT service is in stub mode. ' +
-        'Set both env vars to enable the new auth flow (ADR-0013).',
+      'JWT_PRIVATE_KEY / JWT_PUBLIC_KEY not set — Inventario JWT service is in stub mode.',
     );
-
     const stub: InventarioJwtService = {
       isConfigured: false,
       issueAccessToken: notConfigured,
@@ -189,9 +125,6 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
     return;
   }
 
-  // Import key material once at plugin init time.
-  // `importPKCS8` → private key for signing.
-  // `importSPKI`  → public key for verification.
   let privateKey: KeyLike;
   let publicKey: KeyLike;
   try {
@@ -200,11 +133,10 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `Failed to import JWT key material: ${msg}. Check JWT_PRIVATE_KEY / JWT_PUBLIC_KEY format (PEM PKCS8/SPKI).`,
+      `Failed to import JWT key material: ${msg}. Check JWT_PRIVATE_KEY / JWT_PUBLIC_KEY format.`,
     );
   }
 
-  // Refresh token repository — shares the MongoDB connection from the mongo plugin.
   const refreshTokens = new RefreshTokensRepository(fastify.mongo.db);
   await refreshTokens.ensureIndexes();
 
@@ -213,20 +145,23 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
     'Inventario JWT service initialized',
   );
 
-  // -------------------------------------------------------------------------
-  // Service implementation
-  // -------------------------------------------------------------------------
-
   const service: InventarioJwtService = {
     isConfigured: true,
 
-    async issueAccessToken(user, org) {
-      return new SignJWT({
+    async issueAccessToken(user, org, membershipId) {
+      const claims: Omit<InventarioJwtPayload, 'sub' | 'iss' | 'aud' | 'iat' | 'exp'> = {
         org: String(org._id),
         roles: user.roles,
         email: user.email,
         name: user.displayName,
-      } satisfies Omit<InventarioJwtPayload, 'sub' | 'iss' | 'aud' | 'iat' | 'exp'>)
+      };
+      // Include mid claim only when membershipId is provided (K5).
+      // Omitting it keeps tokens compact for flows that don't use memberships yet.
+      if (membershipId) {
+        claims.mid = membershipId;
+      }
+
+      return new SignJWT(claims)
         .setProtectedHeader({ alg: 'RS256' })
         .setSubject(String(user._id))
         .setIssuer('inventario')
@@ -249,7 +184,6 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
         const msg = err instanceof Error ? err.message : 'Token verification failed';
         throw new UnauthorizedError(msg);
       }
-
       assertInventarioPayload(payload);
       return payload;
     },
@@ -278,12 +212,10 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
         const msg = err instanceof Error ? err.message : 'MFA session verification failed';
         throw new UnauthorizedError(msg);
       }
-      if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+      if (typeof payload.sub !== 'string' || payload.sub.length === 0)
         throw new UnauthorizedError('MFA session token missing sub claim');
-      }
-      if (payload['purpose'] !== 'mfa_challenge') {
+      if (payload['purpose'] !== 'mfa_challenge')
         throw new UnauthorizedError('MFA session token wrong purpose');
-      }
       return { sub: payload.sub };
     },
 
@@ -311,12 +243,10 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
         const msg = err instanceof Error ? err.message : 'MFA setup token verification failed';
         throw new UnauthorizedError(msg);
       }
-      if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+      if (typeof payload.sub !== 'string' || payload.sub.length === 0)
         throw new UnauthorizedError('MFA setup token missing sub claim');
-      }
-      if (payload['purpose'] !== 'mfa_setup') {
+      if (payload['purpose'] !== 'mfa_setup')
         throw new UnauthorizedError('MFA setup token wrong purpose');
-      }
       return { sub: payload.sub };
     },
 
@@ -331,23 +261,16 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
 
     async rotateRefreshToken(rawToken, request) {
       const doc = await refreshTokens.findByRawToken(rawToken);
-
-      if (!doc) {
-        throw new UnauthorizedError('Refresh token not found');
-      }
+      if (!doc) throw new UnauthorizedError('Refresh token not found');
       if (doc.revokedAt !== null) {
-        // Possible replay attack — token was already rotated or revoked.
-        // Revoke all tokens for this user as a safety measure.
         await refreshTokens.revokeAllForUser(doc.userId);
         fastify.log.warn(
           { userId: doc.userId },
-          'Refresh token reuse detected — revoked all sessions for user',
+          'Refresh token reuse detected — revoked all sessions',
         );
         throw new UnauthorizedError('Refresh token has already been used');
       }
-      if (doc.expiresAt < new Date()) {
-        throw new UnauthorizedError('Refresh token has expired');
-      }
+      if (doc.expiresAt < new Date()) throw new UnauthorizedError('Refresh token has expired');
 
       const newRawToken = await refreshTokens.rotate({
         oldRawToken: rawToken,
@@ -356,7 +279,6 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
         userAgent: request?.headers['user-agent'] ?? null,
         ipAddress: request?.ip ?? null,
       });
-
       return { newRawToken, userId: doc.userId };
     },
 
@@ -384,18 +306,14 @@ export default fp(inventarioJwtPlugin, {
 function assertInventarioPayload(
   payload: JWTPayload,
 ): asserts payload is JWTPayload & InventarioJwtPayload {
-  if (typeof payload['sub'] !== 'string' || payload['sub'].length === 0) {
+  if (typeof payload['sub'] !== 'string' || payload['sub'].length === 0)
     throw new UnauthorizedError('Token missing `sub` claim');
-  }
-  if (typeof payload['org'] !== 'string' || payload['org'].length === 0) {
+  if (typeof payload['org'] !== 'string' || payload['org'].length === 0)
     throw new UnauthorizedError('Token missing `org` claim');
-  }
-  if (!Array.isArray(payload['roles'])) {
-    throw new UnauthorizedError('Token missing `roles` claim');
-  }
-  if (typeof payload['email'] !== 'string') {
+  if (!Array.isArray(payload['roles'])) throw new UnauthorizedError('Token missing `roles` claim');
+  if (typeof payload['email'] !== 'string')
     throw new UnauthorizedError('Token missing `email` claim');
-  }
+  // `mid` is optional — do not throw if missing (backward compat with pre-K5 tokens)
 }
 
 function notConfigured(): never {
