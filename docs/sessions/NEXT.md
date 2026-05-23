@@ -7,11 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                      |
-| ------------------------- | ------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-05-23 (K12a/K12b + DR Test #1 PASS — Launch-ready 100%) |
-| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review            |
-| **Posledný session log**  | [`2026-05-23-day-summary.md`](2026-05-23-day-summary.md)     |
+| Atribút                   | Hodnota                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-23 (ADR-0015 + Slice #9 design ready — cross-tenant)                             |
+| **Aktuálna fáza**         | Pre-launch compliance finalization + legal review                                        |
+| **Posledný session log**  | [`2026-05-23-slice-9-cross-tenant-design.md`](2026-05-23-slice-9-cross-tenant-design.md) |
 
 ---
 
@@ -58,6 +58,24 @@ Pred prvým produkčným tenant-om treba:
 ---
 
 ## ⏭️ Najbližšie kroky
+
+### 🔥 Slice #9 — Cross-tenant memberships (design ready, impl Sonnet 4.6)
+
+**Status:** ADR-0015 accepted 2026-05-23. Design doc ready. Implementation čaká na Sonnet 4.6 session.
+
+- **ADR:** [`docs/decisions/0015-cross-tenant-memberships.md`](../decisions/0015-cross-tenant-memberships.md)
+- **Design:** [`docs/sessions/2026-05-23-slice-9-cross-tenant-design.md`](2026-05-23-slice-9-cross-tenant-design.md)
+- **Scope:** 25 K-blokov, 6 sub-slices (#9a–#9f), ~6–7 dňov
+- **Test target:** +85 testov (511 → ~595)
+
+**Čo Sonnet robí prvy deň (#9a):**
+
+1. K1 — nové schemas: `membership.ts`, `invitation.ts`, refactor `user.ts` (drop org fields)
+2. K2 — migration runner `apps/api/src/migrations/2026-05-XX-memberships.ts`
+3. K3 — `MembershipsRepository` + `InvitationsRepository` rewrite
+4. K4 — migration unit testy (idempotency, ghost-user → invitations, active user → default membership)
+
+Pre-deploy: Atlas snapshot prod DB. Smoke test na dev clone pred prod deploy-om.
 
 ### 1. Compliance Fáza 1 — ✅ KOMPLETNÁ
 
@@ -122,7 +140,7 @@ Naplánovať na Q3 2026.
 
 - **Passkeys / WebAuthn (Slice #8)** — passwordless login (Touch ID, Face ID, Windows Hello). `@simplewebauthn/server` + `@simplewebauthn/browser`. Nová `passkeys` collection. ~2–3 dni. Opus 4.7 design + Sonnet impl.
 
-- **Cross-tenant invites** — refactor User ↔ Organisation na many-to-many (Memberships table). Opus 4.7 design, Sonnet impl.
+- **Cross-tenant invites** — ✅ DESIGN HOTOVÝ 2026-05-23 ([ADR-0015](../decisions/0015-cross-tenant-memberships.md), [Slice #9 design](2026-05-23-slice-9-cross-tenant-design.md)). Čaká na Sonnet impl (~6–7 dní).
 
 - **Email change verification** — separate flow s vlastným tokenom. ~2 h. Sonnet 4.6.
 
