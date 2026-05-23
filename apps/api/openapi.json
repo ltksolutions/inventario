@@ -3291,6 +3291,25 @@
         }
       }
     },
+    "/v1/invitations/{id}/resend": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/v1/auth/invitations/{token}": {
       "get": {
         "parameters": [
