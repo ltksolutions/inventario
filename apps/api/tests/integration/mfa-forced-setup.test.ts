@@ -375,7 +375,10 @@ describe('POST /v1/auth/mfa/forced-verify', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/auth/mfa/forced-verify',
-      payload: { mfaSetupToken: 'bad.garbage.token', code: '123456' },
+      payload: {
+        mfaSetupToken: 'this.is.a.long.enough.but.invalid.jwt.token.value',
+        code: '123456',
+      },
     });
     expect(res.statusCode).toBe(401);
   });
