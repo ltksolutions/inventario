@@ -18,10 +18,10 @@ authors:
   - name: "Slovenský futbalový zväz"
     affiliation: "Founding contributor"
     website: "https://futbalsfz.sk"
-repository-code: "https://github.com/Slovensky-futbalovy-zvaz/Asset-Management"
-url: "https://inventario.sk"
+repository-code: "https://github.com/ltksolutions/inventario"
+url: "https://inventario.estate"
 license: EUPL-1.2
-license-url: "https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/blob/main/LICENSE"
+license-url: "https://github.com/ltksolutions/inventario/blob/main/LICENSE"
 keywords:
   - asset management
   - správa majetku

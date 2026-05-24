@@ -38,14 +38,14 @@ export interface EmailService {
   /**
    * Send email address verification link.
    * @param token  Raw 64-char hex token (from emailVerificationToken field).
-   * @param apiBaseUrl  E.g. https://api.inventario.sportup.sk (callback goes to /v1/auth/verify-email)
+   * @param apiBaseUrl  E.g. https://api.inventario.estate (callback goes to /v1/auth/verify-email)
    */
   sendVerificationEmail(to: string, token: string, apiBaseUrl: string): Promise<void>;
 
   /**
    * Send password reset link.
    * @param token  Raw 64-char hex token (from passwordResetToken field).
-   * @param frontendUrl  E.g. https://app.inventario.sportup.sk
+   * @param frontendUrl  E.g. https://app.inventario.estate
    */
   sendPasswordResetEmail(to: string, token: string, frontendUrl: string): Promise<void>;
 
