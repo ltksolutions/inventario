@@ -252,8 +252,24 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           },
         );
 
-        const apiBase = OAUTH_REDIRECT_BASE_URL ?? 'http://localhost:3000';
-        await fastify.emailService.sendVerificationEmail(contactEmail, verificationToken, apiBase);
+        const apiBase = OAUTH_REDIRECT_BASE_URL
+          ? OAUTH_REDIRECT_BASE_URL.replace(/\/v1\/auth\/callback.*$/, '')
+          : 'http://localhost:3000';
+
+        try {
+          await fastify.emailService.sendVerificationEmail(
+            contactEmail,
+            verificationToken,
+            apiBase,
+          );
+        } catch (emailErr) {
+          fastify.log.error(
+            { err: emailErr, to: contactEmail },
+            'Registration: verification email failed to send — user created, email pending',
+          );
+          // Do NOT fail registration because of email error.
+          // User can request a new verification email from the login page.
+        }
 
         fastify.log.info(
           { userId: userId.toString(), email: contactEmail },
