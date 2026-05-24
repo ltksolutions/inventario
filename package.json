@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "description": "Inventario — open-source platforma pre evidenciu a vypožičiavanie majetku. Multi-tenant white-label backend a docs (apps/api, apps/docs, packages/*).",
-  "homepage": "https://inventario.sportup.sk",
+  "homepage": "https://inventario.estate",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Slovensky-futbalovy-zvaz/Asset-Management.git"
+    "url": "git+https://github.com/ltksolutions/inventario.git"
   },
   "bugs": {
-    "url": "https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/issues"
+    "url": "https://github.com/ltksolutions/inventario/issues"
   },
   "license": "EUPL-1.2",
   "author": "Ján Letko / LTK Solutions",
