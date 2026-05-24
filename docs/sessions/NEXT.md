@@ -7,11 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                                                                             |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-25 (ADR-0016 Passkeys + ADR-0017 MCP design session)                                                                                                                        |
-| **Aktuálna fáza**         | Slice #8 Passkeys implementácia (Sonnet 4.6)                                                                                                                                        |
-| **Posledný session log**  | [`docs/decisions/0016-passkeys-implementation-plan.md`](../decisions/0016-passkeys-implementation-plan.md) / [`docs/decisions/0017-mcp-server.md`](../decisions/0017-mcp-server.md) |
+| Atribút                   | Hodnota                                                                    |
+| ------------------------- | -------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-25 (Slice #8 Passkeys — DOKONČENÝ)                                 |
+| **Aktuálna fáza**         | Production — legal review externe; Slice #10 MCP server Q1 2027            |
+| **Posledný session log**  | [`docs/milestones/slice-8-passkeys.md`](../milestones/slice-8-passkeys.md) |
 
 ---
 
@@ -19,78 +19,43 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### ✅ Hotové
 
-| Slice / Blok      | Čo                                                                             |
-| ----------------- | ------------------------------------------------------------------------------ |
-| Slice #1–#3       | Backend bootstrap, Entra ID auth, Assets CRUD + RBAC + audit + transactions    |
-| Slice #2c         | Tests + pre-commit typecheck + CI Atlas                                        |
-| Slice #3          | Categories + Locations CRUD + FK protection                                    |
-| Slice #4          | Frontend web (9/9 stránok)                                                     |
-| Slice #5          | Loans MVP                                                                      |
-| Slice #6–#6c      | Multi-provider auth + OAuth + email/heslo + invitations                        |
-| Slice #7          | TOTP MFA                                                                       |
-| K12a + K12b       | Forced MFA + Admin MFA reset                                                   |
-| Slice #9 (K1–K25) | Cross-tenant memberships — KOMPLETNÝ                                           |
-| MEDIUM tasks      | K13 OAuth fix, resend invitation, per-email exceptions, email change, API docs |
-| CI fix            | openapi offline mode (MongoMemoryServer, no Atlas)                             |
-| **ADR-0016**      | Passkeys implementačný plán post-Slice #9 (Opus session)                       |
-| **ADR-0017**      | MCP server design + Slice #10 roadmap (Opus session)                           |
+| Slice / Blok          | Čo                                                                             |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Slice #1–#3           | Backend bootstrap, Entra ID auth, Assets CRUD + RBAC + audit + transactions    |
+| Slice #2c             | Tests + pre-commit typecheck + CI Atlas                                        |
+| Slice #3              | Categories + Locations CRUD + FK protection                                    |
+| Slice #4              | Frontend web (9/9 stránok)                                                     |
+| Slice #5              | Loans MVP                                                                      |
+| Slice #6–#6c          | Multi-provider auth + OAuth + email/heslo + invitations                        |
+| Slice #7              | TOTP MFA                                                                       |
+| K12a + K12b           | Forced MFA + Admin MFA reset                                                   |
+| Slice #9 (K1–K25)     | Cross-tenant memberships — KOMPLETNÝ                                           |
+| MEDIUM tasks          | K13 OAuth fix, resend invitation, per-email exceptions, email change, API docs |
+| ADR-0016 + ADR-0017   | Passkeys design + MCP server design (Opus session)                             |
+| **Slice #8 (K1–K16)** | Passkeys / WebAuthn — KOMPLETNÝ                                                |
 
 ### 📊 Globálny stav
 
-| Oblasť                   | Status                                                                |
-| ------------------------ | --------------------------------------------------------------------- |
-| **Backend testy**        | ✅ 553 / 553 (32 test files, ~70s)                                    |
-| **Frontend**             | ✅ 9/9 stránok + tenant switcher + members + organisations + security |
-| **Production**           | ✅ LIVE — inventario.estate                                           |
-| **Legal review**         | ⏳ PENDING (externe)                                                  |
-| **Slice #8 Passkeys**    | 🔜 NEXT — K1 začíname                                                 |
-| **Slice #10 MCP server** | 📅 Q1 2027 — design hotový (ADR-0017)                                 |
+| Oblasť                   | Status                                                           |
+| ------------------------ | ---------------------------------------------------------------- |
+| **Backend testy**        | ✅ 569 / 569 (33 test files) — 553 + 16 nových passkey testov    |
+| **Frontend**             | ✅ 9/9 stránok + passkey login + PasskeysPanel + tenant switcher |
+| **Production**           | ✅ LIVE — inventario.estate                                      |
+| **Legal review**         | ⏳ PENDING (externe)                                             |
+| **Slice #10 MCP server** | 📅 Q1 2027 — design hotový (ADR-0017)                            |
 
 ---
 
 ## ⏭️ Najbližšie kroky
 
-### 🔥 Slice #8 — Passkeys / WebAuthn (~5.5 dní, Sonnet 4.6)
+### ⏳ Pending (externe / manuálne)
 
-Design: [ADR-0016](../decisions/0016-passkeys-implementation-plan.md)
-
-#### Fáza 1: Backend foundation (Slice #8a)
-
-| Blok   | Popis                                                                                                                                                                                     | Status |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **K1** | Install `@simplewebauthn/server@^13`. Config env vars (`WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_EXPECTED_ORIGINS`). Boot guard (503 stub pattern). `turbo.json` globalEnv.         | 🔜     |
-| **K2** | `packages/shared-types/src/schemas/passkey.ts` (NO OrganisationScopedSchema). User schema additions (`passkeyEnabled`, `passkeyEnabledAt`). Audit log enum additions. Regen shared-types. | 🔜     |
-| **K3** | `apps/api/src/modules/auth/passkeys/passkeys.repository.ts` — CRUD + findByCredentialId + findByUserId + countActiveByUserId + softDelete. Indexy.                                        | 🔜     |
-| **K4** | Extend `inventario-jwt.ts`: `issueWebauthnChallenge(userId\|null, purpose)` + `verifyWebauthnChallenge(token, purpose)`. Audience-scoped JWT.                                             | 🔜     |
-| **K5** | `apps/api/src/modules/auth/mfa/mfa-satisfaction.ts` — `userSatisfiesMfa(user, db)`. Update `email-auth.routes.ts` forced MFA check.                                                       | 🔜     |
-
-#### Fáza 2: Backend endpoints (Slice #8b)
-
-| Blok   | Popis                                                                                                                                                | Status |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **K6** | Registration routes: `/register/options` + `/register/verify`. excludeCredentials. Audit `PASSKEY_REGISTERED`.                                       | 🔜     |
-| **K7** | Authentication routes: `/login/options` {email?} + `/login/verify`. Default Membership resolution. Counter warning. Audit events. Issue JWT s `mid`. | 🔜     |
-| **K8** | Management routes: `GET /v1/auth/passkeys`, `PATCH /:id` (rename), `DELETE /:id`. Auto-clear `passkeyEnabled`. Audit events.                         | 🔜     |
-| **K9** | Rate limiting config per ADR-0016 table.                                                                                                             | 🔜     |
-
-#### Fáza 3: Frontend (Slice #8c)
-
-| Blok    | Popis                                                                                                                                            | Status |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| **K10** | Install `@simplewebauthn/browser@^13`. `apps/web/src/lib/webauthn.ts` (isPasskeysSupported, isConditionalUISupported). Device-name autodetekcia. | 🔜     |
-| **K11** | `/login` page — passkey button + discovery flow + conditional UI autofill. Graceful fallback.                                                    | 🔜     |
-| **K12** | `/settings/security` — `PasskeysPanel` (list + add + rename + delete). Alternative-auth warning.                                                 | 🔜     |
-| **K13** | Error handling: NotAllowedError, NotSupportedError, InvalidStateError, SecurityError → SK messages.                                              | 🔜     |
-
-#### Fáza 4: Tests + docs (Slice #8d)
-
-| Blok    | Popis                                                                                                                 | Status | Model  |
-| ------- | --------------------------------------------------------------------------------------------------------------------- | ------ | ------ |
-| **K14** | `apps/api/tests/fixtures/webauthn.ts` synthetic attestation helpers (~150 LoC). ~22 integration tests. Cieľ: 575/575. | 🔜     | Sonnet |
-| **K15** | Milestone doc. NEXT.md update. User guide passkeys. ADR-0014 supersede note.                                          | 🔜     | Haiku  |
-| **K16** | Privacy policy update. API reference docs passkey endpoints. OpenAPI regenerácia.                                     | 🔜     | Haiku  |
-
----
+| Úloha                                         | Status                             |
+| --------------------------------------------- | ---------------------------------- |
+| Legal review compliance dokumentov            | ⏳ externe                         |
+| Production smoke test po Slice #9 + #8 deploy | ⏳ manuálne (Ján)                  |
+| Atlas allowlist via Vercel Secure Compute     | 📅 post-pilot                      |
+| Apple Sign-In (K4)                            | 📅 čaká na Apple Developer account |
 
 ### 📅 Slice #10 — MCP server (~10 dní, Q1 2027, Sonnet 4.6)
 
@@ -140,15 +105,6 @@ Design: [ADR-0017](../decisions/0017-mcp-server.md)
 
 ---
 
-## ⏳ Pending (externe / post-launch)
-
-| Úloha                                     | Status                             |
-| ----------------------------------------- | ---------------------------------- |
-| Legal review compliance dokumentov        | ⏳ externe                         |
-| Production smoke test po Slice #9 deploy  | ⏳ manuálne (Ján)                  |
-| Atlas allowlist via Vercel Secure Compute | 📅 post-pilot                      |
-| Apple Sign-In (K4)                        | 📅 čaká na Apple Developer account |
-
 ## 📅 Compliance Fáza 2 (po prvom tenant launchom)
 
 | Dokument                      | Model      | Odhad |
@@ -169,15 +125,16 @@ Design: [ADR-0017](../decisions/0017-mcp-server.md)
 ## 🏗️ Backend status
 
 ```
-Celkové testy:                553 (cieľ po Slice #8: ~575)
+Celkové testy:                569
 ├── Slice #1–#3:              ~310
 ├── Slice #4–#6b:             ~169
 ├── Slice #6c:                  21
 ├── Slice #7 + K12a/b:          29
-└── Slice #9:                   28
+├── Slice #9:                   28
+└── Slice #8 (Passkeys):        16
 
-Test files:   32
-Duration:     ~70s
+Test files:   33
+Duration:     ~75s
 ```
 
 ---
@@ -196,16 +153,17 @@ Duration:     ~70s
 
 ## 📂 Kde nájdeš čo
 
-| Typ                   | Lokácia                                               |
-| --------------------- | ----------------------------------------------------- |
-| **Aktuálny stav**     | `docs/sessions/NEXT.md` (TY SI TU)                    |
-| **ADR-čka**           | `docs/decisions/0001..0017-*.md`                      |
-| **Slice milestones**  | `docs/milestones/slice-*.md`                          |
-| **GDPR / compliance** | `docs/compliance/`                                    |
-| **Passkeys design**   | `docs/decisions/0016-passkeys-implementation-plan.md` |
-| **MCP server design** | `docs/decisions/0017-mcp-server.md`                   |
+| Typ                     | Lokácia                                               |
+| ----------------------- | ----------------------------------------------------- |
+| **Aktuálny stav**       | `docs/sessions/NEXT.md` (TY SI TU)                    |
+| **ADR-čka**             | `docs/decisions/0001..0017-*.md`                      |
+| **Slice milestones**    | `docs/milestones/slice-*.md`                          |
+| **GDPR / compliance**   | `docs/compliance/`                                    |
+| **Passkeys design**     | `docs/decisions/0016-passkeys-implementation-plan.md` |
+| **MCP server design**   | `docs/decisions/0017-mcp-server.md`                   |
+| **Passkeys user guide** | `docs/user-guide/how-to/pouzit-passkey.md`            |
 
 ---
 
-**Last updated:** 2026-05-25 — ADR-0016 + ADR-0017 done. Slice #8 začína.
-**Tests:** 553 / 553. **Status:** Launch-ready, legal review externe.
+**Last updated:** 2026-05-25 — Slice #8 Passkeys DONE. 569/569 testov.
+**Status:** Launch-ready. Legal review externe.
