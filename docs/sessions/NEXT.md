@@ -9,40 +9,62 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                    |
 | ------------------------- | -------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-25 (Slice #8 Passkeys — DOKONČENÝ)                                 |
+| **Posledná aktualizácia** | 2026-05-25 (migrácia do ltksolutions/inventario + URL cleanup)             |
 | **Aktuálna fáza**         | Production — legal review externe; Slice #10 MCP server Q1 2027            |
 | **Posledný session log**  | [`docs/milestones/slice-8-passkeys.md`](../milestones/slice-8-passkeys.md) |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                              |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                 |
+
+---
+
+## Čo sme spravili 2026-05-25
+
+### Slice #8 — Passkeys / WebAuthn (K1–K16) ✅
+
+Plný WebAuthn stack:
+
+- **Backend:** config env vars, PasskeyCredentialSchema (global), repository, JWT challenge tokens, `userSatisfiesMfa()` helper, 7 API endpointov (register/login/management), boot guard
+- **Frontend:** `webauthn.ts` helper, "Prihlásiť sa cez passkey" tlačidlo na login page, conditional UI autofill, `PasskeysPanel` v `/settings/security`
+- **Testy:** 16 integration testov so syntetickými WebAuthn attestations (vlastný CBOR encoder)
+- **Docs:** milestone doc, user guide `pouzit-passkey.md`
+
+### Repo migrácia ✅
+
+- `Slovensky-futbalovy-zvaz/Asset-Management` → `ltksolutions/inventario`
+- Git história zachovaná (`--mirror` push)
+- GitHub Desktop aktualizovaný
+- Vercel reconnected + redeployed
+- GitHub Secrets prenesené
+- Starý repo archivovaný
+- Lokálny adresár premenovaný: `Asset-Management` → `inventario`
+
+### URL cleanup ✅
+
+- `package.json`: repository URL + homepage
+- `CITATION.cff`: repository-code + url + license-url
+- `apps/api/src/plugins/email.ts`: JSDoc komentáre `inventario.sportup.sk` → `inventario.estate`
+
+### CI fixes ✅
+
+- `autoFocus` prop removed (jsx-a11y/no-autofocus)
+- WebAuthn CBOR encoding fix (cborNegInt správne záporné čísla)
+- Synthetic attestation fixtures TS strict fixes
 
 ---
 
 ## Stav na konci 2026-05-25
 
-### ✅ Hotové
-
-| Slice / Blok          | Čo                                                                             |
-| --------------------- | ------------------------------------------------------------------------------ |
-| Slice #1–#3           | Backend bootstrap, Entra ID auth, Assets CRUD + RBAC + audit + transactions    |
-| Slice #2c             | Tests + pre-commit typecheck + CI Atlas                                        |
-| Slice #3              | Categories + Locations CRUD + FK protection                                    |
-| Slice #4              | Frontend web (9/9 stránok)                                                     |
-| Slice #5              | Loans MVP                                                                      |
-| Slice #6–#6c          | Multi-provider auth + OAuth + email/heslo + invitations                        |
-| Slice #7              | TOTP MFA                                                                       |
-| K12a + K12b           | Forced MFA + Admin MFA reset                                                   |
-| Slice #9 (K1–K25)     | Cross-tenant memberships — KOMPLETNÝ                                           |
-| MEDIUM tasks          | K13 OAuth fix, resend invitation, per-email exceptions, email change, API docs |
-| ADR-0016 + ADR-0017   | Passkeys design + MCP server design (Opus session)                             |
-| **Slice #8 (K1–K16)** | Passkeys / WebAuthn — KOMPLETNÝ                                                |
-
 ### 📊 Globálny stav
 
-| Oblasť                   | Status                                                           |
-| ------------------------ | ---------------------------------------------------------------- |
-| **Backend testy**        | ✅ 569 / 569 (33 test files) — 553 + 16 nových passkey testov    |
-| **Frontend**             | ✅ 9/9 stránok + passkey login + PasskeysPanel + tenant switcher |
-| **Production**           | ✅ LIVE — inventario.estate                                      |
-| **Legal review**         | ⏳ PENDING (externe)                                             |
-| **Slice #10 MCP server** | 📅 Q1 2027 — design hotový (ADR-0017)                            |
+| Oblasť            | Status                                      |
+| ----------------- | ------------------------------------------- |
+| **Backend testy** | ✅ 569 / 569 (33 test files)                |
+| **Frontend**      | ✅ 9/9 stránok + passkeys + tenant switcher |
+| **Production**    | ✅ LIVE — inventario.estate                 |
+| **GitHub**        | ✅ github.com/ltksolutions/inventario       |
+| **Vercel**        | ✅ reconnected + redeployed                 |
+| **Legal review**  | ⏳ PENDING (externe)                        |
+| **Slice #10 MCP** | 📅 Q1 2027 — design hotový (ADR-0017)       |
 
 ---
 
@@ -50,12 +72,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### ⏳ Pending (externe / manuálne)
 
-| Úloha                                         | Status                             |
-| --------------------------------------------- | ---------------------------------- |
-| Legal review compliance dokumentov            | ⏳ externe                         |
-| Production smoke test po Slice #9 + #8 deploy | ⏳ manuálne (Ján)                  |
-| Atlas allowlist via Vercel Secure Compute     | 📅 post-pilot                      |
-| Apple Sign-In (K4)                            | 📅 čaká na Apple Developer account |
+| Úloha                                        | Status                             |
+| -------------------------------------------- | ---------------------------------- |
+| Legal review compliance dokumentov           | ⏳ externe                         |
+| Production smoke test (Slice #9 + #8 deploy) | ⏳ manuálne (Ján)                  |
+| Atlas allowlist → Vercel Secure Compute      | 📅 post-pilot                      |
+| Apple Sign-In (K4)                           | 📅 čaká na Apple Developer account |
 
 ### 📅 Slice #10 — MCP server (~10 dní, Q1 2027, Sonnet 4.6)
 
@@ -162,8 +184,11 @@ Duration:     ~75s
 | **Passkeys design**     | `docs/decisions/0016-passkeys-implementation-plan.md` |
 | **MCP server design**   | `docs/decisions/0017-mcp-server.md`                   |
 | **Passkeys user guide** | `docs/user-guide/how-to/pouzit-passkey.md`            |
+| **API reference**       | `docs/api/README.md`                                  |
 
 ---
 
-**Last updated:** 2026-05-25 — Slice #8 Passkeys DONE. 569/569 testov.
-**Status:** Launch-ready. Legal review externe.
+**Last updated:** 2026-05-25  
+**Tests:** 569 / 569 ✅  
+**Repo:** github.com/ltksolutions/inventario  
+**Status:** Launch-ready. Legal review externe. Slice #10 Q1 2027.
