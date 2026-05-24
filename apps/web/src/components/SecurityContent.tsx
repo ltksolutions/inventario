@@ -288,7 +288,6 @@ function PasskeysPanel(): JSX.Element {
                     type="text"
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
-                    autoFocus
                     className="flex-1 rounded border border-border-default bg-surface-page px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-border-focus"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') void handleRename(pk._id);
