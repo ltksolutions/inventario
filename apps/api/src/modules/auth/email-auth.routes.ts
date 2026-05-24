@@ -38,6 +38,7 @@ import { z } from 'zod';
 import { BadRequestError, UnauthorizedError } from '../../plugins/error-handler.js';
 
 import { setAuthCookies } from './cookie-helpers.js';
+import { userSatisfiesMfa } from './mfa/mfa-satisfaction.js';
 
 import type { Organisation, User } from '@inventario/shared-types';
 import type { FastifyPluginAsync } from 'fastify';
@@ -343,7 +344,7 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       const orgSettings = (org.settings ?? {}) as Record<string, unknown>;
       const mfaSettings = (orgSettings['mfa'] ?? {}) as Record<string, unknown>;
       const mfaRequired = mfaSettings['requireMfa'] === true;
-      if (mfaRequired && !user.mfaEnabled) {
+      if (mfaRequired && !(await userSatisfiesMfa(user, db))) {
         const mfaSetupToken = await fastify.inventarioJwt.issueMfaSetupToken(String(user._id));
         fastify.log.info(
           { userId: String(user._id), email },

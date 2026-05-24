@@ -79,6 +79,27 @@ export interface InventarioJwtService {
   revokeRefreshToken(rawToken: string): Promise<void>;
   revokeAllForUser(userId: string): Promise<number>;
 
+  /**
+   * Issue a short-lived challenge token for WebAuthn ceremonies.
+   *
+   * @param userId  - Owner user _id (null for passwordless discovery flow)
+   * @param purpose - 'registration' or 'authentication'
+   * @returns { token, challenge } — token for client to return, challenge for browser API
+   */
+  issueWebauthnChallenge(
+    userId: string | null,
+    purpose: 'registration' | 'authentication',
+  ): Promise<{ token: string; challenge: string }>;
+
+  /**
+   * Verify a WebAuthn challenge token.
+   * Returns { challenge, userId } — userId may be null for discovery flow.
+   */
+  verifyWebauthnChallenge(
+    token: string,
+    purpose: 'registration' | 'authentication',
+  ): Promise<{ challenge: string; userId: string | null }>;
+
   readonly isConfigured: boolean;
 }
 
@@ -120,6 +141,8 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
       rotateRefreshToken: notConfigured,
       revokeRefreshToken: notConfigured,
       revokeAllForUser: notConfigured,
+      issueWebauthnChallenge: notConfigured,
+      verifyWebauthnChallenge: notConfigured,
     };
     fastify.decorate('inventarioJwt', stub);
     return;
@@ -288,6 +311,51 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
 
     async revokeAllForUser(userId) {
       return refreshTokens.revokeAllForUser(userId);
+    },
+
+    async issueWebauthnChallenge(userId, purpose) {
+      // 32 random bytes as base64url challenge (WebAuthn spec minimum 16 bytes)
+      const challengeBytes = crypto.getRandomValues(new Uint8Array(32));
+      const challenge = Buffer.from(challengeBytes).toString('base64url');
+
+      const audience = `inventario-webauthn-${purpose}`;
+      const payload: Record<string, unknown> = { purpose, challenge };
+      if (userId !== null) payload['userId'] = userId;
+
+      const token = await new SignJWT(payload)
+        .setProtectedHeader({ alg: 'RS256' })
+        .setIssuer('inventario')
+        .setAudience(audience)
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+
+      return { token, challenge };
+    },
+
+    async verifyWebauthnChallenge(token, purpose) {
+      const audience = `inventario-webauthn-${purpose}`;
+      let payload: JWTPayload;
+      try {
+        ({ payload } = await jwtVerify(token, publicKey, {
+          issuer: 'inventario',
+          audience,
+          algorithms: ['RS256'],
+          clockTolerance: 5,
+        }));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'WebAuthn challenge verification failed';
+        throw new UnauthorizedError(msg);
+      }
+      const challenge = payload['challenge'];
+      if (typeof challenge !== 'string' || challenge.length === 0) {
+        throw new UnauthorizedError('WebAuthn challenge token missing challenge claim');
+      }
+      if (payload['purpose'] !== purpose) {
+        throw new UnauthorizedError('WebAuthn challenge token wrong purpose');
+      }
+      const userId = typeof payload['userId'] === 'string' ? payload['userId'] : null;
+      return { challenge, userId };
     },
   };
 

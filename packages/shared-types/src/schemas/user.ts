@@ -196,6 +196,20 @@ export const UserSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Kedy bolo MFA aktivované. */
     mfaEnabledAt: TimestampSchema.nullable().default(null),
 
+    // -----------------------------------------------------------------
+    // Passkeys / WebAuthn (ADR-0016, Slice #8)
+    // -----------------------------------------------------------------
+
+    /**
+     * Convenience flag — true ak má user aspoň jeden aktívny passkey.
+     * Autoritatívny zdroj je passkeys collection (countDocuments query).
+     * Toto pole sa aktualizuje automaticky pri registrácii/odstránení passkey.
+     */
+    passkeyEnabled: z.boolean().default(false),
+
+    /** Kedy bol prvý passkey zaregistrovaný. */
+    passkeyEnabledAt: TimestampSchema.nullable().default(null),
+
     /**
      * Preferencie používateľa.
      *

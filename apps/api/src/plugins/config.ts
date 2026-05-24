@@ -127,6 +127,33 @@ const envSchema = z.object({
     .optional(),
 
   // ---------------------------------------------------------------------
+  // WebAuthn / Passkeys (ADR-0016, Slice #8)
+  // ---------------------------------------------------------------------
+  //
+  // WEBAUTHN_RP_ID     — Relying Party ID. Must match the effective domain
+  //                      of the origin. Default: 'inventario.estate' (prod).
+  //                      Override to 'localhost' in local dev via .env.local.
+  // WEBAUTHN_RP_NAME   — Human-readable name shown in browser passkey prompt.
+  // WEBAUTHN_EXPECTED_ORIGINS — Comma-separated list of allowed origins.
+  //                      Must include the scheme + host (no trailing slash).
+  //                      E.g. 'https://app.inventario.estate,http://localhost:3001'
+  //
+  // If unset, passkey endpoints register 503 stubs (same pattern as MFA).
+  WEBAUTHN_RP_ID: z.string().min(1).optional(),
+  WEBAUTHN_RP_NAME: z.string().min(1).optional(),
+  WEBAUTHN_EXPECTED_ORIGINS: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+    ),
+
+  // ---------------------------------------------------------------------
   // JWT — Inventario JWT (ADR-0013)
   // ---------------------------------------------------------------------
   // RS256 key pair for signing/verifying Inventario access tokens.

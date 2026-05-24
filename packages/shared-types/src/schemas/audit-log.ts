@@ -101,6 +101,14 @@ export const AuditLogSchema = z.object({
     'MEMBERSHIP_REMOVED',
     'USER_SWITCHED_ORGANISATION',
 
+    // Passkeys (slice #8)
+    'PASSKEY_REGISTERED',
+    'PASSKEY_REMOVED',
+    'PASSKEY_RENAMED',
+    'PASSKEY_LOGIN',
+    'PASSKEY_LOGIN_FAILED',
+    'PASSKEY_COUNTER_WARNING',
+
     // System
     'SYSTEM_CONFIG_CHANGED',
     'BULK_IMPORT_EXECUTED',
@@ -120,6 +128,7 @@ export const AuditLogSchema = z.object({
         'Category',
         'Location',
         'Membership',
+        'Passkey',
         'System',
       ]),
       entityId: ObjectIdSchema.nullable(),

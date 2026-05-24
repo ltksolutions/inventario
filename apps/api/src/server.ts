@@ -33,6 +33,7 @@ import authSessionRoutes from './modules/auth/auth-session.routes.js';
 import emailAuthRoutes from './modules/auth/email-auth.routes.js';
 import mfaRoutes from './modules/auth/mfa/mfa.routes.js';
 import oauthRoutes from './modules/auth/oauth.routes.js';
+import passkeysRoutes from './modules/auth/passkeys/passkeys.routes.js';
 import registrationRoutes from './modules/auth/registration.routes.js';
 import categoriesRoutes from './modules/categories/categories.routes.js';
 import healthRoutes from './modules/health/health.routes.js';
@@ -136,6 +137,7 @@ export async function buildServer(
   await app.register(emailAuthRoutes);
   await app.register(registrationRoutes);
   await app.register(mfaRoutes);
+  await app.register(passkeysRoutes);
 
   // --- API documentation ---------------------------------------------------
   await app.register(swaggerPlugin);
