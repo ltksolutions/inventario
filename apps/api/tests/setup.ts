@@ -95,6 +95,11 @@ export default async function setup(): Promise<void> {
   const { randomBytes } = await import('node:crypto');
   process.env['MFA_SECRET_ENCRYPTION_KEY'] ??= randomBytes(32).toString('hex');
 
+  // -- WebAuthn test config (matches passkeys.test.ts constants) --------
+  process.env['WEBAUTHN_RP_ID'] ??= 'localhost';
+  process.env['WEBAUTHN_RP_NAME'] ??= 'Inventario Test';
+  process.env['WEBAUTHN_EXPECTED_ORIGINS'] ??= 'http://localhost:3001';
+
   console.info('🔑 Inventario JWT keypair generated for test run.\n');
 }
 
