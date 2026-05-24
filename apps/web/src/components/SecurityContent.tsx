@@ -23,13 +23,29 @@
  *   Password re-entry → POST /v1/auth/mfa/disable
  */
 
-import { CheckCircle2, Copy, Loader2, Mail, ShieldCheck, ShieldOff, X } from 'lucide-react';
+import {
+  CheckCircle2,
+  Copy,
+  Fingerprint,
+  Loader2,
+  Mail,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { FormEvent, JSX } from 'react';
 
 import { useAuth } from '@/lib/auth-context';
+import {
+  getDeviceNameFromUA,
+  isPasskeysSupported,
+  registerPasskey,
+  webauthnErrorMessage,
+} from '@/lib/webauthn';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -122,6 +138,9 @@ export function SecurityContent(): JSX.Element {
       {/* Email change — len pre LOCAL účty s heslom */}
       {user?.accountType === 'LOCAL' && <EmailChangePanel currentEmail={user.email} />}
 
+      {/* Passkeys */}
+      <PasskeysPanel />
+
       {status?.enabled ? (
         <MfaEnabledPanel status={status} onDisabled={() => void refreshStatus()} />
       ) : (
@@ -132,7 +151,220 @@ export function SecurityContent(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// MFA disabled panel — shows enable button + setup flow
+// PasskeysPanel — správa passkey-ov (ADR-0016, Slice #8 K12)
+// ---------------------------------------------------------------------------
+
+interface PasskeyRow {
+  _id: string;
+  deviceName: string;
+  transports: string[];
+  backedUp: boolean;
+  authenticatorAttachment: 'platform' | 'cross-platform' | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+function PasskeysPanel(): JSX.Element {
+  const [passkeys, setPasskeys] = useState<PasskeyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const supported = isPasskeysSupported();
+
+  const loadPasskeys = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/v1/auth/passkeys`, { credentials: 'include' });
+      if (res.ok) {
+        const data = (await res.json()) as { data: PasskeyRow[] };
+        setPasskeys(data.data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPasskeys();
+  }, []);
+
+  const handleAdd = async (): Promise<void> => {
+    setError('');
+    setAdding(true);
+    try {
+      const deviceName = getDeviceNameFromUA();
+      await registerPasskey(deviceName);
+      await loadPasskeys();
+    } catch (err) {
+      setError(webauthnErrorMessage(err));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleDelete = async (id: string): Promise<void> => {
+    setDeletingId(id);
+    try {
+      await fetch(`${API_BASE}/v1/auth/passkeys/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      await loadPasskeys();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleRename = async (id: string): Promise<void> => {
+    if (!renameValue.trim()) return;
+    try {
+      await fetch(`${API_BASE}/v1/auth/passkeys/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ deviceName: renameValue.trim() }),
+      });
+      setRenamingId(null);
+      setRenameValue('');
+      await loadPasskeys();
+    } catch {
+      // ignore
+    }
+  };
+
+  if (!supported) return <></>;
+
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-card p-6">
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-surface-subtle">
+            <Fingerprint className="h-5 w-5 text-text-muted" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-text-primary">Passkey</h2>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              Prihláste sa bez hesla cez Touch ID, Face ID alebo bezpečnostný klúč. Passkey-y
+              fungujú vo všetkých organizáciách, kde ste členom.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleAdd()}
+          disabled={adding}
+          className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60"
+        >
+          {adding && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}+ Pridať
+          passkey
+        </button>
+      </div>
+
+      {error && (
+        <div className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+      )}
+
+      {loading ? (
+        <div className="mt-4 flex justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-text-muted" aria-hidden="true" />
+        </div>
+      ) : passkeys.length === 0 ? (
+        <p className="mt-4 text-xs text-text-muted">
+          Zatiaľ nemáte žiadne passkey-y. Kliknite na „+ Pridať passkey“ pre registráciu.
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-border-subtle">
+          {passkeys.map((pk) => (
+            <li key={pk._id} className="py-3">
+              {renamingId === pk._id ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    autoFocus
+                    className="flex-1 rounded border border-border-default bg-surface-page px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-border-focus"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleRename(pk._id);
+                      if (e.key === 'Escape') {
+                        setRenamingId(null);
+                        setRenameValue('');
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleRename(pk._id)}
+                    className="text-xs font-medium text-brand-primary hover:underline"
+                  >
+                    Uložiť
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenamingId(null);
+                      setRenameValue('');
+                    }}
+                    className="text-xs text-text-muted hover:text-text-primary"
+                  >
+                    Zrušiť
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{pk.deviceName}</p>
+                    <p className="mt-0.5 text-xs text-text-muted">
+                      Pridané: {new Date(pk.createdAt).toLocaleDateString('sk-SK')}
+                      {pk.lastUsedAt && (
+                        <>
+                          {' '}
+                          · Posledné použitie: {new Date(pk.lastUsedAt).toLocaleDateString('sk-SK')}
+                        </>
+                      )}
+                      {pk.backedUp && <> · ☁️ Synced</>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenamingId(pk._id);
+                        setRenameValue(pk.deviceName);
+                      }}
+                      className="text-xs text-text-muted hover:text-text-primary"
+                    >
+                      Premenovať
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(pk._id)}
+                      disabled={deletingId === pk._id}
+                      className="rounded p-1 text-text-muted transition hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
+                      title="Odstrániť passkey"
+                    >
+                      {deletingId === pk._id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 // ---------------------------------------------------------------------------
 
 function MfaDisabledPanel({ onEnabled }: { onEnabled: () => void }): JSX.Element {

@@ -6,9 +6,16 @@
 import { Layers, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { FormEvent, JSX } from 'react';
+
+import {
+  authenticateWithPasskey,
+  isConditionalUISupported,
+  isPasskeysSupported,
+  webauthnErrorMessage,
+} from '@/lib/webauthn';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -43,6 +50,33 @@ export function LoginPage(): JSX.Element {
   const [submitting, setSubmitting] = useState(false);
   const [ssoLoading, setSsoLoading] = useState<'google' | 'microsoft' | null>(null);
   const [formError, setFormError] = useState('');
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const conditionalAbortRef = useRef<AbortController | null>(null);
+
+  // Detect passkey support + start conditional UI on mount
+  useEffect(() => {
+    if (!isPasskeysSupported()) return;
+    setPasskeySupported(true);
+
+    void (async () => {
+      const conditionalOk = await isConditionalUISupported();
+      if (!conditionalOk) return;
+      // Start conditional (autofill) flow in background
+      const controller = new AbortController();
+      conditionalAbortRef.current = controller;
+      try {
+        await authenticateWithPasskey(undefined, 'conditional');
+        router.push('/');
+      } catch {
+        // Silently ignore — user chose password or cancelled
+      }
+    })();
+
+    return () => {
+      conditionalAbortRef.current?.abort();
+    };
+  }, [router]);
 
   const handleEmailLogin = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -78,6 +112,19 @@ export function LoginPage(): JSX.Element {
       setFormError('Sieťová chyba. Skúste znova.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePasskeyLogin = async (): Promise<void> => {
+    setFormError('');
+    setPasskeyLoading(true);
+    try {
+      await authenticateWithPasskey(email || undefined);
+      router.push('/');
+    } catch (err) {
+      setFormError(webauthnErrorMessage(err));
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -203,6 +250,23 @@ export function LoginPage(): JSX.Element {
             </button>
           </form>
 
+          {/* Passkey button — zobrazí sa len ak browser podporuje */}
+          {passkeySupported && (
+            <button
+              type="button"
+              onClick={() => void handlePasskeyLogin()}
+              disabled={passkeyLoading}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-subtle px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-surface-card disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              {passkeyLoading ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <PasskeyIcon />
+              )}
+              Prihlásiť sa cez passkey
+            </button>
+          )}
+
           {/* Divider */}
           <div className="my-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-border-subtle" />
@@ -293,6 +357,25 @@ function ProviderIcon({ provider }: { provider: 'google' | 'microsoft' }): JSX.E
   return (
     <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
       <path d="M11.4 24H0V12.6L11.4 24zm1.2 0H24V12.6L12.6 24zM0 11.4V0h11.4L0 11.4zm24 0V0H12.6L24 11.4z" />
+    </svg>
+  );
+}
+
+function PasskeyIcon(): JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="8" cy="8" r="4" />
+      <path d="M12 8h8M16 8v4" />
+      <path d="M2 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1" />
     </svg>
   );
 }
