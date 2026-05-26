@@ -5,13 +5,19 @@
  * Migration 2026-05-25 — fix organisations.customDomain index.
  *
  * Problem: the index `customDomain_unique_sparse` was created without
- * the `sparse: true` option, so it treats all `customDomain: null`
- * documents as duplicates. Any second organisation registration fails
- * with E11000.
+ * the correct options. MongoDB's sparse:true does NOT exclude documents
+ * where the field exists but is explicitly null — it only excludes
+ * documents where the field is completely missing. Since our schema
+ * always stores customDomain: null explicitly, the sparse index still
+ * indexes null values and causes E11000 on the second registration.
  *
- * Fix: drop the broken index, recreate with sparse: true.
- * sparse: true means documents with null/missing customDomain are
- * excluded from the index entirely — allowing unlimited null values.
+ * Fix: drop the broken index, ensure the correct partial-filter index
+ * `customDomain_unique_partial` exists. partialFilterExpression with
+ * {$type: 'string'} only indexes documents where customDomain IS a
+ * string — null values are completely excluded.
+ *
+ * This is the same approach already used for entraTenantId_unique_partial
+ * and documented in OrganisationsRepository.ensureIndexes().
  */
 
 import type { FastifyBaseLogger } from 'fastify';
@@ -23,31 +29,33 @@ export async function migrate_2026_05_25_fix_org_custom_domain_index(
 ): Promise<void> {
   const orgsCol = db.collection('organisations');
 
-  // 1. Drop the broken non-sparse index (ignore error if it doesn't exist)
-  try {
-    await orgsCol.dropIndex('customDomain_unique_sparse');
-    logger.info('Dropped broken customDomain_unique_sparse index');
-  } catch {
-    logger.info('customDomain_unique_sparse index not found — skipping drop');
+  // 1. Drop all broken customDomain indexes (ignore errors if not present)
+  for (const name of [
+    'customDomain_unique_sparse',
+    'customDomain_1',
+    'customDomain_unique_partial',
+  ]) {
+    try {
+      await orgsCol.dropIndex(name);
+      logger.info({ index: name }, 'Dropped customDomain index');
+    } catch {
+      // Not present — fine
+    }
   }
 
-  // Also try the default auto-generated name if it was created differently
-  try {
-    await orgsCol.dropIndex('customDomain_1');
-    logger.info('Dropped customDomain_1 index');
-  } catch {
-    // Not present, that's fine
-  }
-
-  // 2. Recreate with sparse: true — null values are excluded from the index
+  // 2. Recreate with partialFilterExpression — only string customDomain values
+  //    are indexed. Documents with customDomain: null are EXCLUDED entirely.
+  //    NOTE: sparse:true does NOT work here — MongoDB sparse indexes still
+  //    index documents where the field exists but is explicitly null.
+  //    Only partialFilterExpression correctly excludes null values.
   await orgsCol.createIndex(
     { customDomain: 1 },
     {
       unique: true,
-      sparse: true, // ← key fix: null/missing values are not indexed
-      name: 'customDomain_unique_sparse',
+      partialFilterExpression: { customDomain: { $type: 'string' } },
+      name: 'customDomain_unique_partial',
     },
   );
 
-  logger.info('Recreated customDomain_unique_sparse index with sparse: true');
+  logger.info('Created customDomain_unique_partial index with partialFilterExpression');
 }
