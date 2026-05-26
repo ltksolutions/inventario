@@ -3,8 +3,13 @@
 
 import type React from 'react';
 
+import { AuthGate } from '@/components/AuthGate';
 import { OrganisationsContent } from '@/components/OrganisationsContent';
 
 export default function OrganisationsPage(): React.JSX.Element {
-  return <OrganisationsContent />;
+  return (
+    <AuthGate>
+      <OrganisationsContent />
+    </AuthGate>
+  );
 }

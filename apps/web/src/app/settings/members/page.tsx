@@ -3,8 +3,13 @@
 
 import type React from 'react';
 
+import { AuthGate } from '@/components/AuthGate';
 import { MembersContent } from '@/components/MembersContent';
 
 export default function MembersPage(): React.JSX.Element {
-  return <MembersContent />;
+  return (
+    <AuthGate>
+      <MembersContent />
+    </AuthGate>
+  );
 }
