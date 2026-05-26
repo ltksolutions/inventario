@@ -4,7 +4,8 @@
 'use client';
 
 import { ASSET_STATUS_VALUES } from '@inventario/shared-types';
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { AssetsTable } from './AssetsTable';
@@ -12,7 +13,7 @@ import { AssetsTable } from './AssetsTable';
 import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
-import { useAssets, useCategories, useLocations } from '@/lib/api-hooks';
+import { useAssets, useCanEditAssets, useCategories, useLocations } from '@/lib/api-hooks';
 
 /**
  * Assets list page content.
@@ -108,6 +109,8 @@ export function AssetsListContent(): JSX.Element {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilter = statusFilter !== '' || searchTerm.trim() !== '';
 
+  const canEdit = useCanEditAssets();
+
   return (
     <div>
       <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -117,6 +120,15 @@ export function AssetsListContent(): JSX.Element {
             Evidencia jednotlivých položiek majetku organizácie.
           </p>
         </div>
+        {canEdit && (
+          <Link
+            href="/assets/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" />
+            Pridať majetok
+          </Link>
+        )}
       </header>
 
       <section

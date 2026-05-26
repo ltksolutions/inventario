@@ -906,33 +906,20 @@ export type Role = (typeof USER_ROLES)[number];
  * shouldn't see it.
  */
 export function useCanEditAssets(): boolean {
-  const me = useMe();
-  const roles = me.data?.roles ?? [];
+  const { user } = useAuth();
+  const roles = user?.roles ?? [];
   return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
 }
 
-/**
- * Returns whether the current user can create or edit taxonomy
- * entries (categories, locations). Matches backend RBAC for POST /
- * PATCH on those collections: ASSET_MANAGER + ADMIN.
- *
- * Pessimistic during /v1/me load — same reasoning as useCanEditAssets.
- */
 export function useCanManageTaxonomy(): boolean {
-  const me = useMe();
-  const roles = me.data?.roles ?? [];
+  const { user } = useAuth();
+  const roles = user?.roles ?? [];
   return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
 }
 
-/**
- * Returns whether the current user can delete taxonomy entries.
- * Backend reserves DELETE for ADMIN only (FK protection blocks the
- * delete if assets / child categories reference the row, but the
- * authorization gate is stricter than the create/edit gate).
- */
 export function useCanDeleteTaxonomy(): boolean {
-  const me = useMe();
-  const roles = me.data?.roles ?? [];
+  const { user } = useAuth();
+  const roles = user?.roles ?? [];
   return roles.includes('ADMIN');
 }
 
@@ -1181,7 +1168,52 @@ export function useCancelLoanRequest(): UseMutationResult<void, Error, { id: str
 
 /** Whether current user can manage loans (approve/reject/return) */
 export function useCanManageLoans(): boolean {
-  const me = useMe();
-  const roles = me.data?.roles ?? [];
+  const { user } = useAuth();
+  const roles = user?.roles ?? [];
   return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+}
+
+// ---------------------------------------------------------------------------
+// Assets — create
+// ---------------------------------------------------------------------------
+
+export interface CreateAssetInput {
+  name: string;
+  type: string;
+  categoryId: string;
+  locationId: string;
+  status?: string | undefined;
+  condition?: string | undefined;
+  description?: string | null | undefined;
+  serialNumber?: string | null | undefined;
+  manufacturer?: string | null | undefined;
+  model?: string | null | undefined;
+  acquiredAt?: string | undefined;
+  acquisitionCost?: number | null | undefined;
+  warrantyUntil?: string | null | undefined;
+  tags?: string[] | undefined;
+  isLoanable?: boolean | undefined;
+  requiresApproval?: boolean | undefined;
+}
+
+export function useCreateAsset(): UseMutationResult<AssetDetail, Error, CreateAssetInput> {
+  const queryClient = useQueryClient();
+  return useMutation<AssetDetail, Error, CreateAssetInput>({
+    mutationFn: async (input) => {
+      const { data, error } = await apiClient.POST('/v1/assets', {
+        body: input as unknown as never,
+      });
+      if (error) {
+        const errObj = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof errObj.message === 'string' ? errObj.message : 'Failed to create asset',
+        );
+      }
+      if (!data) throw new Error('Empty response after asset create');
+      return data as unknown as AssetDetail;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
 }
