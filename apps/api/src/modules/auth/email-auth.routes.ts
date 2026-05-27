@@ -237,6 +237,29 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         },
       );
 
+      // Create default Membership for the new ADMIN user (Slice #9 requirement)
+      await db.collection('memberships').insertOne({
+        userId: userId.toString(),
+        organisationId: orgId.toString(),
+        roles: [UserRole.ADMIN],
+        organizationalUnit: null,
+        teams: [],
+        status: 'ACTIVE',
+        isDefault: true,
+        invitedBy: 'SYSTEM',
+        invitedAt: now,
+        acceptedAt: now,
+        mustChangePassword: false,
+        lastAccessedAt: now,
+        notifications: { email: true, push: false },
+        createdAt: now,
+        updatedAt: now,
+        createdBy: userId.toString(),
+        updatedBy: userId.toString(),
+        deletedAt: null,
+        deletedBy: null,
+      });
+
       // Send verification email
       const apiBase = fastify.config.OAUTH_REDIRECT_BASE_URL ?? 'http://localhost:3000';
       await fastify.emailService.sendVerificationEmail(email, verificationToken, apiBase);
@@ -357,7 +380,17 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       }
 
       // Issue tokens
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
+      // Lookup membership for this user+org (Slice #9 — mid claim)
+      const membershipsCol = db.collection('memberships');
+      const membership = await membershipsCol.findOne({
+        userId: String(user._id),
+        organisationId: String(org._id),
+        status: 'ACTIVE',
+        deletedAt: null,
+      });
+      const membershipId = membership ? String(membership['_id']) : '';
+
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org, membershipId);
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
       setAuthCookies(

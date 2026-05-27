@@ -63,6 +63,12 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     FRONTEND_BASE_URL,
   } = fastify.config;
 
+  // -------------------------------------------------------------------------
+  // POST /v1/auth/logout + POST /v1/auth/refresh
+  // These are registered regardless of OAuth config.
+  // -------------------------------------------------------------------------
+  registerRefreshRoute(fastify);
+
   // Skip registration if OAuth is not configured (backward compat during transition)
   if (!OAUTH_STATE_SECRET || !OAUTH_REDIRECT_BASE_URL) {
     fastify.log.info(
@@ -280,10 +286,19 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // -------------------------------------------------------------------------
-  // POST /v1/auth/logout (also here for completeness)
-  // -------------------------------------------------------------------------
+  // logout + refresh are registered via registerRefreshRoute() above the guard
+};
 
+export default fp(oauthRoutesPlugin, {
+  name: 'oauth-routes',
+  dependencies: ['config', 'mongo', 'inventario-jwt'],
+});
+
+// ---------------------------------------------------------------------------
+// Refresh + Logout — always registered, regardless of OAuth config
+// ---------------------------------------------------------------------------
+
+function registerRefreshRoute(fastify: Parameters<FastifyPluginAsync>[0]): void {
   fastify.post('/v1/auth/logout', async (request, reply) => {
     const refreshToken = request.cookies?.['inv_refresh'];
     if (refreshToken) {
@@ -293,10 +308,6 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     reply.clearCookie('inv_refresh', { path: '/v1/auth/refresh' });
     return reply.code(204).send();
   });
-
-  // -------------------------------------------------------------------------
-  // POST /v1/auth/refresh
-  // -------------------------------------------------------------------------
 
   fastify.post('/v1/auth/refresh', async (request, reply) => {
     const rawRefresh = request.cookies?.['inv_refresh'];
@@ -309,19 +320,17 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       request,
     );
 
-    // Load user + active membership + org from DB
+    const { ObjectId } = await import('mongodb');
     const usersCol = fastify.mongo.db.collection<User>('users');
     const orgsCol = fastify.mongo.db.collection<Organisation>('organisations');
     const membershipsCol = fastify.mongo.db.collection('memberships');
 
-    const { ObjectId } = await import('mongodb');
     const user = (await usersCol.findOne({
       _id: new ObjectId(userId),
       deletedAt: null,
     } as never)) as WithId<User> | null;
     if (!user) throw new UnauthorizedError('User not found');
 
-    // Find default membership to get active org (K9 — users no longer carry organisationId)
     const defaultMembership = await membershipsCol.findOne({
       userId,
       isDefault: true,
@@ -351,12 +360,7 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
     return reply.code(204).send();
   });
-};
-
-export default fp(oauthRoutesPlugin, {
-  name: 'oauth-routes',
-  dependencies: ['config', 'mongo', 'inventario-jwt'],
-});
+}
 
 // ---------------------------------------------------------------------------
 // Provider construction
