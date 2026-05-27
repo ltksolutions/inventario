@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { FormEvent, JSX } from 'react';
 
+import { useAuth } from '@/lib/auth-context';
 import {
   authenticateWithPasskey,
   isConditionalUISupported,
@@ -40,6 +41,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function LoginPage(): JSX.Element {
   const router = useRouter();
   const params = useSearchParams();
+  const { refresh } = useAuth();
 
   const errorKey = params.get('error') ?? '';
   const verified = params.get('verified') === 'true';
@@ -67,6 +69,7 @@ export function LoginPage(): JSX.Element {
       conditionalAbortRef.current = controller;
       try {
         await authenticateWithPasskey(undefined, 'conditional');
+        await refresh();
         router.push('/');
       } catch {
         // Silently ignore — user chose password or cancelled
@@ -92,6 +95,7 @@ export function LoginPage(): JSX.Element {
       });
 
       if (res.ok) {
+        await refresh();
         router.push('/');
         return;
       }
@@ -120,6 +124,7 @@ export function LoginPage(): JSX.Element {
     setPasskeyLoading(true);
     try {
       await authenticateWithPasskey(email || undefined);
+      await refresh();
       router.push('/');
     } catch (err) {
       setFormError(webauthnErrorMessage(err));
