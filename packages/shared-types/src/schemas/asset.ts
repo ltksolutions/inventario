@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 import { AssetStatus } from '../enums/asset-status.js';
-import { AssetCondition, AssetType } from '../enums/asset-type.js';
 
 import {
   BaseDocumentSchema,
@@ -43,8 +42,8 @@ export const AssetSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Voliteľný dlhší popis. */
     description: z.string().max(2000).nullable().default(null),
 
-    /** Top-level kategória — určuje, aké špecifické polia sú v `specs`. */
-    type: z.enum(Object.values(AssetType) as [string, ...string[]]) as z.ZodType<AssetType>,
+    /** Top-level typ — slug z kolekcie `asset_types` (per-tenant). */
+    type: z.string().min(1).max(200),
 
     /** ID kategórie zo collection `categories` (hierarchická taxonómia). */
     categoryId: ObjectIdSchema,
@@ -52,10 +51,8 @@ export const AssetSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Aktuálny stav v životnom cykle. */
     status: z.enum(Object.values(AssetStatus) as [string, ...string[]]) as z.ZodType<AssetStatus>,
 
-    /** Aktuálna fyzická kondícia. */
-    condition: z.enum(
-      Object.values(AssetCondition) as [string, ...string[]],
-    ) as z.ZodType<AssetCondition>,
+    /** Aktuálna fyzická kondícia — slug z kolekcie `asset_conditions` (per-tenant). */
+    condition: z.string().min(1).max(200),
 
     /** ID lokality, kde sa aktuálne nachádza (sklad, kancelária, sklad výstroje). */
     locationId: ObjectIdSchema,

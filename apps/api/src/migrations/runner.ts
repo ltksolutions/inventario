@@ -18,6 +18,7 @@
 
 import { migrate_2026_05_23_memberships } from './2026-05-23-memberships.js';
 import { migrate_2026_05_25_fix_org_custom_domain_index } from './2026-05-25-fix-org-custom-domain-index.js';
+import { migrate_2026_05_29_asset_type_condition_collections } from './2026-05-29-asset-type-condition-collections.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -43,6 +44,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     description:
       'Fix organisations.customDomain index — recreate with sparse: true to allow multiple null values.',
     run: migrate_2026_05_25_fix_org_custom_domain_index,
+  },
+  {
+    key: '2026-05-29-asset-type-condition-collections',
+    description:
+      'K3: Seed asset_types + asset_conditions per tenant, migrate asset.type/condition enum → slug.',
+    run: migrate_2026_05_29_asset_type_condition_collections,
   },
 ];
 

@@ -200,6 +200,84 @@ export const useCategories = makeListHook<CategorySummary>('categories', '/v1/ca
 export const useLocations = makeListHook<LocationSummary>('locations', '/v1/locations');
 
 // ---------------------------------------------------------------------------
+// Asset Types + Asset Conditions — dynamic per-tenant collections
+// ---------------------------------------------------------------------------
+
+export interface AssetTypeEntrySummary {
+  _id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  sortOrder: number;
+  [key: string]: unknown;
+}
+
+export interface AssetConditionEntrySummary {
+  _id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  sortOrder: number;
+  [key: string]: unknown;
+}
+
+export function useAssetTypes(
+  options: ListQueryOptions = {},
+): UseQueryResult<ListResponse<AssetTypeEntrySummary>, Error> {
+  const { limit = 200, skip = 0 } = options;
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<ListResponse<AssetTypeEntrySummary>, Error>({
+    queryKey: ['asset-types', { limit, skip }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const fetchAssetTypes = apiClient.GET as (
+        path: string,
+        opts: unknown,
+      ) => Promise<{ data: unknown; error: unknown }>;
+      const { data, error } = await fetchAssetTypes('/v1/asset-types', {
+        params: { query: { limit, skip } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load asset types');
+      }
+      if (!data) throw new Error('Empty response from /v1/asset-types');
+      return data as unknown as ListResponse<AssetTypeEntrySummary>;
+    },
+  });
+}
+
+export function useAssetConditions(
+  options: ListQueryOptions = {},
+): UseQueryResult<ListResponse<AssetConditionEntrySummary>, Error> {
+  const { limit = 200, skip = 0 } = options;
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<ListResponse<AssetConditionEntrySummary>, Error>({
+    queryKey: ['asset-conditions', { limit, skip }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const fetchAssetConditions = apiClient.GET as (
+        path: string,
+        opts: unknown,
+      ) => Promise<{ data: unknown; error: unknown }>;
+      const { data, error } = await fetchAssetConditions('/v1/asset-conditions', {
+        params: { query: { limit, skip } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to load asset conditions',
+        );
+      }
+      if (!data) throw new Error('Empty response from /v1/asset-conditions');
+      return data as unknown as ListResponse<AssetConditionEntrySummary>;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Categories — create + delete
 // ---------------------------------------------------------------------------
 
