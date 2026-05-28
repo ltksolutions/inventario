@@ -299,13 +299,22 @@ export default fp(oauthRoutesPlugin, {
 // ---------------------------------------------------------------------------
 
 function registerRefreshRoute(fastify: Parameters<FastifyPluginAsync>[0]): void {
+  const isProd = process.env['NODE_ENV'] === 'production';
+  const cookieDomain = isProd ? '.inventario.estate' : undefined;
+
   fastify.post('/v1/auth/logout', async (request, reply) => {
     const refreshToken = request.cookies?.['inv_refresh'];
     if (refreshToken) {
       await fastify.inventarioJwt.revokeRefreshToken(refreshToken);
     }
-    reply.clearCookie('inv_access', { path: '/' });
-    reply.clearCookie('inv_refresh', { path: '/v1/auth/refresh' });
+    const baseOpts = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax' as const,
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
+    };
+    reply.clearCookie('inv_access', { ...baseOpts, path: '/' });
+    reply.clearCookie('inv_refresh', { ...baseOpts, path: '/v1/auth/refresh' });
     return reply.code(204).send();
   });
 

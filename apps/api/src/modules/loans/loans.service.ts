@@ -31,6 +31,7 @@ import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/er
 
 import type { LoanRequestsRepository } from './loan-requests.repository.js';
 import type { LoansRepository, LoanPatch } from './loans.repository.js';
+import type { EmailService } from '../../plugins/email.js';
 import type { AssetsRepository } from '../assets/assets.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
 import type {
@@ -45,7 +46,7 @@ import type {
   User,
 } from '@inventario/shared-types';
 import type { FastifyRequest } from 'fastify';
-import type { ClientSession, MongoClient, WithId } from 'mongodb';
+import type { Db, ClientSession, MongoClient, WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
 // Public API types
@@ -96,6 +97,8 @@ export class LoansService {
     private readonly assetsRepo: AssetsRepository,
     private readonly auditLog: AuditLogService,
     private readonly mongoClient: MongoClient,
+    private readonly emailService: EmailService | null = null,
+    private readonly frontendUrl: string = 'https://app.inventario.estate',
   ) {}
 
   // -------------------------------------------------------------------------
@@ -320,7 +323,63 @@ export class LoansService {
       return inserted;
     });
 
+    // Fire-and-forget email to managers (after transaction)
+    void this.notifyManagersNewRequest(
+      tenantId,
+      String(created._id),
+      actor.displayName,
+      created.purpose,
+      created.items.length,
+      created.plannedFrom,
+      created.plannedTo,
+      request.log,
+    );
+
     return loanRequestToApiShape(created);
+  }
+
+  // Fire-and-forget email to managers — after transaction commits
+  private async notifyManagersNewRequest(
+    tenantId: string,
+    requestId: string,
+    requesterName: string,
+    purpose: string,
+    itemCount: number,
+    plannedFrom: string,
+    plannedTo: string,
+    logger: { warn: (msg: object, txt: string) => void },
+  ): Promise<void> {
+    if (!this.emailService?.isConfigured) return;
+    try {
+      // Find all ASSET_MANAGER + ADMIN users in this tenant
+      const membershipsCol = (this.mongoClient.db() as Db).collection('memberships');
+      const managers = await membershipsCol
+        .find({
+          organisationId: tenantId,
+          status: 'ACTIVE',
+          deletedAt: null,
+          roles: { $in: ['ASSET_MANAGER', 'ADMIN'] },
+        })
+        .toArray();
+
+      const usersCol = (this.mongoClient.db() as Db).collection('users');
+      for (const m of managers) {
+        const user = await usersCol.findOne({ _id: m['userId'] as never, deletedAt: null });
+        if (user?.['email']) {
+          await this.emailService.sendLoanRequestPendingEmail(user['email'] as string, {
+            requesterName,
+            purpose,
+            itemCount,
+            plannedFrom,
+            plannedTo,
+            requestId,
+            frontendUrl: this.frontendUrl,
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to send loan request pending email to managers');
+    }
   }
 
   /**
@@ -473,7 +532,42 @@ export class LoansService {
       return insertedLoan;
     });
 
+    // Fire-and-forget: notify requester of approval
+    void this.notifyRequesterApproved(
+      String(loan.borrowerId),
+      loan.purpose,
+      loan.items.length,
+      loan.dueAt,
+      request.log,
+    );
+
     return loanToApiShape(loan);
+  }
+
+  // Helper: notify requester of approval
+  private async notifyRequesterApproved(
+    requesterId: string,
+    purpose: string,
+    itemCount: number,
+    dueAt: string,
+    logger: { warn: (msg: object, txt: string) => void },
+  ): Promise<void> {
+    if (!this.emailService?.isConfigured) return;
+    try {
+      const usersCol = (this.mongoClient.db() as Db).collection('users');
+      const user = await usersCol.findOne({ _id: requesterId as never, deletedAt: null });
+      if (user?.['email']) {
+        await this.emailService.sendLoanApprovedEmail(user['email'] as string, {
+          requesterName: (user['displayName'] as string) || (user['email'] as string),
+          purpose,
+          itemCount,
+          dueAt,
+          frontendUrl: this.frontendUrl,
+        });
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to send loan approved email');
+    }
   }
 
   /**
@@ -531,6 +625,29 @@ export class LoansService {
         session,
       );
     });
+
+    // Fire-and-forget: notify requester of rejection
+    if (this.emailService?.isConfigured) {
+      void (async () => {
+        try {
+          const usersCol = (this.mongoClient.db() as Db).collection('users');
+          const lr = await this.loanRequestsRepo.findById(tenantId, id);
+          if (lr) {
+            const u = await usersCol.findOne({ _id: lr.requesterId as never, deletedAt: null });
+            if (u?.['email'] && this.emailService) {
+              await this.emailService.sendLoanRejectedEmail(u['email'] as string, {
+                requesterName: (u['displayName'] as string) || (u['email'] as string),
+                purpose: lr.purpose,
+                reason,
+                frontendUrl: this.frontendUrl,
+              });
+            }
+          }
+        } catch (err) {
+          request.log.warn({ err }, 'Failed to send loan rejected email');
+        }
+      })();
+    }
   }
 
   /**

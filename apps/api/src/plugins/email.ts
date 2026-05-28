@@ -72,6 +72,49 @@ export interface EmailService {
    */
   sendEmailChangeEmail(to: string, token: string, apiBaseUrl: string): Promise<void>;
 
+  /**
+   * Notify a requester that their loan request was approved.
+   */
+  sendLoanApprovedEmail(
+    to: string,
+    opts: {
+      requesterName: string;
+      purpose: string;
+      itemCount: number;
+      dueAt: string;
+      frontendUrl: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Notify a requester that their loan request was rejected.
+   */
+  sendLoanRejectedEmail(
+    to: string,
+    opts: {
+      requesterName: string;
+      purpose: string;
+      reason: string;
+      frontendUrl: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Notify managers that a new loan request needs approval.
+   */
+  sendLoanRequestPendingEmail(
+    to: string,
+    opts: {
+      requesterName: string;
+      purpose: string;
+      itemCount: number;
+      plannedFrom: string;
+      plannedTo: string;
+      requestId: string;
+      frontendUrl: string;
+    },
+  ): Promise<void>;
+
   /** Name of the active provider — for diagnostics. */
   readonly providerName: EmailProvider['name'];
   /** Whether the active provider is a real transport (false for stub). */
@@ -198,6 +241,40 @@ const emailPlugin: FastifyPluginAsync = async (fastify) => {
         text: `Potvrdte zmenu e-mailu: ${url} (platnosť 1 hodinu)`,
       });
     },
+
+    async sendLoanApprovedEmail(to, opts) {
+      await provider.send({
+        to,
+        subject: 'Vaša žiadosť o výpožičku bola schválená — Inventario',
+        html: loanApprovedEmailHtml(opts),
+        text:
+          `Dobrá správa, ${opts.requesterName}! Vaša žiadosť o výpožičku "${opts.purpose}" (${opts.itemCount} položka/iek) bola schválená. ` +
+          `Termín vrátenia: ${formatDateSk(opts.dueAt)}. Zobraziť: ${opts.frontendUrl}/loans`,
+      });
+    },
+
+    async sendLoanRejectedEmail(to, opts) {
+      await provider.send({
+        to,
+        subject: 'Vaša žiadosť o výpožičku bola zamietnutá — Inventario',
+        html: loanRejectedEmailHtml(opts),
+        text:
+          `Vaša žiadosť o výpožičku "${opts.purpose}" bola zamietnutá. ` +
+          `Dôvod: ${opts.reason}. Zobraziť: ${opts.frontendUrl}/loans`,
+      });
+    },
+
+    async sendLoanRequestPendingEmail(to, opts) {
+      await provider.send({
+        to,
+        subject: `Nová žiadosť o výpožičku čaká na schválenie — Inventario`,
+        html: loanRequestPendingEmailHtml(opts),
+        text:
+          `${opts.requesterName} podal/a novú žiadosť o výpožičku "${opts.purpose}" (${opts.itemCount} položka/iek), ` +
+          `plánované ${formatDateSk(opts.plannedFrom)} – ${formatDateSk(opts.plannedTo)}. ` +
+          `Schváliť alebo zamietnuť: ${opts.frontendUrl}/requests/${opts.requestId}`,
+      });
+    },
   };
 
   fastify.decorate('emailService', service);
@@ -276,6 +353,125 @@ function verificationEmailHtml(url: string): string {
     <p style="margin:20px 0 0;color:#94A3B8;font-size:12px;">
       Ak ste sa neregistrovali v Inventario, ignorujte tento e-mail.
     </p>
+    `,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Loan email templates
+// ---------------------------------------------------------------------------
+
+function formatDateSk(iso: string): string {
+  return new Date(iso).toLocaleDateString('sk-SK', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function loanApprovedEmailHtml(opts: {
+  requesterName: string;
+  purpose: string;
+  itemCount: number;
+  dueAt: string;
+  frontendUrl: string;
+}): string {
+  const { requesterName, purpose, itemCount, dueAt, frontendUrl } = opts;
+  return emailLayout(
+    'Žiadosť o výpožičku schválená',
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">
+      ✅ Žiadosť bola schválená
+    </h1>
+    <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+      Dobrá správa, <strong>${requesterName}</strong>! Vaša žiadosť o výpožičku
+      bola schválená a majetok je pripravený na prevzatie.
+    </p>
+    <table style="background-color:#F8F6F1;border-radius:6px;padding:16px 20px;margin:0 0 24px;width:100%;box-sizing:border-box;">
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Účel</td>
+          <td style="color:#1A2D47;font-size:14px;font-weight:600;">${purpose}</td></tr>
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Počet položiek</td>
+          <td style="color:#1A2D47;font-size:14px;">${itemCount}</td></tr>
+      <tr><td style="color:#64748B;font-size:13px;">Termín vrátenia</td>
+          <td style="color:#1A2D47;font-size:14px;font-weight:600;">${formatDateSk(dueAt)}</td></tr>
+    </table>
+    <a href="${frontendUrl}/my-loans"
+       style="display:inline-block;background-color:#388FC3;color:#FFFFFF;text-decoration:none;
+              font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;">
+      Zobraziť moje výpožičky
+    </a>
+    `,
+  );
+}
+
+function loanRejectedEmailHtml(opts: {
+  requesterName: string;
+  purpose: string;
+  reason: string;
+  frontendUrl: string;
+}): string {
+  const { requesterName, purpose, reason, frontendUrl } = opts;
+  return emailLayout(
+    'Žiadosť o výpožičku zamietnutá',
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">
+      Žiadosť bola zamietnutá
+    </h1>
+    <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+      <strong>${requesterName}</strong>, vaša žiadosť o výpožičku
+      <strong>"${purpose}"</strong> bola zamietnutá.
+    </p>
+    <table style="background-color:#FEF2F2;border-radius:6px;padding:16px 20px;margin:0 0 24px;width:100%;box-sizing:border-box;">
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Dôvod zamietnutia</td></tr>
+      <tr><td style="color:#1A2D47;font-size:14px;">${reason}</td></tr>
+    </table>
+    <a href="${frontendUrl}/requests"
+       style="display:inline-block;background-color:#388FC3;color:#FFFFFF;text-decoration:none;
+              font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;">
+      Zobraziť moje žiadosti
+    </a>
+    <p style="margin:20px 0 0;color:#94A3B8;font-size:12px;">
+      Ak máte otázky, kontaktujte správcu majetku vašej organizácie.
+    </p>
+    `,
+  );
+}
+
+function loanRequestPendingEmailHtml(opts: {
+  requesterName: string;
+  purpose: string;
+  itemCount: number;
+  plannedFrom: string;
+  plannedTo: string;
+  requestId: string;
+  frontendUrl: string;
+}): string {
+  const { requesterName, purpose, itemCount, plannedFrom, plannedTo, requestId, frontendUrl } =
+    opts;
+  return emailLayout(
+    'Nová žiadosť o výpožičku',
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">
+      Nová žiadosť čaká na schválenie
+    </h1>
+    <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+      <strong>${requesterName}</strong> podal/a novú žiadosť o výpožičku.
+    </p>
+    <table style="background-color:#F8F6F1;border-radius:6px;padding:16px 20px;margin:0 0 24px;width:100%;box-sizing:border-box;">
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Účel</td>
+          <td style="color:#1A2D47;font-size:14px;font-weight:600;">${purpose}</td></tr>
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Počet položiek</td>
+          <td style="color:#1A2D47;font-size:14px;">${itemCount}</td></tr>
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Od</td>
+          <td style="color:#1A2D47;font-size:14px;">${formatDateSk(plannedFrom)}</td></tr>
+      <tr><td style="color:#64748B;font-size:13px;">Do</td>
+          <td style="color:#1A2D47;font-size:14px;">${formatDateSk(plannedTo)}</td></tr>
+    </table>
+    <a href="${frontendUrl}/requests/${requestId}"
+       style="display:inline-block;background-color:#388FC3;color:#FFFFFF;text-decoration:none;
+              font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;">
+      Schváliť alebo zamietnuť
+    </a>
     `,
   );
 }

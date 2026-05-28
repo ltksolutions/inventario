@@ -105,6 +105,8 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
     assetsRepo,
     fastify.auditLog,
     fastify.mongo.client,
+    fastify.emailService,
+    fastify.config.FRONTEND_BASE_URL ?? 'https://app.inventario.estate',
   );
 
   await loanRequestsRepo.ensureIndexes();
