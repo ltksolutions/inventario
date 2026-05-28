@@ -78,7 +78,11 @@ export class InvitationsRepository {
     await Promise.all([
       this.col.createIndex(
         { token: 1 },
-        { unique: true, sparse: true, name: 'invitations_token_unique_sparse' },
+        {
+          unique: true,
+          partialFilterExpression: { token: { $type: 'string' } },
+          name: 'invitations_token_unique_partial',
+        },
       ),
       this.col.createIndex(
         { organisationId: 1, status: 1, deletedAt: 1 },

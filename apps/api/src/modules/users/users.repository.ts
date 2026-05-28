@@ -133,7 +133,11 @@ export class UsersRepository {
     await Promise.all([
       this.collection.createIndex(
         { entraOid: 1 },
-        { unique: true, sparse: true, name: 'entraOid_unique' },
+        {
+          unique: true,
+          partialFilterExpression: { entraOid: { $type: 'string' } },
+          name: 'entraOid_unique_partial',
+        },
       ),
       this.collection.createIndex(
         { organisationId: 1, email: 1 },
