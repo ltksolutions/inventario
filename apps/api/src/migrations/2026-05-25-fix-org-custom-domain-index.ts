@@ -66,4 +66,26 @@ export async function migrate_2026_05_25_fix_org_custom_domain_index(
     },
   );
   logger.info('Created customDomain_unique_partial index');
+
+  // Fix users.entraOid_unique — same sparse:true problem
+  const usersCol = db.collection('users');
+  try {
+    await usersCol.dropIndex('entraOid_unique');
+    logger.info('Dropped broken entraOid_unique index on users');
+  } catch {
+    // Not present — fine
+  }
+  try {
+    await usersCol.createIndex(
+      { entraOid: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { entraOid: { $type: 'string' } },
+        name: 'entraOid_unique_partial',
+      },
+    );
+    logger.info('Created entraOid_unique_partial index on users');
+  } catch {
+    // Already exists — fine
+  }
 }
