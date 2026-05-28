@@ -173,13 +173,25 @@ describe('PATCH /v1/assets/:id', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('rejects invalid enum value for condition', async () => {
+    it('rejects invalid enum value for condition (now accepts any non-empty string — per-tenant collection)', async () => {
       const asset = await insertTestAsset(app);
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/assets/${asset._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
         payload: { condition: 'AMAZING' },
+      });
+      // condition is now a free string (per-tenant asset_conditions collection)
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('rejects empty string for condition', async () => {
+      const asset = await insertTestAsset(app);
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/assets/${asset._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { condition: '' },
       });
       expect(res.statusCode).toBe(400);
     });
