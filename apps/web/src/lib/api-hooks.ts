@@ -1456,3 +1456,38 @@ export function useRenameAssetCondition(): UseMutationResult<
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-conditions'] }),
   });
 }
+
+const genericDelete = apiClient.DELETE as (
+  path: string,
+  opts?: unknown,
+) => Promise<{ data: unknown; error: unknown }>;
+
+export function useDeleteAssetType(): UseMutationResult<void, Error, { id: string }> {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string }>({
+    mutationFn: async ({ id }) => {
+      const { error } = await genericDelete(`/v1/asset-types/${id}`);
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to delete asset type');
+      }
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-types'] }),
+  });
+}
+
+export function useDeleteAssetCondition(): UseMutationResult<void, Error, { id: string }> {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string }>({
+    mutationFn: async ({ id }) => {
+      const { error } = await genericDelete(`/v1/asset-conditions/${id}`);
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to delete asset condition',
+        );
+      }
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-conditions'] }),
+  });
+}
