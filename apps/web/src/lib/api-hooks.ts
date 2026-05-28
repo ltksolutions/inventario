@@ -1066,6 +1066,26 @@ export function useLoans(
   });
 }
 
+/** Fetch loans that contain a specific asset (client-side filter over recent loans). */
+export function useLoansForAsset(assetId: string | null): UseQueryResult<LoanSummary[], Error> {
+  const { isAuthenticated } = useAuth();
+  return useQuery<LoanSummary[], Error>({
+    queryKey: ['loans-for-asset', assetId],
+    enabled: isAuthenticated && !!assetId,
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/v1/loans', {
+        params: { query: { limit: 100, skip: 0 } as never },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load loans');
+      }
+      const all = (data as unknown as ListResponse<LoanSummary>).data ?? [];
+      return all.filter((loan) => loan.items.some((item) => item.assetId === assetId));
+    },
+  });
+}
+
 /** POST /v1/loan-requests */
 export function useCreateLoanRequest(): UseMutationResult<
   LoanRequestSummary,
