@@ -98,9 +98,9 @@ export function SecurityContent(): JSX.Element {
   };
 
   // Load status on mount
-  useState(() => {
+  useEffect(() => {
     void loadStatus();
-  });
+  }, []);
 
   // Refresh from server
   const refreshStatus = async (): Promise<void> => {
