@@ -27,6 +27,8 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
+import assetConditionsRoutes from './modules/asset-conditions/asset-conditions.routes.js';
+import assetTypesRoutes from './modules/asset-types/asset-types.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
 import authSessionRoutes from './modules/auth/auth-session.routes.js';
@@ -150,6 +152,8 @@ export async function buildServer(
   await app.register(organisationsRoutes);
   await app.register(usersRoutes);
   await app.register(assetsRoutes);
+  await app.register(assetConditionsRoutes);
+  await app.register(assetTypesRoutes);
   await app.register(categoriesRoutes);
   await app.register(locationsRoutes);
   await app.register(loanRequestsRoutes);

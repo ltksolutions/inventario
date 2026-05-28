@@ -109,6 +109,16 @@ export const AuditLogSchema = z.object({
     'PASSKEY_LOGIN_FAILED',
     'PASSKEY_COUNTER_WARNING',
 
+    // AssetType
+    'ASSET_TYPE_CREATED',
+    'ASSET_TYPE_UPDATED',
+    'ASSET_TYPE_DELETED',
+
+    // AssetCondition
+    'ASSET_CONDITION_CREATED',
+    'ASSET_CONDITION_UPDATED',
+    'ASSET_CONDITION_DELETED',
+
     // System
     'SYSTEM_CONFIG_CHANGED',
     'BULK_IMPORT_EXECUTED',
@@ -123,6 +133,8 @@ export const AuditLogSchema = z.object({
         'User',
         'Organisation',
         'Asset',
+        'AssetType',
+        'AssetCondition',
         'Loan',
         'LoanRequest',
         'Category',
