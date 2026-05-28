@@ -14,6 +14,8 @@
  *   Kancelárske vybavenie, Médiá a video, Komunikácia, Iné
  */
 
+import { DEFAULT_ASSET_TYPES } from '@inventario/shared-types';
+
 import { isValidSlug, slugify, slugWithSuffix } from '../../lib/slugify.js';
 import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
@@ -51,17 +53,6 @@ export type UpdateAssetTypeServiceInput = Partial<
     | 'deletedBy'
   >
 >;
-
-/** Default types seeded for every new tenant. */
-export const DEFAULT_ASSET_TYPES: Array<{ name: string; slug: string; sortOrder: number }> = [
-  { name: 'IT majetok', slug: 'it-majetok', sortOrder: 0 },
-  { name: 'Športová výstroj', slug: 'sportova-vystroj', sortOrder: 1 },
-  { name: 'Tréningové vybavenie', slug: 'treningove-vybavenie', sortOrder: 2 },
-  { name: 'Kancelárske vybavenie', slug: 'kancelarske-vybavenie', sortOrder: 3 },
-  { name: 'Médiá a video', slug: 'media-a-video', sortOrder: 4 },
-  { name: 'Komunikácia', slug: 'komunikacia', sortOrder: 5 },
-  { name: 'Iné', slug: 'ine', sortOrder: 6 },
-];
 
 export class AssetTypesService {
   constructor(

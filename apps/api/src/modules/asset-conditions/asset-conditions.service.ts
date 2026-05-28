@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 // SPDX-License-Identifier: EUPL-1.2
 
+import { DEFAULT_ASSET_CONDITIONS } from '@inventario/shared-types';
+
 import { isValidSlug, slugify, slugWithSuffix } from '../../lib/slugify.js';
 import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
@@ -41,15 +43,6 @@ export type UpdateAssetConditionServiceInput = Partial<
     | 'deletedBy'
   >
 >;
-
-export const DEFAULT_ASSET_CONDITIONS: Array<{ name: string; slug: string; sortOrder: number }> = [
-  { name: 'Nové', slug: 'nove', sortOrder: 0 },
-  { name: 'Vynikajúce', slug: 'vynikajuce', sortOrder: 1 },
-  { name: 'Dobré', slug: 'dobre', sortOrder: 2 },
-  { name: 'Použiteľné', slug: 'pouzitelne', sortOrder: 3 },
-  { name: 'Opotrebované', slug: 'opotrebovane', sortOrder: 4 },
-  { name: 'Nepoužiteľné', slug: 'nepouzitelne', sortOrder: 5 },
-];
 
 export class AssetConditionsService {
   constructor(

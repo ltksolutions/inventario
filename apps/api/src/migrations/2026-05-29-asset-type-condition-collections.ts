@@ -22,6 +22,8 @@
  *     na Flex clustri), ale operácie sú idempotentné
  */
 
+import { seedTenantDefaults } from '../lib/seed-tenant-defaults.js';
+
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
 
@@ -48,26 +50,6 @@ const CONDITION_SLUG_MAP: Record<string, string> = {
   UNUSABLE: 'nepouzitelne',
 };
 
-// Default seeds — must match DEFAULT_ASSET_TYPES / DEFAULT_ASSET_CONDITIONS in services
-const DEFAULT_TYPES = [
-  { name: 'IT majetok', slug: 'it-majetok', sortOrder: 0 },
-  { name: 'Športová výstroj', slug: 'sportova-vystroj', sortOrder: 1 },
-  { name: 'Tréningové vybavenie', slug: 'treningove-vybavenie', sortOrder: 2 },
-  { name: 'Kancelárske vybavenie', slug: 'kancelarske-vybavenie', sortOrder: 3 },
-  { name: 'Médiá a video', slug: 'media-a-video', sortOrder: 4 },
-  { name: 'Komunikácia', slug: 'komunikacia', sortOrder: 5 },
-  { name: 'Iné', slug: 'ine', sortOrder: 6 },
-];
-
-const DEFAULT_CONDITIONS = [
-  { name: 'Nové', slug: 'nove', sortOrder: 0 },
-  { name: 'Vynikajúce', slug: 'vynikajuce', sortOrder: 1 },
-  { name: 'Dobré', slug: 'dobre', sortOrder: 2 },
-  { name: 'Použiteľné', slug: 'pouzitelne', sortOrder: 3 },
-  { name: 'Opotrebované', slug: 'opotrebovane', sortOrder: 4 },
-  { name: 'Nepoužiteľné', slug: 'nepouzitelne', sortOrder: 5 },
-];
-
 // ---------------------------------------------------------------------------
 // Migration
 // ---------------------------------------------------------------------------
@@ -77,23 +59,9 @@ export async function migrate_2026_05_29_asset_type_condition_collections(
   logger: FastifyBaseLogger,
 ): Promise<void> {
   const orgsCollection = db.collection<{ _id: unknown; name?: string }>('organisations');
-  const assetTypesCollection = db.collection('asset_types');
-  const assetConditionsCollection = db.collection('asset_conditions');
   const assetsCollection = db.collection('assets');
 
-  // Step 1: Ensure indexes on new collections (idempotent)
-  await Promise.all([
-    assetTypesCollection.createIndex(
-      { organisationId: 1, slug: 1 },
-      { unique: true, name: 'asset_types_organisationId_slug_unique' },
-    ),
-    assetConditionsCollection.createIndex(
-      { organisationId: 1, slug: 1 },
-      { unique: true, name: 'asset_conditions_organisationId_slug_unique' },
-    ),
-  ]);
-
-  // Step 2: Load all tenants (non-deleted)
+  // Step 1: Load all tenants (non-deleted)
   const orgs = await orgsCollection
     .find({ deletedAt: null })
     .project({ _id: 1, name: 1 })
@@ -104,61 +72,15 @@ export async function migrate_2026_05_29_asset_type_condition_collections(
     'K3 migration: seeding asset_types + asset_conditions per tenant',
   );
 
-  const now = new Date().toISOString();
-
+  // Step 2: Seed defaults per tenant via the shared helper (single source
+  // of truth in @inventario/shared-types). Idempotent upsert on slug.
   for (const org of orgs) {
     const orgId = String(org._id);
-    logger.info({ orgId, name: org.name }, 'Seeding types + conditions for tenant');
-
-    // Step 3a: Seed asset_types (idempotent — upsert on slug per tenant)
-    for (const def of DEFAULT_TYPES) {
-      await assetTypesCollection.updateOne(
-        { organisationId: orgId, slug: def.slug },
-        {
-          $setOnInsert: {
-            organisationId: orgId,
-            name: def.name,
-            slug: def.slug,
-            icon: null,
-            color: null,
-            isActive: true,
-            sortOrder: def.sortOrder,
-            createdAt: now,
-            updatedAt: now,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-            deletedAt: null,
-            deletedBy: null,
-          },
-        },
-        { upsert: true },
-      );
-    }
-
-    // Step 3b: Seed asset_conditions (idempotent)
-    for (const def of DEFAULT_CONDITIONS) {
-      await assetConditionsCollection.updateOne(
-        { organisationId: orgId, slug: def.slug },
-        {
-          $setOnInsert: {
-            organisationId: orgId,
-            name: def.name,
-            slug: def.slug,
-            icon: null,
-            color: null,
-            isActive: true,
-            sortOrder: def.sortOrder,
-            createdAt: now,
-            updatedAt: now,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-            deletedAt: null,
-            deletedBy: null,
-          },
-        },
-        { upsert: true },
-      );
-    }
+    const { typesInserted, conditionsInserted } = await seedTenantDefaults(db, orgId, 'SYSTEM');
+    logger.info(
+      { orgId, name: org.name, typesInserted, conditionsInserted },
+      'Seeded types + conditions for tenant',
+    );
   }
 
   // Step 4: Migrate asset.type enum → slug (all tenants at once, bulkWrite)

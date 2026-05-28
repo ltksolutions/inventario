@@ -43,6 +43,7 @@ import {
   RegistrationMethod,
 } from '@inventario/shared-types';
 
+import { seedTenantDefaults } from '../../lib/seed-tenant-defaults.js';
 import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
 
@@ -59,7 +60,7 @@ import type {
   User,
 } from '@inventario/shared-types';
 import type { FastifyRequest } from 'fastify';
-import type { ClientSession, MongoClient, WithId } from 'mongodb';
+import type { ClientSession, Db, MongoClient, WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
 // Public API types
@@ -101,6 +102,7 @@ export class OrganisationsService {
     private readonly repo: OrganisationsRepository,
     private readonly auditLog: AuditLogService | null,
     private readonly mongoClient: MongoClient | null,
+    private readonly db: Db | null = null,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -141,7 +143,12 @@ export class OrganisationsService {
     const newOrg = this.buildOrganisationFromClaims(claims);
 
     try {
-      return await this.repo.insert(newOrg);
+      const insertedOrg = await this.repo.insert(newOrg);
+      // Seed default taxonomy (types + conditions) for the brand-new
+      // tenant. Best-effort: a seed failure must not abort provisioning —
+      // the migration runner and a retry on next request will backfill.
+      await this.seedDefaultsForTenant(String(insertedOrg._id));
+      return insertedOrg;
     } catch (err) {
       // MongoDB error code 11000 = duplicate key. Two concurrent requests
       // for the same first-time Entra tenant raced; the loser re-fetches
@@ -151,6 +158,23 @@ export class OrganisationsService {
         if (existingAfterRace) return existingAfterRace;
       }
       throw err;
+    }
+  }
+
+  /**
+   * Seed default taxonomy for a newly-created tenant. Best-effort and
+   * idempotent (upsert on slug). Requires `db` to be wired (it is, via
+   * the routes plugin); if not, seeding is silently skipped so unit
+   * tests that construct the service without a db still work.
+   */
+  private async seedDefaultsForTenant(organisationId: string): Promise<void> {
+    if (!this.db) return;
+    try {
+      await seedTenantDefaults(this.db, organisationId, 'SYSTEM');
+    } catch {
+      // Best-effort: a seed failure must never break tenant provisioning
+      // or login. The migration runner backfills on next deploy, and the
+      // upsert is idempotent so a later retry completes the seed.
     }
   }
 
@@ -362,6 +386,11 @@ export class OrganisationsService {
 
       return insertedDoc;
     });
+
+    // Seed default taxonomy for the newly-created tenant (best-effort,
+    // outside the create transaction so a seed hiccup doesn't roll back
+    // the org). Idempotent upsert — safe even if retried.
+    await this.seedDefaultsForTenant(String(inserted._id));
 
     return toApiShape(inserted);
   }

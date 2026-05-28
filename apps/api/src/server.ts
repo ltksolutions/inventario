@@ -27,6 +27,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
+import { runPendingMigrations } from './migrations/runner.js';
 import assetConditionsRoutes from './modules/asset-conditions/asset-conditions.routes.js';
 import assetTypesRoutes from './modules/asset-types/asset-types.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
@@ -130,6 +131,23 @@ export async function buildServer(
 
   // --- Infrastructure ------------------------------------------------------
   await app.register(mongoPlugin);
+
+  // --- Database migrations -------------------------------------------------
+  // Run pending migrations once the DB connection is available. Skipped in
+  // EXPORT_ONLY mode (schema export uses an ephemeral in-memory DB) and in
+  // tests (each test file manages its own clean DB; seeding defaults would
+  // pollute fixtures). The runner is idempotent — it checks `migrations`
+  // collection for a `completedAt` record per key and skips already-done
+  // migrations, so re-running on every cold start is just one extra query.
+  //
+  // NOTE (scaling): on serverless this runs at request-time on cold start.
+  // For higher traffic / many tenants, move migrations to a dedicated
+  // deploy-time step to avoid running the check on each cold start and to
+  // remove any chance of concurrent cold starts racing (mitigated today by
+  // the unique index on `migrations.key`).
+  if (process.env['EXPORT_ONLY'] !== 'true' && process.env['NODE_ENV'] !== 'test') {
+    await runPendingMigrations(app.mongo.db, app.log);
+  }
   await app.register(auditPlugin);
   await app.register(emailPlugin);
   await app.register(inventarioJwtPlugin);

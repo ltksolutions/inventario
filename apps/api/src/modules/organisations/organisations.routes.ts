@@ -203,7 +203,12 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
   const repo = new OrganisationsRepository(fastify.mongo.db);
-  const service = new OrganisationsService(repo, fastify.auditLog, fastify.mongo.client);
+  const service = new OrganisationsService(
+    repo,
+    fastify.auditLog,
+    fastify.mongo.client,
+    fastify.mongo.db,
+  );
 
   await repo.ensureIndexes();
 
