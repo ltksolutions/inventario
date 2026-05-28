@@ -173,7 +173,7 @@ Duration:     ~75s
 
 ---
 
-**Last updated:** 2026-05-27  
+**Last updated:** 2026-05-28  
 **Tests:** 569 / 569 ✅  
 **Repo:** github.com/ltksolutions/inventario  
-**Status:** Production LIVE ✅ — Ecomail pending, legal review externe, Slice #10 Q1 2027.
+**Status:** Production LIVE ✅ — Ecomail ✅ — Smoke test kroky 1-3 OK (LTK Solutions) — plný smoke test s kolegom pending.
