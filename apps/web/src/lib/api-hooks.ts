@@ -1315,3 +1315,144 @@ export function useCreateAsset(): UseMutationResult<AssetDetail, Error, CreateAs
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Taxonomy mutations — rename category, location, asset type, asset condition
+// ---------------------------------------------------------------------------
+
+type GenericRecord = Record<string, unknown>;
+
+export function useRenameCategory(): UseMutationResult<
+  GenericRecord,
+  Error,
+  { id: string; name: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }) => {
+      const { data, error } = await apiClient.PATCH('/v1/categories/{id}', {
+        params: { path: { id } },
+        body: { name } as never,
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to rename category');
+      }
+      return data as unknown as GenericRecord;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['categories'] }),
+  });
+}
+
+export function useRenameLocation(): UseMutationResult<
+  GenericRecord,
+  Error,
+  { id: string; name: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }) => {
+      const { data, error } = await apiClient.PATCH('/v1/locations/{id}', {
+        params: { path: { id } },
+        body: { name } as never,
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to rename location');
+      }
+      return data as unknown as GenericRecord;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['locations'] }),
+  });
+}
+
+// Asset types + conditions use generic fetch (not in openapi spec yet)
+const genericPatch = apiClient.PATCH as (
+  path: string,
+  opts: unknown,
+) => Promise<{ data: unknown; error: unknown }>;
+
+const genericPost = apiClient.POST as (
+  path: string,
+  opts: unknown,
+) => Promise<{ data: unknown; error: unknown }>;
+
+export function useCreateAssetTypes(): UseMutationResult<
+  GenericRecord,
+  Error,
+  { name: string; slug?: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const { data, error } = await genericPost('/v1/asset-types', { body: input });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to create asset type');
+      }
+      return data as GenericRecord;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-types'] }),
+  });
+}
+
+export function useRenameAssetType(): UseMutationResult<
+  GenericRecord,
+  Error,
+  { id: string; name: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }) => {
+      const { data, error } = await genericPatch(`/v1/asset-types/${id}`, { body: { name } });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to rename asset type');
+      }
+      return data as GenericRecord;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-types'] }),
+  });
+}
+
+export function useCreateAssetConditions(): UseMutationResult<
+  GenericRecord,
+  Error,
+  { name: string; slug?: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const { data, error } = await genericPost('/v1/asset-conditions', { body: input });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to create asset condition',
+        );
+      }
+      return data as GenericRecord;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-conditions'] }),
+  });
+}
+
+export function useRenameAssetCondition(): UseMutationResult<
+  GenericRecord,
+  Error,
+  { id: string; name: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }) => {
+      const { data, error } = await genericPatch(`/v1/asset-conditions/${id}`, { body: { name } });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to rename asset condition',
+        );
+      }
+      return data as GenericRecord;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-conditions'] }),
+  });
+}

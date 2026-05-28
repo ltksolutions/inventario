@@ -3,14 +3,13 @@
 
 'use client';
 
-import {
-  ASSET_CONDITION_VALUES,
-  ASSET_STATUS_VALUES,
-  ASSET_TYPE_VALUES,
-} from '@inventario/shared-types';
+import { ASSET_STATUS_VALUES } from '@inventario/shared-types';
 import { AlertCircle, Save, X } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
+
+import { Combobox } from './Combobox';
+import { TagsCombobox } from './TagsCombobox';
 
 import type {
   AssetDetail,
@@ -20,91 +19,21 @@ import type {
 } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
-import { useUpdateAsset } from '@/lib/api-hooks';
+import {
+  useAssetConditions,
+  useAssetTypes,
+  useCanManageTaxonomy,
+  useCreateAssetConditions,
+  useCreateAssetTypes,
+  useCreateCategory,
+  useCreateLocation,
+  useRenameAssetCondition,
+  useRenameAssetType,
+  useRenameCategory,
+  useRenameLocation,
+  useUpdateAsset,
+} from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
-
-/**
- * Edit form for an asset. Built on react-hook-form so we get dirty
- * tracking, validation error display, and uncontrolled inputs (fewer
- * re-renders per keystroke) without writing it ourselves.
- *
- * Form ↔ wire shape:
- *   The form fields are flat strings/numbers/booleans, mirroring the
- *   AssetDetail wire shape exactly. On submit we filter to only the
- *   fields the user actually changed (`dirtyFields`) and pass that as
- *   the PATCH body — smaller payloads, fewer last-write-wins races.
- *
- * Validation strategy:
- *   We do NOT plug shared-types' Zod UpdateAssetSchema in as the
- *   resolver. Reasons:
- *     - That schema accepts every field as optional, so it can't
- *       catch "this required field went blank" — the form needs its
- *       own min-length rule on name + inventory-style fields.
- *     - The wire shape uses ISO date strings; the Zod schema parses
- *       to Date. Wrapping ISO→Date→ISO on every keystroke is wasteful.
- *   Instead we rely on react-hook-form's built-in `required` /
- *   `maxLength` / `pattern` rules, which cover the same surface the
- *   server-side schema rejects.
- *
- *   The server still validates with the full Zod schema, so a buggy
- *   client can't sneak invalid data through.
- *
- * Not editable here:
- *   - `inventoryNumber` (server identity, immutable per schema)
- *   - `organisationId` (tenant scope, immutable per schema)
- *   - `currentLoanId` (managed by loans module)
- *   - `specs` (free-form JSON; a JSON-aware editor lands when we
- *     wire up category-specific specs schemas)
- *   - `imageIds`, `internalNotes` deferred to a later iteration
- */
-
-/**
- * Form value shape. Strings + null because every native HTML input
- * surfaces values as strings; numbers and dates get parsed at submit
- * time. We use empty string instead of null for unset values because
- * react-hook-form's <input> binding requires a string.
- */
-interface FormValues {
-  name: string;
-  description: string;
-  type: string;
-  categoryId: string;
-  status: string;
-  condition: string;
-  locationId: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  acquiredAt: string; // ISO date (YYYY-MM-DD), <input type="date">
-  acquisitionCost: string; // string for the input, parsed at submit
-  warrantyUntil: string; // ISO date or empty
-  tags: string; // comma-separated, joined/split at edit/submit
-  isLoanable: boolean;
-  requiresApproval: boolean;
-}
-
-/**
- * ISO datetime → YYYY-MM-DD for <input type="date">. The backend
- * sends a full ISO string; date inputs only accept the calendar
- * portion.
- */
-function isoToDateInput(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  // toISOString() always returns UTC; split off the date portion.
-  return d.toISOString().slice(0, 10);
-}
-
-/**
- * YYYY-MM-DD → ISO datetime at start of day UTC. Empty → null.
- */
-function dateInputToISO(value: string): string | null {
-  if (!value) return null;
-  const d = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
 
 const STATUS_LABELS: Record<string, string> = {
   AVAILABLE: 'Dostupné',
@@ -115,24 +44,38 @@ const STATUS_LABELS: Record<string, string> = {
   LOST: 'Stratené',
 };
 
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'Nové',
-  EXCELLENT: 'Vynikajúce',
-  GOOD: 'Dobré',
-  FAIR: 'Použiteľné',
-  POOR: 'Opotrebované',
-  UNUSABLE: 'Nepoužiteľné',
-};
+function isoToDateInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
 
-const TYPE_LABELS: Record<string, string> = {
-  IT: 'IT majetok',
-  SPORTS_GEAR: 'Športová výstroj',
-  TRAINING_EQUIPMENT: 'Tréningové vybavenie',
-  OFFICE_EQUIPMENT: 'Kancelárske vybavenie',
-  MEDIA: 'Médiá a video',
-  COMMUNICATION: 'Komunikácia',
-  OTHER: 'Iné',
-};
+function dateInputToISO(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+interface FormValues {
+  name: string;
+  description: string;
+  typeSlug: string | null;
+  categoryId: string | null;
+  status: string;
+  conditionSlug: string | null;
+  locationId: string | null;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  acquiredAt: string;
+  acquisitionCost: string;
+  warrantyUntil: string;
+  tags: string[];
+  isLoanable: boolean;
+  requiresApproval: boolean;
+}
 
 interface AssetDetailEditFormProps {
   asset: AssetDetail;
@@ -150,20 +93,43 @@ export function AssetDetailEditForm({
   onSaved,
 }: AssetDetailEditFormProps): JSX.Element {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const canManage = useCanManageTaxonomy();
   const updateAsset = useUpdateAsset();
+  const assetTypesQuery = useAssetTypes({ limit: 200 });
+  const assetConditionsQuery = useAssetConditions({ limit: 200 });
+  const createCategory = useCreateCategory();
+  const createLocation = useCreateLocation();
+  const createAssetType = useCreateAssetTypes();
+  const createAssetCondition = useCreateAssetConditions();
+  const renameCategory = useRenameCategory();
+  const renameLocation = useRenameLocation();
+  const renameAssetType = useRenameAssetType();
+  const renameAssetCondition = useRenameAssetCondition();
+
+  const categoryOptions = categories.map((c) => ({ id: c._id, label: c.name }));
+  const locationOptions = locations.map((l) => ({ id: l._id, label: l.name }));
+  const assetTypeOptions = (assetTypesQuery.data?.data ?? []).map((t) => ({
+    id: t.slug,
+    label: t.name,
+  }));
+  const assetConditionOptions = (assetConditionsQuery.data?.data ?? []).map((c) => ({
+    id: c.slug,
+    label: c.name,
+  }));
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, dirtyFields, isDirty },
   } = useForm<FormValues>({
     defaultValues: {
       name: asset.name,
       description: asset.description ?? '',
-      type: asset.type,
+      typeSlug: asset.type,
       categoryId: asset.categoryId,
       status: asset.status,
-      condition: asset.condition,
+      conditionSlug: asset.condition,
       locationId: asset.locationId,
       manufacturer: asset.manufacturer ?? '',
       model: asset.model ?? '',
@@ -171,7 +137,7 @@ export function AssetDetailEditForm({
       acquiredAt: isoToDateInput(asset.acquiredAt),
       acquisitionCost: asset.acquisitionCost == null ? '' : String(asset.acquisitionCost),
       warrantyUntil: isoToDateInput(asset.warrantyUntil),
-      tags: asset.tags.join(', '),
+      tags: asset.tags,
       isLoanable: asset.isLoanable,
       requiresApproval: asset.requiresApproval,
     },
@@ -179,10 +145,6 @@ export function AssetDetailEditForm({
 
   function onSubmit(values: FormValues): void {
     setSubmitError(null);
-
-    // Build a patch that only includes fields the user actually
-    // touched. dirtyFields only flags fields whose value differs from
-    // the default — exactly what we want.
     const patch: AssetUpdatePatch = {};
 
     if (dirtyFields.name) patch.name = values.name.trim();
@@ -190,55 +152,41 @@ export function AssetDetailEditForm({
       const trimmed = values.description.trim();
       patch.description = trimmed.length === 0 ? null : trimmed;
     }
-    if (dirtyFields.type) patch.type = values.type;
-    if (dirtyFields.categoryId) patch.categoryId = values.categoryId;
+    if (dirtyFields.typeSlug && values.typeSlug) patch.type = values.typeSlug;
+    if (dirtyFields.categoryId && values.categoryId) patch.categoryId = values.categoryId;
     if (dirtyFields.status) patch.status = values.status;
-    if (dirtyFields.condition) patch.condition = values.condition;
-    if (dirtyFields.locationId) patch.locationId = values.locationId;
+    if (dirtyFields.conditionSlug && values.conditionSlug) patch.condition = values.conditionSlug;
+    if (dirtyFields.locationId && values.locationId) patch.locationId = values.locationId;
     if (dirtyFields.manufacturer) {
-      const trimmed = values.manufacturer.trim();
-      patch.manufacturer = trimmed.length === 0 ? null : trimmed;
+      const t = values.manufacturer.trim();
+      patch.manufacturer = t.length === 0 ? null : t;
     }
     if (dirtyFields.model) {
-      const trimmed = values.model.trim();
-      patch.model = trimmed.length === 0 ? null : trimmed;
+      const t = values.model.trim();
+      patch.model = t.length === 0 ? null : t;
     }
     if (dirtyFields.serialNumber) {
-      const trimmed = values.serialNumber.trim();
-      patch.serialNumber = trimmed.length === 0 ? null : trimmed;
+      const t = values.serialNumber.trim();
+      patch.serialNumber = t.length === 0 ? null : t;
     }
     if (dirtyFields.acquiredAt) {
       const iso = dateInputToISO(values.acquiredAt);
-      // Required field — only send if we have a valid value; otherwise
-      // the server-side validator catches it.
       if (iso) patch.acquiredAt = iso;
     }
     if (dirtyFields.acquisitionCost) {
-      const trimmed = values.acquisitionCost.trim();
-      if (trimmed === '') {
-        patch.acquisitionCost = null;
-      } else {
-        const parsed = Number(trimmed.replace(',', '.'));
-        if (!Number.isNaN(parsed)) {
-          patch.acquisitionCost = parsed;
-        }
-      }
+      const t = values.acquisitionCost.trim();
+      patch.acquisitionCost = t === '' ? null : Number(t.replace(',', '.'));
     }
     if (dirtyFields.warrantyUntil) {
       patch.warrantyUntil = dateInputToISO(values.warrantyUntil);
     }
     if (dirtyFields.tags) {
-      patch.tags = values.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
+      patch.tags = values.tags;
     }
     if (dirtyFields.isLoanable) patch.isLoanable = values.isLoanable;
     if (dirtyFields.requiresApproval) patch.requiresApproval = values.requiresApproval;
 
     if (Object.keys(patch).length === 0) {
-      // Nothing actually changed (e.g. user edited and reverted) —
-      // just bounce back to read mode without bothering the server.
       onSaved();
       return;
     }
@@ -273,30 +221,62 @@ export function AssetDetailEditForm({
             {...register('name', {
               required: 'Názov je povinný.',
               maxLength: { value: 300, message: 'Maximálne 300 znakov.' },
-              setValueAs: (v: string) => v,
             })}
             className={inputClasses()}
           />
         </Field>
 
         <Field label="Typ majetku" required>
-          <select {...register('type', { required: true })} className={inputClasses()}>
-            {ASSET_TYPE_VALUES.map((t) => (
-              <option key={t} value={t}>
-                {TYPE_LABELS[t] ?? t}
-              </option>
-            ))}
-          </select>
+          <Controller
+            name="typeSlug"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Combobox
+                value={field.value}
+                onChange={field.onChange}
+                options={assetTypeOptions}
+                canCreate={canManage}
+                canRename={canManage}
+                onCreate={async (label) => {
+                  const result = await createAssetType.mutateAsync({ name: label });
+                  return { id: result.slug as string, label: result.name as string };
+                }}
+                onRename={async (slug, newLabel) => {
+                  const entry = assetTypesQuery.data?.data.find((t) => t.slug === slug);
+                  if (entry) await renameAssetType.mutateAsync({ id: entry._id, name: newLabel });
+                }}
+                loading={assetTypesQuery.isLoading}
+              />
+            )}
+          />
         </Field>
 
         <Field label="Kategória" required>
-          <select {...register('categoryId', { required: true })} className={inputClasses()}>
-            {categories.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Controller
+            name="categoryId"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Combobox
+                value={field.value}
+                onChange={field.onChange}
+                options={categoryOptions}
+                canCreate={canManage}
+                canRename={canManage}
+                onCreate={async (label) => {
+                  const result = await createCategory.mutateAsync({
+                    name: label,
+                    assetType: 'OTHER',
+                  });
+                  return { id: result._id, label: result.name };
+                }}
+                onRename={async (id, newLabel) => {
+                  await renameCategory.mutateAsync({ id, name: newLabel });
+                }}
+              />
+            )}
+          />
         </Field>
 
         <Field label="Sériové číslo">
@@ -322,23 +302,57 @@ export function AssetDetailEditForm({
         </Field>
 
         <Field label="Kondícia" required>
-          <select {...register('condition', { required: true })} className={inputClasses()}>
-            {ASSET_CONDITION_VALUES.map((c) => (
-              <option key={c} value={c}>
-                {CONDITION_LABELS[c] ?? c}
-              </option>
-            ))}
-          </select>
+          <Controller
+            name="conditionSlug"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Combobox
+                value={field.value}
+                onChange={field.onChange}
+                options={assetConditionOptions}
+                canCreate={canManage}
+                canRename={canManage}
+                onCreate={async (label) => {
+                  const result = await createAssetCondition.mutateAsync({ name: label });
+                  return { id: result.slug as string, label: result.name as string };
+                }}
+                onRename={async (slug, newLabel) => {
+                  const entry = assetConditionsQuery.data?.data.find((c) => c.slug === slug);
+                  if (entry)
+                    await renameAssetCondition.mutateAsync({ id: entry._id, name: newLabel });
+                }}
+                loading={assetConditionsQuery.isLoading}
+              />
+            )}
+          />
         </Field>
 
         <Field label="Lokalita" required>
-          <select {...register('locationId', { required: true })} className={inputClasses()}>
-            {locations.map((l) => (
-              <option key={l._id} value={l._id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
+          <Controller
+            name="locationId"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Combobox
+                value={field.value}
+                onChange={field.onChange}
+                options={locationOptions}
+                canCreate={canManage}
+                canRename={canManage}
+                onCreate={async (label) => {
+                  const result = await createLocation.mutateAsync({
+                    name: label,
+                    type: 'OTHER',
+                  });
+                  return { id: result._id, label: result.name };
+                }}
+                onRename={async (id, newLabel) => {
+                  await renameLocation.mutateAsync({ id, name: newLabel });
+                }}
+              />
+            )}
+          />
         </Field>
       </Section>
 
@@ -352,7 +366,6 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-
         <Field label="Model">
           <input
             type="text"
@@ -372,7 +385,6 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-
         <Field label="Nadobúdacia cena (€)" hint="Voliteľné. Použite desatinnú bodku alebo čiarku.">
           <input
             type="text"
@@ -386,7 +398,6 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-
         <Field label="Záruka do">
           <input type="date" {...register('warrantyUntil')} className={inputClasses()} />
         </Field>
@@ -402,13 +413,11 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-
-        <Field label="Štítky" hint="Oddeľte čiarkou. Bez # — pridáme automaticky pri zobrazení.">
-          <input
-            type="text"
-            placeholder="napr. it-oddelenie, dev, docking"
-            {...register('tags')}
-            className={inputClasses()}
+        <Field label="Štítky">
+          <Controller
+            name="tags"
+            control={control}
+            render={({ field }) => <TagsCombobox value={field.value} onChange={field.onChange} />}
           />
         </Field>
       </Section>
@@ -424,7 +433,6 @@ export function AssetDetailEditForm({
             <span>Áno — položku je možné si vypožičať</span>
           </label>
         </Field>
-
         <Field label="Vyžaduje schválenie">
           <label className="flex items-center gap-2 text-sm text-text-primary">
             <input

@@ -3,21 +3,36 @@
 
 'use client';
 
-import {
-  ASSET_CONDITION_VALUES,
-  ASSET_STATUS_VALUES,
-  ASSET_TYPE_VALUES,
-} from '@inventario/shared-types';
+import { ASSET_STATUS_VALUES } from '@inventario/shared-types';
 import { AlertCircle, ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
+
+import { Combobox } from './Combobox';
+import { TagsCombobox } from './TagsCombobox';
 
 import type { CreateAssetInput } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
-import { useCanEditAssets, useCategories, useCreateAsset, useLocations } from '@/lib/api-hooks';
+import {
+  useAssetConditions,
+  useAssetTypes,
+  useCanEditAssets,
+  useCanManageTaxonomy,
+  useCategories,
+  useCreateAsset,
+  useCreateAssetConditions,
+  useCreateAssetTypes,
+  useCreateCategory,
+  useCreateLocation,
+  useLocations,
+  useRenameAssetCondition,
+  useRenameAssetType,
+  useRenameCategory,
+  useRenameLocation,
+} from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -29,40 +44,21 @@ const STATUS_LABELS: Record<string, string> = {
   LOST: 'Stratené',
 };
 
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'Nové',
-  EXCELLENT: 'Vynikajúce',
-  GOOD: 'Dobré',
-  FAIR: 'Použiteľné',
-  POOR: 'Opotrebované',
-  UNUSABLE: 'Nepoužiteľné',
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  IT: 'IT majetok',
-  SPORTS_GEAR: 'Športová výstroj',
-  TRAINING_EQUIPMENT: 'Tréningové vybavenie',
-  OFFICE_EQUIPMENT: 'Kancelárske vybavenie',
-  MEDIA: 'Médiá a video',
-  COMMUNICATION: 'Komunikácia',
-  OTHER: 'Iné',
-};
-
 interface FormValues {
   name: string;
   description: string;
-  type: string;
-  categoryId: string;
+  typeSlug: string | null;
+  categoryId: string | null;
   status: string;
-  condition: string;
-  locationId: string;
+  conditionSlug: string | null;
+  locationId: string | null;
   manufacturer: string;
   model: string;
   serialNumber: string;
   acquiredAt: string;
   acquisitionCost: string;
   warrantyUntil: string;
-  tags: string;
+  tags: string[];
   isLoanable: boolean;
   requiresApproval: boolean;
 }
@@ -70,31 +66,43 @@ interface FormValues {
 export function AssetCreateContent(): JSX.Element {
   const router = useRouter();
   const canEdit = useCanEditAssets();
+  const canManage = useCanManageTaxonomy();
   const createAsset = useCreateAsset();
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
+  const assetTypesQuery = useAssetTypes({ limit: 200 });
+  const assetConditionsQuery = useAssetConditions({ limit: 200 });
+  const createCategory = useCreateCategory();
+  const createLocation = useCreateLocation();
+  const createAssetType = useCreateAssetTypes();
+  const createAssetCondition = useCreateAssetConditions();
+  const renameCategory = useRenameCategory();
+  const renameLocation = useRenameLocation();
+  const renameAssetType = useRenameAssetType();
+  const renameAssetCondition = useRenameAssetCondition();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
       name: '',
       description: '',
-      type: 'OTHER',
-      categoryId: '',
+      typeSlug: null,
+      categoryId: null,
       status: 'AVAILABLE',
-      condition: 'NEW',
-      locationId: '',
+      conditionSlug: null,
+      locationId: null,
       manufacturer: '',
       model: '',
       serialNumber: '',
       acquiredAt: new Date().toISOString().slice(0, 10),
       acquisitionCost: '',
       warrantyUntil: '',
-      tags: '',
+      tags: [],
       isLoanable: true,
       requiresApproval: false,
     },
@@ -111,16 +119,38 @@ export function AssetCreateContent(): JSX.Element {
     );
   }
 
+  const categories = (categoriesQuery.data?.data ?? []).map((c) => ({
+    id: c._id,
+    label: c.name,
+  }));
+  const locations = (locationsQuery.data?.data ?? []).map((l) => ({
+    id: l._id,
+    label: l.name,
+  }));
+  const assetTypes = (assetTypesQuery.data?.data ?? []).map((t) => ({
+    id: t.slug,
+    label: t.name,
+  }));
+  const assetConditions = (assetConditionsQuery.data?.data ?? []).map((c) => ({
+    id: c.slug,
+    label: c.name,
+  }));
+
   function onSubmit(values: FormValues): void {
     setSubmitError(null);
 
+    if (!values.typeSlug || !values.categoryId || !values.locationId || !values.conditionSlug) {
+      setSubmitError('Vyplňte všetky povinné polia.');
+      return;
+    }
+
     const input: CreateAssetInput = {
       name: values.name.trim(),
-      type: values.type,
+      type: values.typeSlug,
       categoryId: values.categoryId,
       locationId: values.locationId,
       status: values.status,
-      condition: values.condition,
+      condition: values.conditionSlug,
       description: values.description.trim() || null,
       serialNumber: values.serialNumber.trim() || null,
       manufacturer: values.manufacturer.trim() || null,
@@ -129,10 +159,7 @@ export function AssetCreateContent(): JSX.Element {
         ? Number(values.acquisitionCost.replace(',', '.'))
         : null,
       warrantyUntil: values.warrantyUntil ? `${values.warrantyUntil}T00:00:00.000Z` : null,
-      tags: values.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
+      tags: values.tags,
       isLoanable: values.isLoanable,
       requiresApproval: values.requiresApproval,
     };
@@ -147,9 +174,6 @@ export function AssetCreateContent(): JSX.Element {
       },
     });
   }
-
-  const categories = categoriesQuery.data?.data ?? [];
-  const locations = locationsQuery.data?.data ?? [];
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -184,27 +208,57 @@ export function AssetCreateContent(): JSX.Element {
           </Field>
 
           <Field label="Typ majetku" required>
-            <select {...register('type', { required: true })} className={inputCls()}>
-              {ASSET_TYPE_VALUES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t] ?? t}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="typeSlug"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <Combobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={assetTypes}
+                  canCreate={canManage}
+                  canRename={canManage}
+                  onCreate={async (label) => {
+                    const result = await createAssetType.mutateAsync({ name: label });
+                    return { id: result.slug as string, label: result.name as string };
+                  }}
+                  onRename={async (slug, newLabel) => {
+                    const entry = assetTypesQuery.data?.data.find((t) => t.slug === slug);
+                    if (entry) await renameAssetType.mutateAsync({ id: entry._id, name: newLabel });
+                  }}
+                  loading={assetTypesQuery.isLoading}
+                />
+              )}
+            />
           </Field>
 
           <Field label="Kategória" required error={errors.categoryId?.message}>
-            <select
-              {...register('categoryId', { required: 'Kategória je povinná.' })}
-              className={inputCls()}
-            >
-              <option value="">— Vyberte kategóriu —</option>
-              {categories.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="categoryId"
+              control={control}
+              rules={{ required: 'Kategória je povinná.' }}
+              render={({ field }) => (
+                <Combobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={categories}
+                  canCreate={canManage}
+                  canRename={canManage}
+                  onCreate={async (label) => {
+                    const result = await createCategory.mutateAsync({
+                      name: label,
+                      assetType: 'OTHER',
+                    });
+                    return { id: result._id, label: result.name };
+                  }}
+                  onRename={async (id, newLabel) => {
+                    await renameCategory.mutateAsync({ id, name: newLabel });
+                  }}
+                  loading={categoriesQuery.isLoading}
+                />
+              )}
+            />
           </Field>
 
           <Field label="Sériové číslo">
@@ -224,27 +278,58 @@ export function AssetCreateContent(): JSX.Element {
           </Field>
 
           <Field label="Kondícia" required>
-            <select {...register('condition', { required: true })} className={inputCls()}>
-              {ASSET_CONDITION_VALUES.map((c) => (
-                <option key={c} value={c}>
-                  {CONDITION_LABELS[c] ?? c}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="conditionSlug"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <Combobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={assetConditions}
+                  canCreate={canManage}
+                  canRename={canManage}
+                  onCreate={async (label) => {
+                    const result = await createAssetCondition.mutateAsync({ name: label });
+                    return { id: result.slug as string, label: result.name as string };
+                  }}
+                  onRename={async (slug, newLabel) => {
+                    const entry = assetConditionsQuery.data?.data.find((c) => c.slug === slug);
+                    if (entry)
+                      await renameAssetCondition.mutateAsync({ id: entry._id, name: newLabel });
+                  }}
+                  loading={assetConditionsQuery.isLoading}
+                />
+              )}
+            />
           </Field>
 
           <Field label="Lokalita" required error={errors.locationId?.message}>
-            <select
-              {...register('locationId', { required: 'Lokalita je povinná.' })}
-              className={inputCls()}
-            >
-              <option value="">— Vyberte lokalitu —</option>
-              {locations.map((l) => (
-                <option key={l._id} value={l._id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="locationId"
+              control={control}
+              rules={{ required: 'Lokalita je povinná.' }}
+              render={({ field }) => (
+                <Combobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={locations}
+                  canCreate={canManage}
+                  canRename={canManage}
+                  onCreate={async (label) => {
+                    const result = await createLocation.mutateAsync({
+                      name: label,
+                      type: 'OTHER',
+                    });
+                    return { id: result._id, label: result.name };
+                  }}
+                  onRename={async (id, newLabel) => {
+                    await renameLocation.mutateAsync({ id, name: newLabel });
+                  }}
+                  loading={locationsQuery.isLoading}
+                />
+              )}
+            />
           </Field>
         </Section>
 
@@ -285,12 +370,11 @@ export function AssetCreateContent(): JSX.Element {
           <Field label="Popis">
             <textarea rows={4} {...register('description')} className={inputCls()} />
           </Field>
-          <Field label="Štítky" hint="Oddeľte čiarkou.">
-            <input
-              type="text"
-              placeholder="napr. it-oddelenie, dev"
-              {...register('tags')}
-              className={inputCls()}
+          <Field label="Štítky">
+            <Controller
+              name="tags"
+              control={control}
+              render={({ field }) => <TagsCombobox value={field.value} onChange={field.onChange} />}
             />
           </Field>
         </Section>
