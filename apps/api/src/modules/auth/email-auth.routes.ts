@@ -261,8 +261,17 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       });
 
       // Send verification email
-      const apiBase = fastify.config.OAUTH_REDIRECT_BASE_URL ?? 'http://localhost:3000';
-      await fastify.emailService.sendVerificationEmail(email, verificationToken, apiBase);
+      // Extract base API URL from OAUTH_REDIRECT_BASE_URL (strip the /v1/auth/callback path)
+      const oauthRedirect = fastify.config.OAUTH_REDIRECT_BASE_URL ?? '';
+      const apiBase = oauthRedirect
+        ? oauthRedirect.replace(/\/v1\/auth\/callback.*$/, '')
+        : 'http://localhost:3000';
+
+      try {
+        await fastify.emailService.sendVerificationEmail(email, verificationToken, apiBase);
+      } catch (emailErr) {
+        fastify.log.error({ err: emailErr, to: email }, 'Registration: verification email failed');
+      }
 
       fastify.log.info({ userId: userId.toString(), email }, 'New email/password user registered');
 
