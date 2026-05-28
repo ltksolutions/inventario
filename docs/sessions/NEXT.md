@@ -60,7 +60,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Login**            | ✅ Funguje                                                 |
 | **Pridanie majetku** | ✅ Funguje                                                 |
 | **Legal review**     | ⏳ PENDING (externe)                                       |
-| **Ecomail**          | ⚠️ Treba nakonfigurovať (verifikačné emaily nefungujú)     |
+| **Ecomail**          | ✅ Nakonfigurovaný a funkčný                               |
 | **Slice #10 MCP**    | 📅 Q1 2027 — design hotový (ADR-0017)                      |
 
 ---
