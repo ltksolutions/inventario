@@ -58,10 +58,18 @@ describe('AssetSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('odmieta neznámy AssetType', () => {
+  it('akceptuje ľubovoľný neprázdny type slug (per-tenant kolekcia)', () => {
     const result = AssetSchema.safeParse({
       ...validAssetInput,
       type: 'UNKNOWN',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('odmieta prázdny type string', () => {
+    const result = AssetSchema.safeParse({
+      ...validAssetInput,
+      type: '',
     });
     expect(result.success).toBe(false);
   });
