@@ -3,24 +3,6 @@
 
 'use client';
 
-/**
- * Combobox — Atlas-style typeahead with optional create + rename.
- *
- * Features:
- *   - Shows first 10 items on open; hint if more exist
- *   - Typeahead filters full list (not just visible 10)
- *   - "+ Vytvoriť '<text>'" when no match (canCreate)
- *   - Inline rename via pencil icon (canRename)
- *   - Keyboard: Arrow ↑↓ navigate, Enter select, ESC close
- *   - Fully controlled: caller owns value via `value` + `onChange`
- *   - Works as single-select; TagsCombobox wraps this for multi
- *
- * RBAC wiring:
- *   canCreate  → ASSET_MANAGER | ADMIN
- *   canRename  → ASSET_MANAGER | ADMIN
- *   (delete is handled outside this component, in taxonomy pages)
- */
-
 import { Check, ChevronDown, Loader2, Pencil, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 
@@ -29,42 +11,22 @@ import type { JSX, KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { cn } from '@/lib/cn';
 
 export interface ComboboxOption {
-  /** Stable DB identity — ObjectId string */
   id: string;
-  /** Display label */
   label: string;
 }
 
 export interface ComboboxProps {
-  /** Currently selected option id, or null if none */
   value: string | null;
   onChange: (id: string | null) => void;
-
-  /** Full list of available options (caller fetches, passes here) */
   options: ComboboxOption[];
-
   placeholder?: string;
-
-  /** Show "+ Vytvoriť '<text>'" when no match (ASSET_MANAGER/ADMIN) */
   canCreate?: boolean;
-  /** Called with the raw label the user typed; caller creates via API */
   onCreate?: (label: string) => Promise<{ id: string; label: string }> | void;
-
-  /** Show pencil icon to rename an existing item (ASSET_MANAGER/ADMIN) */
   canRename?: boolean;
-  /** Called with (id, newLabel); caller patches via API */
   onRename?: (id: string, newLabel: string) => Promise<void> | void;
-
-  /** Disable the whole control */
   disabled?: boolean;
-
-  /** Extra class on the trigger button */
   className?: string;
-
-  /** aria-label for accessibility */
   ariaLabel?: string;
-
-  /** Show spinner inside trigger (e.g. while parent mutation runs) */
   loading?: boolean;
 }
 
@@ -90,13 +52,9 @@ export function Combobox({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState<number>(-1);
-
-  // Rename state
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
-
-  // Create loading
   const [createLoading, setCreateLoading] = useState(false);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -104,29 +62,20 @@ export function Combobox({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Derived: selected label
   const selectedOption = options.find((o) => o.id === value) ?? null;
-
-  // Filter options by query
   const filtered = query.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase().trim()))
     : options;
-
   const visible = filtered.slice(0, VISIBLE_LIMIT);
   const hasMore = filtered.length > VISIBLE_LIMIT;
   const totalAll = options.length;
 
-  // Show "create" row when: canCreate + query non-empty + no exact match
   const queryTrimmed = query.trim();
   const exactMatch = options.some((o) => o.label.toLowerCase() === queryTrimmed.toLowerCase());
   const showCreate = canCreate && queryTrimmed.length > 0 && !exactMatch;
-
-  // Build the full navigable list indices:
-  // [0..visible.length-1] = option rows, then optionally the create row
   const totalNavigable = visible.length + (showCreate ? 1 : 0);
   const createIndex = showCreate ? visible.length : -1;
 
-  // Focus input when dropdown opens
   useEffect(() => {
     if (open) {
       setActiveIndex(-1);
@@ -134,26 +83,31 @@ export function Combobox({
     }
   }, [open]);
 
-  // Focus rename input when rename starts
   useEffect(() => {
     if (renamingId !== null) {
       setTimeout(() => renameInputRef.current?.focus(), 0);
     }
   }, [renamingId]);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    function handleClick(e: globalThis.MouseEvent): void {
+    function handleOutside(e: globalThis.MouseEvent): void {
       const root = triggerRef.current?.closest('[data-combobox-root]');
       if (root && !root.contains(e.target as Node)) {
         setOpen(false);
         setQuery('');
       }
     }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
   }, [open]);
+
+  useEffect(() => {
+    if (activeIndex < 0 || !listRef.current) return;
+    const items = listRef.current.querySelectorAll('[role="option"]');
+    const el = items[activeIndex] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
 
   function openDropdown(): void {
     if (disabled) return;
@@ -183,9 +137,7 @@ export function Combobox({
     setCreateLoading(true);
     try {
       const result = await onCreate(queryTrimmed);
-      if (result) {
-        onChange(result.id);
-      }
+      if (result) onChange(result.id);
       closeDropdown();
     } finally {
       setCreateLoading(false);
@@ -220,42 +172,27 @@ export function Combobox({
 
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>): void {
     if (!open) return;
-
     switch (e.key) {
-      case 'ArrowDown': {
+      case 'ArrowDown':
         e.preventDefault();
         setActiveIndex((prev) => (prev + 1) % totalNavigable);
         break;
-      }
-      case 'ArrowUp': {
+      case 'ArrowUp':
         e.preventDefault();
         setActiveIndex((prev) => (prev <= 0 ? totalNavigable - 1 : prev - 1));
         break;
-      }
-      case 'Enter': {
+      case 'Enter':
         e.preventDefault();
-        if (activeIndex === createIndex && showCreate) {
-          void handleCreate();
-        } else if (activeIndex >= 0 && activeIndex < visible.length) {
+        if (activeIndex === createIndex && showCreate) void handleCreate();
+        else if (activeIndex >= 0 && activeIndex < visible.length)
           selectOption(visible[activeIndex]!.id);
-        }
         break;
-      }
-      case 'Escape': {
+      case 'Escape':
         e.preventDefault();
         closeDropdown();
         break;
-      }
     }
   }
-
-  // Scroll active item into view
-  useEffect(() => {
-    if (activeIndex < 0 || !listRef.current) return;
-    const items = listRef.current.querySelectorAll('[role="option"]');
-    const el = items[activeIndex] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex]);
 
   return (
     <div data-combobox-root className="relative" onKeyDown={handleKeyDown} role="presentation">
@@ -282,7 +219,6 @@ export function Combobox({
         <span className={cn('truncate', !selectedOption && 'text-text-muted')}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-
         <span className="flex shrink-0 items-center gap-1">
           {loading && (
             <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin text-text-muted" />
@@ -345,6 +281,7 @@ export function Combobox({
                   key={option.id}
                   role="option"
                   aria-selected={isSelected}
+                  tabIndex={-1}
                   className={cn(
                     'group flex items-center gap-2 px-3 py-2 text-sm',
                     isActive && 'bg-surface-subtle',
@@ -354,8 +291,13 @@ export function Combobox({
                   onClick={() => {
                     if (!isRenaming) selectOption(option.id);
                   }}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && !isRenaming) {
+                      e.preventDefault();
+                      selectOption(option.id);
+                    }
+                  }}
                 >
-                  {/* Check mark */}
                   <Check
                     aria-hidden="true"
                     className={cn(
@@ -364,11 +306,12 @@ export function Combobox({
                     )}
                   />
 
-                  {/* Label or rename input */}
                   {isRenaming ? (
                     <div
+                      role="presentation"
                       className="flex flex-1 items-center gap-1"
                       onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
                     >
                       <input
                         ref={renameInputRef}
@@ -423,24 +366,29 @@ export function Combobox({
               );
             })}
 
-            {/* "Zobrazených N z M" hint */}
             {hasMore && (
               <li className="px-3 py-1.5 text-xs text-text-muted">
                 Zobrazených {VISIBLE_LIMIT} z {filtered.length}. Píšte pre vyhľadanie.
               </li>
             )}
 
-            {/* "+ Vytvoriť" row */}
             {showCreate && (
               <li
                 role="option"
                 aria-selected={false}
+                tabIndex={-1}
                 className={cn(
                   'flex cursor-pointer items-center gap-2 border-t border-border-subtle px-3 py-2 text-sm font-medium text-brand-primary',
                   activeIndex === createIndex && 'bg-surface-subtle',
                 )}
                 onMouseEnter={() => setActiveIndex(createIndex)}
                 onClick={() => void handleCreate()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void handleCreate();
+                  }
+                }}
               >
                 {createLoading ? (
                   <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -451,7 +399,6 @@ export function Combobox({
             )}
           </ul>
 
-          {/* Total hint when dropdown first opens (no query, many items) */}
           {!query && totalAll > VISIBLE_LIMIT && (
             <div className="border-t border-border-subtle px-3 py-1.5 text-xs text-text-muted">
               Zobrazených {VISIBLE_LIMIT} z {totalAll}. Píšte pre vyhľadanie.

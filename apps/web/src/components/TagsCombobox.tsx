@@ -131,6 +131,7 @@ export function TagsCombobox({
     <div ref={containerRef} className={cn('relative', className)}>
       {/* Pills + input */}
       <div
+        role="presentation"
         className={cn(
           'flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-2 py-1.5',
           'focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus',
@@ -138,6 +139,9 @@ export function TagsCombobox({
           disabled && 'cursor-not-allowed bg-surface-subtle',
         )}
         onClick={() => !disabled && inputRef.current?.focus()}
+        onKeyDown={() => {
+          /* keyboard handled by child input */
+        }}
       >
         {value.map((tag) => (
           <span
@@ -193,8 +197,15 @@ export function TagsCombobox({
                 'cursor-pointer px-3 py-1.5 text-sm text-text-primary hover:bg-surface-subtle',
                 idx === activeIndex && 'bg-surface-subtle',
               )}
+              tabIndex={-1}
               onMouseEnter={() => setActiveIndex(idx)}
               onClick={() => addTag(s)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  addTag(s);
+                }
+              }}
             >
               #{s}
             </li>
@@ -206,7 +217,14 @@ export function TagsCombobox({
                 role="option"
                 aria-selected={false}
                 className="cursor-pointer border-t border-border-subtle px-3 py-1.5 text-sm font-medium text-brand-primary hover:bg-surface-subtle"
+                tabIndex={-1}
                 onClick={() => addTag(inputValue)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    addTag(inputValue);
+                  }
+                }}
               >
                 + Pridať &ldquo;{inputValue.trim()}&rdquo;
               </li>
