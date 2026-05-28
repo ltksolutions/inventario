@@ -8,19 +8,20 @@ import {
   ArrowLeft,
   Boxes,
   CalendarDays,
+  ChevronRight,
   ClipboardList,
   Clock,
+  Download,
   FileText,
   Layers,
   Loader2,
   Paperclip,
   Pencil,
-  QrCode,
   RotateCcw,
   ShieldAlert,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AssetDetailEditForm } from './AssetDetailEditForm';
 import { AssetDetailReadView } from './AssetDetailReadView';
@@ -51,13 +52,6 @@ const STATUS_LABELS: Record<string, string> = {
   LOST: 'Stratené',
 };
 
-const LOAN_STATUS_LABELS: Record<string, string> = {
-  ACTIVE: 'Aktívna',
-  RETURNED: 'Vrátená',
-  DAMAGED: 'Poškodená',
-  LOST: 'Stratená',
-};
-
 const CONDITION_LABELS: Record<string, string> = {
   NEW: 'Nové',
   EXCELLENT: 'Vynikajúce',
@@ -67,21 +61,22 @@ const CONDITION_LABELS: Record<string, string> = {
   UNUSABLE: 'Nepoužiteľné',
 };
 
+const LOAN_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: 'Aktívna',
+  RETURNED: 'Vrátená',
+  DAMAGED: 'Poškodená',
+  LOST: 'Stratená',
+};
+
 // ---------------------------------------------------------------------------
-// Tabs definition
+// Tabs
 // ---------------------------------------------------------------------------
 
 type TabId = 'overview' | 'history' | 'audit' | 'attachments' | 'related';
 
-interface TabDef {
-  id: TabId;
-  label: string;
-  icon: JSX.Element;
-}
-
-const TABS: TabDef[] = [
-  { id: 'overview', label: 'Prehľad', icon: <ClipboardList className="h-4 w-4" /> },
-  { id: 'history', label: 'História výpožičiek', icon: <CalendarDays className="h-4 w-4" /> },
+const TABS: { id: TabId; label: string; icon: JSX.Element }[] = [
+  { id: 'overview', label: 'Detail', icon: <ClipboardList className="h-4 w-4" /> },
+  { id: 'history', label: 'História pohybov', icon: <CalendarDays className="h-4 w-4" /> },
   { id: 'audit', label: 'Audit log', icon: <ShieldAlert className="h-4 w-4" /> },
   { id: 'attachments', label: 'Prílohy', icon: <Paperclip className="h-4 w-4" /> },
   { id: 'related', label: 'Súvisiace', icon: <Boxes className="h-4 w-4" /> },
@@ -109,11 +104,19 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
       <nav className="mb-4 flex items-center gap-2 text-sm" aria-label="Drobky">
         <Link
           href="/assets"
-          className="inline-flex items-center gap-1 rounded text-text-secondary transition hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="inline-flex items-center gap-1 rounded text-text-secondary transition hover:text-text-primary"
         >
           <ArrowLeft aria-hidden="true" className="h-4 w-4" />
           Späť na zoznam
         </Link>
+        {assetQuery.data && (
+          <>
+            <span className="text-text-muted">·</span>
+            <span className="text-text-muted">Majetok</span>
+            <span className="text-text-muted">›</span>
+            <span className="truncate font-medium text-text-primary">{assetQuery.data.name}</span>
+          </>
+        )}
       </nav>
 
       {assetQuery.isLoading ? (
@@ -122,91 +125,97 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
         <ErrorState error={assetQuery.error} assetId={assetId} />
       ) : assetQuery.data ? (
         <>
-          {/* Hero */}
-          {mode === 'read' ? (
-            <AssetHero
-              asset={assetQuery.data}
-              categoryName={categoriesById.get(assetQuery.data.categoryId)?.name}
-              locationName={locationsById.get(assetQuery.data.locationId)?.name}
-              canEdit={canEdit}
-              onEdit={() => setMode('edit')}
-            />
-          ) : (
-            <div className="mb-6 rounded-xl border border-border-subtle bg-surface-card p-5">
-              <p className="font-mono text-xs uppercase tracking-wider text-text-muted">
-                {assetQuery.data.inventoryNumber}
-              </p>
-              <h1 className="mt-1 text-xl font-bold text-text-primary">
-                {assetQuery.data.name} — <span className="text-text-secondary">Úprava</span>
-              </h1>
-            </div>
-          )}
-
-          {/* Edit form */}
           {mode === 'edit' ? (
-            <AssetDetailEditForm
-              asset={assetQuery.data}
-              categories={categoriesQuery.data?.data ?? []}
-              locations={locationsQuery.data?.data ?? []}
-              onCancel={() => setMode('read')}
-              onSaved={() => setMode('read')}
-            />
+            <>
+              <div className="mb-6 rounded-xl border border-border-subtle bg-surface-card p-5">
+                <p className="font-mono text-xs uppercase tracking-wider text-text-muted">
+                  {assetQuery.data.inventoryNumber}
+                </p>
+                <h1 className="mt-1 text-xl font-bold text-text-primary">
+                  {assetQuery.data.name} — <span className="text-text-secondary">Úprava</span>
+                </h1>
+              </div>
+              <AssetDetailEditForm
+                asset={assetQuery.data}
+                categories={categoriesQuery.data?.data ?? []}
+                locations={locationsQuery.data?.data ?? []}
+                onCancel={() => setMode('read')}
+                onSaved={() => setMode('read')}
+              />
+            </>
           ) : (
             <>
-              {/* Tab bar */}
-              <div className="mb-0 overflow-x-auto">
-                <div className="flex min-w-max border-b border-border-subtle">
-                  {TABS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveTab(tab.id)}
-                      className={cn(
-                        'flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors',
-                        activeTab === tab.id
-                          ? 'border-brand-primary text-text-primary'
-                          : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-default',
-                      )}
-                      aria-current={activeTab === tab.id ? 'true' : undefined}
-                    >
-                      {tab.icon}
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+              {/* Hero grid: 2-col (info + QR) */}
+              <div className="mb-0 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                {/* Main hero card */}
+                <AssetHeroCard
+                  asset={assetQuery.data}
+                  categoryName={categoriesById.get(assetQuery.data.categoryId)?.name}
+                  locationName={locationsById.get(assetQuery.data.locationId)?.name}
+                  canEdit={canEdit}
+                  onEdit={() => setMode('edit')}
+                />
+                {/* QR card */}
+                <QrCard inventoryNumber={assetQuery.data.inventoryNumber} />
               </div>
 
-              {/* Tab content */}
-              <div className="mt-6">
-                {activeTab === 'overview' && (
-                  <AssetDetailReadView
-                    asset={assetQuery.data}
-                    categoriesById={categoriesById}
-                    locationsById={locationsById}
-                  />
-                )}
-                {activeTab === 'history' && <LoanHistoryTab assetId={assetId} />}
-                {activeTab === 'audit' && (
-                  <StubTab
-                    icon={<ShieldAlert className="h-8 w-8" />}
-                    title="Audit log"
-                    description="Kompletný záznam zmien — čoskoro k dispozícii."
-                  />
-                )}
-                {activeTab === 'attachments' && (
-                  <StubTab
-                    icon={<Paperclip className="h-8 w-8" />}
-                    title="Prílohy"
-                    description="Faktúry, záručné listy, fotodokumentácia — čoskoro."
-                  />
-                )}
-                {activeTab === 'related' && (
-                  <RelatedAssetsTab
-                    currentAssetId={assetId}
-                    categoryId={assetQuery.data.categoryId}
-                    categoryName={categoriesById.get(assetQuery.data.categoryId)?.name}
-                  />
-                )}
+              {/* Tabs */}
+              <div className="mt-4 overflow-hidden rounded-xl border border-border-subtle bg-surface-card">
+                {/* Tab bar */}
+                <div className="overflow-x-auto border-b border-border-subtle">
+                  <div className="flex min-w-max">
+                    {TABS.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveTab(tab.id)}
+                        aria-current={activeTab === tab.id ? 'true' : undefined}
+                        className={cn(
+                          'flex items-center gap-2 whitespace-nowrap border-b-2 px-5 py-3.5 text-sm font-medium transition-colors',
+                          activeTab === tab.id
+                            ? 'border-brand-primary text-text-primary'
+                            : 'border-transparent text-text-secondary hover:border-border-default hover:text-text-primary',
+                        )}
+                      >
+                        {tab.icon}
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tab content */}
+                <div className="p-5 lg:p-6">
+                  {activeTab === 'overview' && (
+                    <AssetDetailReadView
+                      asset={assetQuery.data}
+                      categoriesById={categoriesById}
+                      locationsById={locationsById}
+                    />
+                  )}
+                  {activeTab === 'history' && <LoanHistoryTab assetId={assetId} />}
+                  {activeTab === 'audit' && (
+                    <StubTab
+                      icon={<ShieldAlert className="h-8 w-8" />}
+                      title="Audit log"
+                      description="Kompletný záznam zmien podľa GDPR Article 30 — čoskoro k dispozícii."
+                    />
+                  )}
+                  {activeTab === 'attachments' && (
+                    <StubTab
+                      icon={<Paperclip className="h-8 w-8" />}
+                      title="Prílohy"
+                      description="Faktúry, záručné listy, fotodokumentácia — čoskoro."
+                    />
+                  )}
+                  {activeTab === 'related' && (
+                    <RelatedAssetsTab
+                      currentAssetId={assetId}
+                      categoryId={assetQuery.data.categoryId}
+                      categoryName={categoriesById.get(assetQuery.data.categoryId)?.name}
+                    />
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -217,27 +226,8 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
 }
 
 // ---------------------------------------------------------------------------
-// Hero
+// Status helpers
 // ---------------------------------------------------------------------------
-
-function statusHeroGradient(status: string): string {
-  switch (status) {
-    case 'AVAILABLE':
-      return 'from-[#1a2d47] to-[#1e5c3a]';
-    case 'BORROWED':
-      return 'from-[#1a2d47] to-[#7c4a0a]';
-    case 'RESERVED':
-      return 'from-[#1a2d47] to-[#1a3d6d]';
-    case 'IN_SERVICE':
-      return 'from-[#1a2d47] to-[#3d2a0a]';
-    case 'DISPOSED':
-      return 'from-[#2d2d2d] to-[#1a2d47]';
-    case 'LOST':
-      return 'from-[#3d1a1a] to-[#1a2d47]';
-    default:
-      return 'from-[#1a2d47] to-[#2d3748]';
-  }
-}
 
 function statusBadgeClasses(status: string): string {
   switch (status) {
@@ -249,15 +239,29 @@ function statusBadgeClasses(status: string): string {
       return 'bg-amber-100 text-amber-800';
     case 'BORROWED':
       return 'bg-orange-100 text-orange-800';
-    case 'DISPOSED':
-    case 'LOST':
-      return 'bg-red-100 text-red-800';
     default:
-      return 'bg-surface-subtle text-text-secondary';
+      return 'bg-red-100 text-red-800';
   }
 }
 
-function AssetHero({
+function heroGradient(status: string): string {
+  switch (status) {
+    case 'AVAILABLE':
+      return 'from-[#1a2d47] to-[#1e5c3a]';
+    case 'BORROWED':
+      return 'from-[#1a2d47] to-[#7c4a0a]';
+    case 'IN_SERVICE':
+      return 'from-[#1a2d47] to-[#3d2a0a]';
+    default:
+      return 'from-[#1a2d47] to-[#2d3748]';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hero card (lg:col-span-2)
+// ---------------------------------------------------------------------------
+
+function AssetHeroCard({
   asset,
   categoryName,
   locationName,
@@ -271,80 +275,199 @@ function AssetHero({
   onEdit: () => void;
 }): JSX.Element {
   return (
-    <div
-      className={cn(
-        'mb-0 rounded-t-xl bg-gradient-to-br text-white shadow-sm',
-        statusHeroGradient(asset.status),
-      )}
-    >
-      <div className="relative overflow-hidden rounded-t-xl px-5 py-6 sm:px-7 sm:py-8">
-        {/* Background shimmer */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.08),transparent_60%)]" />
-
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-          {/* Icon circle */}
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur ring-1 ring-white/20">
-            <Layers aria-hidden="true" className="h-7 w-7 text-white" />
+    <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-sm lg:col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-5">
+        {/* Thumb */}
+        <div
+          className={cn(
+            'relative flex min-h-[140px] items-center justify-center bg-gradient-to-br sm:col-span-2 sm:min-h-[220px]',
+            heroGradient(asset.status),
+          )}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_25%_30%,rgba(255,255,255,0.15),transparent_50%)]" />
+          <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+            <Layers aria-hidden="true" className="h-8 w-8 text-white" />
           </div>
+        </div>
 
-          {/* Main info */}
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/60">
-              {asset.inventoryNumber}
-            </p>
-            <h1 className="mt-0.5 text-xl font-bold leading-snug text-white sm:text-2xl">
-              {asset.name}
-            </h1>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span
-                className={cn(
-                  'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                  statusBadgeClasses(asset.status),
-                )}
-              >
-                {STATUS_LABELS[asset.status] ?? asset.status}
-              </span>
-              <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium text-white">
-                {CONDITION_LABELS[asset.condition] ?? asset.condition}
-              </span>
-              {categoryName && (
-                <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/70">
-                  {categoryName}
-                </span>
-              )}
-              {locationName && (
-                <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/70">
-                  📍 {locationName}
-                </span>
-              )}
+        {/* Info */}
+        <div className="flex flex-col p-5 sm:col-span-3 lg:p-6">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-text-muted">
+                {asset.inventoryNumber}
+              </p>
+              <h1 className="mt-0.5 text-xl font-bold leading-tight text-text-primary lg:text-2xl">
+                {asset.name}
+              </h1>
+              {categoryName && <p className="mt-1 text-sm text-text-secondary">{categoryName}</p>}
             </div>
+            <span
+              className={cn(
+                'shrink-0 rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+                statusBadgeClasses(asset.status),
+              )}
+            >
+              {STATUS_LABELS[asset.status] ?? asset.status}
+            </span>
           </div>
 
-          {/* Right side: QR + CTA */}
-          <div className="flex shrink-0 flex-col items-end gap-3">
-            {/* QR code placeholder */}
-            <div className="hidden rounded-xl bg-white p-2 sm:flex">
-              <div className="flex h-[72px] w-[72px] flex-col items-center justify-center gap-1 text-text-primary">
-                <QrCode aria-hidden="true" className="h-9 w-9 text-brand-primary" />
-                <span className="text-[8px] font-mono text-text-muted leading-none text-center">
-                  {asset.inventoryNumber.slice(-6)}
-                </span>
+          {/* Quick meta grid */}
+          <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+            {locationName && (
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                  Lokácia
+                </p>
+                <p className="mt-0.5 font-medium text-text-primary">📍 {locationName}</p>
               </div>
+            )}
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                Kondícia
+              </p>
+              <p className="mt-0.5 font-medium text-text-primary">
+                {CONDITION_LABELS[asset.condition] ?? asset.condition}
+              </p>
             </div>
+            {asset.warrantyUntil && (
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                  Záruka do
+                </p>
+                <p className="mt-0.5 font-mono font-medium text-text-primary">
+                  {formatDate(asset.warrantyUntil)}
+                </p>
+              </div>
+            )}
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                Pridané
+              </p>
+              <p className="mt-0.5 font-mono font-medium text-text-primary">
+                {formatDate(asset.acquiredAt)}
+              </p>
+            </div>
+          </div>
 
-            {canEdit && (
+          {/* Actions */}
+          {canEdit && (
+            <div className="mt-auto flex flex-wrap gap-2 pt-4">
               <button
                 type="button"
                 onClick={onEdit}
-                className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/30 transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:opacity-90"
               >
-                <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                <Pencil aria-hidden="true" className="h-4 w-4" />
                 Upraviť
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// QR card
+// ---------------------------------------------------------------------------
+
+function QrCard({ inventoryNumber }: { inventoryNumber: string }): JSX.Element {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [qrSvg, setQrSvg] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Use qrcode-generator via CDN-free approach: build a minimal QR SVG
+    // We generate a URL that encodes the inventory number
+    const url = `https://app.inventario.estate/assets?q=${encodeURIComponent(inventoryNumber)}`;
+
+    // Load qrcode-generator dynamically
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+    script.onload = () => {
+      try {
+        // @ts-expect-error — global from CDN
+        const qr = window.qrcode(0, 'M') as {
+          addData: (s: string) => void;
+          make: () => void;
+          createSvgTag: (cellSize: number, margin: number) => string;
+        };
+        qr.addData(url);
+        qr.make();
+        setQrSvg(qr.createSvgTag(4, 0));
+      } catch {
+        // fallback: show placeholder
+      }
+    };
+    // Check if already loaded
+    // @ts-expect-error — global from CDN
+    if (typeof window.qrcode !== 'undefined') {
+      try {
+        // @ts-expect-error — global from CDN
+        const qr = window.qrcode(0, 'M') as {
+          addData: (s: string) => void;
+          make: () => void;
+          createSvgTag: (cellSize: number, margin: number) => string;
+        };
+        qr.addData(url);
+        qr.make();
+        setQrSvg(qr.createSvgTag(4, 0));
+      } catch {
+        /* ignore */
+      }
+    } else {
+      document.head.appendChild(script);
+    }
+  }, [inventoryNumber]);
+
+  return (
+    <div className="flex flex-col rounded-xl border border-border-subtle bg-surface-card p-5 shadow-sm lg:p-6">
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">QR kód</p>
+          <h3 className="font-bold text-text-primary">Identifikácia</h3>
+        </div>
+        <button
+          type="button"
+          title="Stiahnuť"
+          className="rounded p-1.5 text-text-muted transition hover:bg-surface-subtle hover:text-text-primary"
+        >
+          <Download aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* QR code */}
+      <div
+        ref={containerRef}
+        className="mx-auto w-40 rounded-xl border border-border-subtle bg-white p-3 lg:w-44"
+        style={{ lineHeight: 0 }}
+        dangerouslySetInnerHTML={qrSvg ? { __html: qrSvg } : undefined}
+      >
+        {!qrSvg && (
+          <div className="flex h-40 items-center justify-center lg:h-44">
+            <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 text-center">
+        <p className="font-mono text-xs text-text-muted">{inventoryNumber}</p>
+        <p className="mt-2 text-[11px] leading-relaxed text-text-secondary">
+          Naskenujte pre rýchle vyžiadanie alebo vrátenie
+        </p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
+        <button type="button" className="text-xs font-semibold text-brand-primary hover:underline">
+          Tlač štítka →
+        </button>
+        <button
+          type="button"
+          className="text-xs font-medium text-text-muted hover:text-text-primary"
+        >
+          Otvoriť link →
+        </button>
       </div>
     </div>
   );
@@ -366,10 +489,9 @@ function LoanHistoryTab({ assetId }: { assetId: string }): JSX.Element {
   }
 
   const loans = loansQuery.data ?? [];
-
   if (loans.length === 0) {
     return (
-      <div className="rounded-xl border border-border-subtle bg-surface-card p-10 text-center">
+      <div className="py-10 text-center">
         <CalendarDays className="mx-auto h-10 w-10 text-text-muted" aria-hidden="true" />
         <p className="mt-3 text-sm font-medium text-text-primary">Žiadna história výpožičiek</p>
         <p className="mt-1 text-sm text-text-secondary">Tento majetok ešte nebol zapožičaný.</p>
@@ -377,78 +499,69 @@ function LoanHistoryTab({ assetId }: { assetId: string }): JSX.Element {
     );
   }
 
-  // Sort newest first
   const sorted = [...loans].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   return (
-    <div className="space-y-0">
-      <div className="rounded-xl border border-border-subtle bg-surface-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-border-subtle">
-          <h2 className="text-sm font-semibold text-text-primary">
-            História výpožičiek
-            <span className="ml-2 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-normal text-text-secondary">
-              {loans.length}
-            </span>
-          </h2>
-        </div>
-
-        {/* Timeline */}
-        <div className="px-5 py-4">
-          <ol className="relative space-y-0">
-            {sorted.map((loan, idx) => (
-              <LoanTimelineItem key={loan._id} loan={loan} isLast={idx === sorted.length - 1} />
-            ))}
-          </ol>
-        </div>
-      </div>
+    <div>
+      <h3 className="mb-5 font-bold text-text-primary">
+        Časová os výpožičiek
+        <span className="ml-2 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-normal text-text-secondary">
+          {loans.length}
+        </span>
+      </h3>
+      <ol className="ml-2 space-y-0">
+        {sorted.map((loan, idx) => (
+          <LoanTimelineItem key={loan._id} loan={loan} isLast={idx === sorted.length - 1} />
+        ))}
+      </ol>
     </div>
   );
 }
 
 function LoanTimelineItem({ loan, isLast }: { loan: LoanSummary; isLast: boolean }): JSX.Element {
-  const statusColor =
-    loan.status === 'RETURNED'
-      ? 'border-emerald-400 bg-emerald-50'
-      : loan.status === 'ACTIVE'
-        ? 'border-brand-primary bg-blue-50'
-        : loan.status === 'DAMAGED'
-          ? 'border-amber-400 bg-amber-50'
-          : loan.status === 'LOST'
-            ? 'border-red-400 bg-red-50'
-            : 'border-border-default bg-surface-subtle';
-
   const dotColor =
     loan.status === 'RETURNED'
-      ? 'bg-emerald-400'
+      ? 'border-emerald-400'
       : loan.status === 'ACTIVE'
-        ? 'bg-brand-primary'
+        ? 'border-brand-primary'
         : loan.status === 'DAMAGED'
-          ? 'bg-amber-400'
-          : loan.status === 'LOST'
-            ? 'bg-red-400'
-            : 'bg-border-default';
+          ? 'border-amber-400'
+          : 'border-red-400';
+
+  const cardColor =
+    loan.status === 'RETURNED'
+      ? 'bg-white border-border-subtle'
+      : loan.status === 'ACTIVE'
+        ? 'bg-amber-50 border-amber-200'
+        : loan.status === 'DAMAGED'
+          ? 'bg-amber-50 border-amber-200'
+          : 'bg-red-50 border-red-200';
+
+  const badgeColor =
+    loan.status === 'RETURNED'
+      ? 'bg-emerald-100 text-emerald-800'
+      : loan.status === 'ACTIVE'
+        ? 'bg-amber-100 text-amber-900'
+        : loan.status === 'DAMAGED'
+          ? 'bg-amber-100 text-amber-900'
+          : 'bg-red-100 text-red-800';
 
   return (
     <li className="relative flex gap-4 pb-6 last:pb-0">
-      {/* Line */}
       {!isLast && <div className="absolute left-[9px] top-5 bottom-0 w-0.5 bg-border-subtle" />}
-
-      {/* Dot */}
       <div
         className={cn(
-          'relative z-10 mt-1 h-5 w-5 shrink-0 rounded-full border-2 border-white shadow-sm',
+          'relative z-10 mt-1 h-5 w-5 shrink-0 rounded-full border-[3px] bg-surface-card shadow-sm',
           dotColor,
         )}
       />
-
-      {/* Content */}
-      <div className={cn('flex-1 rounded-lg border p-4', statusColor)}>
+      <div className={cn('flex-1 rounded-lg border p-4', cardColor)}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <span className="text-sm font-medium text-text-primary">{loan.purpose}</span>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
+            <p className="text-sm font-bold text-text-primary">{loan.purpose}</p>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-text-secondary">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatDate(loan.pickedUpAt)} – {formatDate(loan.dueAt)}
@@ -463,16 +576,8 @@ function LoanTimelineItem({ loan, isLast }: { loan: LoanSummary; isLast: boolean
           </div>
           <span
             className={cn(
-              'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium',
-              loan.status === 'RETURNED'
-                ? 'bg-emerald-100 text-emerald-800'
-                : loan.status === 'ACTIVE'
-                  ? 'bg-blue-100 text-blue-800'
-                  : loan.status === 'DAMAGED'
-                    ? 'bg-amber-100 text-amber-800'
-                    : loan.status === 'LOST'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-surface-subtle text-text-secondary',
+              'shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+              badgeColor,
             )}
           >
             {LOAN_STATUS_LABELS[loan.status] ?? loan.status}
@@ -515,7 +620,7 @@ function RelatedAssetsTab({
 
   if (related.length === 0) {
     return (
-      <div className="rounded-xl border border-border-subtle bg-surface-card p-10 text-center">
+      <div className="py-10 text-center">
         <Boxes className="mx-auto h-10 w-10 text-text-muted" aria-hidden="true" />
         <p className="mt-3 text-sm font-medium text-text-primary">Žiadne súvisiace položky</p>
         <p className="mt-1 text-sm text-text-secondary">
@@ -526,59 +631,60 @@ function RelatedAssetsTab({
   }
 
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-border-subtle">
-        <h2 className="text-sm font-semibold text-text-primary">
-          Súvisiace — {categoryName ?? categoryId}
-          <span className="ml-2 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-normal text-text-secondary">
-            {related.length}
-          </span>
-        </h2>
-      </div>
-      <ul className="divide-y divide-border-subtle">
+    <div>
+      <h3 className="mb-5 font-bold text-text-primary">
+        Súvisiace — {categoryName ?? categoryId}
+        <span className="ml-2 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-normal text-text-secondary">
+          {related.length}
+        </span>
+      </h3>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {related.map((asset) => (
-          <li key={asset._id}>
-            <Link
-              href={`/assets/${asset._id}`}
-              className="flex items-center gap-4 px-5 py-3 transition hover:bg-surface-subtle"
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-subtle">
-                <FileText aria-hidden="true" className="h-4 w-4 text-text-muted" />
+          <Link
+            key={asset._id}
+            href={`/assets/${asset._id}`}
+            className="group block rounded-lg border border-border-subtle bg-surface-card p-3 transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-subtle">
+                <FileText aria-hidden="true" className="h-5 w-5 text-text-muted" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-text-primary">{asset.name}</p>
-                <p className="font-mono text-xs text-text-muted">{asset.inventoryNumber}</p>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                  {asset.inventoryNumber}
+                </p>
+                <p className="truncate text-sm font-semibold text-text-primary">{asset.name}</p>
               </div>
-              <StatusDot status={asset.status} />
-            </Link>
-          </li>
+              <ChevronRight
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100"
+              />
+            </div>
+            <div className="mt-2.5 flex items-center justify-between border-t border-border-subtle pt-2.5">
+              <StatusBadge status={asset.status} />
+            </div>
+          </Link>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
 
-function StatusDot({ status }: { status: string }): JSX.Element {
-  const cls =
-    status === 'AVAILABLE'
-      ? 'bg-emerald-400'
-      : status === 'BORROWED'
-        ? 'bg-orange-400'
-        : status === 'RESERVED'
-          ? 'bg-blue-400'
-          : status === 'IN_SERVICE'
-            ? 'bg-amber-400'
-            : 'bg-red-400';
+function StatusBadge({ status }: { status: string }): JSX.Element {
   return (
-    <span className="flex items-center gap-1.5 text-xs text-text-secondary">
-      <span className={cn('h-2 w-2 rounded-full', cls)} />
+    <span
+      className={cn(
+        'rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+        statusBadgeClasses(status),
+      )}
+    >
       {STATUS_LABELS[status] ?? status}
     </span>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Stub tab for unimplemented features
+// Stub tab
 // ---------------------------------------------------------------------------
 
 function StubTab({
@@ -591,7 +697,7 @@ function StubTab({
   description: string;
 }): JSX.Element {
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-card p-10 text-center">
+    <div className="py-10 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-surface-subtle text-text-muted">
         {icon}
       </div>
@@ -602,7 +708,7 @@ function StubTab({
 }
 
 // ---------------------------------------------------------------------------
-// Shared helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
 function formatDate(iso: string | null | undefined): string {
@@ -615,13 +721,11 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// Error + skeleton states
+// Error + skeleton
 // ---------------------------------------------------------------------------
 
 function ErrorState({ error, assetId }: { error: Error; assetId: string }): JSX.Element {
-  const status = (error as Error & { status?: number }).status;
-  const isNotFound = status === 404;
-
+  const isNotFound = (error as Error & { status?: number }).status === 404;
   return (
     <div
       role="alert"
@@ -633,7 +737,7 @@ function ErrorState({ error, assetId }: { error: Error; assetId: string }): JSX.
       </h2>
       <p className="mt-2 text-sm text-text-secondary">
         {isNotFound
-          ? `Pre ID ${assetId} sa nenašiel žiadny záznam, alebo k nej nemáte prístup.`
+          ? `Pre ID ${assetId} sa nenašiel žiadny záznam.`
           : 'Skontrolujte pripojenie a skúste obnoviť stránku.'}
       </p>
       <Link
@@ -649,23 +753,25 @@ function ErrorState({ error, assetId }: { error: Error; assetId: string }): JSX.
 
 function DetailSkeleton(): JSX.Element {
   return (
-    <div aria-busy="true" aria-label="Načítavam detail položky" className="space-y-4">
-      {/* Hero skeleton */}
-      <div className="h-36 animate-pulse rounded-xl bg-surface-subtle" />
-      {/* Tabs skeleton */}
-      <div className="flex gap-4 border-b border-border-subtle pb-0">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="mb-0 h-9 w-28 animate-pulse rounded bg-surface-subtle" />
-        ))}
+    <div aria-busy="true" className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="h-56 animate-pulse rounded-xl bg-surface-subtle lg:col-span-2" />
+        <div className="h-56 animate-pulse rounded-xl bg-surface-subtle" />
       </div>
-      {/* Content skeleton */}
-      <div className="space-y-3 rounded-xl border border-border-subtle bg-surface-card p-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex justify-between gap-4">
-            <div className="h-4 w-32 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-4 flex-1 animate-pulse rounded bg-surface-subtle" />
-          </div>
-        ))}
+      <div className="rounded-xl border border-border-subtle bg-surface-card">
+        <div className="flex gap-4 border-b border-border-subtle p-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-6 w-24 animate-pulse rounded bg-surface-subtle" />
+          ))}
+        </div>
+        <div className="space-y-3 p-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex justify-between gap-4">
+              <div className="h-4 w-32 animate-pulse rounded bg-surface-subtle" />
+              <div className="h-4 flex-1 animate-pulse rounded bg-surface-subtle" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
