@@ -167,7 +167,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                           ? 'border-brand-primary text-text-primary'
                           : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-default',
                       )}
-                      aria-selected={activeTab === tab.id}
+                      aria-current={activeTab === tab.id ? 'true' : undefined}
                     >
                       {tab.icon}
                       {tab.label}
