@@ -71,14 +71,66 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. Zmazať staré SFZ clustre (manuálne)
+### 1. Dynamic Combobox pre Asset polia (TOP PRIORITY zajtra)
+
+Vizuálny vzor: Atlas Tags UI s typeahead + "+ vytvoriť novú".
+
+**Políčka s comboboxom (s možnosťou pridania a premenovania):**
+
+- `category` — už v DB ako collection ✅ (len UI)
+- `location` — už v DB ako collection ✅ (len UI)
+- `type` — treba migráciu z enum → collection `asset_types` (per-tenant)
+- `condition` — treba migráciu z enum → collection `asset_conditions` (per-tenant)
+- `tags` — volný multi-select combobox
+
+**UX detaily comboboxu:**
+
+- Placeholder: `"Vyberte alebo začnite písať"` (Atlas-style hint)
+- Po kliku zobrazí prvých **10 položiek** (najnovšie alebo najpoužívanejšie hore)
+- Ak je položiek viac ako 10, pod zoznamom: `"Zobrazených 10 z N. Píšte pre vyhľadanie."`
+- Typeahead filtruje celý zoznam (nie len prvých 10)
+- Pri žiadnej zhode: `"+ Vytvoriť '<text>'"` ako posledná položka (len pre ASSET_MANAGER/ADMIN)
+- Klik na existujúcu položku s ikonou cerusy → inline rename (len pre ASSET_MANAGER/ADMIN)
+- ESC zatvorí dropdown bez zmeny
+- Šípky hore/dole na navigáciu, Enter na výber
+
+**Fixný dropdown ostane:**
+
+- `status` — workflow critical (AVAILABLE → RESERVED → BORROWED ...)
+
+**RBAC:**
+
+- EMPLOYEE: len select z existujúcich
+- ASSET_MANAGER + ADMIN: môžu pridať a premenovať priamo v comboboxe
+- ADMIN only: môže mazat (FK protection bráni mazaniu ak existujú assets)
+
+**Slug:**
+
+- Slug sa regeneruje pri rename (user explicitne súhlasí s rozbitím audit log referácií)
+- Audit log si pamätá referenciu cez `entityId` (ObjectId) ktorý zostane — len `entityName` snapshot bude historický
+
+**Implementačný plán:**
+
+| Blok | Popis                                                                                             | Čas    |
+| ---- | ------------------------------------------------------------------------------------------------- | ------ |
+| K1   | `<Combobox>` reusable komponent (typeahead + creatable + rename)                                  | 1h     |
+| K2   | Backend: nové kolekcie `asset_types` + `asset_conditions` (CRUD + seed defaults pre nové tenanty) | 2h     |
+| K3   | Migrácia: existujúce enum hodnoty → dokumenty v nových kolekciách (per-tenant)                    | 1h     |
+| K4   | Frontend integrácia: AssetCreate + AssetEdit (category, location, type, condition)                | 1h     |
+| K5   | Tags multi-select combobox                                                                        | 1h     |
+| K6   | Slug regenerate pri rename + audit log entityName snapshot                                        | 30 min |
+| K7   | Testy: ensure RBAC, slug behavior, FK protection                                                  | 1h     |
+
+**Celkový odhad:** 7–8h, model Sonnet 4.6.
+
+### 2. Zmazať staré SFZ clustre (manuálne)
 
 **Atlas → Slovenský futbalový zväz projekt:**
 
 - Zmazať `sfz-asset-mgmt-dev`
 - Zmazať `sfz-asset-mgmt-prod`
 
-### 2. Smoke test s kolegom
+### 3. Smoke test s kolegom
 
 Prejsť kroky 4-8 z checklistu:
 
@@ -88,7 +140,7 @@ Prejsť kroky 4-8 z checklistu:
 - [ ] Reset hesla
 - [ ] Odhlásenie + opätovné prihlásenie
 
-### 3. `email_unique` index — systémový problém
+### 4. `email_unique` index — systémový problém
 
 `users` kolekcia má globálny unique index na `email` — blokuje dvoch userov z rôznych org s rovnakým emailom. Pri multi-tenant onboardingu SFZ (keď `office@ltk.solutions` bude aj v SFZ orgu) to padne.
 
@@ -96,7 +148,7 @@ Prejsť kroky 4-8 z checklistu:
 
 **Kedy:** pred onboardingom SFZ alebo prvého externého tenanta.
 
-### 4. SFZ onboarding
+### 5. SFZ onboarding
 
 - SFZ má user `inventario@futbalsfz.sk` s `emailVerified: true` na prod
 - Treba overiť login po novom prod clustri
@@ -179,4 +231,4 @@ Duration:     ~75s
 **Last updated:** 2026-05-28  
 **Tests:** 569 / 569 ✅  
 **Repo:** github.com/ltksolutions/inventario  
-**Status:** Production LIVE ✅ — nové MongoDB clustre ✅ — smoke test kroky 4-8 pending.
+**Status:** Production LIVE ✅ — nové MongoDB clustre ✅ — zajtra: Dynamic Combobox pre Asset polia.
