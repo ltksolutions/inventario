@@ -20,22 +20,28 @@
  * takže opakované volanie nič nezduplikuje ani neprepíše existujúce
  * (napr. premenované) hodnoty.
  *
- * NEseeduje kategórie ani lokality — tie sú organisation-specific a tenant
+ * Seeduje typy + stavy (flat) a kategórie (hierarchické). NEseeduje
+ * lokality — tých je organisation-specific (fyzické miesta) a tenant
  * si ich tvorí sám (cez Číselníky stránku alebo Combobox).
  */
 
-import { DEFAULT_ASSET_CONDITIONS, DEFAULT_ASSET_TYPES } from '@inventario/shared-types';
+import {
+  DEFAULT_ASSET_CONDITIONS,
+  DEFAULT_ASSET_TYPES,
+  DEFAULT_CATEGORIES,
+} from '@inventario/shared-types';
 
-import type { TaxonomyDefault } from '@inventario/shared-types';
+import type { CategoryDefaultNode, TaxonomyDefault } from '@inventario/shared-types';
 import type { Db } from 'mongodb';
 
 interface SeedResult {
   typesInserted: number;
   conditionsInserted: number;
+  categoriesInserted: number;
 }
 
 /**
- * Seed default asset types + conditions for one tenant.
+ * Seed default asset types + conditions + categories for one tenant.
  *
  * @param db              Mongo database handle
  * @param organisationId  Tenant id (string form, matches stored docs)
@@ -64,8 +70,15 @@ export async function seedTenantDefaults(
     createdBy,
     now,
   );
+  const categoriesInserted = await seedCategories(
+    db,
+    DEFAULT_CATEGORIES,
+    organisationId,
+    createdBy,
+    now,
+  );
 
-  return { typesInserted, conditionsInserted };
+  return { typesInserted, conditionsInserted, categoriesInserted };
 }
 
 async function seedCollection(
@@ -102,6 +115,71 @@ async function seedCollection(
       { upsert: true },
     );
     if (result.upsertedCount > 0) inserted++;
+  }
+
+  return inserted;
+}
+
+/**
+ * Seed hierarchical default categories. Two-phase per node: ensure the
+ * parent exists (find-or-insert by slug), capture its _id, then ensure
+ * each child with `parentId` set to the parent's _id.
+ *
+ * Idempotent: find-by-slug first; only insert when missing. Re-running
+ * never duplicates and never reparents an existing (possibly user-moved)
+ * category.
+ *
+ * Categories carry more required fields than types/conditions
+ * (approverIds, requiresApprovalByDefault, maxLoanDays, description) so
+ * we build the full document shape here rather than reusing seedCollection.
+ */
+async function seedCategories(
+  db: Db,
+  nodes: readonly CategoryDefaultNode[],
+  organisationId: string,
+  createdBy: string,
+  now: string,
+): Promise<number> {
+  const categories = db.collection('categories');
+  let inserted = 0;
+
+  const ensureCategory = async (
+    node: CategoryDefaultNode,
+    parentId: string | null,
+  ): Promise<string> => {
+    const existing = await categories.findOne({ organisationId, slug: node.slug });
+    if (existing) return String(existing['_id']);
+
+    const result = await categories.insertOne({
+      organisationId,
+      name: node.name,
+      slug: node.slug,
+      parentId,
+      assetType: node.assetType,
+      description: null,
+      icon: null,
+      color: null,
+      approverIds: [],
+      requiresApprovalByDefault: true,
+      maxLoanDays: null,
+      isActive: true,
+      sortOrder: node.sortOrder,
+      createdAt: now,
+      updatedAt: now,
+      createdBy,
+      updatedBy: createdBy,
+      deletedAt: null,
+      deletedBy: null,
+    });
+    inserted++;
+    return String(result.insertedId);
+  };
+
+  for (const root of nodes) {
+    const parentId = await ensureCategory(root, null);
+    for (const child of root.children ?? []) {
+      await ensureCategory(child, parentId);
+    }
   }
 
   return inserted;

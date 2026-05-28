@@ -7,12 +7,46 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                |
-| ------------------------- | ------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-05-29 (Dynamic Combobox K1–K7 kompletný)          |
-| **Aktuálna fáza**         | Production LIVE — Dynamic Combobox plne implementovaný |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`          |
-| **GitHub**                | https://github.com/ltksolutions/inventario             |
+| Atribút                   | Hodnota                                              |
+| ------------------------- | ---------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-29 (Číselníky + migration fix + tenant seed) |
+| **Aktuálna fáza**         | Production LIVE — onboarding flow ďalej na rade      |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`        |
+| **GitHub**                | https://github.com/ltksolutions/inventario           |
+
+---
+
+## Čo sme spravili 2026-05-29 (pokračovanie)
+
+### Zjednotená stránka Číselníky ✅
+
+- Nová `/ciselniky` so 4 záložkami: Kategórie · Lokality · Typy majetku · Stavy
+- Generická `TaxonomyTable` — názov, slug, extra stĺpec, inline rename (ceruzka), delete (FK protected)
+- `AddInlineDialog` modál na pridanie
+- RBAC: zobrazenie všetci · pridať/premenovať ASSET_MANAGER+ADMIN · zmazať ADMIN only
+- AppShell menu: `Kategórie` + `Lokality` nahradené jedným `Číselníky` (ListChecks)
+- Combobox v asset forme ostáva (rýchle pridanie za behu); Číselníky = správa
+- Staré `/categories` a `/locations` routes ostali funkčné (nie v menu)
+
+### Oprava: migration runner sa nikdy nevolal 🐛✅
+
+- **Bug:** `runPendingMigrations` nebol napojený NIKDE (ani server.ts, ani Vercel `api/index.ts`)
+- Dôsledok: `migrations` kolekcia neexistovala, `asset_types`/`asset_conditions` prázdne na prode
+- **Fix:** napojené do `buildServer()` po mongo plugine; skip v EXPORT_ONLY + test mode
+- Idempotentné (completedAt guard), beží pri cold starte
+- ⚠️ POZNÁMKA: pre vyšší traffic / veľa tenantov presunúť migrácie do deploy-time kroku (nie request-time)
+
+### Auto-seed default číselníkov pre KAŽDÝ nový tenant + fork ✅
+
+- **Jeden zdroj pravdy:** `packages/shared-types/src/defaults/taxonomy-defaults.ts`
+  - `DEFAULT_ASSET_TYPES` (7), `DEFAULT_ASSET_CONDITIONS` (6), `DEFAULT_CATEGORIES` (hierarchické)
+- **Helper:** `apps/api/src/lib/seed-tenant-defaults.ts` — `seedTenantDefaults(db, orgId, createdBy)`
+- **Napojené na 3 miestach:** JIT provisioning + admin create (organisations.service) + migrácie
+- Seed je best-effort (try/catch) — chyba nezhodí login. Idempotentný upsert/find-by-slug.
+- **Kategórie hierarchicky** — 6 hlavných, 3 s podkategóriami (učí používateľa že sa dá vnárať)
+- Lokality zámerne prázdne (fyzické miesta si nastaví tenant)
+- Migrácie: `2026-05-29` (types+conditions+migrate enum→slug) + `2026-05-29b` (categories backfill)
+- Fork prepíše defaulty v shared-types a má vlastný štandard
 
 ---
 
@@ -53,17 +87,31 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. Smoke test formulárov na produkcii (po deployi)
+### 1. Onboarding flow pre nových tenantov 🆕 (kľúčové pre UX)
+
+Nový tenant po prvom logine spadne rovno do prázdneho dashboardu — chýba uvítací/sprievodný krok.
+Číselníky už sú predplnené (typy, stavy, kategórie), ale tenant nemá naviganý "prvé kroky".
+
+**Nápady na zváženie (ešte nezadané):**
+
+- Uvítacia obrazovka / checklist "začni tu": pridať prvý majetok, pozvať kolegu, nastaviť lokality
+- Prázdne stavy stránok s jasným CTA (čiastočne už existuje)
+- Volitený onboarding wizard (názov organizácie, logo, prvá lokalita)
+- Progres indikátor dokončenia setupu
+
+**Treba doriešiť design + rozsah pred implementáciou** (model: Opus 4.7 pre návrh, Sonnet 4.6 pre implementáciu).
+
+### 2. Smoke test po deployi (Číselníky + seed + migrácie)
 
 Po deployi overiť:
 
-- [ ] AssetCreate — Combobox polia fungujú (type, condition, category, location, tags)
-- [ ] AssetEdit — rovnaké
-- [ ] ASSET_MANAGER môže pridať novú hodnotu cez "+ Vytvoriť"
-- [ ] Inline rename funguje
-- [ ] Migrácia prebehla — existujúce assety majú slug values (nie enum values)
+- [ ] `migrations` kolekcia vznikla s 4 záznamami (`completedAt`)
+- [ ] `asset_conditions` → 6 dok., `asset_types` → 7 dok., `categories` → hierarchia
+- [ ] `/ciselniky` ukazuje predplnené hodnoty vo všetkých 4 záložkách
+- [ ] AssetCreate/Edit — Combobox polia fungujú, "+ Vytvoriť", inline rename
+- [ ] Existujúce assety majú slug values (nie enum values)
 
-### 2. Smoke test s kolegom
+### 3. Smoke test s kolegom
 
 Prejsť kroky 4-8 z checklistu:
 
@@ -73,24 +121,36 @@ Prejsť kroky 4-8 z checklistu:
 - [ ] Reset hesla
 - [ ] Odhlásenie + opätovné prihlásenie
 
-### 3. Zmazať staré SFZ clustre (manuálne)
+### 4. Zmazať staré SFZ clustre (manuálne)
 
 **Atlas → Slovenský futbalový zväz projekt:**
 
 - Zmazať `sfz-asset-mgmt-dev`
 - Zmazať `sfz-asset-mgmt-prod`
 
-### 4. `email_unique` index — systémový problém
+### 5. `email_unique` index — systémový problém
 
 `users` kolekcia má globálny unique index na `email` — blokuje dvoch userov z rôznych org s rovnakým emailom.
 
 **Fix:** zmazať `email_unique`, nahradiť s `{ email: 1, deletedAt: 1 }` non-unique.
 **Kedy:** pred onboardingom SFZ alebo prvého externého tenanta.
 
-### 5. SFZ onboarding
+### 6. SFZ onboarding
 
 - SFZ má user `inventario@futbalsfz.sk` s `emailVerified: true` na prod
 - Treba overiť login po novom prod clustri
+
+---
+
+## 📅 Plánované — deploy-time migrácie (tech debt)
+
+Migrácie tiež bežia pri cold starte (request-time). Pre vyšší traffic / veľa tenantov
+ich presunúť do dedikovaného deploy-time kroku, aby:
+
+- nebežala kontrola pri každom cold starte
+- nebolo riziko race medzi paralelnými cold startami (dnes mitigované unique indexom na `migrations.key`)
+
+**Kedy:** pred onboardingom viacerých tenantov / pri zvýšení traffiku.
 
 ---
 
@@ -169,4 +229,4 @@ Duration:     ~80s
 **Last updated:** 2026-05-29
 **Tests:** ~577 ✅
 **Repo:** github.com/ltksolutions/inventario
-**Status:** Production LIVE ✅ — Dynamic Combobox K1–K7 ✅ — CI green ✅
+**Status:** Production LIVE ✅ — Číselníky ✅ — auto-seed tenant defaults ✅ — migration runner fix ✅
