@@ -7,121 +7,118 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                        |
-| ------------------------- | ---------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-27 (Production smoke test + bugfixy)   |
-| **Aktuálna fáza**         | Production LIVE — Slice #10 MCP server Q1 2027 |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`  |
-| **GitHub**                | https://github.com/ltksolutions/inventario     |
+| Atribút                   | Hodnota                                            |
+| ------------------------- | -------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-28 (Production smoke test + bugfixy day 2) |
+| **Aktuálna fáza**         | Production LIVE — smoke test s kolegom pending     |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`      |
+| **GitHub**                | https://github.com/ltksolutions/inventario         |
 
 ---
 
-## Čo sme spravili 2026-05-27 (production smoke test)
+## Čo sme spravili 2026-05-28
 
-### Bugfixy nasadené do produkcie
+### MongoDB migrácia na čisté Inventario clustre ✅
 
-| #   | Problém                | Príčina                                                      | Fix                                       |
-| --- | ---------------------- | ------------------------------------------------------------ | ----------------------------------------- |
-| 1   | 500 pri registrácii    | `customDomain_unique_sparse` — sparse index indexuje aj null | Drop + `partialFilterExpression` na dev   |
-| 2   | 500 opakovaný          | Rovnaký problém na **prod** clusteri (`sfz-asset-mgmt-prod`) | Drop v mongosh na prod                    |
-| 3   | 500 `entraTenantId`    | Ďalší broken sparse index                                    | Drop v mongosh na prod                    |
-| 4   | JWT 500 na reset hesla | Chýbali `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` v Vercel        | Vygenerované RSA kľúče, pridané do Vercel |
-| 5   | Login loop             | Chýbal `CORS_ORIGINS` + `NEXT_PUBLIC_API_BASE_URL` v Vercel  | Doplnené env vars                         |
-| 6   | AuthGate chýbal        | `settings/members` + `settings/organisations` bez AppShell   | Pridaný `AuthGate` wrapper                |
-| 7   | Passkeys 503           | Chýbali `WEBAUTHN_RP_ID/NAME/EXPECTED_ORIGINS` v Vercel      | Pridané env vars                          |
-| 8   | Majetok bez tlačidla   | Role-gating hooks čítali z `/v1/me` namiesto `useAuth()`     | Prepísané na `useAuth()`                  |
-| 9   | Pridanie majetku       | Chýbal create form + endpoint                                | `AssetCreateContent` + `useCreateAsset`   |
+| Starý cluster         | Nový cluster      | Použitie               |
+| --------------------- | ----------------- | ---------------------- |
+| `sfz-asset-mgmt-dev`  | `inventario-dev`  | Lokálny dev + CI testy |
+| `sfz-asset-mgmt-prod` | `inventario-prod` | Vercel produkcia       |
 
-### Migrácie pridané do kódu
+- Nové clustre v novom MongoDB účte (nie SFZ)
+- DB name: `inventario` (pôvodné bolo `sfz_asset_management`)
+- `.env.local` aktualizovaný
+- Vercel env vars aktualizované
+- GitHub CI secret `MONGO_URI_TEST` aktualizovaný
+- **TODO: Zmazať staré `sfz-asset-mgmt-dev` a `sfz-asset-mgmt-prod` clustre** (v SFZ Atlas účte)
 
-- `2026-05-25-fix-org-custom-domain-index.ts` — oprava všetkých broken sparse indexov na organisations kolekcii
+### Bugfixy ✅
 
-### Infraštruktúra
-
-- Repo presunutý z `Slovensky-futbalovy-zvaz/Asset-Management` → `ltksolutions/inventario`
-- GitHub Desktop aktualizovaný, Vercel reconnected, starý repo archivovaný
-- Lokálny adresár premenovaný na `inventario`
-- URL cleanup: `CITATION.cff`, `email.ts`, `package.json`
+| #   | Problém                                                                  | Fix                                                                             |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| 1   | `entraOid_unique` sparse index na `users` — E11000 pri registrácii       | `partialFilterExpression: { entraOid: { $type: 'string' } }`                    |
+| 2   | `invitations.token` sparse index — rovnaký problém                       | `partialFilterExpression`                                                       |
+| 3   | Verifikačný email — zlý `apiBase` URL (obsahoval OAuth callback path)    | Strip `/v1/auth/callback` z URL                                                 |
+| 4   | Logout — cookies sa nemazmali v produkcii                                | `clearCookie` s `domain`, `secure`, `sameSite`                                  |
+| 5   | Email notifikácie výpožičiek                                             | `sendLoanApprovedEmail`, `sendLoanRejectedEmail`, `sendLoanRequestPendingEmail` |
+| 6   | Asset detail redesign v2                                                 | 2-col hero, reálny QR kód (qrcode-generator CDN), taby v karte                  |
+| 7   | MFA spinner po aktivácii                                                 | `useState` → `useEffect` pre MFA status load                                    |
+| 8   | `email_unique` globálny index blokoval viacero userov s rovnakým emailom | Systémový index, treba riešiť pri prvom multi-tenant onboardingu                |
 
 ---
 
-## Stav na 2026-05-27
+## Stav na 2026-05-28
 
 ### 📊 Globálny stav
 
-| Oblasť               | Status                                                     |
-| -------------------- | ---------------------------------------------------------- |
-| **Backend testy**    | ✅ 569 / 569 (33 test files)                               |
-| **Frontend**         | ✅ 9/9 stránok + passkeys + tenant switcher + asset create |
-| **Production**       | ✅ LIVE — app.inventario.estate                            |
-| **GitHub**           | ✅ github.com/ltksolutions/inventario                      |
-| **Vercel**           | ✅ API + Web nasadené a funkčné                            |
-| **Registrácia**      | ✅ Funguje                                                 |
-| **Login**            | ✅ Funguje                                                 |
-| **Pridanie majetku** | ✅ Funguje                                                 |
-| **Legal review**     | ⏳ PENDING (externe)                                       |
-| **Ecomail**          | ✅ Nakonfigurovaný a funkčný                               |
-| **Slice #10 MCP**    | 📅 Q1 2027 — design hotový (ADR-0017)                      |
+| Oblasť                    | Status                                        |
+| ------------------------- | --------------------------------------------- |
+| **Backend testy**         | ✅ 569 / 569 (33 test files)                  |
+| **Frontend**              | ✅ všetky stránky funkčné                     |
+| **Production**            | ✅ LIVE — app.inventario.estate               |
+| **MongoDB**               | ✅ Nové čisté Inventario clustre              |
+| **GitHub**                | ✅ github.com/ltksolutions/inventario         |
+| **Vercel**                | ✅ API + Web nasadené                         |
+| **Registrácia + email**   | ✅ Funguje (noreply@inventario.estate)        |
+| **Login (email/passkey)** | ✅ Funguje                                    |
+| **MFA (TOTP)**            | ✅ Aktivácia + status refresh opravené        |
+| **Výpožičky**             | ✅ Email notifikácie pri schválení/zamietnutí |
+| **Asset detail**          | ✅ 2-col hero + QR kód + 5 tabov              |
+| **Legal review**          | ⏳ externe                                    |
+| **Smoke test s kolegom**  | ⏳ kroky 4-8 pending                          |
 
 ---
 
-## ⏭️ Najbližšie kroky
+## 🔥 Najbližšie kroky (priorita)
 
-### 🔥 Priorita HIGH
+### 1. Zmazať staré SFZ clustre (manuálne)
 
-| Úloha                                                            | Status           |
-| ---------------------------------------------------------------- | ---------------- |
-| **Ecomail konfigurácia** — verifikačné emaily, reset hesla       | ⚠️ TODO          |
-| **Manuálny emailVerified fix** pre existujúcich userov (mongosh) | ⚠️ TODO ak treba |
-| Legal review compliance dokumentov                               | ⏳ externe       |
-| Atlas allowlist → Vercel Secure Compute                          | 📅 post-pilot    |
+**Atlas → Slovenský futbalový zväz projekt:**
 
-### ⚠️ Ecomail setup (priorita pred prvým tenantom)
+- Zmazať `sfz-asset-mgmt-dev`
+- Zmazať `sfz-asset-mgmt-prod`
 
-V Vercel → inventario-api → Environment Variables nastav:
+### 2. Smoke test s kolegom
 
-```
-EMAIL_PROVIDER = ecomail
-ECOMAIL_API_KEY = <tvoj API kľúč z Ecomail dashboardu>
-EMAIL_FROM_ADDRESS = noreply@inventario.estate
-EMAIL_FROM_NAME = Inventario
-```
+Prejsť kroky 4-8 z checklistu:
 
-### 📅 Slice #10 — MCP server (~10 dní, Q1 2027, Sonnet 4.6)
+- [ ] Pridanie majetku + detail + úprava
+- [ ] Žiadosť o výpožičku + schválenie + email notifikácia
+- [ ] Členovia + pozvánka kolegu
+- [ ] Reset hesla
+- [ ] Odhlásenie + opätovné prihlásenie
+
+### 3. `email_unique` index — systémový problém
+
+`users` kolekcia má globálny unique index na `email` — blokuje dvoch userov z rôznych org s rovnakým emailom. Pri multi-tenant onboardingu SFZ (keď `office@ltk.solutions` bude aj v SFZ orgu) to padne.
+
+**Fix:** zmazať `email_unique`, nahradiť s `{ email: 1, deletedAt: 1 }` non-unique pre vyhľadávanie.
+
+**Kedy:** pred onboardingom SFZ alebo prvého externého tenanta.
+
+### 4. SFZ onboarding
+
+- SFZ má user `inventario@futbalsfz.sk` s `emailVerified: true` na prod
+- Treba overiť login po novom prod clustri
+- Ak nefunguje: password reset cez email
+
+---
+
+## 📅 Plánované
+
+### Slice #10 — MCP server (Q1 2027, ~10 dní)
 
 Design: [ADR-0017](../decisions/0017-mcp-server.md)
 
-#### Fáza 1: Backend foundation (Slice #10a)
+| Fáza | Bloky   | Popis                                                                                    |
+| ---- | ------- | ---------------------------------------------------------------------------------------- |
+| #10a | K1–K4   | Backend foundation: `mcp-access-token` schema, repository, routes, cleanup job           |
+| #10b | K5–K10  | MCP server scaffold: SDK setup, token resolver, JWT issuer, openapi-fetch, rate limiting |
+| #10c | K11–K16 | Tool implementation: 10 read tools + 7 write tools + audit log                           |
+| #10d | K17–K18 | Frontend `/settings/integrations` page                                                   |
+| #10e | K19–K23 | Tests + docs + Vercel deployment + DNS                                                   |
 
-| Blok   | Popis                                                                             |
-| ------ | --------------------------------------------------------------------------------- |
-| **K1** | shared-types: `mcp-access-token.ts`. Audit log enum. entityType `McpAccessToken`. |
-| **K2** | `mcp-tokens.repository.ts` — CRUD + findByHash. Indexy.                           |
-| **K3** | `mcp-tokens.routes.ts` — POST/GET/PATCH/DELETE. Tests.                            |
-| **K4** | Cleanup job pre expired tokens — Vercel Cron.                                     |
-
-#### Fáza 2: MCP server scaffold (Slice #10b)
-
-| Blok    | Popis                                                                    |
-| ------- | ------------------------------------------------------------------------ |
-| **K5**  | `apps/mcp-server` new package. Install `@modelcontextprotocol/sdk@^1.x`. |
-| **K6**  | `auth/token-resolver.ts` — Bearer → (userId, membership, JWT).           |
-| **K7**  | `auth/jwt-issuer.ts` — 5min short-lived JWT.                             |
-| **K8**  | `clients/inventario-api.ts` — openapi-fetch factory.                     |
-| **K9**  | `server.ts` — MCP SDK setup. Vercel handler.                             |
-| **K10** | `lib/rate-limit.ts` — Vercel KV-backed counter.                          |
-
-#### Fáza 3–5: Tools + Frontend + Tests
-
-| Blok        | Popis                                        |
-| ----------- | -------------------------------------------- |
-| **K11–K16** | Read + Write tools (17 nástrojov), audit log |
-| **K17–K18** | `/settings/integrations` page                |
-| **K19–K23** | Tests + docs + Vercel deployment             |
-
----
-
-## 📅 Compliance Fáza 2 (po prvom tenant launchom)
+### Compliance Fáza 2 (po 1. tenantovi)
 
 | Dokument                      | Model      | Odhad |
 | ----------------------------- | ---------- | ----- |
@@ -129,6 +126,13 @@ Design: [ADR-0017](../decisions/0017-mcp-server.md)
 | Security & Privacy Whitepaper | Opus 4.7   | ~4h   |
 | Data Retention Schedule       | Sonnet 4.6 | ~2h   |
 | Information Security Policy   | Sonnet 4.6 | ~2h   |
+
+### Post-launch (LOW priority)
+
+- `Cmd+K` tenant picker
+- SOC 2 Type II — pri prvom enterprise tenantovi
+- Dashboard — reálne štatistiky
+- QR kód — tlačiteľné štítky PDF
 
 ---
 
@@ -157,23 +161,22 @@ Duration:     ~75s
 | CRUD endpoints, frontend pages, debug, tests, implementácia | **Sonnet 4.6** |
 | Milestone docs, mechanické edits, scoped docs               | **Haiku 4.5**  |
 
-> **Pri začiatku každej session:** Claude zhodnotí či model pasuje a upozorní pri nesúlade.
-
 ---
 
 ## 📂 Kde nájdeš čo
 
-| Typ                   | Lokácia                                               |
-| --------------------- | ----------------------------------------------------- |
-| **Aktuálny stav**     | `docs/sessions/NEXT.md` (TY SI TU)                    |
-| **ADR-čka**           | `docs/decisions/0001..0017-*.md`                      |
-| **Slice milestones**  | `docs/milestones/slice-*.md`                          |
-| **Passkeys design**   | `docs/decisions/0016-passkeys-implementation-plan.md` |
-| **MCP server design** | `docs/decisions/0017-mcp-server.md`                   |
+| Typ                                 | Lokácia                                               |
+| ----------------------------------- | ----------------------------------------------------- |
+| **Aktuálny stav**                   | `docs/sessions/NEXT.md` (TY SI TU)                    |
+| **Production smoke test checklist** | `docs/sessions/smoke-test-checklist.md`               |
+| **ADR-čka**                         | `docs/decisions/0001..0017-*.md`                      |
+| **Slice milestones**                | `docs/milestones/slice-*.md`                          |
+| **Passkeys design**                 | `docs/decisions/0016-passkeys-implementation-plan.md` |
+| **MCP server design**               | `docs/decisions/0017-mcp-server.md`                   |
 
 ---
 
 **Last updated:** 2026-05-28  
 **Tests:** 569 / 569 ✅  
 **Repo:** github.com/ltksolutions/inventario  
-**Status:** Production LIVE ✅ — Ecomail ✅ — Smoke test kroky 1-3 OK (LTK Solutions) — plný smoke test s kolegom pending.
+**Status:** Production LIVE ✅ — nové MongoDB clustre ✅ — smoke test kroky 4-8 pending.
