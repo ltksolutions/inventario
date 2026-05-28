@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                              |
-| ------------------------- | ---------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-29 (Číselníky + migration fix + tenant seed) |
-| **Aktuálna fáza**         | Production LIVE — onboarding flow ďalej na rade      |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`        |
-| **GitHub**                | https://github.com/ltksolutions/inventario           |
+| Atribút                   | Hodnota                                                |
+| ------------------------- | ------------------------------------------------------ |
+| **Posledná aktualizácia** | 2026-05-29 (prod debug + login fix + 2 bugs na zajtra) |
+| **Aktuálna fáza**         | Production LIVE — 2 bugy na opravu zajtra              |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`          |
+| **GitHub**                | https://github.com/ltksolutions/inventario             |
 
 ---
 
@@ -87,7 +87,29 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. Onboarding flow pre nových tenantov 🆕 (kľúčové pre UX)
+### 1. 🐛 URGENTNÉ: seed pri email registrácii chýba
+
+`register/email` route v `email-auth.routes.ts` vytvára org priamo (bez `OrganisationsService`)
+a nevolá `seedTenantDefaults`. Nový tenant zaregistrovaný cez email nemá predplnené číselníky.
+
+**Fix:** pridať volanie `seedTenantDefaults(db, orgId.toString())` hneď po inser-te org
+v `register/email` handleri (riadok ~225, po `insertOne` pre membership).
+
+**Súbory:** `apps/api/src/modules/auth/email-auth.routes.ts`
+
+### 2. 🐛 URGENTNÉ: MFA email login — sessionStorage token sa neukladá
+
+Po email logine s MFA sa vráti 202 + `mfaSessionToken`, ale frontend nevykoná
+`sessionStorage.setItem` pred `router.push('/login/mfa')` — `/login/mfa` nájde
+`tokenMissing: true` a zobrazí "Platnosť prihlásenia vypršala".
+
+**Hypotéza:** rate limit (10/15min) spôsobil 401 namiesto 202 po opakovaných pokusoch,
+alebo Next.js `router.push` v prod mode spožobí navigation pred kompletným vykonaním
+async handlera. Treba otestovať s čerstvou session (bez rate limitu) a s DevTools Network tab.
+
+**Súbory:** `apps/web/src/components/LoginPage.tsx` → `handleEmailLogin` (riadok ~95)
+
+### 3. Onboarding flow pre nových tenantov (kľúčové pre UX)
 
 Nový tenant po prvom logine spadne rovno do prázdneho dashboardu — chýba uvítací/sprievodný krok.
 Číselníky už sú predplnené (typy, stavy, kategórie), ale tenant nemá naviganý "prvé kroky".
@@ -101,7 +123,7 @@ Nový tenant po prvom logine spadne rovno do prázdneho dashboardu — chýba uv
 
 **Treba doriešiť design + rozsah pred implementáciou** (model: Opus 4.7 pre návrh, Sonnet 4.6 pre implementáciu).
 
-### 2. Smoke test po deployi (Číselníky + seed + migrácie)
+### 4. Smoke test po deployi (Číselníky + seed + migrácie)
 
 Po deployi overiť:
 
@@ -111,7 +133,7 @@ Po deployi overiť:
 - [ ] AssetCreate/Edit — Combobox polia fungujú, "+ Vytvoriť", inline rename
 - [ ] Existujúce assety majú slug values (nie enum values)
 
-### 3. Smoke test s kolegom
+### 5. Smoke test s kolegom
 
 Prejsť kroky 4-8 z checklistu:
 
@@ -121,21 +143,21 @@ Prejsť kroky 4-8 z checklistu:
 - [ ] Reset hesla
 - [ ] Odhlásenie + opätovné prihlásenie
 
-### 4. Zmazať staré SFZ clustre (manuálne)
+### 6. Zmazať staré SFZ clustre (manuálne)
 
 **Atlas → Slovenský futbalový zväz projekt:**
 
 - Zmazať `sfz-asset-mgmt-dev`
 - Zmazať `sfz-asset-mgmt-prod`
 
-### 5. `email_unique` index — systémový problém
+### 7. `email_unique` index — systémový problém
 
 `users` kolekcia má globálny unique index na `email` — blokuje dvoch userov z rôznych org s rovnakým emailom.
 
 **Fix:** zmazať `email_unique`, nahradiť s `{ email: 1, deletedAt: 1 }` non-unique.
 **Kedy:** pred onboardingom SFZ alebo prvého externého tenanta.
 
-### 6. SFZ onboarding
+### 8. SFZ onboarding
 
 - SFZ má user `inventario@futbalsfz.sk` s `emailVerified: true` na prod
 - Treba overiť login po novom prod clustri
@@ -229,4 +251,4 @@ Duration:     ~80s
 **Last updated:** 2026-05-29
 **Tests:** ~577 ✅
 **Repo:** github.com/ltksolutions/inventario
-**Status:** Production LIVE ✅ — Číselníky ✅ — auto-seed tenant defaults ✅ — migration runner fix ✅
+**Status:** Production LIVE ✅ — login fix ✅ — 2 bugy na zajtra 🐛 (seed pri registrácii + MFA sessionStorage)
