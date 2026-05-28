@@ -324,7 +324,7 @@ export interface InsertTestAssetOptions {
   /** Asset status. Defaults to AVAILABLE. */
   status?: 'AVAILABLE' | 'BORROWED' | 'IN_REPAIR' | 'RETIRED' | 'LOST';
   /** Asset condition. Defaults to NEW. */
-  condition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'BROKEN';
+  condition?: string;
   /** Asset type. Defaults to IT. */
   type?: string;
   /** Category ID (24-hex string). Defaults to a fixed test sentinel. */
@@ -692,6 +692,112 @@ export function validCreateLocationBody(
     description: null,
     managerId: null,
     isActive: true,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// AssetType fixtures
+// ---------------------------------------------------------------------------
+
+export interface InsertTestAssetTypeOptions {
+  organisationId?: string;
+  name?: string;
+  slug?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export async function insertTestAssetType(
+  app: FastifyInstance,
+  options: InsertTestAssetTypeOptions = {},
+): Promise<{ _id: string; name: string; slug: string }> {
+  const now = new Date().toISOString();
+  const stamp = Date.now().toString().slice(-6);
+  const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
+
+  const doc = {
+    organisationId,
+    name: options.name ?? `Test Type ${stamp}`,
+    slug: options.slug ?? `test-type-${stamp}`,
+    icon: null,
+    color: null,
+    isActive: options.isActive ?? true,
+    sortOrder: options.sortOrder ?? 0,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'test-creator',
+    updatedBy: 'test-creator',
+    deletedAt: null,
+    deletedBy: null,
+  };
+
+  const result = await app.mongo.db.collection('asset_types').insertOne(doc);
+  return { _id: String(result.insertedId), name: doc.name, slug: doc.slug };
+}
+
+export function validCreateAssetTypeBody(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const stamp = Date.now().toString().slice(-6);
+  return {
+    name: `Test Type ${stamp}`,
+    slug: `test-type-${stamp}`,
+    isActive: true,
+    sortOrder: 0,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// AssetCondition fixtures
+// ---------------------------------------------------------------------------
+
+export interface InsertTestAssetConditionOptions {
+  organisationId?: string;
+  name?: string;
+  slug?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export async function insertTestAssetCondition(
+  app: FastifyInstance,
+  options: InsertTestAssetConditionOptions = {},
+): Promise<{ _id: string; name: string; slug: string }> {
+  const now = new Date().toISOString();
+  const stamp = Date.now().toString().slice(-6);
+  const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
+
+  const doc = {
+    organisationId,
+    name: options.name ?? `Test Condition ${stamp}`,
+    slug: options.slug ?? `test-condition-${stamp}`,
+    icon: null,
+    color: null,
+    isActive: options.isActive ?? true,
+    sortOrder: options.sortOrder ?? 0,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'test-creator',
+    updatedBy: 'test-creator',
+    deletedAt: null,
+    deletedBy: null,
+  };
+
+  const result = await app.mongo.db.collection('asset_conditions').insertOne(doc);
+  return { _id: String(result.insertedId), name: doc.name, slug: doc.slug };
+}
+
+export function validCreateAssetConditionBody(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const stamp = Date.now().toString().slice(-6);
+  return {
+    name: `Test Condition ${stamp}`,
+    slug: `test-condition-${stamp}`,
+    isActive: true,
+    sortOrder: 0,
     ...overrides,
   };
 }

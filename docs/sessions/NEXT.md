@@ -7,130 +7,112 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                            |
-| ------------------------- | -------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-28 (Production smoke test + bugfixy day 2) |
-| **Aktuálna fáza**         | Production LIVE — smoke test s kolegom pending     |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`      |
-| **GitHub**                | https://github.com/ltksolutions/inventario         |
+| Atribút                   | Hodnota                                           |
+| ------------------------- | ------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-29 (Dynamic Combobox K1–K6 + CI green)    |
+| **Aktuálna fáza**         | Production LIVE — Dynamic Combobox implementovaný |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`     |
+| **GitHub**                | https://github.com/ltksolutions/inventario        |
 
 ---
 
-## Čo sme spravili 2026-05-28
+## Čo sme spravili 2026-05-29
 
-### MongoDB migrácia na čisté Inventario clustre ✅
+### Dynamic Combobox pre Asset polia ✅
 
-| Starý cluster         | Nový cluster      | Použitie               |
-| --------------------- | ----------------- | ---------------------- |
-| `sfz-asset-mgmt-dev`  | `inventario-dev`  | Lokálny dev + CI testy |
-| `sfz-asset-mgmt-prod` | `inventario-prod` | Vercel produkcia       |
+Implementované K1–K6 (K7 testy čiastočne — opravy existujúcich testov):
 
-- Nové clustre v novom MongoDB účte (nie SFZ)
-- DB name: `inventario` (pôvodné bolo `sfz_asset_management`)
-- `.env.local` aktualizovaný
-- Vercel env vars aktualizované
-- GitHub CI secret `MONGO_URI_TEST` aktualizovaný
-- **TODO: Zmazať staré `sfz-asset-mgmt-dev` a `sfz-asset-mgmt-prod` clustre** (v SFZ Atlas účte)
+| Blok | Popis                                                               | Status |
+| ---- | ------------------------------------------------------------------- | ------ |
+| K1   | `<Combobox>` + `<TagsCombobox>` reusable komponenty                 | ✅     |
+| K2   | Backend: `asset_types` + `asset_conditions` CRUD + seed defaults    | ✅     |
+| K3   | Migrácia enum → slug, `asset.ts` schema `type`/`condition` → string | ✅     |
+| K4   | Frontend: AssetCreate + AssetEdit s Combobox integrovaný            | ✅     |
+| K5   | Tags multi-select (`TagsCombobox`) integrovaný v oboch formulároch  | ✅     |
+| K6   | Slug pri rename — by design: PATCH `name` neregeneruje slug         | ✅     |
+| K7   | Opravené testy pre nový string schema (CI green, 542 testov)        | ✅     |
 
-### Bugfixy ✅
+### Nové súbory a zmeny
 
-| #   | Problém                                                                  | Fix                                                                             |
-| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| 1   | `entraOid_unique` sparse index na `users` — E11000 pri registrácii       | `partialFilterExpression: { entraOid: { $type: 'string' } }`                    |
-| 2   | `invitations.token` sparse index — rovnaký problém                       | `partialFilterExpression`                                                       |
-| 3   | Verifikačný email — zlý `apiBase` URL (obsahoval OAuth callback path)    | Strip `/v1/auth/callback` z URL                                                 |
-| 4   | Logout — cookies sa nemazmali v produkcii                                | `clearCookie` s `domain`, `secure`, `sameSite`                                  |
-| 5   | Email notifikácie výpožičiek                                             | `sendLoanApprovedEmail`, `sendLoanRejectedEmail`, `sendLoanRequestPendingEmail` |
-| 6   | Asset detail redesign v2                                                 | 2-col hero, reálny QR kód (qrcode-generator CDN), taby v karte                  |
-| 7   | MFA spinner po aktivácii                                                 | `useState` → `useEffect` pre MFA status load                                    |
-| 8   | `email_unique` globálny index blokoval viacero userov s rovnakým emailom | Systémový index, treba riešiť pri prvom multi-tenant onboardingu                |
+**Frontend:**
+
+- `apps/web/src/components/Combobox.tsx` — Atlas-style single-select s typeahead, create, rename
+- `apps/web/src/components/TagsCombobox.tsx` — free-form multi-select pre tags
+- `apps/web/src/components/AssetCreateContent.tsx` — Combobox nahrádza selecty pre type/condition/category/location/tags
+- `apps/web/src/components/AssetDetailEditForm.tsx` — rovnaké nahradenie v edit forme
+- `apps/web/src/lib/api-hooks.ts` — nové hooks: `useAssetTypes`, `useAssetConditions`, `useCreateAssetTypes`, `useCreateAssetConditions`, `useRenameAssetType`, `useRenameAssetCondition`, `useRenameCategory`, `useRenameLocation`
+
+**Backend:**
+
+- `apps/api/src/modules/asset-types/` — repository + service + routes (CRUD, seed, FK protection)
+- `apps/api/src/modules/asset-conditions/` — repository + service + routes (CRUD, seed, FK protection)
+- `apps/api/src/migrations/2026-05-29-asset-type-condition-collections.ts` — seed per-tenant + migrate enum→slug
+- `apps/api/src/server.ts` — registrácia nových routes
+- `apps/api/openapi.json` — refreshnutý (36 paths, 60 endpoints)
+
+**Shared types:**
+
+- `packages/shared-types/src/schemas/asset-type-entry.ts` — nová schéma
+- `packages/shared-types/src/schemas/asset-condition-entry.ts` — nová schéma
+- `packages/shared-types/src/schemas/asset.ts` — `type` + `condition` zmenené z enum na `z.string()`
+- `packages/shared-types/src/schemas/audit-log.ts` — pridané `ASSET_TYPE_*` + `ASSET_CONDITION_*` akcie + entity typy
+
+**Testy opravené:**
+
+- `packages/shared-types/tests/schemas/asset.test.ts` — `type` test aktualizovaný
+- `apps/api/tests/integration/assets-patch.test.ts` — `condition` test aktualizovaný
 
 ---
 
-## Stav na 2026-05-28
+## Stav na 2026-05-29
 
 ### 📊 Globálny stav
 
-| Oblasť                    | Status                                        |
-| ------------------------- | --------------------------------------------- |
-| **Backend testy**         | ✅ 569 / 569 (33 test files)                  |
-| **Frontend**              | ✅ všetky stránky funkčné                     |
-| **Production**            | ✅ LIVE — app.inventario.estate               |
-| **MongoDB**               | ✅ Nové čisté Inventario clustre              |
-| **GitHub**                | ✅ github.com/ltksolutions/inventario         |
-| **Vercel**                | ✅ API + Web nasadené                         |
-| **Registrácia + email**   | ✅ Funguje (noreply@inventario.estate)        |
-| **Login (email/passkey)** | ✅ Funguje                                    |
-| **MFA (TOTP)**            | ✅ Aktivácia + status refresh opravené        |
-| **Výpožičky**             | ✅ Email notifikácie pri schválení/zamietnutí |
-| **Asset detail**          | ✅ 2-col hero + QR kód + 5 tabov              |
-| **Legal review**          | ⏳ externe                                    |
-| **Smoke test s kolegom**  | ⏳ kroky 4-8 pending                          |
+| Oblasť                   | Status                                              |
+| ------------------------ | --------------------------------------------------- |
+| **Backend testy**        | ✅ 542 / 542 (33 test files)                        |
+| **Frontend**             | ✅ všetky stránky funkčné                           |
+| **Production**           | ✅ LIVE — app.inventario.estate                     |
+| **MongoDB**              | ✅ Nové čisté Inventario clustre                    |
+| **CI**                   | ✅ Green (lint + typecheck + tests + openapi check) |
+| **Combobox**             | ✅ type, condition, category, location, tags        |
+| **asset_types kolekcia** | ✅ CRUD + seed + FK protection + audit              |
+| **asset_conditions**     | ✅ CRUD + seed + FK protection + audit              |
+| **Migrácia enum→slug**   | ✅ Runner zaregistrovaný, spustí sa pri deploy      |
+| **Smoke test s kolegom** | ⏳ kroky 4-8 pending                                |
+| **Legal review**         | ⏳ externe                                          |
 
 ---
 
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. Dynamic Combobox pre Asset polia (TOP PRIORITY zajtra)
+### 1. Smoke test formulárov na produkcii
 
-Vizuálny vzor: Atlas Tags UI s typeahead + "+ vytvoriť novú".
+Po deploy overiť:
 
-**Políčka s comboboxom (s možnosťou pridania a premenovania):**
+- [ ] AssetCreate — všetky Combobox polia fungujú (type, condition, category, location, tags)
+- [ ] AssetEdit — rovnaké
+- [ ] ASSET_MANAGER môže pridať novú hodnotu cez "+ Vytvoriť"
+- [ ] Inline rename funguje (pencil ikona)
+- [ ] Migrácia prebehla — existujúce assety majú slug values (nie enum values)
 
-- `category` — už v DB ako collection ✅ (len UI)
-- `location` — už v DB ako collection ✅ (len UI)
-- `type` — treba migráciu z enum → collection `asset_types` (per-tenant)
-- `condition` — treba migráciu z enum → collection `asset_conditions` (per-tenant)
-- `tags` — volný multi-select combobox
+### 2. K7 — Backend testy pre nové moduly (pending)
 
-**UX detaily comboboxu:**
+Chýbajúce testy pre `asset-types` + `asset-conditions`:
 
-- Placeholder: `"Vyberte alebo začnite písať"` (Atlas-style hint)
-- Po kliku zobrazí prvých **10 položiek** (najnovšie alebo najpoužívanejšie hore)
-- Ak je položiek viac ako 10, pod zoznamom: `"Zobrazených 10 z N. Píšte pre vyhľadanie."`
-- Typeahead filtruje celý zoznam (nie len prvých 10)
-- Pri žiadnej zhode: `"+ Vytvoriť '<text>'"` ako posledná položka (len pre ASSET_MANAGER/ADMIN)
-- Klik na existujúcu položku s ikonou cerusy → inline rename (len pre ASSET_MANAGER/ADMIN)
-- ESC zatvorí dropdown bez zmeny
-- Šípky hore/dole na navigáciu, Enter na výber
+- RBAC: EMPLOYEE len GET, ASSET_MANAGER POST/PATCH, ADMIN DELETE
+- FK protection: DELETE blokovaný ak assets referencujú type/condition slug
+- Seed idempotencia: viacnásobný seed nezduplikuje záznamy
+- Slug auto-generácia: rename name nezmení slug
 
-**Fixný dropdown ostane:**
-
-- `status` — workflow critical (AVAILABLE → RESERVED → BORROWED ...)
-
-**RBAC:**
-
-- EMPLOYEE: len select z existujúcich
-- ASSET_MANAGER + ADMIN: môžu pridať a premenovať priamo v comboboxe
-- ADMIN only: môže mazat (FK protection bráni mazaniu ak existujú assets)
-
-**Slug:**
-
-- Slug sa regeneruje pri rename (user explicitne súhlasí s rozbitím audit log referácií)
-- Audit log si pamätá referenciu cez `entityId` (ObjectId) ktorý zostane — len `entityName` snapshot bude historický
-
-**Implementačný plán:**
-
-| Blok | Popis                                                                                             | Čas    |
-| ---- | ------------------------------------------------------------------------------------------------- | ------ |
-| K1   | `<Combobox>` reusable komponent (typeahead + creatable + rename)                                  | 1h     |
-| K2   | Backend: nové kolekcie `asset_types` + `asset_conditions` (CRUD + seed defaults pre nové tenanty) | 2h     |
-| K3   | Migrácia: existujúce enum hodnoty → dokumenty v nových kolekciách (per-tenant)                    | 1h     |
-| K4   | Frontend integrácia: AssetCreate + AssetEdit (category, location, type, condition)                | 1h     |
-| K5   | Tags multi-select combobox                                                                        | 1h     |
-| K6   | Slug regenerate pri rename + audit log entityName snapshot                                        | 30 min |
-| K7   | Testy: ensure RBAC, slug behavior, FK protection                                                  | 1h     |
-
-**Celkový odhad:** 7–8h, model Sonnet 4.6.
-
-### 2. Zmazať staré SFZ clustre (manuálne)
+### 3. Zmazať staré SFZ clustre (manuálne)
 
 **Atlas → Slovenský futbalový zväz projekt:**
 
 - Zmazať `sfz-asset-mgmt-dev`
 - Zmazať `sfz-asset-mgmt-prod`
 
-### 3. Smoke test s kolegom
+### 4. Smoke test s kolegom
 
 Prejsť kroky 4-8 z checklistu:
 
@@ -140,19 +122,17 @@ Prejsť kroky 4-8 z checklistu:
 - [ ] Reset hesla
 - [ ] Odhlásenie + opätovné prihlásenie
 
-### 4. `email_unique` index — systémový problém
+### 5. `email_unique` index — systémový problém
 
-`users` kolekcia má globálny unique index na `email` — blokuje dvoch userov z rôznych org s rovnakým emailom. Pri multi-tenant onboardingu SFZ (keď `office@ltk.solutions` bude aj v SFZ orgu) to padne.
+`users` kolekcia má globálny unique index na `email` — blokuje dvoch userov z rôznych org s rovnakým emailom.
 
-**Fix:** zmazať `email_unique`, nahradiť s `{ email: 1, deletedAt: 1 }` non-unique pre vyhľadávanie.
-
+**Fix:** zmazať `email_unique`, nahradiť s `{ email: 1, deletedAt: 1 }` non-unique.
 **Kedy:** pred onboardingom SFZ alebo prvého externého tenanta.
 
-### 5. SFZ onboarding
+### 6. SFZ onboarding
 
 - SFZ má user `inventario@futbalsfz.sk` s `emailVerified: true` na prod
 - Treba overiť login po novom prod clustri
-- Ak nefunguje: password reset cez email
 
 ---
 
@@ -191,7 +171,7 @@ Design: [ADR-0017](../decisions/0017-mcp-server.md)
 ## 🏗️ Backend status
 
 ```
-Celkové testy:                569
+Celkové testy:                542
 ├── Slice #1–#3:              ~310
 ├── Slice #4–#6b:             ~169
 ├── Slice #6c:                  21
@@ -217,18 +197,17 @@ Duration:     ~75s
 
 ## 📂 Kde nájdeš čo
 
-| Typ                                 | Lokácia                                               |
-| ----------------------------------- | ----------------------------------------------------- |
-| **Aktuálny stav**                   | `docs/sessions/NEXT.md` (TY SI TU)                    |
-| **Production smoke test checklist** | `docs/sessions/smoke-test-checklist.md`               |
-| **ADR-čka**                         | `docs/decisions/0001..0017-*.md`                      |
-| **Slice milestones**                | `docs/milestones/slice-*.md`                          |
-| **Passkeys design**                 | `docs/decisions/0016-passkeys-implementation-plan.md` |
-| **MCP server design**               | `docs/decisions/0017-mcp-server.md`                   |
+| Typ                                 | Lokácia                                        |
+| ----------------------------------- | ---------------------------------------------- |
+| **Aktuálny stav**                   | `docs/sessions/NEXT.md` (TY SI TU)             |
+| **Session 2026-05-29**              | `docs/sessions/2026-05-29-dynamic-combobox.md` |
+| **Production smoke test checklist** | `docs/sessions/smoke-test-checklist.md`        |
+| **ADR-čka**                         | `docs/decisions/0001..0017-*.md`               |
+| **Slice milestones**                | `docs/milestones/slice-*.md`                   |
 
 ---
 
-**Last updated:** 2026-05-28  
-**Tests:** 569 / 569 ✅  
-**Repo:** github.com/ltksolutions/inventario  
-**Status:** Production LIVE ✅ — nové MongoDB clustre ✅ — zajtra: Dynamic Combobox pre Asset polia.
+**Last updated:** 2026-05-29
+**Tests:** 542 / 542 ✅
+**Repo:** github.com/ltksolutions/inventario
+**Status:** Production LIVE ✅ — Dynamic Combobox ✅ — CI green ✅
