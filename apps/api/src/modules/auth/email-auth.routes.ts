@@ -330,10 +330,25 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Load organisation
+      // Load organisation via membership (ADR-0015: user.organisationId was
+      // removed by the memberships migration; the tenant now comes from the
+      // user's default/most-recent active membership).
       const { ObjectId } = await import('mongodb');
+      const membershipsCol = db.collection('memberships');
+
+      // Pick the default membership, else the most recently accessed active one.
+      const memberships = await membershipsCol
+        .find({ userId: String(user._id), status: 'ACTIVE', deletedAt: null })
+        .sort({ isDefault: -1, lastAccessedAt: -1 })
+        .toArray();
+
+      const membership = memberships[0] ?? null;
+      if (!membership) {
+        throw new UnauthorizedError('Organizácia nie je dostupná.');
+      }
+
       const org = (await orgsCol.findOne({
-        _id: new ObjectId(user.organisationId),
+        _id: new ObjectId(String(membership['organisationId'])),
         deletedAt: null,
       } as never)) as WithId<Organisation> | null;
 
@@ -389,15 +404,8 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       }
 
       // Issue tokens
-      // Lookup membership for this user+org (Slice #9 — mid claim)
-      const membershipsCol = db.collection('memberships');
-      const membership = await membershipsCol.findOne({
-        userId: String(user._id),
-        organisationId: String(org._id),
-        status: 'ACTIVE',
-        deletedAt: null,
-      });
-      const membershipId = membership ? String(membership['_id']) : '';
+      // membership already resolved above (default / most-recent active)
+      const membershipId = String(membership['_id']);
 
       const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org, membershipId);
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
