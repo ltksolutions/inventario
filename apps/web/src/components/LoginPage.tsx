@@ -105,7 +105,10 @@ export function LoginPage(): JSX.Element {
         const body = (await res.json()) as { mfaRequired?: boolean; mfaSessionToken?: string };
         if (body.mfaRequired && body.mfaSessionToken) {
           sessionStorage.setItem('mfa_session_token', body.mfaSessionToken);
-          router.push('/login/mfa');
+          // Use full navigation instead of SPA push — guarantees sessionStorage
+          // is committed before the MFA challenge page mounts (Next.js router.push
+          // can trigger prefetch/render before storage write is visible).
+          window.location.href = '/login/mfa';
           return;
         }
       }
