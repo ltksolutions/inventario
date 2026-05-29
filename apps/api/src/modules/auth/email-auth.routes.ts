@@ -35,6 +35,7 @@ import argon2 from 'argon2';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { seedTenantDefaults } from '../../lib/seed-tenant-defaults.js';
 import { BadRequestError, UnauthorizedError } from '../../plugins/error-handler.js';
 
 import { setAuthCookies } from './cookie-helpers.js';
@@ -259,6 +260,17 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         deletedAt: null,
         deletedBy: null,
       });
+
+      // Seed default taxonomy (types, conditions, categories) for the new tenant.
+      // Best-effort — a seed failure must not abort registration.
+      try {
+        await seedTenantDefaults(db, orgId.toString(), userId.toString());
+      } catch (seedErr) {
+        fastify.log.error(
+          { err: seedErr, orgId: orgId.toString() },
+          'Registration: seed defaults failed (non-fatal)',
+        );
+      }
 
       // Send verification email
       // Extract base API URL from OAUTH_REDIRECT_BASE_URL (strip the /v1/auth/callback path)
