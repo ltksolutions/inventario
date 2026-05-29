@@ -27,7 +27,7 @@ export function setAuthCookies(
   reply.setCookie('inv_access', accessToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: 'lax',
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
     ...(cookieDomain && { domain: cookieDomain }),
     maxAge: accessTtlSeconds,
@@ -36,7 +36,7 @@ export function setAuthCookies(
   reply.setCookie('inv_refresh', refreshToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: 'lax',
+    sameSite: isProd ? 'none' : 'lax',
     path: '/v1/auth/refresh',
     ...(cookieDomain && { domain: cookieDomain }),
     maxAge: refreshTtlDays * 24 * 60 * 60,
