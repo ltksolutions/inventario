@@ -18,14 +18,18 @@ export function setAuthCookies(
   accessTtlSeconds: number,
   refreshTtlDays: number,
 ): void {
-  const isProd = process.env['NODE_ENV'] === 'production';
+  // Use a dedicated COOKIE_DOMAIN env var rather than NODE_ENV so that
+  // devDependencies are not skipped during Vercel builds.
+  // Set COOKIE_DOMAIN=.inventario.estate in Vercel production env vars.
+  const cookieDomain = process.env['COOKIE_DOMAIN'];
+  const isProd = Boolean(cookieDomain);
 
   reply.setCookie('inv_access', accessToken, {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
     path: '/',
-    ...(isProd && { domain: '.inventario.estate' }),
+    ...(cookieDomain && { domain: cookieDomain }),
     maxAge: accessTtlSeconds,
   });
 
@@ -34,7 +38,7 @@ export function setAuthCookies(
     secure: isProd,
     sameSite: 'lax',
     path: '/v1/auth/refresh',
-    ...(isProd && { domain: '.inventario.estate' }),
+    ...(cookieDomain && { domain: cookieDomain }),
     maxAge: refreshTtlDays * 24 * 60 * 60,
   });
 }
