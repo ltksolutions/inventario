@@ -151,8 +151,8 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
   let privateKey: KeyLike;
   let publicKey: KeyLike;
   try {
-    privateKey = await importPKCS8(JWT_PRIVATE_KEY, 'RS256');
-    publicKey = await importSPKI(JWT_PUBLIC_KEY, 'RS256');
+    privateKey = await importPKCS8(JWT_PRIVATE_KEY.trim(), 'RS256');
+    publicKey = await importSPKI(JWT_PUBLIC_KEY.trim(), 'RS256');
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
