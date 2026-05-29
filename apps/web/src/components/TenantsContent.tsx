@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { SelectField } from './SelectField';
+
 import type { JSX } from 'react';
 
 import { useCanAdminUsers, useMe } from '@/lib/api-hooks';
@@ -62,11 +64,23 @@ const STATUS_LABELS: Record<string, string> = {
 
 const PLAN_VALUES = ['FREE', 'PRO', 'ENTERPRISE'] as const;
 const STATUS_VALUES = ['ACTIVE', 'SUSPENDED', 'ARCHIVED'] as const;
+const PAGE_SIZES = [20, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZES)[number];
 
-type PlanFilter = '' | 'FREE' | 'PRO' | 'ENTERPRISE';
-type StatusFilter = '' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
-type PageSize = 20 | 50 | 100;
-const PAGE_SIZES: readonly PageSize[] = [20, 50, 100];
+const STATUS_OPTIONS = [
+  { value: '', label: 'Všetky stavy' },
+  ...STATUS_VALUES.map((s) => ({ value: s, label: STATUS_LABELS[s] ?? s })),
+];
+
+const PLAN_OPTIONS = [
+  { value: '', label: 'Všetky plány' },
+  ...PLAN_VALUES.map((p) => ({ value: p, label: PLAN_LABELS[p] ?? p })),
+];
+
+const PAGE_SIZE_OPTIONS = PAGE_SIZES.map((s) => ({ value: String(s), label: String(s) }));
+
+const PLAN_OPTIONS_FULL = PLAN_VALUES.map((p) => ({ value: p, label: PLAN_LABELS[p] ?? p }));
+const STATUS_OPTIONS_FULL = STATUS_VALUES.map((s) => ({ value: s, label: STATUS_LABELS[s] ?? s }));
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -89,8 +103,8 @@ export function TenantsContent(): JSX.Element {
 function TenantsAdminPanel(): JSX.Element {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(20);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
-  const [planFilter, setPlanFilter] = useState<PlanFilter>('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [planFilter, setPlanFilter] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [editTarget, setEditTarget] = useState<OrganisationSummary | null>(null);
@@ -118,7 +132,6 @@ function TenantsAdminPanel(): JSX.Element {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilter = statusFilter !== '' || planFilter !== '' || debouncedSearch !== '';
 
-  // Client-side name/slug filter (backend doesn't expose q param on organisations yet)
   const filtered = debouncedSearch
     ? orgs.filter(
         (o) =>
@@ -172,52 +185,38 @@ function TenantsAdminPanel(): JSX.Element {
           </span>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Stav</span>
-          <select
+          <SelectField
+            label="Stav"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <option value="">Všetky stavy</option>
-            {STATUS_VALUES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={setStatusFilter}
+            options={STATUS_OPTIONS}
+            className="w-40"
+          />
+        </div>
 
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Plán</span>
-          <select
+          <SelectField
+            label="Plán"
             value={planFilter}
-            onChange={(e) => setPlanFilter(e.target.value as PlanFilter)}
-            className="rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <option value="">Všetky plány</option>
-            {PLAN_VALUES.map((p) => (
-              <option key={p} value={p}>
-                {PLAN_LABELS[p]}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={setPlanFilter}
+            options={PLAN_OPTIONS}
+            className="w-36"
+          />
+        </div>
 
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Veľkosť strany</span>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
-            className="rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            {PAGE_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
+          <SelectField
+            label="Veľkosť strany"
+            value={String(pageSize)}
+            onChange={(v) => setPageSize(Number(v) as PageSize)}
+            options={PAGE_SIZE_OPTIONS}
+            className="w-24"
+          />
+        </div>
       </section>
 
       {/* Count */}
@@ -279,10 +278,7 @@ function TenantsAdminPanel(): JSX.Element {
         </nav>
       )}
 
-      {/* Edit dialog */}
       {editTarget && <TenantEditDialog org={editTarget} onClose={() => setEditTarget(null)} />}
-
-      {/* Create dialog */}
       {createOpen && <TenantCreateDialog onClose={() => setCreateOpen(false)} />}
     </div>
   );
@@ -470,7 +466,6 @@ function TenantEditDialog({
       aria-labelledby="tenant-edit-title"
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
     >
-      {/* Backdrop */}
       <button
         type="button"
         aria-label="Zatvoriť dialog"
@@ -517,39 +512,24 @@ function TenantEditDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="te-plan" className="block text-sm font-medium text-text-primary">
-                Plán
-              </label>
-              <select
-                id="te-plan"
+              <label className="block text-sm font-medium text-text-primary">Plán</label>
+              <SelectField
+                label="Plán"
                 value={plan}
-                onChange={(e) => setPlan(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-              >
-                {PLAN_VALUES.map((p) => (
-                  <option key={p} value={p}>
-                    {PLAN_LABELS[p]}
-                  </option>
-                ))}
-              </select>
+                onChange={setPlan}
+                options={PLAN_OPTIONS_FULL}
+                className="mt-1 w-full"
+              />
             </div>
-
             <div>
-              <label htmlFor="te-status" className="block text-sm font-medium text-text-primary">
-                Stav
-              </label>
-              <select
-                id="te-status"
+              <label className="block text-sm font-medium text-text-primary">Stav</label>
+              <SelectField
+                label="Stav"
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-              >
-                {STATUS_VALUES.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
+                onChange={setStatus}
+                options={STATUS_OPTIONS_FULL}
+                className="mt-1 w-full"
+              />
             </div>
           </div>
         </div>
@@ -594,7 +574,6 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
     firstInputRef.current?.focus();
   }, []);
 
-  // Auto-derive slug from displayName
   useEffect(() => {
     if (displayName) {
       setSlug(
@@ -619,7 +598,6 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
       setError('Slug je povinný.');
       return;
     }
-
     try {
       await createOrg.mutateAsync({
         displayName: displayName.trim(),
@@ -640,7 +618,6 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
       aria-labelledby="tenant-create-title"
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
     >
-      {/* Backdrop */}
       <button
         type="button"
         aria-label="Zatvoriť dialog"
@@ -671,7 +648,6 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
               className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
             />
           </div>
-
           <div>
             <label htmlFor="tc-slug" className="block text-sm font-medium text-text-primary">
               Slug <span className="text-danger-fg">*</span>
@@ -688,7 +664,6 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
               Lowercase ASCII, číslice a pomlčky, 2–40 znakov. Nemenný po vytvorení.
             </p>
           </div>
-
           <div>
             <label htmlFor="tc-email" className="block text-sm font-medium text-text-primary">
               Kontaktný email
@@ -702,23 +677,15 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
               className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
             />
           </div>
-
           <div>
-            <label htmlFor="tc-plan" className="block text-sm font-medium text-text-primary">
-              Plán
-            </label>
-            <select
-              id="tc-plan"
+            <label className="block text-sm font-medium text-text-primary">Plán</label>
+            <SelectField
+              label="Plán"
               value={plan}
-              onChange={(e) => setPlan(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-            >
-              {PLAN_VALUES.map((p) => (
-                <option key={p} value={p}>
-                  {PLAN_LABELS[p]}
-                </option>
-              ))}
-            </select>
+              onChange={setPlan}
+              options={PLAN_OPTIONS_FULL}
+              className="mt-1 w-full"
+            />
           </div>
         </div>
 
@@ -863,10 +830,6 @@ function AccessDenied(): JSX.Element {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function orgColor(id: string): string {
   const palette = [
