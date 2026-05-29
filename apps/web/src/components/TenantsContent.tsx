@@ -512,7 +512,7 @@ function TenantEditDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-text-primary">Plán</label>
+              <span className="block text-sm font-medium text-text-primary">Plán</span>
               <SelectField
                 label="Plán"
                 value={plan}
@@ -522,7 +522,7 @@ function TenantEditDialog({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-primary">Stav</label>
+              <span className="block text-sm font-medium text-text-primary">Stav</span>
               <SelectField
                 label="Stav"
                 value={status}
@@ -678,7 +678,7 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-primary">Plán</label>
+            <span className="block text-sm font-medium text-text-primary">Plán</span>
             <SelectField
               label="Plán"
               value={plan}

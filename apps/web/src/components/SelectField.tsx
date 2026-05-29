@@ -25,13 +25,11 @@
  *   - value / onChange — riadená hodnota (string)
  *   - options — pole { value: string; label: string }
  *   - label — accessible label (vždy povinný pre screen readery)
- *   - placeholder — text keď value === '' (default = prvá option)
  *   - disabled — zakáže interakciu
  *   - className — override šírky / iné utility triedy
  *
  * A11y:
  *   - role="combobox" + aria-expanded + aria-haspopup
- *   - aria-activedescendant na aktívnu option
  *   - Klávesnica: Enter/Space = otvori, Esc = zatvor, ↑↓ = naviguj,
  *     Enter na option = vyber, Tab = zatvor a presun focus ďalej
  */
@@ -76,7 +74,6 @@ export function SelectField({
   const selectedOption = options.find((o) => o.value === value) ?? options[0];
   const selectedIndex = options.findIndex((o) => o.value === value);
 
-  // Zatvor pri kliku mimo
   useEffect(() => {
     if (!open) return;
     function handleOutside(e: MouseEvent): void {
@@ -91,7 +88,6 @@ export function SelectField({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [open]);
 
-  // Focusni aktívnu option po otvorení
   useEffect(() => {
     if (open) {
       setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0);
@@ -190,25 +186,24 @@ export function SelectField({
             const isSelected = opt.value === value;
             const isFocused = i === focusedIndex;
             return (
-              <li
-                key={opt.value}
-                id={`${id}-opt-${i}`}
-                role="option"
-                aria-selected={isSelected}
-                onClick={() => select(opt)}
-                onMouseEnter={() => setFocusedIndex(i)}
-                className={cn(
-                  'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-text-primary',
-                  isFocused && 'bg-surface-subtle',
-                  isSelected && 'font-medium',
-                )}
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                  {isSelected && (
-                    <Check aria-hidden="true" className="h-3.5 w-3.5 text-brand-primary" />
+              <li key={opt.value} role="option" aria-selected={isSelected} id={`${id}-opt-${i}`}>
+                <button
+                  type="button"
+                  onClick={() => select(opt)}
+                  onMouseEnter={() => setFocusedIndex(i)}
+                  className={cn(
+                    'flex w-full items-center gap-2 px-3 py-2 text-sm text-text-primary',
+                    isFocused && 'bg-surface-subtle',
+                    isSelected && 'font-medium',
                   )}
-                </span>
-                {opt.label}
+                >
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {isSelected && (
+                      <Check aria-hidden="true" className="h-3.5 w-3.5 text-brand-primary" />
+                    )}
+                  </span>
+                  {opt.label}
+                </button>
               </li>
             );
           })}
