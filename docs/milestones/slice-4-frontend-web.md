@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Slice #4 — Frontend Web App (Completed 2026-05-20)
+# Slice #4 — Frontend Web App (Completed 2026-05-20, rozšírený 2026-05-29)
 
 ## Cieľ
 
@@ -18,17 +18,18 @@ projekt, `ltksolutions-projects` team).
 
 ✅ **7/7 P0 stránok LIVE:**
 
-| Stage            | Komponent(y)                                         | Build size | Commit       |
-| ---------------- | ---------------------------------------------------- | ---------- | ------------ |
-| `/` Dashboard    | `DashboardContent` + `StatCard`                      | 5.2 kB     | `77b51e8`    |
-| `/assets`        | `AssetsListContent` + `AssetsTable`                  | 6.1 kB     | `a5e8b2e`    |
-| `/assets/[id]`   | `AssetDetailContent` + edit form + read view         | 8.3 kB     | (2026-05-17) |
-| `/categories`    | `CategoriesContent` + `CategoryCreateDialog`         | 4.42 kB    | (2026-05-18) |
-| `/locations`     | `LocationsContent` + `LocationCreateDialog`          | 4.48 kB    | (2026-05-18) |
-| `/users`         | `UsersContent` + `UserEditDialog`                    | 5.91 kB    | (2026-05-18) |
-| `/loans`         | `LoansContent` — žiadosti + approve/reject/cancel    | ~5 kB      | (2026-05-20) |
-| `/loans/request` | `LoanRequestContent` — formulár + asset multi-select | ~4 kB      | (2026-05-20) |
-| `/my-loans`      | `MyLoansContent` — výpožičky + čakajúce žiadosti     | ~5 kB      | (2026-05-20) |
+| Stage            | Komponent(y)                                                  | Build size | Commit       |
+| ---------------- | ------------------------------------------------------------- | ---------- | ------------ |
+| `/` Dashboard    | `DashboardContent` + `StatCard`                               | 5.2 kB     | `77b51e8`    |
+| `/assets`        | `AssetsListContent` + `AssetsTable`                           | 6.1 kB     | `a5e8b2e`    |
+| `/assets/[id]`   | `AssetDetailContent` + edit form + read view                  | 8.3 kB     | (2026-05-17) |
+| `/categories`    | `CategoriesContent` + `CategoryCreateDialog`                  | 4.42 kB    | (2026-05-18) |
+| `/locations`     | `LocationsContent` + `LocationCreateDialog`                   | 4.48 kB    | (2026-05-18) |
+| `/users`         | `UsersContent` + `UserEditDialog`                             | 5.91 kB    | (2026-05-18) |
+| `/loans`         | `LoansContent` — žiadosti + approve/reject/cancel             | ~5 kB      | (2026-05-20) |
+| `/loans/request` | `LoanRequestContent` — formulár + asset multi-select          | ~4 kB      | (2026-05-20) |
+| `/admin/tenants` | `TenantsContent` — platform admin, list/create/edit/archive   | ~7 kB      | (2026-05-29) |
+| `/ciselniky`     | `CiselnikyContent` — 4 záložky: kategórie/lokality/typy/stavy | ~5 kB      | (2026-05-29) |
 
 ✅ **Smoke test** 10/10 PASS na `app.inventario.estate`
 (Microsoft Entra ID login → JIT provisioning → RBAC → mobile drawer → logout).
@@ -77,10 +78,10 @@ apps/web/src/
 │   ├── LoansContent.tsx      → Loan requests list + inline approve/reject/cancel
 │   ├── LoanRequestContent.tsx→ Multi-select asset form + date inputs
 │   └── MyLoansContent.tsx    → Loans table + pending requests sekcia
-└── lib/
-    ├── api-hooks.ts          → TanStack Query hooks (všetky endpointy)
-    ├── api-client.ts         → openapi-fetch klient s MSAL token middleware
-    └── api-types.ts          → Generovaný z apps/api/openapi.json (gitignored)
+- [x] `organisations-hooks.ts` — TanStack Query hooks pre `/v1/organisations`
+- [x] `TenantsContent.tsx` — platform admin Tenants page
+- [x] `CiselnikyContent.tsx` — unified Číselníky page (4 záložky)
+- [x] `Combobox.tsx` + `TagsCombobox.tsx` — Atlas-style typeahead komponenty
 ```
 
 ### Auth flow
@@ -159,6 +160,29 @@ Po dokončení Slice #5 loans backendu sú k dispozícii 3 nové stránky:
 - Filter selects: `w-full sm:w-auto` — plná šírka na mobile, auto na desktop
 - Pagination: arrow-only `‹ ›` na mobile (skryje number labels)
 - Form grids: 2-stĺpcové date inputy sa na mobile stávajú 1-stĺpcovými
+
+## Rozšírenia po 2026-05-20
+
+### Dynamic Combobox + Číselníky (2026-05-29)
+
+- `AssetCreateContent` + `AssetDetailEditForm` — `<select>` nahradené `<Combobox>` pre type/condition/category/location, `<TagsCombobox>` pre tags
+- Zjednotená stránka `/ciselniky` so 4 záložkami (Kategórie · Lokality · Typy majetku · Stavy)
+- Generická `TaxonomyTable` — inline rename (ceruzka), delete s FK protection
+
+### Platform admin Tenants page (2026-05-29)
+
+- `/admin/tenants` — viditeľná len pre ADMIN (platform operátori)
+- List všetkých tenantov naprieč tenant boundary, filter by status/plan, client-side search
+- Edit dialog (displayName, plán, status, kontaktný email)
+- Create dialog s auto-generovaním slugu
+- Soft-delete (archive) s confirm
+- `organisations-hooks.ts` — TanStack Query hooks cez native fetch (nie openapi-fetch)
+- 30 organisations integration testov
+
+### Bugfixy (2026-05-29)
+
+- MFA sessionStorage: `window.location.href` namiesto `router.push` — garantuje commit pred mountom MfaChallengePage
+- Dashboard + login fix: backfill `organisationId` + `roles` v `loadCurrentUser` middleware (ADR-0015 deprecated fields)
 
 ## Vercel deploy — kľúčové lekcie
 

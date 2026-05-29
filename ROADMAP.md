@@ -5,9 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Roadmap — Inventario
 
-> **Last updated:** 22. máj 2026
+> **Last updated:** 29. máj 2026
 > **Status:** Active
-> **Current version:** v0.3
+> **Current version:** v0.4 (Production LIVE)
 
 ---
 
@@ -20,12 +20,12 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 1. **Backend pred frontendom** — silný API foundation umožňuje rýchlejší frontend vývoj
 2. **Compliance pred features** — EU public sector pripravenosť je core value
 3. **Open source pred proprietárnou stratégiou** — všetko musí byť forkovateľné
-4. **Tests pred speed** — backend má 962 testov, frontend bude mať Playwright E2E
+4. **Tests pred speed** — backend má 607 testov, frontend bude mať Playwright E2E
 5. **Slovak language native** — i18n je možnosť, ale SK má prioritu
 
 ---
 
-## 🎯 Done — čo už máme (v0.3)
+## 🎯 Done — čo už máme (v0.4)
 
 ### Strategický foundation
 
@@ -35,12 +35,13 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [x] Brand system v1.0 (BRAND.md, logo, pattern, palette)
 - [x] Pricing strategy v1.0 (hybrid C + Annual Contract pre verejný sektor)
 
-### Backend (slice #1 → #3 partial)
+### Backend (slice #1 → #9 + bugfixy)
 
 - [x] pnpm monorepo s Turborepo (apps/api, apps/web, apps/docs, packages/shared-types, design-tokens)
 - [x] Fastify + TypeScript + Zod backend
 - [x] MongoDB Atlas Flex (dev + prod clustery)
 - [x] Microsoft Entra ID SSO (JWT verifikácia + JWKS rotation + JIT user provisioning)
+- [x] Email + password auth (argon2id, verifikácia, reset hesla)
 - [x] RBAC (3 roly: EMPLOYEE, ASSET_MANAGER, ADMIN)
 - [x] Assets module (CRUD + audit log + transakcie + soft-delete)
 - [x] Inventory number generator (PREFIX-YYYY-NNN)
@@ -48,8 +49,31 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [x] Locations module (paritný s categories)
 - [x] FK protection v oboch smeroch (assets ↔ categories/locations)
 - [x] Audit log s typmi pre všetky entity
-- [x] 962 integration testov (CI green proti Atlas dev)
+- [x] Loans + loan requests (state machine, approve/reject/cancel/return)
+- [x] Invitations (email pozývanie členov, RBAC)
+- [x] Memberships + multi-org (ADR-0015, per-tenant roles)
+- [x] TOTP MFA (forced setup policy, recovery codes)
+- [x] Passkeys (WebAuthn, conditional UI)
+- [x] Users admin (ADMIN-only, self-deactivate guard, last-admin guard)
+- [x] Dynamic Combobox (asset_types + asset_conditions per-tenant, enum→slug migrácia)
+- [x] Migration runner zapojený do `buildServer()`
+- [x] Auto-seed taxonomy defaults pre každý nový tenant
+- [x] email_unique index fix — multi-tenant email isolation
+- [x] Platform admin `/v1/organisations` API (list, create, edit, soft-delete)
+- [x] 607 integration testov (CI green proti Atlas dev)
 - [x] Pre-commit hooks (lint-staged + typecheck) + GitHub Desktop kompatibilita
+
+### Frontend (apps/web — LIVE na app.inventario.estate)
+
+- [x] Next.js 15 (App Router) + TanStack Query + openapi-fetch
+- [x] Tailwind CSS s design-tokens
+- [x] Microsoft Entra ID + email/password auth flow
+- [x] Dashboard, Assets list, Asset detail, Loan request, My loans
+- [x] Users admin, Categories, Locations, Číselníky (4 záložky)
+- [x] Invitations, Members, Security (MFA + passkeys)
+- [x] Organisations (multi-org switcher)
+- [x] Platform admin `/admin/tenants` (list, create, edit, archive)
+- [x] Mobile responsive (hamburger drawer)
 
 ### Design + Marketing + Docs
 
@@ -61,73 +85,24 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [x] **Clean URLs** po celom marketing site (vrchná nav + footer + cross-page CTAs)
 - [x] Favicon, Open Graph meta tags
 - [x] Brand pattern overlay (CSS, scalable)
+- [x] Mobile nav fix — lang-switch + CTA presunuté do hamburger menu (≤700px)
 
 ---
 
-## 🚀 v0.4 — Frontend foundation (Q2 2026)
-
-**Cieľ:** Funkčný frontend ktorý pripojí na existujúci backend.
-
-### Backend (dokončenie slice #3)
-
-- [x] **K10**: Users admin module (ADMIN-only) — done 2026-05-16
-  - GET /v1/users (list + pagination + filtre)
-  - GET /v1/users/:id
-  - PATCH /v1/users/:id (role, isActive)
-  - Self-deactivate guard + last-admin guard
-  - Audit log USER_ROLE_GRANTED / USER_ROLE_REVOKED / USER_DEACTIVATED
-  - 53 testov
-- [x] **K11**: Slice #3 milestone dokument — done 2026-05-16
-
-### Backend (slice #4 príprava)
-
-- [ ] Migrácia: pridať `organisationId: ObjectId` field do všetkých kolekcií
-- [ ] Tenant middleware (extrakcia organisationId z JWT)
-- [ ] Repository auto-filter podľa organisationId
-- [ ] CI: multi-tenant izolačné testy
-- [ ] OpenAPI 3.1 spec export (auto-generated zo Zod schém)
-- [ ] SBOM CycloneDX export
-
-### Frontend (slice #4)
-
-- [ ] Next.js 15 (App Router) setup v `apps/web`
-- [ ] Design tokens import z `packages/design-tokens`
-- [ ] Tailwind CSS s brand tokens
-- [ ] Microsoft Entra ID OAuth flow
-- [ ] Implementácia 6 P0 obrazoviek podľa mockupov:
-  - [ ] Login
-  - [ ] Dashboard (role-aware)
-  - [ ] Assets list (live filter, grid/table toggle)
-  - [ ] Asset detail (5 tabs, real QR)
-  - [ ] Loan request wizard (3 steps)
-  - [ ] My loans (tabs)
-- [ ] Playwright E2E tests pre kritické flow-y
-- [ ] WCAG 2.1 AA audit
-
-### DevOps
-
-- [ ] Vercel deploy pipeline pre `apps/web`
-- [ ] Production doména `app.inventario.estate`
-- [ ] Staging environment `staging.inventario.estate`
-
----
-
-## 🌐 v0.5 — Multi-tenant + onboarding (Q3 2026)
+## 🚀 v0.5 — Multi-tenant + onboarding (Q3 2026)
 
 **Cieľ:** Schopnosť spustiť reálnych tenantov v produkcii.
 
-### Backend (slice #5)
+### Backend (slice #5 pokračovanie)
 
-- [ ] Tenant management API (Admin only)
-- [ ] Tenant onboarding flow (create org, init demo data, invite first admin)
+- [ ] Onboarding flow (create org, init demo data, invite first admin) — UI
 - [ ] Brand customization per tenant (logo upload, color picker)
 - [ ] Email notifications (transakčné cez Resend / Postmark)
 - [ ] Email templates (žiadosť o výpožičku, schválené, blízky termín, po-termíne)
 
 ### Frontend (slice #5)
 
-- [ ] Onboarding flow UI pre nový tenant
-- [ ] Admin panel pre tenant management
+- [ ] **Onboarding flow UI** pre nový tenant (uvítací krok / checklist)
 - [ ] Brand customization UI (Pro/Enterprise plan only)
 - [ ] Notification preferences
 - [ ] Email digest preferencie
@@ -145,6 +120,8 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [ ] Sentry / Datadog monitoring
 - [ ] Disaster Recovery Plan
 - [ ] Backup strategy + recovery testing
+- [ ] Staging environment `staging.inventario.estate`
+- [ ] email_unique index — overiť drop na prod Atlas po migrácii
 
 ---
 
@@ -170,11 +147,11 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 ### Frontend enhancements
 
-- [ ] Inteligentný onboarding (info ikony, empty states, contextual nudges)
-- [ ] Customizable dashboard widgets
+- [ ] Customizable dashboard widgets (reálne štatistiky)
 - [ ] Bulk operations (multi-select pre actions)
 - [ ] Advanced filtering (saved filters)
-- [ ] Print-friendly views (asset cards, loan protocols)
+- [ ] Print-friendly views (asset cards, loan protocols — QR štítky PDF)
+- [ ] `Cmd+K` tenant picker
 
 ---
 
@@ -196,7 +173,6 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 
 - [ ] Chat UI komponent
 - [ ] Vector embeddings v MongoDB Atlas Vector Search
-- [ ] Markdown frontmatter pre docs (topics, concepts tagy)
 - [ ] `/api/help/search` endpoint
 - [ ] "Ask AI" button v každej sekcii
 
@@ -312,6 +288,7 @@ Update history:
 | 2026-05-22 | v1.1   | Refresh — 962 testov, founding contributors                                          |
 | 2026-05-22 | v1.2   | MCP server reframe — odstránený z Done, presúnutý do v0.7 backlog; opravená docs URL |
 | 2026-05-23 | v1.3   | K10 + K11 označené ako done — boli hotové od 2026-05-16, zabudnuté checkboxy         |
+| 2026-05-29 | v1.4   | v0.4 Production LIVE — 607 testov, platform admin, MFA fix, mobile nav, email fix    |
 
 ---
 
