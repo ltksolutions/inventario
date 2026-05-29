@@ -11,6 +11,8 @@
  * stránka slúži na správu: prehľad, premenovanie, mazanie (s FK
  * protection a count naviazaných assetov).
  *
+ * Kategórie sú zoskupené podľa typu majetku pre lepšiu prehľadnosť.
+ *
  * RBAC:
  *   - Zobrazenie: všetci prihlásení
  *   - Pridať / premenovať: ASSET_MANAGER + ADMIN
@@ -95,14 +97,13 @@ export function CiselnikyContent(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Generic taxonomy table — shared by all 4 tabs
+// Generic taxonomy table — shared by Locations, Types, Conditions tabs
 // ---------------------------------------------------------------------------
 
 interface TaxonomyRow {
   id: string;
   name: string;
   slug: string;
-  /** Extra column value (e.g. assetType label, location type) — optional */
   extra?: string | null;
 }
 
@@ -110,7 +111,6 @@ interface TaxonomyTableProps {
   rows: TaxonomyRow[];
   isLoading: boolean;
   isError: boolean;
-  /** Label for the optional extra column header. Null = no extra column. */
   extraHeader?: string | null;
   emptyLabel: string;
   addLabel: string;
@@ -293,7 +293,7 @@ function TaxonomyTable({
 }
 
 // ---------------------------------------------------------------------------
-// Inline "add" prompt — simple name input row above the table
+// Inline "add" dialog
 // ---------------------------------------------------------------------------
 
 function AddInlineDialog({
@@ -326,7 +326,13 @@ function AddInlineDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border border-border-subtle bg-surface-card p-6 shadow-xl">
+      <button
+        type="button"
+        aria-label="Zatvoriť dialog"
+        className="absolute inset-0"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-border-subtle bg-surface-card p-6 shadow-xl">
         <div className="mb-4 flex items-start justify-between">
           <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
           <button
@@ -384,7 +390,7 @@ function AddInlineDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Categories
+// Tab: Categories — grouped by asset type
 // ---------------------------------------------------------------------------
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
@@ -397,6 +403,16 @@ const ASSET_TYPE_LABELS: Record<string, string> = {
   OTHER: 'Iné',
 };
 
+const ASSET_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  IT: { bg: '#E6F1FB', text: '#0C447C' },
+  SPORTS_GEAR: { bg: '#E1F5EE', text: '#085041' },
+  TRAINING_EQUIPMENT: { bg: '#EAF3DE', text: '#27500A' },
+  OFFICE_EQUIPMENT: { bg: '#F1EFE8', text: '#444441' },
+  MEDIA: { bg: '#EEEDFE', text: '#3C3489' },
+  COMMUNICATION: { bg: '#FAEEDA', text: '#633806' },
+  OTHER: { bg: '#FCEBEB', text: '#791F1F' },
+};
+
 function CategoriesTab(): JSX.Element {
   const query = useCategories({ limit: 200 });
   const canManage = useCanManageTaxonomy();
@@ -407,31 +423,204 @@ function CategoriesTab(): JSX.Element {
 
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TaxonomyRow | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameLoading, setRenameLoading] = useState(false);
 
-  const rows: TaxonomyRow[] = (query.data?.data ?? []).map((c) => ({
+  if (query.isLoading) return <ListSkeleton />;
+  if (query.isError)
+    return (
+      <ErrorPanel message="Kategórie sa nepodarilo načítať. Skontroluj pripojenie a skús znova." />
+    );
+
+  const allRows: TaxonomyRow[] = (query.data?.data ?? []).map((c) => ({
     id: c._id,
     name: c.name,
     slug: c.slug,
-    extra: ASSET_TYPE_LABELS[c.assetType] ?? c.assetType,
+    extra: c.assetType as string,
   }));
+
+  // Group by assetType, sort groups alphabetically by label
+  const groupOrder: string[] = [];
+  const groups: Record<string, TaxonomyRow[]> = {};
+  for (const row of allRows) {
+    const key = row.extra ?? 'OTHER';
+    if (!groups[key]) {
+      groupOrder.push(key);
+      groups[key] = [];
+    }
+    groups[key]!.push(row);
+  }
+  groupOrder.sort((a, b) =>
+    (ASSET_TYPE_LABELS[a] ?? a).localeCompare(ASSET_TYPE_LABELS[b] ?? b, 'sk'),
+  );
+
+  async function commitRename(id: string): Promise<void> {
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenamingId(null);
+      return;
+    }
+    setRenameLoading(true);
+    try {
+      await rename.mutateAsync({ id, name: trimmed });
+      setRenamingId(null);
+    } finally {
+      setRenameLoading(false);
+    }
+  }
+
+  function pluralCount(n: number): string {
+    if (n === 1) return 'kategória';
+    if (n < 5) return 'kategórie';
+    return 'kategórií';
+  }
 
   return (
     <>
-      <TaxonomyTable
-        rows={rows}
-        isLoading={query.isLoading}
-        isError={query.isError}
-        extraHeader="Typ majetku"
-        emptyLabel="Zatiaľ žiadne kategórie."
-        addLabel="Pridať kategóriu"
-        canManage={canManage}
-        canDelete={canDelete}
-        onAdd={() => setAddOpen(true)}
-        onRename={async (id, name) => {
-          await rename.mutateAsync({ id, name });
-        }}
-        onDelete={(row) => setDeleteTarget(row)}
-      />
+      {canManage && (
+        <div className="mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" />
+            Pridať kategóriu
+          </button>
+        </div>
+      )}
+
+      {allRows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-default bg-surface-card p-10 text-center">
+          <p className="text-sm font-medium text-text-primary">Zatiaľ žiadne kategórie.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {groupOrder.map((typeKey) => {
+            const label = ASSET_TYPE_LABELS[typeKey] ?? typeKey;
+            const colors = ASSET_TYPE_COLORS[typeKey] ?? { bg: '#F1EFE8', text: '#444441' };
+            const groupRows = groups[typeKey] ?? [];
+            return (
+              <div key={typeKey}>
+                <div className="mb-2 flex items-center gap-2 border-b border-border-subtle pb-2">
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                    style={{ background: colors.bg, color: colors.text }}
+                  >
+                    {label}
+                  </span>
+                  <span className="text-xs text-text-muted">
+                    {groupRows.length} {pluralCount(groupRows.length)}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
+                  <table className="w-full min-w-[480px] text-sm">
+                    <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
+                      <tr>
+                        <th scope="col" className="px-4 py-3">
+                          Názov
+                        </th>
+                        <th scope="col" className="px-4 py-3">
+                          Slug
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-right">
+                          <span className="sr-only">Akcie</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle">
+                      {groupRows.map((row) => {
+                        const isRenaming = renamingId === row.id;
+                        return (
+                          <tr key={row.id} className="hover:bg-surface-subtle">
+                            <td className="px-4 py-3 font-medium text-text-primary">
+                              {isRenaming ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    value={renameValue}
+                                    onChange={(e) => setRenameValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        void commitRename(row.id);
+                                      }
+                                      if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        setRenamingId(null);
+                                      }
+                                    }}
+                                    ref={(el) => el?.focus()}
+                                    className="w-48 rounded border border-border-focus bg-surface-card px-2 py-1 text-sm focus:outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={renameLoading}
+                                    onClick={() => void commitRename(row.id)}
+                                    aria-label="Uložiť"
+                                    className="rounded p-1 text-brand-primary hover:bg-surface-subtle disabled:opacity-50"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRenamingId(null)}
+                                    aria-label="Zrušiť"
+                                    className="rounded p-1 text-text-muted hover:text-text-primary"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                row.name
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-xs text-text-muted">
+                              {row.slug}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="inline-flex gap-1.5">
+                                {canManage && !isRenaming && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRenamingId(row.id);
+                                      setRenameValue(row.name);
+                                    }}
+                                    aria-label={`Premenovať ${row.name}`}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                  >
+                                    <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                                    Premenovať
+                                  </button>
+                                )}
+                                {canDelete && !isRenaming && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteTarget(row)}
+                                    aria-label={`Vymazať ${row.name}`}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-danger-fg transition hover:bg-danger-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                  >
+                                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+                                    Vymazať
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {addOpen && (
         <AddInlineDialog
           title="Nová kategória"
