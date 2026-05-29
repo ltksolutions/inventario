@@ -88,6 +88,15 @@
                         Dokumentácia <span aria-hidden="true">↗</span><span class="sr-only"> (otvorí v novom okne)</span>
                     </a>
                     <a href="${EXTERNAL_LINKS.github}" class="nav-link" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span><span class="sr-only"> (otvorí v novom okne)</span></a>
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; margin-top: 0.25rem;">
+                        <div class="lang-switch" role="group" aria-label="Voľba jazyka">
+                            <button class="active" data-lang="sk" aria-pressed="true">SK</button>
+                            <button disabled data-lang="en" aria-label="English (čoskoro)" title="Čoskoro">EN</button>
+                        </div>
+                        <a href="${EXTERNAL_LINKS.app}" class="btn btn-primary" style="padding: 0.55rem 1rem; font-size: 0.85rem;">
+                            Otvoriť aplikáciu
+                        </a>
+                    </div>
                 </div>
             </nav>
         `;

@@ -669,6 +669,10 @@ ul.checklist li::before {
   .nav-right .btn {
     display: none;
   }
+  /* Lang switch presunieme do mobile menu — v nav-right na 440px nevlezenie */
+  .nav-right .lang-switch {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {
