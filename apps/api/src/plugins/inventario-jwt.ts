@@ -219,6 +219,7 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
         }));
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Token verification failed';
+        fastify.log.warn({ errMsg: msg }, 'JWT verification failed');
         throw new UnauthorizedError(msg);
       }
       assertInventarioPayload(payload);
