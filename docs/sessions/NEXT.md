@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                   |
-| ------------------------- | --------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-29 (login + dashboard fix — ADR-0015 depr. polia) |
-| **Aktuálna fáza**         | Production LIVE — login + dashboard opravené, čaká deploy |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`             |
-| **GitHub**                | https://github.com/ltksolutions/inventario                |
+| Atribút                   | Hodnota                                                            |
+| ------------------------- | ------------------------------------------------------------------ |
+| **Posledná aktualizácia** | 2026-05-29 (login + dashboard fix — čaká COMMIT + PUSH)            |
+| **Aktuálna fáza**         | Production LIVE — 2 root-cause fixy hotové na disku, treba pushnúť |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                      |
+| **GitHub**                | https://github.com/ltksolutions/inventario                         |
 
 ---
 
@@ -115,12 +115,17 @@ migrovaní prod useri ho mali odstránený → rozdiel test vs prod data.
 **Fix:** `issueAccessToken(user, org, membershipId, roles)` — roly sa teraz berú
 z Membership (autoritatívny per-tenant zdroj). Upravení všetci calleri:
 email login, switch-org, OAuth callback+refresh, MFA challenge+forced-verify,
-passkeys login + 3 test helpery (provisionUser, mfa provisionEmailUser, forced-mfa).
-**Overenie po deployi:** login curl + `/me` musí vrátiť 200 (nie 401).
-**Súbory:** `inventario-jwt.ts`, `email-auth.routes.ts`, `auth-session.routes.ts`,
-`oauth.routes.ts`, `mfa/mfa.routes.ts`, `passkeys/passkeys.routes.ts`,
-`tests/helpers/test-fixtures.ts`, `tests/integration/mfa.test.ts`,
-`tests/integration/mfa-forced-setup.test.ts`.
+passkeys login, invitations accept (existing-user + new-user path)
+
+- 3 test helpery (provisionUser, mfa provisionEmailUser, forced-mfa).
+  **⚠️ STAV:** kód je na disku, ČAKÁ COMMIT + PUSH. CI 50/51 padli na typecheck
+  lebo bežali na starom commite (invitations.routes.ts 650+757) — po pushnutí prejde.
+  **Overenie po deployi:** login curl + `/me` musí vrátiť 200 (nie 401).
+  **Súbory:** `inventario-jwt.ts`, `email-auth.routes.ts`, `auth-session.routes.ts`,
+  `oauth.routes.ts`, `mfa/mfa.routes.ts`, `passkeys/passkeys.routes.ts`,
+  `invitations/invitations.routes.ts`, `plugins/auth.ts`,
+  `tests/helpers/test-fixtures.ts`, `tests/integration/mfa.test.ts`,
+  `tests/integration/mfa-forced-setup.test.ts`.
 
 ---
 
@@ -287,4 +292,4 @@ Duration:     ~80s
 **Last updated:** 2026-05-29
 **Tests:** ~577 ✅
 **Repo:** github.com/ltksolutions/inventario
-**Status:** Production LIVE ✅ — login + dashboard (ADR-0015 depr. polia) opravené ✅ — čaká deploy + over MFA sessionStorage 🐛
+**Status:** Production LIVE ✅ — login + dashboard (ADR-0015 depr. polia) opravené na disku ✅ — ⚠️ ČAKÁ COMMIT + PUSH (CI padne kým sa nepushne) — potom over dashboard + MFA sessionStorage 🐛
