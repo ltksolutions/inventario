@@ -23,6 +23,8 @@ export function setAuthCookies(
   // Set COOKIE_DOMAIN=.inventario.estate in Vercel production env vars.
   const cookieDomain = process.env['COOKIE_DOMAIN'];
   const isProd = Boolean(cookieDomain);
+  // Temporary debug — remove after confirming cookie domain works
+  console.log('[cookie-helpers] COOKIE_DOMAIN:', cookieDomain, 'isProd:', isProd);
 
   reply.setCookie('inv_access', accessToken, {
     httpOnly: true,
