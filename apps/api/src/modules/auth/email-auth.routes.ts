@@ -128,8 +128,19 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       }
       const { orgName, email, password } = body.data;
 
-      // Check if email already exists
-      const existing = await usersCol.findOne({ email, deletedAt: null });
+      // Check if email already exists within this new organisation.
+      // Note: we query without organisationId here because the org doesn't
+      // exist yet — this is the self-serve registration path that creates
+      // both org and user in one shot. We only need to ensure no LOCAL
+      // account with this email exists globally (Entra accounts are keyed
+      // by entraOid, not email). Once the org is created the composite
+      // organisationId_email_unique index prevents duplicates per-tenant.
+      //
+      // For multi-tenant: two users in DIFFERENT orgs CAN share the same
+      // email — that's enforced by the per-tenant index, not this check.
+      // This check only prevents creating a second org with the same
+      // founding admin email, which is a UX guard, not a security one.
+      const existing = await usersCol.findOne({ email, accountType: 'LOCAL', deletedAt: null });
       if (existing) {
         throw new BadRequestError('Tento e-mail je už zaregistrovaný.');
       }
@@ -604,8 +615,14 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         throw new BadRequestError('Neplatné heslo.');
       }
 
-      // Nový email nesmie byť obsadený
-      const conflict = await usersCol.findOne({ email: newEmail, deletedAt: null });
+      // Nový email nesmie byť obsadený v rámci toho istého tenanta.
+      // Multi-tenant: rovnaký email v inej org je OK — blokujeme len
+      // duplicitu v rámci tej istej organisationId.
+      const conflict = await usersCol.findOne({
+        email: newEmail,
+        organisationId: user.organisationId,
+        deletedAt: null,
+      });
       if (conflict) {
         throw new BadRequestError('Táto e-mailová adresa je už používaná.');
       }
@@ -665,9 +682,11 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
       const newEmail = (user as Record<string, unknown>)['emailChangePendingTo'] as string;
 
-      // Posledná kontrola duplicity (niekto mohol obsadiť email počas 1h okna)
+      // Posledná kontrola duplicity — scoped na tenant (rovnaký email
+      // v inej org nevadí, blokujeme len kolíziu v rámci tejto org).
       const conflict = await usersCol.findOne({
         email: newEmail,
+        organisationId: user.organisationId,
         _id: { $ne: user._id } as never,
         deletedAt: null,
       });
