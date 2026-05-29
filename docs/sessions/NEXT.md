@@ -7,79 +7,83 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                             |
-| ------------------------- | --------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-29 (koniec session)                         |
-| **Aktuálna fáza**         | Production LIVE ✅ — všetky dnešné commity pushnuté |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`       |
-| **GitHub**                | https://github.com/ltksolutions/inventario          |
+| Atribút                   | Hodnota                                       |
+| ------------------------- | --------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-30 (koniec session 2026-05-29)        |
+| **Aktuálna fáza**         | Production LIVE ✅ — UX polish session        |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario` |
+| **GitHub**                | https://github.com/ltksolutions/inventario    |
 
 ---
 
-## Čo sme spravili 2026-05-29
+## Čo sme spravili 2026-05-29 (večerná session)
 
-### MFA sessionStorage fix ✅
+### Číselníky — kategórie zoskupené podľa typov ✅
 
-- `window.location.href` namiesto `router.push` pre MFA redirect — garantuje sessionStorage commit pred mountom MfaChallengePage
+- `CiselnikyContent.tsx` — tab Kategórie prepísaný: skupiny podľa `assetType`, farebné badge-y
+  pre každý typ, abecedné zoradenie skupín, `pluralCount` helper (1/2-4/5+),
+  stĺpec „Typ majetku" odstránený ako redundantný
+- `ASSET_TYPE_COLORS` konštanta — 7 farebných rampov (blue/teal/green/gray/purple/amber/red)
 
-### email_unique index fix ✅
+### SelectField custom dropdown + ADR-0018 ✅
 
-- Migrácia `2026-05-29c` — dropuje legacy globálny `email_unique` index (multi-tenant: dvaja useri z rôznych org môžu mať rovnaký email)
-- `email-auth.routes.ts` — 3 cross-tenant `findOne` opravené na tenant-scoped lookups (registrácia, change-email, confirm-email-change)
+- `apps/web/src/components/SelectField.tsx` (nový) — plne custom dropdown, WAI-ARIA combobox
+  pattern, klávesnica ↑↓ Enter Esc Tab, check mark pri vybranej položke, animovaná šípka
+- `apps/web/src/components/TenantsContent.tsx` — všetky `<select>` nahradené `SelectField`
+  (filtre: Stav, Plán, Veľkosť strany; dialógy: Edit Tenant, Create Tenant)
+- `docs/decisions/0018-select-field-component.md` — ADR s pravidlami kedy použiť SelectField
+  vs Combobox vs natívny select
+- ESLint fix — odstrániť komentár na neexistujúce pravidlo `jsx-a11y/no-noninteractive-element-to-interactive-role`
 
-### Platform admin Tenants page ✅
+### ROADMAP + docs aktualizované ✅
 
-- `apps/web/src/components/TenantsContent.tsx` — list, create, edit (plan/status/meno/email), archive
-- `apps/web/src/lib/organisations-hooks.ts` — TanStack Query hooks pre `/v1/organisations`
-- `apps/web/src/app/admin/tenants/page.tsx` — route `/admin/tenants`
-- `apps/web/src/components/AppShell.tsx` — nav item "Tenanti" s `ShieldCheck` ikonou, ADMIN only
-- `apps/api/tests/integration/organisations.test.ts` — 30 integration testov (RBAC, CRUD, soft-delete, filters)
-- CI fix: backdrop `<button>` namiesto `<div onClick>` (jsx-a11y), `exactOptionalPropertyTypes` spread fix
-
-### Marketing site mobile nav fix ✅
-
-- `shared.css` — na `≤700px` skrytý `lang-switch` v `.nav-right`
-- `shared.js` — SK/EN switcher + "Otvoriť aplikáciu" CTA presunuté do `.nav-mobile-menu`
+- `ROADMAP.md` — v0.4 označené ako Completed, Done sekcia rozšírená o celú históriu
+  frontend stránok, testov a bugfixov, v0.5 Next aktualizované
+- `docs/milestones/slice-4-frontend-web.md` — nová sekcia „Rozšírenia po 2026-05-20"
+  (grouped categories, platform admin, bugfixy)
 
 ---
 
-## Stav na 2026-05-29
+## Stav na koniec 2026-05-29
 
 ### 📊 Globálny stav
 
-| Oblasť            | Status                                             |
-| ----------------- | -------------------------------------------------- |
-| **Backend testy** | ✅ ~607 (37 test files) — po organisations.test.ts |
-| **Frontend**      | ✅ všetky stránky funkčné + nová /admin/tenants    |
-| **Production**    | ✅ LIVE — app.inventario.estate                    |
-| **CI**            | ✅ Green                                           |
-| **Marketing**     | ✅ mobile nav opravený                             |
+| Oblasť            | Status                                               |
+| ----------------- | ---------------------------------------------------- |
+| **Backend testy** | ✅ ~607 (37 test files)                              |
+| **Frontend**      | ✅ všetky stránky + grouped categories + SelectField |
+| **Production**    | ✅ LIVE — app.inventario.estate                      |
+| **CI**            | ✅ Green                                             |
+| **ADR-čka**       | ✅ 0001–0018                                         |
 
 ---
 
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. Smoke test po deployi (Číselníky + seed + migrácie)
+### 1. Smoke test po deployi
 
 Po deployi overiť:
 
+- [ ] `/ciselniky` — kategórie sú zoskupené podľa typu, abecedne zoradené
+- [ ] `/admin/tenants` — Stav/Plán/Veľkosť strany filtre používajú nový SelectField
+- [ ] Edit + Create dialog v Tenantoch — SelectField funguje (klávesnica + myš)
 - [ ] `migrations` kolekcia — 5 záznamov vrátane `2026-05-29c`
-- [ ] `/ciselniky` ukazuje predplnené hodnoty
-- [ ] `/admin/tenants` zobrazuje tenantov (len pre ADMIN)
+- [ ] MFA redirect — nesmie ukazovať "Platnosť prihlásenia vypršala"
 
-### 2. Smoke test s kolegom
+### 2. Rozšíriť SelectField do ďalších stránok
 
-Prejsť kroky 4-8 z checklistu:
+Ďalšie `<select>` na nahradenie (podľa ADR-0018):
+
+- [ ] `UsersContent.tsx` — filter Rola + filter Stav + Veľkosť strany
+- [ ] `AssetsListContent.tsx` — filter Typ majetku + filter Stav + Veľkosť strany
+- [ ] `LoansContent.tsx` — filter Status
+
+### 3. Smoke test s kolegom
 
 - [ ] Pridanie majetku + detail + úprava
-- [ ] Žiadosť o výpožičku + schválenie + email notifikácia
+- [ ] Žiadosť o výpožičku + schválenie
 - [ ] Členovia + pozvánka kolegu
 - [ ] Reset hesla
-- [ ] Odhlásenie + opätovné prihlásenie
-
-### 3. MFA sessionStorage — overiť po deployi
-
-- [ ] Login s MFA → overí `window.location.href` fix — nesmie ukazovať "Platnosť prihlásenia vypršala"
 
 ### 4. Onboarding flow pre nových tenantov
 
@@ -91,8 +95,7 @@ Design + rozsah pred implementáciou (model: **Opus 4.7** pre návrh, **Sonnet 4
 
 ### 6. SFZ onboarding
 
-- SFZ má user `inventario@futbalsfz.sk` s `emailVerified: true` na prod
-- Treba overiť login
+- `inventario@futbalsfz.sk` — overiť login na prod
 
 ---
 
@@ -158,17 +161,18 @@ Duration:     ~85s
 
 ## 📂 Kde nájdeš čo
 
-| Typ                                 | Lokácia                                        |
-| ----------------------------------- | ---------------------------------------------- |
-| **Aktuálny stav**                   | `docs/sessions/NEXT.md` (TY SI TU)             |
-| **Session 2026-05-29**              | `docs/sessions/2026-05-29-dynamic-combobox.md` |
-| **Production smoke test checklist** | `docs/sessions/smoke-test-checklist.md`        |
-| **ADR-čka**                         | `docs/decisions/0001..0017-*.md`               |
-| **Slice milestones**                | `docs/milestones/slice-*.md`                   |
+| Typ                                 | Lokácia                                               |
+| ----------------------------------- | ----------------------------------------------------- |
+| **Aktuálny stav**                   | `docs/sessions/NEXT.md` (TY SI TU)                    |
+| **Session 2026-05-29 (večer)**      | `docs/sessions/2026-05-29-ux-polish-selectfield.md`   |
+| **Session 2026-05-29 (deň)**        | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md` |
+| **Production smoke test checklist** | `docs/sessions/smoke-test-checklist.md`               |
+| **ADR-čka**                         | `docs/decisions/0001..0018-*.md`                      |
+| **Slice milestones**                | `docs/milestones/slice-*.md`                          |
 
 ---
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-05-30
 **Tests:** ~607 ✅
 **Repo:** github.com/ltksolutions/inventario
-**Status:** Production LIVE ✅ — všetko commitnuté a pushnuté ✅
+**Status:** Production LIVE ✅
