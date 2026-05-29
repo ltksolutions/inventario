@@ -145,6 +145,10 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/v1/auth/me', async (request, reply) => {
     const token = request.cookies?.['inv_access'];
+    fastify.log.info(
+      { hasToken: Boolean(token), tokenPrefix: token?.slice(0, 20) },
+      'GET /me cookie check',
+    );
     if (!token) {
       return reply.code(401).send({ error: 'Not authenticated' });
     }
