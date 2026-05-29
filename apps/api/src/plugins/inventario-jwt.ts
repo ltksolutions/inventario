@@ -151,8 +151,22 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
   let privateKey: KeyLike;
   let publicKey: KeyLike;
   try {
-    privateKey = await importPKCS8(JWT_PRIVATE_KEY.trim(), 'RS256');
-    publicKey = await importSPKI(JWT_PUBLIC_KEY.trim(), 'RS256');
+    // Keys may be stored in different formats to avoid multiline env var issues:
+    // 1. Raw PEM (starts with -----) — used directly
+    // 2. PEM with literal \n (e.g. "-----BEGIN...\nMII...\n-----END...")
+    // 3. Base64-encoded PEM — decoded first
+    const normalizeKey = (raw: string): string => {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('-----')) return trimmed;
+      // Check for literal \n sequences (escaped newlines)
+      if (trimmed.includes('\\n')) return trimmed.replace(/\\n/g, '\n');
+      // Otherwise assume base64
+      return Buffer.from(trimmed, 'base64').toString('utf-8');
+    };
+    const privateKeyPem = normalizeKey(JWT_PRIVATE_KEY);
+    const publicKeyPem = normalizeKey(JWT_PUBLIC_KEY);
+    privateKey = await importPKCS8(privateKeyPem, 'RS256');
+    publicKey = await importSPKI(publicKeyPem, 'RS256');
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
