@@ -532,7 +532,12 @@ const passkeysRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
       // Issue tokens
       const membershipId = String(defaultMembership['_id']);
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org, membershipId);
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(
+        user,
+        org,
+        membershipId,
+        (defaultMembership['roles'] as string[]) ?? [],
+      );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
 
       setAuthCookies(

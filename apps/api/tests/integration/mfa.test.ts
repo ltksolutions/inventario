@@ -124,7 +124,9 @@ async function provisionEmailUser(
     .collection('organisations')
     .findOne({ _id: new ObjectId(organisationId) } as never)) as never;
 
-  const cookie = await app.inventarioJwt.issueAccessToken(user as never, org);
+  const cookie = await app.inventarioJwt.issueAccessToken(user as never, org, undefined, [
+    UserRole.EMPLOYEE,
+  ]);
   return { user, password, cookie };
 }
 

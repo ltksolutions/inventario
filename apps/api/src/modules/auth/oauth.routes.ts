@@ -236,10 +236,16 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         return reply.redirect(`${FRONTEND_BASE_URL}/login?error=${result.errorCode}`);
       }
 
-      const { user, org, membershipId, isNew, wasInvite } = result;
+      const { user, org, membershipId, roles, isNew, wasInvite } = result;
 
-      // Issue tokens — always include membershipId (K5 mid claim)
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org, membershipId);
+      // Issue tokens — always include membershipId (K5 mid claim) and the
+      // per-tenant roles from the resolved membership (ADR-0015).
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(
+        user,
+        org,
+        membershipId,
+        roles,
+      );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
       // Set cookies
@@ -358,6 +364,7 @@ function registerRefreshRoute(fastify: Parameters<FastifyPluginAsync>[0]): void 
       user,
       org,
       String(defaultMembership['_id']),
+      (defaultMembership['roles'] as string[]) ?? [],
     );
     setAuthCookies(
       reply,
@@ -504,6 +511,7 @@ type ProvisionResult =
       user: WithId<User>;
       org: WithId<Organisation>;
       membershipId: string;
+      roles: string[];
       isNew: boolean;
       wasInvite: boolean;
     }
@@ -566,6 +574,7 @@ async function provisionOrFindUser(args: {
       user: existingUser,
       org,
       membershipId: String(defaultMembership['_id']),
+      roles: (defaultMembership['roles'] as string[]) ?? [],
       isNew: false,
       wasInvite: false,
     };
@@ -719,6 +728,7 @@ async function provisionOrFindUser(args: {
     user: newUser,
     org: newOrg,
     membershipId: String(membershipInsert.insertedId),
+    roles: [UserRole.ADMIN],
     isNew: true,
     wasInvite: false,
   };
@@ -885,6 +895,7 @@ async function acceptInviteViaOAuth(args: {
       user,
       org,
       membershipId: String(membershipInsert.insertedId),
+      roles: (newInv['roles'] as string[]) ?? [],
       isNew: !invitedUserId,
       wasInvite: true,
     };
@@ -953,6 +964,7 @@ async function acceptInviteViaOAuth(args: {
     user: activatedUser,
     org,
     membershipId: '',
+    roles: [],
     isNew: false,
     wasInvite: true,
   };

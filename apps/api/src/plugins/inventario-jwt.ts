@@ -53,11 +53,16 @@ export interface InventarioJwtService {
    * @param org           - Active organisation
    * @param membershipId  - Active membership _id (optional; omitted for
    *                        legacy flows until K6 wires memberships fully)
+   * @param roles         - Per-tenant roles, sourced from the active
+   *                        Membership (ADR-0015). NOT from user.roles,
+   *                        which is deprecated and removed from User docs
+   *                        by the memberships migration.
    */
   issueAccessToken(
     user: WithId<User>,
     org: WithId<Organisation>,
-    membershipId?: string,
+    membershipId: string | undefined,
+    roles: string[],
   ): Promise<string>;
 
   /**
@@ -185,10 +190,15 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
   const service: InventarioJwtService = {
     isConfigured: true,
 
-    async issueAccessToken(user, org, membershipId) {
+    async issueAccessToken(user, org, membershipId, roles) {
       const claims: Omit<InventarioJwtPayload, 'sub' | 'iss' | 'aud' | 'iat' | 'exp'> = {
         org: String(org._id),
-        roles: user.roles,
+        // Roles are per-tenant and authoritative on the Membership
+        // (ADR-0015). user.roles is deprecated and may be undefined or []
+        // after the memberships migration, which previously produced
+        // tokens with a missing/empty roles claim that verifyAccessToken
+        // then rejected. Always source roles from the caller's membership.
+        roles: roles ?? [],
         email: user.email,
         name: user.displayName,
       };

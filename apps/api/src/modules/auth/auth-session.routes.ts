@@ -104,6 +104,7 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         request.currentUser,
         targetOrg,
         String(targetMembership._id),
+        targetMembership.roles,
       );
       const newRefreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
 

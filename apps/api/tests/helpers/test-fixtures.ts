@@ -263,7 +263,9 @@ export async function provisionUser(
     _id: new ObjectId(organisationId),
   } as never)) as never;
 
-  const token = await app.inventarioJwt.issueAccessToken(user as never, org);
+  const token = await app.inventarioJwt.issueAccessToken(user as never, org, undefined, [
+    options.role,
+  ]);
 
   return { user, token };
 }

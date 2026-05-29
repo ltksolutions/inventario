@@ -419,7 +419,12 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       // membership already resolved above (default / most-recent active)
       const membershipId = String(membership['_id']);
 
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org, membershipId);
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(
+        user,
+        org,
+        membershipId,
+        membership['roles'] as string[],
+      );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
       setAuthCookies(

@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                |
-| ------------------------- | ------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-05-29 (prod debug + login fix + 2 bugs na zajtra) |
-| **Aktuálna fáza**         | Production LIVE — 2 bugy na opravu zajtra              |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`          |
-| **GitHub**                | https://github.com/ltksolutions/inventario             |
+| Atribút                   | Hodnota                                                    |
+| ------------------------- | ---------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-29 (login JWT roles fix — root cause redirect bug) |
+| **Aktuálna fáza**         | Production LIVE — login redirect bug opravený, čaká deploy |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`              |
+| **GitHub**                | https://github.com/ltksolutions/inventario                 |
 
 ---
 
@@ -85,17 +85,36 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ---
 
+## 🐛✅ OPRAVENÉ 2026-05-29: login → redirect späť na login (chýbajúce roles v JWT)
+
+**Symptom:** po úspešnom logine (204, cookie OK) ťa appka hodila späť na /login.
+**Root cause:** `issueAccessToken` bral `roles: user.roles`, ale po ADR-0015 migrácii
+sa `roles` z User dokumentu odstránili (sú na Membership). Token sa podpisoval BEZ
+`roles` claim → `verifyAccessToken` → `assertInventarioPayload` hádzal "missing roles"
+→ `/v1/auth/me` vrátil 401 → frontend redirect na login. Cookie atribúty boli OK
+(`Secure; SameSite=None; Domain=.inventario.estate`) — problem nebol v cookie.
+**Prečo testy prešli:** test fixtures vytvárajú usera s `roles` poľom prítomným; len
+migrovaní prod useri ho mali odstránený → rozdiel test vs prod data.
+**Fix:** `issueAccessToken(user, org, membershipId, roles)` — roly sa teraz berú
+z Membership (autoritatívny per-tenant zdroj). Upravení všetci calleri:
+email login, switch-org, OAuth callback+refresh, MFA challenge+forced-verify,
+passkeys login + 3 test helpery (provisionUser, mfa provisionEmailUser, forced-mfa).
+**Overenie po deployi:** login curl + `/me` musí vrátiť 200 (nie 401).
+**Súbory:** `inventario-jwt.ts`, `email-auth.routes.ts`, `auth-session.routes.ts`,
+`oauth.routes.ts`, `mfa/mfa.routes.ts`, `passkeys/passkeys.routes.ts`,
+`tests/helpers/test-fixtures.ts`, `tests/integration/mfa.test.ts`,
+`tests/integration/mfa-forced-setup.test.ts`.
+
+---
+
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. 🐛 URGENTNÉ: seed pri email registrácii chýba
+### 1. ✅ VYRIEŠENÉ: seed pri email registrácii
 
-`register/email` route v `email-auth.routes.ts` vytvára org priamo (bez `OrganisationsService`)
-a nevolá `seedTenantDefaults`. Nový tenant zaregistrovaný cez email nemá predplnené číselníky.
-
-**Fix:** pridať volanie `seedTenantDefaults(db, orgId.toString())` hneď po inser-te org
-v `register/email` handleri (riadok ~225, po `insertOne` pre membership).
-
-**Súbory:** `apps/api/src/modules/auth/email-auth.routes.ts`
+`register/email` route v `email-auth.routes.ts` UŽ volá `seedTenantDefaults(db, orgId, userId)`
+v best-effort try/catch po vložení membershipu. Seed je teda napojený na všetkých 3 miestach:
+JIT provisioning + admin create (organisations.service) + email registrácia.
+Pôvodný nález bol zastaraný — nič na opravu.
 
 ### 2. 🐛 URGENTNÉ: MFA email login — sessionStorage token sa neukladá
 
@@ -251,4 +270,4 @@ Duration:     ~80s
 **Last updated:** 2026-05-29
 **Tests:** ~577 ✅
 **Repo:** github.com/ltksolutions/inventario
-**Status:** Production LIVE ✅ — login fix ✅ — 2 bugy na zajtra 🐛 (seed pri registrácii + MFA sessionStorage)
+**Status:** Production LIVE ✅ — login redirect bug (JWT roles) opravený ✅ — čaká deploy + over MFA sessionStorage 🐛

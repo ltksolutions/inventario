@@ -450,8 +450,23 @@ const mfaRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         },
       });
 
+      // Resolve the user's active membership for this org to source the
+      // authoritative per-tenant roles (ADR-0015). Without roles the issued
+      // token fails verifyAccessToken's assertInventarioPayload check.
+      const fvMembership = await db.collection('memberships').findOne({
+        userId: String(user._id),
+        organisationId: String(org._id),
+        status: 'ACTIVE',
+        deletedAt: null,
+      });
+
       // Issue real auth cookies
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(
+        user,
+        org,
+        fvMembership ? String(fvMembership['_id']) : undefined,
+        (fvMembership?.['roles'] as string[]) ?? [],
+      );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
       setAuthCookies(
@@ -554,7 +569,19 @@ const mfaRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       await usersCol.updateOne({ _id: user._id } as never, { $set: updates });
 
       // -- Issue tokens ----------------------------------------------------
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(user, org);
+      // Resolve active membership for authoritative per-tenant roles (ADR-0015).
+      const chMembership = await db.collection('memberships').findOne({
+        userId: String(user._id),
+        organisationId: String(org._id),
+        status: 'ACTIVE',
+        deletedAt: null,
+      });
+      const accessToken = await fastify.inventarioJwt.issueAccessToken(
+        user,
+        org,
+        chMembership ? String(chMembership['_id']) : undefined,
+        (chMembership?.['roles'] as string[]) ?? [],
+      );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
       setAuthCookies(
