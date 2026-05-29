@@ -651,6 +651,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         userDoc as never,
         org as never,
         String(membership._id),
+        inv.roles,
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
       setAuthCookies(
@@ -758,6 +759,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         userDoc,
         org as never,
         String(membership._id),
+        inv.roles,
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
       setAuthCookies(
