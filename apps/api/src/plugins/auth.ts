@@ -181,6 +181,18 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
 
     request.currentUser = userDoc as unknown as WithId<User>;
 
+    // ADR-0015 compat: the `organisationId` field was removed from User
+    // documents by the memberships migration (tenant scope now lives on
+    // Membership). Many service methods still read `actor.organisationId`
+    // to scope tenant-bound queries; left undefined that produces a
+    // "Malformed organisationId 'undefined'" 400. Backfill it on the
+    // per-request user object from the resolved tenant so every module
+    // gets the authoritative active organisationId without changing each
+    // service signature. Safe because currentUser is a fresh per-request
+    // object, never shared or persisted.
+    (request.currentUser as unknown as { organisationId: string }).organisationId =
+      request.organisationId;
+
     // ----- Resolve membership (K6) -----
     //
     // Try cache first. On cache miss, fetch from DB and cache the result.
@@ -223,15 +235,14 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
 
     request.activeMembership = membership;
 
-    request.log.debug(
-      {
-        userId,
-        organisationId,
-        membershipId: String(membership._id),
-        roles: membership.roles,
-      },
-      'Membership resolved',
-    );
+    // ADR-0015 compat (roles): like organisationId above, `roles` was
+    // removed from User docs by the memberships migration — authoritative
+    // roles live on the Membership. Service-layer RBAC helpers still read
+    // `actor.roles` (e.g. loans hasManagerRole, cancelLoanRequest admin
+    // check), which would be empty/undefined on a migrated user and
+    // silently deny manager/admin actions. Backfill from the resolved
+    // membership so every module sees the authoritative per-tenant roles.
+    (request.currentUser as unknown as { roles: Membership['roles'] }).roles = membership.roles;
   });
 
   // -------------------------------------------------------------------------

@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                    |
-| ------------------------- | ---------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-29 (login JWT roles fix — root cause redirect bug) |
-| **Aktuálna fáza**         | Production LIVE — login redirect bug opravený, čaká deploy |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`              |
-| **GitHub**                | https://github.com/ltksolutions/inventario                 |
+| Atribút                   | Hodnota                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-29 (login + dashboard fix — ADR-0015 depr. polia) |
+| **Aktuálna fáza**         | Production LIVE — login + dashboard opravené, čaká deploy |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`             |
+| **GitHub**                | https://github.com/ltksolutions/inventario                |
 
 ---
 
@@ -82,6 +82,23 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Migrácia enum→slug**   | ✅ Runner zaregistrovaný, spustí sa pri deployi     |
 | **Smoke test s kolegom** | ⏳ kroky 4-8 pending                                |
 | **Legal review**         | ⏳ externe                                          |
+
+---
+
+## 🐛✅ OPRAVENÉ 2026-05-29: dashboard "Nepodarilo sa načítať" (organisationId undefined)
+
+**Symptom:** po logine dashboard karty (Majetok/Kategórie/Lokality/Výpožičky) ukazovali
+"Nepodarilo sa načítať", data endpointy vracali 400 "Malformed organisationId 'undefined'".
+**Root cause:** rovnaký typ ako roles bug — service vrstva číta `actor.organisationId`
+(a `actor.roles`) z User dokumentu, ale ADR-0015 migrácia tieto polia z User odstránila
+(sú na Membership). `String(undefined)` = "undefined" → repository 400.
+**Fix:** centrálne v `loadCurrentUser` middleware — po rezolúcii tenanta + membershipu
+backfill `request.currentUser.organisationId` (z tokenu) a `.roles` (z membershipu).
+Tým všetky moduly (assets/categories/locations/loans/users/asset-types/conditions)
+dostanú autoritatívne hodnoty bez zmeny každej service signatúry. currentUser je
+per-request objekt — mutácia je bezpečná.
+**Súbory:** `apps/api/src/plugins/auth.ts`
+**Overenie po deployi:** dashboard karty ukazujú čísla; `/v1/assets?limit=1` vráti 200.
 
 ---
 
@@ -270,4 +287,4 @@ Duration:     ~80s
 **Last updated:** 2026-05-29
 **Tests:** ~577 ✅
 **Repo:** github.com/ltksolutions/inventario
-**Status:** Production LIVE ✅ — login redirect bug (JWT roles) opravený ✅ — čaká deploy + over MFA sessionStorage 🐛
+**Status:** Production LIVE ✅ — login + dashboard (ADR-0015 depr. polia) opravené ✅ — čaká deploy + over MFA sessionStorage 🐛
