@@ -468,12 +468,16 @@ function TenantEditDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tenant-edit-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
     >
-      <div className="w-full max-w-md rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xl">
+      {/* Backdrop */}
+      <button
+        type="button"
+        aria-label="Zatvoriť dialog"
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xl">
         <h2 id="tenant-edit-title" className="mb-4 text-base font-semibold text-text-primary">
           Upraviť tenant
         </h2>
@@ -634,12 +638,16 @@ function TenantCreateDialog({ onClose }: { onClose: () => void }): JSX.Element {
       role="dialog"
       aria-modal="true"
       aria-labelledby="tenant-create-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
     >
-      <div className="w-full max-w-md rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xl">
+      {/* Backdrop */}
+      <button
+        type="button"
+        aria-label="Zatvoriť dialog"
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xl">
         <h2 id="tenant-create-title" className="mb-4 text-base font-semibold text-text-primary">
           Nový tenant
         </h2>
