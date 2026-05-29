@@ -156,7 +156,9 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     let payload;
     try {
       payload = await fastify.inventarioJwt.verifyAccessToken(token);
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'unknown';
+      fastify.log.warn({ errMsg: msg }, 'GET /me token verification failed');
       return reply.code(401).send({ error: 'Invalid or expired token' });
     }
 

@@ -401,6 +401,6 @@ function assertInventarioPayload(
 
 function notConfigured(): never {
   throw new Error(
-    'Inventario JWT service is not configured. Set JWT_PRIVATE_KEY and JWT_PUBLIC_KEY env vars.',
+    '[STUB_MODE] Inventario JWT service is not configured. Set JWT_PRIVATE_KEY and JWT_PUBLIC_KEY env vars.',
   );
 }
