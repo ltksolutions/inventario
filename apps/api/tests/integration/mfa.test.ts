@@ -96,6 +96,30 @@ async function provisionEmailUser(
     .collection<User>('users')
     .findOne({ _id: insertRes.insertedId } as never)) as WithId<User>;
 
+  // Create membership so the login flow (which resolves tenant via membership)
+  // can find the org. Without this, POST /v1/auth/login/email returns 401.
+  await app.mongo.db.collection('memberships').insertOne({
+    userId: String(insertRes.insertedId),
+    organisationId,
+    roles: [UserRole.EMPLOYEE],
+    organizationalUnit: null,
+    teams: [],
+    status: 'ACTIVE',
+    isDefault: true,
+    invitedBy: 'test',
+    invitedAt: now,
+    acceptedAt: now,
+    mustChangePassword: false,
+    lastAccessedAt: now,
+    notifications: { email: true, push: false },
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'test',
+    updatedBy: 'test',
+    deletedAt: null,
+    deletedBy: null,
+  });
+
   const org = (await app.mongo.db
     .collection('organisations')
     .findOne({ _id: new ObjectId(organisationId) } as never)) as never;
