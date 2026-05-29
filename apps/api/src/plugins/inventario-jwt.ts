@@ -126,7 +126,7 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
   } = fastify.config;
 
   if (!JWT_PRIVATE_KEY || !JWT_PUBLIC_KEY) {
-    fastify.log.info(
+    fastify.log.warn(
       'JWT_PRIVATE_KEY / JWT_PUBLIC_KEY not set — Inventario JWT service is in stub mode.',
     );
     const stub: InventarioJwtService = {

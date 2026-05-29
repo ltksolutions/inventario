@@ -35,6 +35,7 @@ import fp from 'fastify-plugin';
 
 import { UnauthorizedError } from '../../plugins/error-handler.js';
 
+import { setAuthCookies } from './cookie-helpers.js';
 import {
   OAUTH_STATE_COOKIE,
   OAuthStateError,
@@ -45,7 +46,7 @@ import {
 } from './oauth-state.js';
 
 import type { Organisation, User } from '@inventario/shared-types';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type { Db, WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
@@ -299,18 +300,17 @@ export default fp(oauthRoutesPlugin, {
 // ---------------------------------------------------------------------------
 
 function registerRefreshRoute(fastify: Parameters<FastifyPluginAsync>[0]): void {
-  const isProd = process.env['NODE_ENV'] === 'production';
-  const cookieDomain = isProd ? '.inventario.estate' : undefined;
-
   fastify.post('/v1/auth/logout', async (request, reply) => {
     const refreshToken = request.cookies?.['inv_refresh'];
     if (refreshToken) {
       await fastify.inventarioJwt.revokeRefreshToken(refreshToken);
     }
+    const cookieDomain = process.env['COOKIE_DOMAIN'];
+    const isProd = Boolean(cookieDomain);
     const baseOpts = {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax' as const,
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     };
     reply.clearCookie('inv_access', { ...baseOpts, path: '/' });
@@ -956,38 +956,6 @@ async function acceptInviteViaOAuth(args: {
     isNew: false,
     wasInvite: true,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Cookie helpers
-// ---------------------------------------------------------------------------
-
-function setAuthCookies(
-  reply: FastifyReply,
-  accessToken: string,
-  refreshToken: string,
-  accessTtlSeconds: number,
-  refreshTtlDays: number,
-): void {
-  const isProd = process.env['NODE_ENV'] === 'production';
-
-  reply.setCookie('inv_access', accessToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'lax',
-    path: '/',
-    ...(isProd && { domain: '.inventario.estate' }),
-    maxAge: accessTtlSeconds,
-  });
-
-  reply.setCookie('inv_refresh', refreshToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'lax',
-    path: '/v1/auth/refresh',
-    ...(isProd && { domain: '.inventario.estate' }),
-    maxAge: refreshTtlDays * 24 * 60 * 60,
-  });
 }
 
 // ---------------------------------------------------------------------------
