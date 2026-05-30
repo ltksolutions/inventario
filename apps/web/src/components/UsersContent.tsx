@@ -8,6 +8,7 @@ import { CheckCircle2, Pencil, Search, ShieldOff, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { SelectField } from './SelectField';
+import { CardSkeleton, TableSkeleton } from './Skeleton';
 import { UserEditDialog } from './UserEditDialog';
 
 import type { UserSummary } from '@/lib/api-hooks';
@@ -60,7 +61,7 @@ export function UsersContent(): JSX.Element {
   const meQuery = useMe();
 
   if (meQuery.isLoading) {
-    return <PageSkeleton />;
+    return <CardSkeleton lines={2} />;
   }
 
   // Render the access-denied state before mounting any of the admin
@@ -213,7 +214,7 @@ function UsersAdminPanel({ currentUserId }: { currentUserId: string | null }): J
       </p>
 
       {usersQuery.isLoading ? (
-        <TableSkeleton rows={Math.min(pageSize, 8)} />
+        <TableSkeleton rows={Math.min(pageSize, 8)} columns={6} />
       ) : usersQuery.isError ? (
         <ErrorPanel message="Používateľov sa nepodarilo načítať. Skontroluj pripojenie a skús to znova." />
       ) : users.length === 0 ? (
@@ -370,42 +371,8 @@ function UsersTable({ users, currentUserId, onEdit }: UsersTableProps): JSX.Elem
 }
 
 // ---------------------------------------------------------------------------
-// Skeleton + error + empty + access-denied states
+// Error + empty + access-denied states
 // ---------------------------------------------------------------------------
-
-function PageSkeleton(): JSX.Element {
-  return (
-    <div aria-busy="true" aria-label="Načítavam">
-      <div className="mb-6 h-8 w-48 animate-pulse rounded bg-surface-subtle" />
-      <div className="h-24 animate-pulse rounded-xl bg-surface-subtle" />
-    </div>
-  );
-}
-
-function TableSkeleton({ rows }: { rows: number }): JSX.Element {
-  return (
-    <div
-      aria-busy="true"
-      aria-label="Načítavam zoznam používateľov"
-      className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-sm"
-    >
-      <div className="border-b border-border-subtle bg-surface-subtle px-4 py-3">
-        <div className="h-3 w-32 animate-pulse rounded bg-border-subtle" />
-      </div>
-      <ul className="divide-y divide-border-subtle">
-        {Array.from({ length: rows }).map((_, i) => (
-          <li key={i} className="flex items-center gap-4 px-4 py-3">
-            <div className="h-4 w-40 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-4 w-48 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-4 w-32 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-subtle" />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 function ErrorPanel({ message }: { message: string }): JSX.Element {
   return (

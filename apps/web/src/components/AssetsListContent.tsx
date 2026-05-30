@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 
 import { AssetsTable } from './AssetsTable';
 import { SelectField } from './SelectField';
+import { TableSkeleton } from './Skeleton';
 
 import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
@@ -205,7 +206,7 @@ export function AssetsListContent(): JSX.Element {
       </p>
 
       {assetsQuery.isLoading ? (
-        <TableSkeleton rows={Math.min(pageSize, 8)} />
+        <TableSkeleton rows={Math.min(pageSize, 8)} columns={5} />
       ) : filteredAssets.length === 0 ? (
         <EmptyState hasActiveFilter={hasActiveFilter} />
       ) : (
@@ -267,31 +268,6 @@ function buildIdMap<T extends { _id: string }>(items: readonly T[]): Map<string,
     map.set(item._id, item);
   }
   return map;
-}
-
-function TableSkeleton({ rows }: { rows: number }): JSX.Element {
-  return (
-    <div
-      aria-busy="true"
-      aria-label="Načítavam tabuľku majetku"
-      className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-sm"
-    >
-      <div className="border-b border-border-subtle bg-surface-subtle px-4 py-3">
-        <div className="h-3 w-32 animate-pulse rounded bg-border-subtle" />
-      </div>
-      <ul className="divide-y divide-border-subtle">
-        {Array.from({ length: rows }).map((_, i) => (
-          <li key={i} className="flex items-center gap-4 px-4 py-3">
-            <div className="h-4 w-28 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-4 flex-1 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-5 w-20 animate-pulse rounded-full bg-surface-subtle" />
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-subtle" />
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-subtle" />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 function EmptyState({ hasActiveFilter }: { hasActiveFilter: boolean }): JSX.Element {

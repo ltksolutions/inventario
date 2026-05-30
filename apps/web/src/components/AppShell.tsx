@@ -38,6 +38,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { LogoutButton } from './LogoutButton';
+import { RouteProgressBar } from './RouteProgressBar';
 
 import type { JSX, ReactNode } from 'react';
 
@@ -160,7 +161,8 @@ function Header({
   drawerOpen,
 }: HeaderProps): JSX.Element {
   return (
-    <header className="border-b border-border-subtle bg-surface-card">
+    <header className="relative border-b border-border-subtle bg-surface-card">
+      <RouteProgressBar />
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-2">
           <button
