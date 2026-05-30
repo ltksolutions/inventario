@@ -170,6 +170,216 @@
         }
       }
     },
+    "/v1/organisations/current": {
+      "get": {
+        "summary": "Get the current tenant (self)",
+        "tags": [
+          "Organisations"
+        ],
+        "description": "Returns the authenticated member's own organisation, including billing and branding. The organisation id comes from the actor JWT claim, not a URL parameter — a member can only ever read their own tenant.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update the current tenant (self, ADMIN)",
+        "tags": [
+          "Organisations"
+        ],
+        "description": "Tenant admin updates their own organisation's name, contact email and billing details. plan/status/slug are NOT editable here (platform-operator only). Records an audit event with a per-field diff. Requires ADMIN role within the tenant.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "primaryContactEmail": {
+                    "type": "string",
+                    "format": "email",
+                    "nullable": true
+                  },
+                  "billing": {
+                    "type": "object",
+                    "properties": {
+                      "legalName": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "ico": {
+                        "type": "string",
+                        "pattern": "^\\d{8}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "dic": {
+                        "type": "string",
+                        "pattern": "^\\d{10}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "isVatPayer": {
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "icDph": {
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^SK\\d{10}$"
+                          }
+                        ],
+                        "nullable": true,
+                        "default": null
+                      },
+                      "businessRegistration": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "iban": {
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                          }
+                        ],
+                        "nullable": true,
+                        "default": null
+                      },
+                      "billingEmail": {
+                        "type": "string",
+                        "format": "email",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "registeredAddress": {
+                        "type": "object",
+                        "properties": {
+                          "street": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "city": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "postalCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 16
+                          },
+                          "countryCode": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$",
+                            "default": "SK"
+                          }
+                        },
+                        "required": [
+                          "street",
+                          "city",
+                          "postalCode"
+                        ],
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "mailingAddress": {
+                        "type": "object",
+                        "properties": {
+                          "street": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "city": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "postalCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 16
+                          },
+                          "countryCode": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$",
+                            "default": "SK"
+                          }
+                        },
+                        "required": [
+                          "street",
+                          "city",
+                          "postalCode"
+                        ],
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "default": null
+                      }
+                    },
+                    "additionalProperties": false,
+                    "nullable": true
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing)."
+              }
+            }
+          },
+          "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing)."
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/organisations": {
       "get": {
         "summary": "List organisations (admin)",
@@ -411,6 +621,140 @@
                     "nullable": true,
                     "default": null
                   },
+                  "billing": {
+                    "type": "object",
+                    "properties": {
+                      "legalName": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "ico": {
+                        "type": "string",
+                        "pattern": "^\\d{8}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "dic": {
+                        "type": "string",
+                        "pattern": "^\\d{10}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "isVatPayer": {
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "icDph": {
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^SK\\d{10}$"
+                          }
+                        ],
+                        "nullable": true,
+                        "default": null
+                      },
+                      "businessRegistration": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "iban": {
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                          }
+                        ],
+                        "nullable": true,
+                        "default": null
+                      },
+                      "billingEmail": {
+                        "type": "string",
+                        "format": "email",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "registeredAddress": {
+                        "type": "object",
+                        "properties": {
+                          "street": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "city": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "postalCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 16
+                          },
+                          "countryCode": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$",
+                            "default": "SK"
+                          }
+                        },
+                        "required": [
+                          "street",
+                          "city",
+                          "postalCode"
+                        ],
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "mailingAddress": {
+                        "type": "object",
+                        "properties": {
+                          "street": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "city": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "postalCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 16
+                          },
+                          "countryCode": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$",
+                            "default": "SK"
+                          }
+                        },
+                        "required": [
+                          "street",
+                          "city",
+                          "postalCode"
+                        ],
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "default": null
+                      }
+                    },
+                    "additionalProperties": false,
+                    "nullable": true,
+                    "default": null
+                  },
                   "settings": {
                     "type": "object",
                     "additionalProperties": {},
@@ -572,6 +916,139 @@
                       "fontFamilySans": {
                         "type": "string",
                         "maxLength": 200,
+                        "nullable": true,
+                        "default": null
+                      }
+                    },
+                    "additionalProperties": false,
+                    "nullable": true
+                  },
+                  "billing": {
+                    "type": "object",
+                    "properties": {
+                      "legalName": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "ico": {
+                        "type": "string",
+                        "pattern": "^\\d{8}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "dic": {
+                        "type": "string",
+                        "pattern": "^\\d{10}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "isVatPayer": {
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "icDph": {
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^SK\\d{10}$"
+                          }
+                        ],
+                        "nullable": true,
+                        "default": null
+                      },
+                      "businessRegistration": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "iban": {
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                          }
+                        ],
+                        "nullable": true,
+                        "default": null
+                      },
+                      "billingEmail": {
+                        "type": "string",
+                        "format": "email",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "registeredAddress": {
+                        "type": "object",
+                        "properties": {
+                          "street": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "city": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "postalCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 16
+                          },
+                          "countryCode": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$",
+                            "default": "SK"
+                          }
+                        },
+                        "required": [
+                          "street",
+                          "city",
+                          "postalCode"
+                        ],
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "default": null
+                      },
+                      "mailingAddress": {
+                        "type": "object",
+                        "properties": {
+                          "street": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "city": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "postalCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 16
+                          },
+                          "countryCode": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$",
+                            "default": "SK"
+                          }
+                        },
+                        "required": [
+                          "street",
+                          "city",
+                          "postalCode"
+                        ],
+                        "additionalProperties": false,
                         "nullable": true,
                         "default": null
                       }
