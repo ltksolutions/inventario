@@ -35,7 +35,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { SelectField } from './SelectField';
 
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import { useCanAdminUsers, useMe } from '@/lib/api-hooks';
 import {
@@ -472,10 +472,14 @@ function TenantEditDialog({
         className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xl">
-        <h2 id="tenant-edit-title" className="mb-4 text-base font-semibold text-text-primary">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xl">
+        <h2 id="tenant-edit-title" className="mb-1 text-base font-semibold text-text-primary">
           Upraviť tenant
         </h2>
+        <p className="mb-4 text-xs text-text-muted">
+          Editovateľné sú Plán a Stav. Ostatné údaje sú len na čítanie — tenant si ich spravuje sám
+          v nastaveniach organizácie.
+        </p>
 
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
@@ -534,6 +538,9 @@ function TenantEditDialog({
           </div>
         </div>
 
+        {/* Read-only billing + identity details */}
+        <TenantReadOnlyDetails org={org} />
+
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
@@ -553,6 +560,105 @@ function TenantEditDialog({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Read-only details (billing + identity) — shown inside the edit dialog
+// ---------------------------------------------------------------------------
+
+function TenantReadOnlyDetails({ org }: { org: OrganisationSummary }): JSX.Element {
+  const b = org.billing;
+  const created = new Date(org.createdAt).toLocaleDateString('sk-SK', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const formatAddress = (
+    addr:
+      | {
+          street?: string | null;
+          city?: string | null;
+          postalCode?: string | null;
+          countryCode?: string | null;
+        }
+      | null
+      | undefined,
+  ): string => {
+    if (!addr) return '—';
+    const parts = [
+      addr.street,
+      [addr.postalCode, addr.city].filter(Boolean).join(' ').trim() || null,
+      addr.countryCode,
+    ].filter((p): p is string => Boolean(p && p.trim()));
+    return parts.length > 0 ? parts.join(', ') : '—';
+  };
+
+  return (
+    <div className="mt-6 space-y-5 border-t border-border-subtle pt-5">
+      {/* Identity */}
+      <ReadOnlySection title="Identifikácia">
+        <ReadOnlyRow label="Slug" value={org.slug} mono />
+        <ReadOnlyRow label="Vytvorený" value={created} />
+      </ReadOnlySection>
+
+      {/* Billing */}
+      <ReadOnlySection title="Fakturačné a právne údaje">
+        <ReadOnlyRow label="Obchodné meno" value={b?.legalName ?? '—'} />
+        <div className="grid grid-cols-2 gap-x-4">
+          <ReadOnlyRow label="IČO" value={b?.ico ?? '—'} mono />
+          <ReadOnlyRow label="DIČ" value={b?.dic ?? '—'} mono />
+        </div>
+        <div className="grid grid-cols-2 gap-x-4">
+          <ReadOnlyRow label="Platiteľ DPH" value={b?.isVatPayer ? 'Áno' : 'Nie'} />
+          <ReadOnlyRow label="IČ DPH" value={b?.icDph ?? '—'} mono />
+        </div>
+        <ReadOnlyRow label="Zápis v registri" value={b?.businessRegistration ?? '—'} />
+        <ReadOnlyRow label="IBAN" value={b?.iban ?? '—'} mono />
+        <ReadOnlyRow label="Fakturačný e-mail" value={b?.billingEmail ?? '—'} />
+      </ReadOnlySection>
+
+      {/* Addresses */}
+      <ReadOnlySection title="Adresy">
+        <ReadOnlyRow label="Sídlo" value={formatAddress(b?.registeredAddress)} />
+        <ReadOnlyRow label="Korešpondenčná" value={formatAddress(b?.mailingAddress)} />
+      </ReadOnlySection>
+    </div>
+  );
+}
+
+function ReadOnlySection({ title, children }: { title: string; children: ReactNode }): JSX.Element {
+  return (
+    <div>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+        {title}
+      </h3>
+      <dl className="space-y-2">{children}</dl>
+    </div>
+  );
+}
+
+function ReadOnlyRow({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs text-text-muted">{label}</dt>
+      <dd
+        className={`text-sm text-text-primary ${mono ? 'font-mono' : ''} ${
+          value === '—' ? 'text-text-muted' : ''
+        }`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
