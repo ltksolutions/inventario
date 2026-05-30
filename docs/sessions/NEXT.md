@@ -7,82 +7,42 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                         |
-| ------------------------- | ----------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-30 (koniec session 2026-05-30, 2. časť) |
-| **Aktuálna fáza**         | Production LIVE ✅ — UX polish + billing model  |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`   |
-| **GitHub**                | https://github.com/ltksolutions/inventario      |
+| Atribút                   | Hodnota                                        |
+| ------------------------- | ---------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-30 (koniec dňa — CI zelené)            |
+| **Aktuálna fáza**         | Production LIVE ✅ — UX polish + billing model |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`  |
+| **GitHub**                | https://github.com/ltksolutions/inventario     |
 
 ---
 
-## Čo sme spravili 2026-05-30 (2. časť — poobede)
+## Čo sme spravili 2026-05-30 (celý deň)
 
-### Bug fix: IČO pri registrácii sa zahodilo ✅
+### Dopoludnia — SelectField + billing model ✅
 
-**Príčina:** `registration.routes.ts` aj `oauth.routes.ts` IČO z registračného formulára parsovali,
-ale pri `insertOne` org dokumentu ho nikam nezapísali — `billing` objekt vtedy ešte neexistoval.
+- `SelectField.tsx` — WAI-ARIA custom dropdown, nahradil všetky `<select>` naprieč appkou
+- `ADR-0018` — pravidlá kedy použiť SelectField vs Combobox
+- `OrganisationBillingSchema` — vnorené nullable `billing` pole (IČO, DIČ, IČ DPH, IBAN, adresy)
+- `GET/PATCH /v1/organisations/current` — self-service, org ID z JWT, SAFE subset
+- `/settings/organisation` stránka + nav item „Organizácia" (ADMIN-only)
+- `ADR-0019` — tenant billing model rozhodnutia
 
-**Oprava:**
+### Poobede — bug fixy + tenant admin ✅
 
-- `apps/api/src/modules/auth/registration.routes.ts` — email registrácia: ak `ico` zadané,
-  vytvorí sa `billing: { legalName: orgName, ico, dic: null, isVatPayer: false, … }`, inak `billing: null`
-- `apps/api/src/modules/auth/oauth.routes.ts` — SSO self-serve registrácia (`provisionOrFindUser`):
-  rovnaké — `ico` destrukturované z `pendingOrg`, `billing` objekt pridaný do org insert
+- **Bug fix:** IČO zadané pri registrácii sa zahodilo — opravené v `registration.routes.ts`
+  aj `oauth.routes.ts` (billing objekt s `ico` + `legalName` pri org insert)
+- **TenantEditDialog** — rozšírený na `max-w-lg` + scroll, read-only billing sekcia
+  (`TenantReadOnlyDetails`: Identifikácia, Fakturačné údaje, Adresy)
+- `openapi.json` refreshnutý (`chore(api): refresh openapi.json`) — CI 69 zelené
 
-Existujúce orgy spätne neopravené (pôvodná hodnota nikdy neuložená) — Janika doplní IČO ručne
-v `/settings/organisation`.
+### Večer — loader systém ✅
 
-### TenantEditDialog — kompletné read-only billing údaje ✅
-
-Platform admin vidí v dialógu „Upraviť tenant" **všetky fakturačné a identifikačné údaje** tenanta.
-Editovateľné ostávajú len Plán a Stav (+ Názov a Kontaktný email).
-
-**Zmeny v `apps/web/src/components/TenantsContent.tsx`:**
-
-- Dialóg rozšírený: `max-w-md` → `max-w-lg`, pridané `max-h-[90vh] overflow-y-auto`
-- Podnadpis: „Editovateľné sú Plán a Stav. Ostatné údaje sú len na čítanie…"
-- Nové komponenty: `TenantReadOnlyDetails`, `ReadOnlySection`, `ReadOnlyRow`
-- Read-only sekcie: **Identifikácia** (slug, dátum vytvorenia),
-  **Fakturačné a právne údaje** (obchodné meno, IČO, DIČ, platiteľ DPH, IČ DPH, zápis, IBAN, email),
-  **Adresy** (sídlo + korešpondenčná — poskladané do čitateľného riadku)
-- Import `ReactNode` pridaný
-- `billing` prechádza celým stackom (repository `list` bez projekcie → `toApiShape` spread → frontend)
-
----
-
-## Čo sme spravili 2026-05-30 (1. časť — dopoludnia)
-
-### SelectField aplikovaný naprieč appkou ✅
-
-- `AssetCreateContent.tsx` + `AssetDetailEditForm.tsx` — pole „Stav" cez `Controller` + SelectField
-- `AssetsListContent.tsx` — filter Stav + Veľkosť strany (`<label>` → `<div>`)
-- `UsersContent.tsx` — filter Rola + Stav + Veľkosť strany (`<label>` → `<div>`)
-- `LoansContent.tsx` ostal — pill buttons (správne per ADR-0018)
-- CI lint fixy: a11y (button options, label→span), import order, `React.ReactNode` → `ReactNode`
-
-### Tenant billing — dátový model + self-service UI ✅ (ADR-0019)
-
-- `common.ts` — `AddressSchema`, `Ico/Dic/IcDph/Iban` schémy + normalizácia
-- `OrganisationBillingSchema` — vnorené nullable `billing` pole na Organisation
-- API: `GET/PATCH /v1/organisations/current` — self-service, org ID z JWT, SAFE subset
-- web: `/settings/organisation` stránka + nav item „Organizácia" (ADMIN-only)
-- hooks `useCurrentOrganisation` + `useUpdateCurrentOrganisation`
-
----
-
-## Čo sme spravili 2026-05-29 (večerná session)
-
-### Číselníky — kategórie zoskupené podľa typov ✅
-
-- `CiselnikyContent.tsx` — tab Kategórie prepísaný: skupiny podľa `assetType`, farebné badge-y,
-  `pluralCount` helper, stĺpec „Typ majetku" odstránený ako redundantný
-
-### SelectField custom dropdown + ADR-0018 ✅
-
-- `apps/web/src/components/SelectField.tsx` (nový) — WAI-ARIA combobox, klávesnica, animovaná šípka
-- `apps/web/src/components/TenantsContent.tsx` — všetky `<select>` nahradené SelectField
-- `docs/decisions/0018-select-field-component.md` — ADR pravidlá kedy použiť čo
+- `RouteProgressBar.tsx` — globálny progress bar pod headerom (`useIsFetching`),
+  anti-flicker (120ms delay, 240ms min visible), `prefers-reduced-motion`
+- `Skeleton.tsx` — zdieľané `Skeleton`, `TableSkeleton`, `CardSkeleton`
+- `AppShell.tsx` — `relative` header + `<RouteProgressBar />`
+- `globals.css` — `@keyframes route-progress` + reduced-motion variant
+- `AssetsListContent.tsx`, `UsersContent.tsx` — lokálne skeletony nahradené zdieľanými
 
 ---
 
@@ -90,64 +50,47 @@ Editovateľné ostávajú len Plán a Stav (+ Názov a Kontaktný email).
 
 ### 📊 Globálny stav
 
-| Oblasť            | Status                                               |
-| ----------------- | ---------------------------------------------------- |
-| **Backend testy** | ✅ ~607 (37 test files)                              |
-| **Frontend**      | ✅ všetky stránky + billing settings + tenant detail |
-| **Production**    | ✅ LIVE — app.inventario.estate                      |
-| **CI**            | ✅ Green                                             |
-| **ADR-čka**       | ✅ 0001–0019                                         |
+| Oblasť            | Status                                              |
+| ----------------- | --------------------------------------------------- |
+| **Backend testy** | ✅ ~607 (37 test files)                             |
+| **Frontend**      | ✅ billing settings + tenant detail + loader systém |
+| **Production**    | ✅ LIVE — app.inventario.estate                     |
+| **CI**            | ✅ Zelené (CI 69+)                                  |
+| **ADR-čka**       | ✅ 0001–0019                                        |
+| **openapi.json**  | ✅ Aktuálne (62 endpointov, 37 paths)               |
 
 ---
 
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. Typecheck + lint pred commitom
+### 1. Smoke test po deployi
 
-```bash
-cd /Users/janletko/Documents/GitHub/inventario
-pnpm --filter @inventario/web typecheck && pnpm --filter @inventario/web lint
-```
+- [ ] `/settings/organisation` — formulár + uloženie billing funguje
+- [ ] IČO zadané pri novej registrácii sa objaví v billing
+- [ ] TenantEditDialog — read-only sekcia zobrazí slug, billing údaje
+- [ ] RouteProgressBar — viditeľný počas načítavania (Atlas cold start)
+- [ ] SelectField vo všetkých zoznamoch — klávesnica + myš
 
-### 2. Commit na push (všetko naraz, header-only)
-
-```
-feat(web): global route progress bar + shared skeleton loaders
-```
-
-> Spája: RouteProgressBar (useIsFetching globálny progress bar v AppShell),
-> zdieľané Skeleton/TableSkeleton/CardSkeleton komponenty, zjednotené
-> AssetsListContent + UsersContent, keyframes v globals.css.
-
-### 3. Smoke test po deployi
-
-- [ ] `/settings/organisation` — formulár sa zobrazí (ADMIN), uloženie billing funguje
-- [ ] IČO zadané pri novej email registrácii sa objaví v billing po prihlásení
-- [ ] TenantEditDialog — read-only sekcia zobrazí slug, vytvorenie, billing údaje
-- [ ] Plán card + „Požiadať o vyšší plán" — mailto link funguje
-- [ ] IČ DPH pole sa zobrazí len pri zaškrtnutom „platiteľ DPH"
-- [ ] `/ciselniky` — kategórie zoskupené podľa typu, abecedne
-- [ ] SelectField v `/assets`, `/assets/new`, `/users`, `/admin/tenants` — funguje
-
-### 4. Testy pre `/current` endpointy (ďalšia session)
+### 2. Testy pre `/current` endpointy
 
 - [ ] `updateCurrent` RBAC — len ADMIN tenanta (EMPLOYEE/ASSET_MANAGER → 403)
 - [ ] billing validácia — IČO 8 číslic, IČ DPH SK+10, IBAN formát
 - [ ] cross-tenant izolácia — org ID z JWT, nie z URL
 - [ ] `getCurrent` — ktorýkoľvek člen číta vlastnú org
 
-### 5. Onboarding flow pre nových tenantov
+### 3. Skeletony na zvyšných stránkach (voliteľné)
 
-Design + rozsah pred implementáciou (**Opus 4.7** pre návrh, **Sonnet 4.6** pre impl).
+TenantsContent, InvitationsContent, MembersContent, CiselnikyContent — po smoke
+teste, ak bude čas. Globálny `RouteProgressBar` kryje tieto stránky medzitým.
 
-### 6. Pilot tenant onboarding (pred Slice #5)
+### 4. Pilot tenant onboarding (pred Slice #5)
 
-- SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom
-- Reálne použitie informuje návrh Slice #5 (pôžičky)
+SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom.
+Reálne použitie informuje návrh Slice #5 (pôžičky).
 
-### 7. email_unique index — overiť na prod
+### 5. email_unique index — overiť na prod
 
-- [ ] Atlas: skontrolovať že `email_unique` / `email_1` index na `users` kolekcii bol dropnutý
+- [ ] Atlas: skontrolovať že `email_unique` / `email_1` index bol dropnutý migráciou
 
 ---
 
@@ -206,19 +149,17 @@ Duration:     ~85s
 
 ## 📂 Kde nájdeš čo
 
-| Typ                                 | Lokácia                                                 |
-| ----------------------------------- | ------------------------------------------------------- |
-| **Aktuálny stav**                   | `docs/sessions/NEXT.md` (TY SI TU)                      |
-| **Session 2026-05-30 (obidve)**     | `docs/sessions/2026-05-30-billing-and-tenant-detail.md` |
-| **Session 2026-05-29 (večer)**      | `docs/sessions/2026-05-29-ux-polish-selectfield.md`     |
-| **Session 2026-05-29 (deň)**        | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md`   |
-| **Production smoke test checklist** | `docs/sessions/smoke-test-checklist.md`                 |
-| **ADR-čka**                         | `docs/decisions/0001..0019-*.md`                        |
-| **Slice milestones**                | `docs/milestones/slice-*.md`                            |
+| Typ                            | Lokácia                                                 |
+| ------------------------------ | ------------------------------------------------------- |
+| **Aktuálny stav**              | `docs/sessions/NEXT.md` (TY SI TU)                      |
+| **Session 2026-05-30**         | `docs/sessions/2026-05-30-billing-and-tenant-detail.md` |
+| **Session 2026-05-29 (večer)** | `docs/sessions/2026-05-29-ux-polish-selectfield.md`     |
+| **Session 2026-05-29 (deň)**   | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md`   |
+| **ADR-čka**                    | `docs/decisions/0001..0019-*.md`                        |
+| **Slice milestones**           | `docs/milestones/slice-*.md`                            |
 
 ---
 
 **Last updated:** 2026-05-30 (koniec dňa)
-**Tests:** ~607 ✅
-**Repo:** github.com/ltksolutions/inventario
-**Status:** Production LIVE ✅
+**Tests:** ~607 ✅ | **CI:** zelené ✅ | **OpenAPI:** 62 endpointov ✅
+**Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
