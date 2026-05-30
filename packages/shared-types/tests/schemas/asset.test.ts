@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { AssetStatus } from '../../src/enums/asset-status.js';
 import { AssetCondition, AssetType } from '../../src/enums/asset-type.js';
-import { AssetSchema, CreateAssetSchema, ITSpecsSchema } from '../../src/schemas/asset.js';
+import { TrackingMode } from '../../src/enums/tracking-mode.js';
+import {
+  AssetSchema,
+  CreateAssetSchema,
+  ITSpecsSchema,
+  UpdateAssetSchema,
+} from '../../src/schemas/asset.js';
 
 const validAssetInput = {
   _id: '507f1f77bcf86cd799439011',
@@ -107,6 +113,47 @@ describe('AssetSchema', () => {
   });
 });
 
+describe('AssetSchema — tracking mode (ADR-0020)', () => {
+  it('default trackingMode je SERIALIZED a quantityOnHand je null', () => {
+    const result = AssetSchema.safeParse(validAssetInput);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.trackingMode).toBe(TrackingMode.SERIALIZED);
+      expect(result.data.quantityOnHand).toBeNull();
+    }
+  });
+
+  it('akceptuje BULK položku s quantityOnHand', () => {
+    const result = AssetSchema.safeParse({
+      ...validAssetInput,
+      trackingMode: TrackingMode.BULK,
+      quantityOnHand: 30,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.trackingMode).toBe(TrackingMode.BULK);
+      expect(result.data.quantityOnHand).toBe(30);
+    }
+  });
+
+  it('odmieta záporné quantityOnHand', () => {
+    const result = AssetSchema.safeParse({
+      ...validAssetInput,
+      trackingMode: TrackingMode.BULK,
+      quantityOnHand: -5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('odmieta nedefinovaný trackingMode režim', () => {
+    const result = AssetSchema.safeParse({
+      ...validAssetInput,
+      trackingMode: 'CONSUMABLE',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('CreateAssetSchema', () => {
   it('vyžaduje status = AVAILABLE pri vytvorení', () => {
     const input = {
@@ -138,6 +185,45 @@ describe('CreateAssetSchema', () => {
       acquiredAt: '2024-03-18T00:00:00.000Z',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('default trackingMode SERIALIZED a quantityOnHand nie je súčasťou create vstupu', () => {
+    const result = CreateAssetSchema.safeParse({
+      inventoryNumber: 'LT-2024-009',
+      name: 'Test',
+      type: AssetType.IT,
+      categoryId: '507f1f77bcf86cd799439012',
+      condition: AssetCondition.NEW,
+      locationId: '507f1f77bcf86cd799439013',
+      acquiredAt: '2024-03-18T00:00:00.000Z',
+      // quantityOnHand je server-controlled — ak ho klient pošle, ignoruje sa
+      quantityOnHand: 99,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.trackingMode).toBe(TrackingMode.SERIALIZED);
+      expect('quantityOnHand' in result.data).toBe(false);
+    }
+  });
+});
+
+describe('UpdateAssetSchema — immutable polia (ADR-0020)', () => {
+  it('akceptuje update bežného poľa', () => {
+    const result = UpdateAssetSchema.safeParse({ name: 'Nový názov' });
+    expect(result.success).toBe(true);
+  });
+
+  it('ignoruje pokus zmeniť trackingMode a quantityOnHand cez PATCH', () => {
+    const result = UpdateAssetSchema.safeParse({
+      name: 'X',
+      trackingMode: TrackingMode.BULK,
+      quantityOnHand: 50,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect('trackingMode' in result.data).toBe(false);
+      expect('quantityOnHand' in result.data).toBe(false);
+    }
   });
 });
 

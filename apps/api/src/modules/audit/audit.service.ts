@@ -153,12 +153,13 @@ function defaultLegalBasisFor(action: string): AuditLog['legalBasis'] {
     return 'contract';
   }
 
-  // Asset / Category / Location / Loan — plnenie zmluvy (evidenčná služba).
+  // Asset / Category / Location / Loan / Stock — plnenie zmluvy (evidenčná služba).
   if (
     action.startsWith('ASSET_') ||
     action.startsWith('CATEGORY_') ||
     action.startsWith('LOCATION_') ||
-    action.startsWith('LOAN_')
+    action.startsWith('LOAN_') ||
+    action.startsWith('STOCK_')
   ) {
     return 'contract';
   }
@@ -239,6 +240,12 @@ function defaultDataCategoriesFor(action: string): NonNullable<AuditLog['dataCat
   // Loan — väzba osoba ↔ aktívum.
   if (action.startsWith('LOAN_')) {
     return ['asset_custody', 'audit_metadata'];
+  }
+
+  // Stock movements — nepriame os. údaje cez createdBy; LOAN_OUT/RETURN sú
+  // viazané na zápožičku, ale samotný pohyb je skladová operácia.
+  if (action.startsWith('STOCK_')) {
+    return ['audit_metadata'];
   }
 
   // Category / Location — nepriame os. údaje cez createdBy/updatedBy.

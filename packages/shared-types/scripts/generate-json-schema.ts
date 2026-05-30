@@ -40,6 +40,7 @@ const SCHEMAS_TO_GENERATE: Record<string, ZodTypeAny> = {
   Location: schemas.LocationSchema,
   Notification: schemas.NotificationSchema,
   Organisation: schemas.OrganisationSchema,
+  StockMovement: schemas.StockMovementSchema,
   User: schemas.UserSchema,
 
   // Create/Update input schémy (pre API request validáciu — síce backend ich
@@ -61,6 +62,7 @@ const SCHEMAS_TO_GENERATE: Record<string, ZodTypeAny> = {
   CreateAttachment: schemas.CreateAttachmentSchema,
   CreateAuditLog: schemas.CreateAuditLogSchema,
   CreateNotification: schemas.CreateNotificationSchema,
+  CreateStockMovement: schemas.CreateStockMovementSchema,
 
   // Public/projektované verzie
   UserPublic: schemas.UserPublicSchema,

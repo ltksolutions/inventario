@@ -13,4 +13,5 @@ export * from './membership.js';
 export * from './notification.js';
 export * from './organisation.js';
 export * from './passkey.js';
+export * from './stock-movement.js';
 export * from './user.js';

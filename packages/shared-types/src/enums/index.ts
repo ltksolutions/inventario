@@ -4,4 +4,6 @@ export * from './auth-provider.js';
 export * from './loan-status.js';
 export * from './location-type.js';
 export * from './organisation-status.js';
+export * from './stock-movement-type.js';
+export * from './tracking-mode.js';
 export * from './user-role.js';

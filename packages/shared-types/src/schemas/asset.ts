@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AssetStatus } from '../enums/asset-status.js';
+import { TrackingMode } from '../enums/tracking-mode.js';
 
 import {
   BaseDocumentSchema,
@@ -97,6 +98,37 @@ export const AssetSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
 
     /** Či vyžaduje schválenie pred zápožičkou. False = self-service zápožička. */
     requiresApproval: z.boolean().default(true),
+
+    // ───────────────────────────────────────────────────────────────
+    // Skladový režim (ADR-0020)
+    // ───────────────────────────────────────────────────────────────
+
+    /**
+     * Spôsob sledovania položky.
+     *
+     * SERIALIZED (default) = dnešný jednotlivý kus s inventárnym číslom,
+     *   stavom (`status`), kondíciou a históriou. Množstvo implicitne 1.
+     * BULK = hromadná zameniteľná zásoba; množstvo drží `quantityOnHand`,
+     *   stavový automat (`status`) sa nepoužíva na rozhodovanie — dostupnosť
+     *   sa odvodzuje z množstiev (viď ADR-0020 §3).
+     *
+     * Default SERIALIZED ⇒ existujúce assety sú validné bez migrácie.
+     */
+    trackingMode: z
+      .enum(Object.values(TrackingMode) as [string, ...string[]])
+      .default(TrackingMode.SERIALIZED) as z.ZodType<TrackingMode>,
+
+    /**
+     * Skladové množstvo na sklade — len pre BULK položky.
+     *
+     * Je to **cache** odvodená zo StockMovement ledgera (zdroj pravdy je
+     * `sum(stock_movements.quantity)`), aktualizovaná v rovnakej transakcii
+     * ako každý pohyb. Pre SERIALIZED položky je `null` (množstvo je
+     * implicitne 1). Konzistenciu BULK ↔ ledger overuje/rekonštruuje
+     * service vrstva; povinnosť poľa pre BULK rieši flow, nie schéma
+     * (rovnaký prístup ako billing v ADR-0019).
+     */
+    quantityOnHand: z.number().int().nonnegative().nullable().default(null),
   });
 
 export type Asset = z.infer<typeof AssetSchema>;
@@ -114,6 +146,7 @@ export const CreateAssetSchema = AssetSchema.omit({
   deletedAt: true,
   deletedBy: true,
   currentLoanId: true,
+  quantityOnHand: true, // Server-controlled cache — inicializuje sa cez RECEIPT pohyb (ADR-0020)
 }).extend({
   /** Pri vytvorení neprideľujeme stav — vždy začína ako AVAILABLE. */
   status: z.literal(AssetStatus.AVAILABLE).default(AssetStatus.AVAILABLE),
@@ -128,6 +161,8 @@ export const UpdateAssetSchema = AssetSchema.omit({
   _id: true,
   organisationId: true, // Tenant scope is immutable
   inventoryNumber: true, // Inventárne číslo sa nemení (alebo cez special flow)
+  trackingMode: true, // Režim je nemenný po vytvorení — prepnutie SERIALIZED↔BULK by zneplatilo množstvo/históriu (ADR-0020)
+  quantityOnHand: true, // Mení sa len cez StockMovement pohyby, nie priamym PATCH-om
   createdAt: true,
   updatedAt: true,
   createdBy: true,

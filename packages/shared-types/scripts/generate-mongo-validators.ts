@@ -40,6 +40,7 @@ const SCHEMA_TO_COLLECTION: Record<string, string> = {
   LoanRequest: 'loan_requests',
   Location: 'locations',
   Notification: 'notifications',
+  StockMovement: 'stock_movements',
   User: 'users',
 };
 

@@ -90,6 +90,12 @@ export const AuditLogSchema = z.object({
     'LOAN_MARKED_OVERDUE',
     'LOAN_MARKED_LOST',
 
+    // Stock movements (BULK položky — ADR-0020)
+    'STOCK_RECEIVED',
+    'STOCK_ISSUED',
+    'STOCK_RETURNED',
+    'STOCK_ADJUSTED',
+
     // GDPR
     'DATA_EXPORT_REQUESTED',
     'DATA_DELETION_REQUESTED',
@@ -137,6 +143,7 @@ export const AuditLogSchema = z.object({
         'AssetCondition',
         'Loan',
         'LoanRequest',
+        'StockMovement',
         'Category',
         'Location',
         'Membership',
