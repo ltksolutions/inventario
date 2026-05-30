@@ -112,12 +112,12 @@ pnpm --filter @inventario/web typecheck && pnpm --filter @inventario/web lint
 ### 2. Commit na push (všetko naraz, header-only)
 
 ```
-feat: persist registration IČO into billing + read-only tenant detail
+feat(web): global route progress bar + shared skeleton loaders
 ```
 
-> Spája bug fix (IČO z registrácie → `billing.ico` v email + SSO ceste) a
-> read-only billing sekciu v TenantEditDialog. Detaily v session logu
-> `2026-05-30-billing-and-tenant-detail.md`. Header-only kvôli commitlint quirku.
+> Spája: RouteProgressBar (useIsFetching globálny progress bar v AppShell),
+> zdieľané Skeleton/TableSkeleton/CardSkeleton komponenty, zjednotené
+> AssetsListContent + UsersContent, keyframes v globals.css.
 
 ### 3. Smoke test po deployi
 
