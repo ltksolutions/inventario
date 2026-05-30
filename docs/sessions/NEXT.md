@@ -9,10 +9,22 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                        |
 | ------------------------- | ---------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-30 (koniec dňa — CI zelené)            |
+| **Posledná aktualizácia** | 2026-05-30 (Slice #5a K1 ✅)                   |
 | **Aktuálna fáza**         | Production LIVE ✅ — UX polish + billing model |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`  |
 | **GitHub**                | https://github.com/ltksolutions/inventario     |
+
+---
+
+### Slice #5a K1 — schémy (ADR-0020) ✅
+
+- `TrackingMode` enum (SERIALIZED/BULK) + `StockMovementType` enum + `STOCK_MOVEMENT_SIGN` mapa
+- `AssetSchema` + `trackingMode` (default SERIALIZED, immutable) + `quantityOnHand` (server cache)
+- `StockMovementSchema` — append-only ledger, signed `quantity`, `balanceAfter`, `loanId`
+- Audit log: 4 nové akcie + `StockMovement` entityType + STOCK\_ defaults v audit service
+- Generátory: `StockMovement` pridaný, `json-schema.json` regenerovaný (30 schém)
+- Testy: `stock-movement.test.ts` + rozšírený `asset.test.ts` (tracking mode testy)
+- `openapi.json` refreshnutý
 
 ---
 
