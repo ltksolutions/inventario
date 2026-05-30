@@ -9,12 +9,23 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                        |
 | ------------------------- | ---------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-30 (Slice #5a K1 ✅)                   |
+| **Posledná aktualizácia** | 2026-05-30 (Slice #5a K1–K5 ✅)                |
 | **Aktuálna fáza**         | Production LIVE ✅ — UX polish + billing model |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`  |
 | **GitHub**                | https://github.com/ltksolutions/inventario     |
 
 ---
+
+### Slice #5a K2–K5 — repository, service, routes, testy ✅
+
+- `StockMovementsRepository` — append-only insert, listByItem, findById, sumQuantityByItem, 4 indexy
+- `StockService` — `receive` (RECEIPT), `adjust` (ADJUSTMENT), `reconcile`; transakčný
+  `recordMovement` (pohyb + `$set quantityOnHand` + audit log v jednej Mongo transakcii)
+- `stock.routes.ts` — 4 endpointy (`GET /movements`, `POST /receive`, `POST /adjust`,
+  `POST /reconcile`), zaregistrované v `server.ts`
+- 18 integračných testov (happy path, RBAC, validácia, záporný zostatok, cross-tenant)
+- Fixture `insertTestAsset` rozšírená o `trackingMode` + `quantityOnHand`
+- `openapi.json` refreshnutý
 
 ### Slice #5a K1 — schémy (ADR-0020) ✅
 
