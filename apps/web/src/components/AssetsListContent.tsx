@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { AssetsTable } from './AssetsTable';
+import { SelectField } from './SelectField';
 
 import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
@@ -152,39 +153,36 @@ export function AssetsListContent(): JSX.Element {
           </span>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Stav</span>
-          <select
+          <SelectField
+            label="Stav"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
-          >
-            <option value="">Všetky stavy</option>
-            {ASSET_STATUS_VALUES.map((status) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status] ?? status}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          <span className="font-medium">Veľkosť strany</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value) as PageSize);
+            onChange={(v) => {
+              setStatusFilter(v);
               setPage(1);
             }}
-            className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
-          >
-            {PAGE_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={[
+              { value: '', label: 'Všetky stavy' },
+              ...ASSET_STATUS_VALUES.map((s) => ({ value: s, label: STATUS_LABELS[s] ?? s })),
+            ]}
+            className="w-44"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
+          <span className="font-medium">Veľkosť strany</span>
+          <SelectField
+            label="Veľkosť strany"
+            value={String(pageSize)}
+            onChange={(v) => {
+              setPageSize(Number(v) as PageSize);
+              setPage(1);
+            }}
+            options={PAGE_SIZES.map((s) => ({ value: String(s), label: String(s) }))}
+            className="w-24"
+          />
+        </div>
       </section>
 
       <p className="mb-3 text-sm text-text-secondary" aria-live="polite">

@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import { Combobox } from './Combobox';
+import { SelectField } from './SelectField';
 import { TagsCombobox } from './TagsCombobox';
 
 import type { CreateAssetInput } from '@/lib/api-hooks';
@@ -268,13 +269,22 @@ export function AssetCreateContent(): JSX.Element {
 
         <Section title="Stav a lokalita">
           <Field label="Stav" required>
-            <select {...register('status', { required: true })} className={inputCls()}>
-              {ASSET_STATUS_VALUES.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABELS[s] ?? s}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="status"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <SelectField
+                  label="Stav"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={ASSET_STATUS_VALUES.map((s) => ({
+                    value: s,
+                    label: STATUS_LABELS[s] ?? s,
+                  }))}
+                />
+              )}
+            />
           </Field>
 
           <Field label="Kondícia" required>

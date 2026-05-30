@@ -7,6 +7,7 @@ import { USER_ROLE_VALUES } from '@inventario/shared-types';
 import { CheckCircle2, Pencil, Search, ShieldOff, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { SelectField } from './SelectField';
 import { UserEditDialog } from './UserEditDialog';
 
 import type { UserSummary } from '@/lib/api-hooks';
@@ -153,49 +154,45 @@ function UsersAdminPanel({ currentUserId }: { currentUserId: string | null }): J
           </span>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Rola</span>
-          <select
+          <SelectField
+            label="Rola"
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
-          >
-            <option value="">Všetky roly</option>
-            {USER_ROLE_VALUES.map((role) => (
-              <option key={role} value={role}>
-                {ROLE_LABELS[role] ?? role}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={setRoleFilter}
+            options={[
+              { value: '', label: 'Všetky roly' },
+              ...USER_ROLE_VALUES.map((r) => ({ value: r, label: ROLE_LABELS[r] ?? r })),
+            ]}
+            className="w-44"
+          />
+        </div>
 
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Stav</span>
-          <select
+          <SelectField
+            label="Stav"
             value={activeFilter}
-            onChange={(e) => setActiveFilter(e.target.value as ActiveFilter)}
-            className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
-          >
-            <option value="all">Všetci</option>
-            <option value="active">Iba aktívni</option>
-            <option value="inactive">Iba deaktivovaní</option>
-          </select>
-        </label>
+            onChange={(v) => setActiveFilter(v as ActiveFilter)}
+            options={[
+              { value: 'all', label: 'Všetci' },
+              { value: 'active', label: 'Iba aktívni' },
+              { value: 'inactive', label: 'Iba deaktivovaní' },
+            ]}
+            className="w-44"
+          />
+        </div>
 
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Veľkosť strany</span>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
-            className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
-          >
-            {PAGE_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
+          <SelectField
+            label="Veľkosť strany"
+            value={String(pageSize)}
+            onChange={(v) => setPageSize(Number(v) as PageSize)}
+            options={PAGE_SIZES.map((s) => ({ value: String(s), label: String(s) }))}
+            className="w-24"
+          />
+        </div>
       </section>
 
       <p className="mb-3 text-sm text-text-secondary" aria-live="polite">
