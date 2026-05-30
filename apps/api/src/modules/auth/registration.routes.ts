@@ -149,6 +149,20 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           plan: 'FREE' as const,
           primaryContactEmail: contactEmail,
           brandKit: null,
+          billing: ico
+            ? {
+                legalName: orgName,
+                ico,
+                dic: null,
+                isVatPayer: false,
+                icDph: null,
+                businessRegistration: null,
+                iban: null,
+                billingEmail: null,
+                registeredAddress: null,
+                mailingAddress: null,
+              }
+            : null,
           settings: {},
           allowedAuthProviders: [
             AuthProvider.GOOGLE,

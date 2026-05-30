@@ -600,7 +600,7 @@ async function provisionOrFindUser(args: {
   }
 
   // Self-serve registration: create new org + first ADMIN user
-  const { name: orgName, contactEmail, dpaAcceptedAt } = statePayload.pendingOrg;
+  const { name: orgName, contactEmail, ico, dpaAcceptedAt } = statePayload.pendingOrg;
   const now = new Date().toISOString();
   const slug = slugify(orgName);
 
@@ -618,6 +618,20 @@ async function provisionOrFindUser(args: {
     plan: 'FREE' as const,
     primaryContactEmail: contactEmail.toLowerCase(),
     brandKit: null,
+    billing: ico
+      ? {
+          legalName: orgName,
+          ico,
+          dic: null,
+          isVatPayer: false,
+          icDph: null,
+          businessRegistration: null,
+          iban: null,
+          billingEmail: null,
+          registeredAddress: null,
+          mailingAddress: null,
+        }
+      : null,
     settings: {},
     allowedAuthProviders: [
       AuthProvider.GOOGLE,
