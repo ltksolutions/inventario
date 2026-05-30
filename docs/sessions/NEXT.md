@@ -7,12 +7,36 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                       |
-| ------------------------- | --------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-30 (koniec session 2026-05-29)        |
-| **Aktuálna fáza**         | Production LIVE ✅ — UX polish session        |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario` |
-| **GitHub**                | https://github.com/ltksolutions/inventario    |
+| Atribút                   | Hodnota                                        |
+| ------------------------- | ---------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-30 (koniec session 2026-05-30)         |
+| **Aktuálna fáza**         | Production LIVE ✅ — UX polish + billing model |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`  |
+| **GitHub**                | https://github.com/ltksolutions/inventario     |
+
+---
+
+## Čo sme spravili 2026-05-30
+
+### SelectField aplikovaný naprieč appkou ✅
+
+- `AssetCreateContent.tsx` + `AssetDetailEditForm.tsx` — pole „Stav" cez `Controller` + SelectField
+- `AssetsListContent.tsx` — filter Stav + Veľkosť strany (`<label>` → `<div>`)
+- `UsersContent.tsx` — filter Rola + Stav + Veľkosť strany (`<label>` → `<div>`)
+- `LoansContent.tsx` ostal — pill buttons (správne per ADR-0018)
+- CI lint fixy: a11y (button options, label→span), import order, `React.ReactNode` → `ReactNode`
+
+### Tenant billing — dátový model + self-service UI ✅ (ADR-0019)
+
+- `common.ts` — `AddressSchema`, `Ico/Dic/IcDph/Iban` schémy + normalizácia
+- `OrganisationBillingSchema` — vnorené nullable `billing` pole na Organisation
+  (IČO, DIČ, IČ DPH, sídlo, IBAN, OR/ŽR zápis, fakturačný email)
+- API: `GET/PATCH /v1/organisations/current` — self-service, org ID z JWT (nie URL),
+  SAFE subset bez plan/status/slug, len ADMIN tenanta na PATCH
+- web: `/settings/organisation` stránka + nav item „Organizácia" (ADMIN-only),
+  plán card + upgrade mailto CTA
+- hooks `useCurrentOrganisation` + `useUpdateCurrentOrganisation`
+- **Registrácia ostáva jednoduchá** — fakturačné údaje si admin vypĺňa sám
 
 ---
 
@@ -54,7 +78,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Frontend**      | ✅ všetky stránky + grouped categories + SelectField |
 | **Production**    | ✅ LIVE — app.inventario.estate                      |
 | **CI**            | ✅ Green                                             |
-| **ADR-čka**       | ✅ 0001–0018                                         |
+| **ADR-čka**       | ✅ 0001–0019                                         |
 
 ---
 
@@ -64,19 +88,19 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Po deployi overiť:
 
-- [ ] `/ciselniky` — kategórie sú zoskupené podľa typu, abecedne zoradené
-- [ ] `/admin/tenants` — Stav/Plán/Veľkosť strany filtre používajú nový SelectField
-- [ ] Edit + Create dialog v Tenantoch — SelectField funguje (klávesnica + myš)
-- [ ] `migrations` kolekcia — 5 záznamov vrátane `2026-05-29c`
+- [ ] `/settings/organisation` — formulár sa zobrazí (ADMIN), uloženie billing údajov funguje
+- [ ] Plán card + „Požiadať o vyšší plán" — mailto link funguje
+- [ ] IČ DPH pole sa zobrazí len pri zaškrtnutom „platiteľ DPH"
+- [ ] `/ciselniky` — kategórie zoskupené podľa typu, abecedne
+- [ ] SelectField v `/assets`, `/assets/new`, `/users`, `/admin/tenants` — funguje (klávesnica + myš)
 - [ ] MFA redirect — nesmie ukazovať "Platnosť prihlásenia vypršala"
 
-### 2. Rozšíriť SelectField do ďalších stránok
+### 2. Testy pre `/current` endpointy
 
-Ďalšie `<select>` na nahradenie (podľa ADR-0018):
-
-- [ ] `UsersContent.tsx` — filter Rola + filter Stav + Veľkosť strany
-- [ ] `AssetsListContent.tsx` — filter Typ majetku + filter Stav + Veľkosť strany
-- [ ] `LoansContent.tsx` — filter Status
+- [ ] `updateCurrent` RBAC — len ADMIN tenanta (EMPLOYEE/ASSET_MANAGER 403)
+- [ ] billing validácia — IČO 8 číslic, IČ DPH SK+10, IBAN formát
+- [ ] cross-tenant izolácia — org ID z JWT, nie z URL
+- [ ] `getCurrent` — ktorýkoľvek člen číta vlastnú org
 
 ### 3. Smoke test s kolegom
 
@@ -164,10 +188,11 @@ Duration:     ~85s
 | Typ                                 | Lokácia                                               |
 | ----------------------------------- | ----------------------------------------------------- |
 | **Aktuálny stav**                   | `docs/sessions/NEXT.md` (TY SI TU)                    |
+| **Session 2026-05-30**              | `docs/sessions/2026-05-30-selectfield-and-billing.md` |
 | **Session 2026-05-29 (večer)**      | `docs/sessions/2026-05-29-ux-polish-selectfield.md`   |
 | **Session 2026-05-29 (deň)**        | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md` |
 | **Production smoke test checklist** | `docs/sessions/smoke-test-checklist.md`               |
-| **ADR-čka**                         | `docs/decisions/0001..0018-*.md`                      |
+| **ADR-čka**                         | `docs/decisions/0001..0019-*.md`                      |
 | **Slice milestones**                | `docs/milestones/slice-*.md`                          |
 
 ---
