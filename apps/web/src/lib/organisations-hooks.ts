@@ -24,6 +24,26 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 // Types
 // ---------------------------------------------------------------------------
 
+export interface AddressInfo {
+  street: string;
+  city: string;
+  postalCode: string;
+  countryCode: string;
+}
+
+export interface BillingInfo {
+  legalName: string | null;
+  ico: string | null;
+  dic: string | null;
+  isVatPayer: boolean;
+  icDph: string | null;
+  businessRegistration: string | null;
+  iban: string | null;
+  billingEmail: string | null;
+  registeredAddress: AddressInfo | null;
+  mailingAddress: AddressInfo | null;
+}
+
 export interface OrganisationSummary {
   _id: string;
   displayName: string;
@@ -33,6 +53,7 @@ export interface OrganisationSummary {
   primaryContactEmail: string | null;
   entraTenantId: string | null;
   customDomain: string | null;
+  billing: BillingInfo | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -68,6 +89,72 @@ export interface UpdateOrganisationInput {
   plan?: string;
   status?: string;
   primaryContactEmail?: string | null;
+  billing?: BillingInfo | null;
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/organisations/current (tenant self)
+// ---------------------------------------------------------------------------
+
+export function useCurrentOrganisation(): UseQueryResult<OrganisationSummary, Error> {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<OrganisationSummary, Error>({
+    queryKey: ['organisation', 'current'],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/v1/organisations/current`, {
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? 'Failed to load current organisation');
+      }
+
+      return res.json() as Promise<OrganisationSummary>;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /v1/organisations/current (tenant self, ADMIN)
+// ---------------------------------------------------------------------------
+
+export interface UpdateCurrentOrganisationInput {
+  displayName?: string;
+  primaryContactEmail?: string | null;
+  billing?: BillingInfo | null;
+}
+
+export function useUpdateCurrentOrganisation(): UseMutationResult<
+  OrganisationSummary,
+  Error,
+  UpdateCurrentOrganisationInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation<OrganisationSummary, Error, UpdateCurrentOrganisationInput>({
+    mutationFn: async (patch) => {
+      const res = await fetch(`${API_BASE}/v1/organisations/current`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch),
+      });
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? 'Failed to update organisation');
+      }
+
+      return res.json() as Promise<OrganisationSummary>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['organisation', 'current'] });
+      void queryClient.invalidateQueries({ queryKey: ['organisations'] });
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,17 @@ import { z } from 'zod';
 import { AuthProvider, MemberJoinPolicy, RegistrationMethod } from '../enums/auth-provider.js';
 import { OrganisationPlan, OrganisationStatus } from '../enums/organisation-status.js';
 
-import { BaseDocumentSchema, EmailSchema, ObjectIdSchema, SoftDeleteSchema } from './common.js';
+import {
+  AddressSchema,
+  BaseDocumentSchema,
+  DicSchema,
+  EmailSchema,
+  IbanSchema,
+  IcDphSchema,
+  IcoSchema,
+  ObjectIdSchema,
+  SoftDeleteSchema,
+} from './common.js';
 
 /**
  * Organisation = tenant in the multi-tenant Inventario platform.
@@ -65,6 +75,64 @@ export const OrganisationBrandKitSchema = z
 
 export type OrganisationBrandKit = z.infer<typeof OrganisationBrandKitSchema>;
 
+/**
+ * Fakturačné a právne údaje tenanta (slovenský / EU kontext).
+ *
+ * Tieto údaje sú potrebné na vystavenie faktúr. Pre FREE plan môžu
+ * zostať prázdne (null) — vyžadujú sa až pri prechode na platený plan,
+ * čo presadzuje aplikačná logika (onboarding / billing flow), nie schéma
+ * samotná. Schéma teda dovoľuje čiastočné vyplnenie a celý objekt nullable.
+ *
+ * Poznámka k DPH: `isVatPayer` je zdroj pravdy pre to, či sa na faktúre
+ * uplatňuje DPH. `icDph` je povinné iba keď `isVatPayer === true` — túto
+ * krížovú validáciu robí billing flow, aby schéma zostala kompozitná.
+ */
+export const OrganisationBillingSchema = z
+  .object({
+    /**
+     * Obchodné (právne) meno subjektu tak, ako má byť na faktúre.
+     * Líši sa od `displayName` — napr. displayName "Inventario" vs
+     * legalName "LTK Solutions, s. r. o.".
+     */
+    legalName: z.string().max(200).trim().nullable().default(null),
+
+    /** IČO (8 číslic). */
+    ico: IcoSchema.nullable().default(null),
+
+    /** DIČ (10 číslic). */
+    dic: DicSchema.nullable().default(null),
+
+    /** Či je subjekt platiteľom DPH. Riadi uplatnenie DPH na faktúre. */
+    isVatPayer: z.boolean().default(false),
+
+    /** IČ DPH (SK + 10 číslic). Povinné len pri platiteľovi DPH (rieši billing flow). */
+    icDph: IcDphSchema.nullable().default(null),
+
+    /**
+     * Zápis v registri — Obchodný register alebo Živnostenský register.
+     * Free-form, napr. "OR OS BA I, odd. Sro, vl. č. 12345/B".
+     */
+    businessRegistration: z.string().max(300).trim().nullable().default(null),
+
+    /** IBAN pre prípadné dobropisy / vrátenia. Citlivý údaj. */
+    iban: IbanSchema.nullable().default(null),
+
+    /**
+     * Fakturačný e-mail — kam sa posielajú faktúry. Môže sa líšiť od
+     * `primaryContactEmail` (napr. účtovné odd. vs admin tenanta).
+     */
+    billingEmail: EmailSchema.nullable().default(null),
+
+    /** Sídlo subjektu — fakturačná adresa. */
+    registeredAddress: AddressSchema.nullable().default(null),
+
+    /** Korešpondenčná adresa, ak sa líši od sídla. Null = použi sídlo. */
+    mailingAddress: AddressSchema.nullable().default(null),
+  })
+  .strict();
+
+export type OrganisationBilling = z.infer<typeof OrganisationBillingSchema>;
+
 export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).extend({
   /**
    * Tenant display name. Free-form, shown in UI alongside the wordmark.
@@ -115,6 +183,14 @@ export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).ext
 
   /** Per-tenant brand kit. Null means "use Inventario defaults". */
   brandKit: OrganisationBrandKitSchema.nullable().default(null),
+
+  /**
+   * Fakturačné a právne údaje (IČO, DIČ, IČ DPH, sídlo, IBAN, ...).
+   * Null pre FREE tenantov ktorí ešte nevyplnili billing. Pri prechode
+   * na platený plan billing flow vyžaduje vyplnenie povinných polí.
+   * Viď `OrganisationBillingSchema`.
+   */
+  billing: OrganisationBillingSchema.nullable().default(null),
 
   /**
    * Free-form settings bag for per-tenant feature flags and config.

@@ -59,6 +59,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/ciselniky', label: 'Číselníky', icon: ListChecks },
   { href: '/users', label: 'Používatelia', icon: Users, adminOnly: true },
   { href: '/admin/tenants', label: 'Tenanti', icon: ShieldCheck, adminOnly: true },
+  { href: '/settings/organisation', label: 'Organizácia', icon: Building2, adminOnly: true },
   { href: '/settings/members', label: 'Členovia', icon: Users, adminOnly: true },
   { href: '/settings/invitations', label: 'Pozvánky', icon: Mail },
   { href: '/settings/organisations', label: 'Moje organizácie', icon: Building2 },

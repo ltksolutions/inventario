@@ -211,6 +211,7 @@ export class OrganisationsService {
       plan: OrganisationPlan.FREE,
       primaryContactEmail: null,
       brandKit: null,
+      billing: null,
       settings: {},
       // Auth + member policy defaults
       allowedAuthProviders: [
@@ -299,6 +300,99 @@ export class OrganisationsService {
       throw new NotFoundError('Organisation', `slug=${slug}`);
     }
     return toApiShape(doc);
+  }
+
+  // -------------------------------------------------------------------------
+  // Tenant-self path: a tenant ADMIN manages their OWN organisation
+  // -------------------------------------------------------------------------
+  //
+  // These mirror getById / update but the organisation id comes from the
+  // authenticated actor's `organisationId` claim (resolved by the auth
+  // middleware), NOT from a URL parameter. This is the security boundary:
+  // a tenant admin can only ever read/write their own tenant row, never
+  // another tenant's, because they cannot influence which id is used.
+
+  /**
+   * Read the actor's own organisation. Any authenticated member may call
+   * this (the settings page shows billing read-only to non-admins via the
+   * frontend, but the API returns the full row to any member of the org).
+   */
+  async getCurrent(organisationId: string): Promise<Record<string, unknown>> {
+    const doc = await this.repo.findById(organisationId);
+    if (!doc) {
+      throw new NotFoundError('Organisation', organisationId);
+    }
+    return toApiShape(doc);
+  }
+
+  /**
+   * Update the actor's own organisation. The route layer restricts the
+   * patch to a SAFE subset of fields (displayName, primaryContactEmail,
+   * billing) — a tenant admin must NOT be able to change their own plan,
+   * status, slug, allowedAuthProviders, etc. through this path. Those are
+   * platform-operator concerns handled by the admin `/:id` endpoint.
+   *
+   * Records ORGANISATION_UPDATED with a per-field diff, scoped to the
+   * actor's own tenant.
+   */
+  async updateCurrent(
+    organisationId: string,
+    patch: UpdateOrganisationInput,
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<Record<string, unknown>> {
+    if (!this.auditLog || !this.mongoClient) {
+      throw new Error('OrganisationsService.updateCurrent requires auditLog and mongoClient.');
+    }
+    const auditLog = this.auditLog;
+    const actorId = String(actor._id);
+
+    const updated = await this.runInTransaction(async (session) => {
+      const before = await this.repo.findById(organisationId, session);
+      if (!before) {
+        throw new NotFoundError('Organisation', organisationId);
+      }
+
+      const now = new Date().toISOString();
+      const fullPatch: OrganisationUpdatePatch = {
+        ...(patch as OrganisationUpdatePatch),
+        updatedAt: now,
+        updatedBy: actorId,
+      };
+
+      const after = await this.repo.update(organisationId, fullPatch, session);
+      if (!after) {
+        throw new NotFoundError('Organisation', organisationId);
+      }
+
+      const changes = computeShallowDiff(before, after, ['updatedAt', 'updatedBy']);
+      if (changes.length > 0) {
+        await auditLog.record(
+          actor,
+          request,
+          {
+            action: 'ORGANISATION_UPDATED',
+            target: {
+              entityType: 'Organisation',
+              entityId: String(after._id),
+              snapshot: {
+                displayName: after.displayName,
+                slug: after.slug,
+                status: after.status,
+                plan: after.plan,
+              },
+            },
+            description: `Tenant admin updated own organisation "${after.displayName}" (${changes.length} field${changes.length === 1 ? '' : 's'} changed)`,
+            changes,
+          },
+          session,
+        );
+      }
+
+      return after;
+    });
+
+    return toApiShape(updated);
   }
 
   // -------------------------------------------------------------------------

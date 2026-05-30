@@ -118,6 +118,59 @@ const BrandKitBodySchema = z
   .strict();
 
 // ---------------------------------------------------------------------------
+// Billing sub-schema (matches OrganisationBillingSchema in shared-types)
+// ---------------------------------------------------------------------------
+//
+// Fakturačné a právne údaje tenanta. Všetky polia voliteľné / nullable —
+// povinnosť pri platenom plane presadzuje billing flow, nie schéma.
+// Duplikujeme tu (rovnako ako brandKit) kvôli looser POST/PATCH sémantike.
+
+const AddressBodySchema = z
+  .object({
+    street: z.string().min(1).max(200).trim(),
+    city: z.string().min(1).max(120).trim(),
+    postalCode: z.string().min(1).max(16).trim(),
+    countryCode: z
+      .string()
+      .regex(/^[A-Z]{2}$/, 'Kód krajiny musí byť ISO 3166-1 alpha-2 (napr. SK).')
+      .default('SK'),
+  })
+  .strict();
+
+const BillingBodySchema = z
+  .object({
+    legalName: z.string().max(200).trim().nullable().default(null),
+    ico: z
+      .string()
+      .regex(/^\d{8}$/, 'IČO musí mať presne 8 číslic.')
+      .nullable()
+      .default(null),
+    dic: z
+      .string()
+      .regex(/^\d{10}$/, 'DIČ musí mať presne 10 číslic.')
+      .nullable()
+      .default(null),
+    isVatPayer: z.boolean().default(false),
+    icDph: z
+      .string()
+      .transform((val) => val.replace(/\s/g, '').toUpperCase())
+      .pipe(z.string().regex(/^SK\d{10}$/, 'IČ DPH musí byť vo formáte SK + 10 číslic.'))
+      .nullable()
+      .default(null),
+    businessRegistration: z.string().max(300).trim().nullable().default(null),
+    iban: z
+      .string()
+      .transform((val) => val.replace(/\s/g, '').toUpperCase())
+      .pipe(z.string().regex(/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/, 'Neplatný formát IBAN.'))
+      .nullable()
+      .default(null),
+    billingEmail: z.string().email('Neplatná e-mailová adresa.').nullable().default(null),
+    registeredAddress: AddressBodySchema.nullable().default(null),
+    mailingAddress: AddressBodySchema.nullable().default(null),
+  })
+  .strict();
+
+// ---------------------------------------------------------------------------
 // POST body schema
 // ---------------------------------------------------------------------------
 //
@@ -160,6 +213,7 @@ const CreateOrganisationBodySchema = z
     plan: z.enum(ORGANISATION_PLAN_VALUES as unknown as [string, ...string[]]).default('FREE'),
     primaryContactEmail: z.string().email('Neplatná e-mailová adresa.').nullable().default(null),
     brandKit: BrandKitBodySchema.nullable().default(null),
+    billing: BillingBodySchema.nullable().default(null),
     settings: z.record(z.string(), z.unknown()).default({}),
   })
   .describe('Telo pre vytvorenie organizácie (tenanta).');
@@ -186,10 +240,28 @@ const UpdateOrganisationBodySchema = z
     plan: z.enum(ORGANISATION_PLAN_VALUES as unknown as [string, ...string[]]),
     primaryContactEmail: z.string().email('Neplatná e-mailová adresa.').nullable(),
     brandKit: BrandKitBodySchema.nullable(),
+    billing: BillingBodySchema.nullable(),
     settings: z.record(z.string(), z.unknown()),
   })
   .partial()
   .describe('Čiastočná aktualizácia organizácie; všetky polia voliteľné.');
+
+// ---------------------------------------------------------------------------
+// PATCH /current body schema (tenant self-service)
+// ---------------------------------------------------------------------------
+//
+// Uvedome SAFE subset — tenant ADMIN smie meniť len identitu+billing svojej
+// vlastnej org. plan / status / slug / customDomain / authProviders sú
+// platform-operator concerns a do tohto endpointu NEpatria.
+
+const UpdateOwnOrganisationBodySchema = z
+  .object({
+    displayName: z.string().min(1).max(200).trim(),
+    primaryContactEmail: z.string().email('Neplatná e-mailová adresa.').nullable(),
+    billing: BillingBodySchema.nullable(),
+  })
+  .partial()
+  .describe('Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing).');
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -216,6 +288,80 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
 
   // RBAC: all organisations endpoints are ADMIN-only.
   const canAdmin = fastify.requireRole(['ADMIN']);
+
+  // Tenant-self read role — any member of the tenant. Used only for the
+  // GET /current endpoint; the actor's own organisationId is the key.
+  const canReadOwn = fastify.requireRole([
+    'EMPLOYEE',
+    'TEAM_MANAGER',
+    'ASSET_MANAGER',
+    'ADMIN',
+    'EXTERNAL',
+  ]);
+
+  // --- GET /v1/organisations/current ---------------------------------------
+  //
+  // Returns the actor's OWN organisation (resolved from their JWT-derived
+  // organisationId, never from a URL parameter). Any authenticated member
+  // may read it. Registered BEFORE `/:id` so the literal "current" segment
+  // wins over the parametric route.
+  app.get(
+    '/v1/organisations/current',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canReadOwn],
+      schema: {
+        tags: ['Organisations'],
+        summary: 'Get the current tenant (self)',
+        description:
+          "Returns the authenticated member's own organisation, including " +
+          'billing and branding. The organisation id comes from the actor ' +
+          'JWT claim, not a URL parameter — a member can only ever read their ' +
+          'own tenant.',
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: OrganisationResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      return service.getCurrent(String(request.currentUser.organisationId));
+    },
+  );
+
+  // --- PATCH /v1/organisations/current -------------------------------------
+  //
+  // Tenant ADMIN updates their OWN organisation. SAFE subset only
+  // (displayName, primaryContactEmail, billing). plan / status / slug are
+  // platform-operator concerns and are not accepted here. The org id comes
+  // from the actor JWT claim — a tenant admin cannot touch another tenant.
+  app.patch(
+    '/v1/organisations/current',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canAdmin],
+      schema: {
+        tags: ['Organisations'],
+        summary: 'Update the current tenant (self, ADMIN)',
+        description:
+          "Tenant admin updates their own organisation's name, contact email " +
+          'and billing details. plan/status/slug are NOT editable here ' +
+          '(platform-operator only). Records an audit event with a per-field ' +
+          'diff. Requires ADMIN role within the tenant.',
+        security: [{ bearerAuth: [] }],
+        body: UpdateOwnOrganisationBodySchema,
+        response: {
+          200: OrganisationResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      return service.updateCurrent(
+        String(request.currentUser.organisationId),
+        request.body as Parameters<typeof service.updateCurrent>[1],
+        request.currentUser,
+        request,
+      );
+    },
+  );
 
   // --- GET /v1/organisations ----------------------------------------------
   app.get(
