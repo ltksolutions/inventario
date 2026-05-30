@@ -4507,6 +4507,329 @@
         }
       }
     },
+    "/v1/stock/{itemId}/movements": {
+      "get": {
+        "summary": "Zoznam skladových pohybov položky",
+        "tags": [
+          "Stock"
+        ],
+        "description": "Vracia paginovaný zoznam pohybov pre BULK položku, zoradených od najnovšieho. Len pre položky s trackingMode === BULK.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "in": "query",
+            "name": "skip",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RECEIPT",
+                "LOAN_OUT",
+                "LOAN_RETURN",
+                "ADJUSTMENT"
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "skip": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "limit",
+                        "skip",
+                        "hasMore"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stock/{itemId}/receive": {
+      "post": {
+        "summary": "Príjem na sklad (RECEIPT)",
+        "tags": [
+          "Stock"
+        ],
+        "description": "Zaúčtuje príjem kusov na sklad. Kladné množstvo. Aktualizuje `quantityOnHand` na položke a zapíše do ledgera. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "pattern": "^[a-f\\d]{24}$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "nullable": true,
+                    "default": null
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "nullable": true,
+                    "default": null
+                  }
+                },
+                "required": [
+                  "quantity",
+                  "locationId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stock/{itemId}/adjust": {
+      "post": {
+        "summary": "Ručná korekcia inventúry (ADJUSTMENT)",
+        "tags": [
+          "Stock"
+        ],
+        "description": "Zaúčtuje ručnú korekciu skladového množstva (kladnú aj zápornú). Dôvod je povinný. Nesmie stiahnut zostatok pod nulu. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "integer"
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "pattern": "^[a-f\\d]{24}$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "nullable": true,
+                    "default": null
+                  }
+                },
+                "required": [
+                  "quantity",
+                  "locationId",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stock/{itemId}/reconcile": {
+      "post": {
+        "summary": "Reconciliation — overenie konzistencie cache vs ledger",
+        "tags": [
+          "Stock"
+        ],
+        "description": "Overí že `asset.quantityOnHand` (cache) súhlasí so `sum(stock_movements.quantity)` (zdroj pravdy). Ak nie, opraví cache. Diagnostická operácia — vyžaduje ADMIN rolu.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string"
+                    },
+                    "ledgerBalance": {
+                      "type": "integer"
+                    },
+                    "cacheWas": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "wasConsistent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "itemId",
+                    "ledgerBalance",
+                    "cacheWas",
+                    "wasConsistent"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "responses": {

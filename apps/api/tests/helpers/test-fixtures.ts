@@ -337,6 +337,10 @@ export interface InsertTestAssetOptions {
   createdBy?: string;
   /** Override `currentLoanId` (defaults to null = not on loan). */
   currentLoanId?: ObjectId | null;
+  /** Spôsob sledovania. Defaults to SERIALIZED. */
+  trackingMode?: 'SERIALIZED' | 'BULK';
+  /** Skladové množstvo (len pre BULK). Defaults to null. */
+  quantityOnHand?: number | null;
 }
 
 /**
@@ -383,6 +387,8 @@ export async function insertTestAsset(
     requiresApproval: true,
     status: options.status ?? 'AVAILABLE',
     currentLoanId: options.currentLoanId ?? null,
+    trackingMode: options.trackingMode ?? 'SERIALIZED',
+    quantityOnHand: options.quantityOnHand ?? null,
     createdAt: now,
     updatedAt: now,
     createdBy: options.createdBy ?? 'test-creator',
