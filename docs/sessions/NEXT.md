@@ -35,7 +35,7 @@ SPDX-License-Identifier: CC-BY-4.0
   (`TenantReadOnlyDetails`: Identifikácia, Fakturačné údaje, Adresy)
 - `openapi.json` refreshnutý (`chore(api): refresh openapi.json`) — CI 69 zelené
 
-### Večer — loader systém ✅
+### Večer — loader systém + návrh skladu ✅
 
 - `RouteProgressBar.tsx` — globálny progress bar pod headerom (`useIsFetching`),
   anti-flicker (120ms delay, 240ms min visible), `prefers-reduced-motion`
@@ -43,6 +43,10 @@ SPDX-License-Identifier: CC-BY-4.0
 - `AppShell.tsx` — `relative` header + `<RouteProgressBar />`
 - `globals.css` — `@keyframes route-progress` + reduced-motion variant
 - `AssetsListContent.tsx`, `UsersContent.tsx` — lokálne skeletony nahradené zdieľanými
+- **`ADR-0020` (Proposed)** — skladové množstevné položky: `trackingMode` SERIALIZED|BULK,
+  StockMovement ledger ako zdroj pravdy, množstvo v žiadosti/zápožičke, čiastočné
+  vrátenie. Dopĺňa ADR-0012 (cross-link pridaný). **Čaká na prečítanie + povýšenie
+  na Accepted.**
 
 ---
 
@@ -56,7 +60,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Frontend**      | ✅ billing settings + tenant detail + loader systém |
 | **Production**    | ✅ LIVE — app.inventario.estate                     |
 | **CI**            | ✅ Zelené (CI 69+)                                  |
-| **ADR-čka**       | ✅ 0001–0019                                        |
+| **ADR-čka**       | ✅ 0001–0019, 🟡 0020 (Proposed — sklad)            |
 | **openapi.json**  | ✅ Aktuálne (62 endpointov, 37 paths)               |
 
 ---
@@ -83,12 +87,18 @@ SPDX-License-Identifier: CC-BY-4.0
 TenantsContent, InvitationsContent, MembersContent, CiselnikyContent — po smoke
 teste, ak bude čas. Globálny `RouteProgressBar` kryje tieto stránky medzitým.
 
-### 4. Pilot tenant onboarding (pred Slice #5)
+### 4. Rozhodnúť o ADR-0020 (sklad) — prečítať + povýšiť
+
+[ADR-0020](../decisions/0020-stock-and-bulk-items.md) je v stave **Proposed**.
+Model je odsúhlasený v princípe; prečítať s odstupom a buď povýšiť na Accepted,
+alebo doladiť. Otvorená sub-vidlica už rozhodnutá (ledger, nie počítadlo).
+
+### 5. Pilot tenant onboarding (pred Slice #5)
 
 SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom.
-Reálne použitie informuje návrh Slice #5 (pôžičky).
+Reálne použitie informuje návrh Slice #5 **a pomer serialized vs bulk** (ADR-0020).
 
-### 5. email_unique index — overiť na prod
+### 6. email_unique index — overiť na prod
 
 - [ ] Atlas: skontrolovať že `email_unique` / `email_1` index bol dropnutý migráciou
 
@@ -97,6 +107,15 @@ Reálne použitie informuje návrh Slice #5 (pôžičky).
 ## 📅 Plánované (neskôr)
 
 ### Slice #5 — loans backend (po pilotnom tenantovi)
+
+Pravdepodobne sa **rozdelí** (per ADR-0020):
+
+- **#5a — Sklad foundation** — `trackingMode`, `stock_movements` ledger,
+  `quantityOnHand` cache, príjem/korekcia (RECEIPT/ADJUSTMENT). Nezávislé od loans.
+- **#5b — Loans MVP s množstvom** — ADR-0012 state machine + `quantity` na riadku,
+  čiastočné vrátenie BULK.
+
+Presné poradie a scope sa doriešia pri plánovaní Slice #5 (po pilote).
 
 ### Slice #10 — MCP server (Q1 2027, ~10 dní)
 
@@ -155,7 +174,7 @@ Duration:     ~85s
 | **Session 2026-05-30**         | `docs/sessions/2026-05-30-billing-and-tenant-detail.md` |
 | **Session 2026-05-29 (večer)** | `docs/sessions/2026-05-29-ux-polish-selectfield.md`     |
 | **Session 2026-05-29 (deň)**   | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md`   |
-| **ADR-čka**                    | `docs/decisions/0001..0019-*.md`                        |
+| **ADR-čka**                    | `docs/decisions/0001..0020-*.md`                        |
 | **Slice milestones**           | `docs/milestones/slice-*.md`                            |
 
 ---
