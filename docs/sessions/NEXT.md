@@ -7,12 +7,35 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                          |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (Slice #5a frontend + sklad overview ✅; ADR-0021 QR revidovaný — publicToken + konfig. inventoryNumber + appBaseUrl) |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                        |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                    |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                       |
+| Atribút                   | Hodnota                                                                                                                           |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-31 (ADR-0022 preberacie protokoly PDF — Proposed; predtým Slice #5a frontend + sklad overview ✅; ADR-0021 QR revidovaný) |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                         |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                     |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                        |
+
+---
+
+### ADR-0022 — Preberacie protokoly PDF (Proposed) 📄
+
+Rozhodovací dokument pre generovanie HANDOVER/RETURN protokolov. Napĺňa medzeru, ktorú
+ADR-0012 vedome odložil na #5b (`Loan.handoverProtocolId`/`returnProtocolId` boli vždy `null`).
+Kľúčové rozhodnutia:
+
+- **Životný cyklus:** záznam `LoanProtocol` (DRAFT) vzniká v approve/return transakcii;
+  PDF sa renderuje **mimo** transakcie (fire-and-forget + lazy fallback pri stiahnutí).
+- **Renderer:** `pdf-lib` + `@pdf-lib/fontkit` (nie Puppeteer — kvôli Vercel serverless
+  a determinizmu hashu). Embedovaný TTF font (DejaVu/Noto) kvôli SK diakritike.
+- **Determinizmus:** žiadne `now()` v renderi, metadata dátumy = `issuedAt` → stabilný `pdfSha256`.
+- **White-label:** logo z `Organisation.brandKit.logoUrl` (SVG→PNG rasterizácia), identita z `billing`.
+- **`protocolNumber`** `PROT-YYYY-NNNNNN` transakčne, scoped org+rok, unique index.
+- **Podpisy:** prvá fáza len `CLICK_TO_SIGN` (DRAFT→SIGNED po oboch stranách + re-render);
+  BIOMETRIC/EXTERNAL(eIDAS) neskôr.
+- **Schema fix:** doplniť `organisationId` na `LoanProtocolSchema` (rovnaký multi-tenant bug ako mal Loan).
+- **Predpoklad:** attachments infra (úložisko PDF) — kandidát na samostatné ADR-0023 alebo min. GridFS v K4.
+
+Fázovanie a sub-tasky (K1–K8) v ADR. **Čaká na rozhodnutie:** spustiť pred pilotom, alebo až po
+(ADR-0012 odporúča pilot pred ďalším loans rozvojom). Súbor: `docs/decisions/0022-loan-protocol-pdf.md`.
 
 ---
 
