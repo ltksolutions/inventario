@@ -271,7 +271,7 @@ DPIA, Security Whitepaper, Data Retention Schedule, IS Policy.
 ## 🏗️ Backend status
 
 ```
-Celkové testy:                ~651
+Celkové testy:                667
 ├── Slice #1–#3:              ~310
 ├── Slice #4–#6b:             ~169
 ├── Slice #6c:                  21
@@ -280,9 +280,10 @@ Celkové testy:                ~651
 ├── Slice #8 (Passkeys):        16
 ├── Dynamic Combobox K7:        35
 ├── Organisations CRUD:         56
-└── Slice #5a (Sklad):          18
+├── Slice #5a (Sklad):          18
+└── ADR-0023 (loans bndf):      ~16
 
-Test files:   42
+Test files:   ~42
 Duration:     ~90s
 ```
 
@@ -303,6 +304,8 @@ Duration:     ~90s
 | Typ                            | Lokácia                                                 |
 | ------------------------------ | ------------------------------------------------------- |
 | **Aktuálny stav**              | `docs/sessions/NEXT.md` (TY SI TU)                      |
+| **Session 2026-05-31 (večer)** | `docs/sessions/2026-05-31-adr-0024-0023-loans.md`       |
+| **Session 2026-05-31 (QR)**    | `docs/sessions/2026-05-31-qr-publictoken-revizia.md`    |
 | **Session 2026-05-30**         | `docs/sessions/2026-05-30-billing-and-tenant-detail.md` |
 | **Session 2026-05-29 (večer)** | `docs/sessions/2026-05-29-ux-polish-selectfield.md`     |
 | **Session 2026-05-29 (deň)**   | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md`   |
@@ -311,6 +314,6 @@ Duration:     ~90s
 
 ---
 
-**Last updated:** 2026-05-31 (Slice #5a kompletný — frontend, sklad overview, testy)
-**Tests:** ~651 ✅ | **CI:** zelené ✅ | **OpenAPI:** 67 endpointov ✅
+**Last updated:** 2026-05-31 (ADR-0024 + ADR-0023 implementované — loans beneficiary + priamy loan)
+**Tests:** 667 ✅ | **CI:** zelené ✅ | **OpenAPI:** 68 endpointov ✅
 **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
