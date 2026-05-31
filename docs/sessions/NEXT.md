@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                        |
-| ------------------------- | ---------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (ADR-0020 Accepted)                 |
-| **Aktuálna fáza**         | Production LIVE ✅ — UX polish + billing model |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`  |
-| **GitHub**                | https://github.com/ltksolutions/inventario     |
+| Atribút                   | Hodnota                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-31 (Slice #5a frontend + sklad overview ✅)       |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`             |
+| **GitHub**                | https://github.com/ltksolutions/inventario                |
 
 ---
 
@@ -77,14 +77,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### 📊 Globálny stav
 
-| Oblasť            | Status                                              |
-| ----------------- | --------------------------------------------------- |
-| **Backend testy** | ✅ ~625 (41 test files)                             |
-| **Frontend**      | ✅ billing settings + tenant detail + loader systém |
-| **Production**    | ✅ LIVE — app.inventario.estate                     |
-| **CI**            | ✅ Zelené (CI 69+)                                  |
-| **ADR-čka**       | ✅ 0001–0020 (0020 sklad — Accepted 2026-05-31)     |
-| **openapi.json**  | ✅ Aktuálne (66 endpointov)                         |
+| Oblasť            | Status                                                      |
+| ----------------- | ----------------------------------------------------------- |
+| **Backend testy** | ✅ ~651 (42 test files)                                     |
+| **Frontend**      | ✅ Slice #5a: StockPanel, prehľad skladu, BULK badge/filter |
+| **Production**    | ✅ LIVE — app.inventario.estate                             |
+| **CI**            | ✅ Zelené                                                   |
+| **ADR-čka**       | ✅ 0001–0020 (0020 sklad — Accepted)                        |
+| **openapi.json**  | ✅ Aktuálne (67 endpointov)                                 |
 
 ---
 
@@ -97,28 +97,27 @@ SPDX-License-Identifier: CC-BY-4.0
 - [ ] TenantEditDialog — read-only sekcia zobrazí slug, billing údaje
 - [ ] RouteProgressBar — viditeľný počas načítavania (Atlas cold start)
 - [ ] SelectField vo všetkých zoznamoch — klávesnica + myš
+- [ ] `/stock` — sklad prehľad sa zobrazí pre ASSET_MANAGER+
+- [ ] Farebné indikátory zásob (0=červená, ≤10%=žltá, OK=zelená)
+- [ ] StockPanel na detaile BULK asset-u — príjem, korekcia
 
-### 2. Testy pre `/current` endpointy
+### 2. ~~Testy pre `/current` endpointy~~ ✅ HOTOVÉ (2026-05-31)
 
-- [ ] `updateCurrent` RBAC — len ADMIN tenanta (EMPLOYEE/ASSET_MANAGER → 403)
-- [ ] billing validácia — IČO 8 číslic, IČ DPH SK+10, IBAN formát
-- [ ] cross-tenant izolácia — org ID z JWT, nie z URL
-- [ ] `getCurrent` — ktorýkoľvek člen číta vlastnú org
+26 testov: RBAC (GET všetky roly, PATCH len ADMIN), billing validácia
+(IČO/IČ DPH/IBAN + normalizácia medzier), cross-tenant izolácia, safe subset.
+56/56 zelených.
 
 ### 3. Skeletony na zvyšných stránkach (voliteľné)
 
-TenantsContent, InvitationsContent, MembersContent, CiselnikyContent — po smoke
-teste, ak bude čas. Globálny `RouteProgressBar` kryje tieto stránky medzitým.
+TenantsContent, InvitationsContent, MembersContent, CiselnikyContent — Globálny
+`RouteProgressBar` kryje tieto stránky medzitým.
 
-### 4. ~~Rozhodnúť o ADR-0020 (sklad) — prečítať + povýšiť~~ ✅ HOTOVÉ (2026-05-31)
+### 4. ~~Rozhodnúť o ADR-0020~~ ✅ HOTOVÉ (2026-05-31)
 
-[ADR-0020](../decisions/0020-stock-and-bulk-items.md) povýšený na **Accepted**.
-Foundation K1–K5 je postavená podľa neho; doplnený stav implementácie do Fázy 1.
-
-### 5. Pilot tenant onboarding (pred Slice #5)
+### 5. Pilot tenant onboarding — NASLEDUJE po smoke teste
 
 SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom.
-Reálne použitie informuje návrh Slice #5 **a pomer serialized vs bulk** (ADR-0020).
+Pilot informá návrh Slice #5b (loans) + reálny pomer serialized vs bulk.
 
 ### 6. email_unique index — overiť na prod
 
@@ -162,7 +161,7 @@ DPIA, Security Whitepaper, Data Retention Schedule, IS Policy.
 ## 🏗️ Backend status
 
 ```
-Celkové testy:                ~625
+Celkové testy:                ~651
 ├── Slice #1–#3:              ~310
 ├── Slice #4–#6b:             ~169
 ├── Slice #6c:                  21
@@ -170,11 +169,11 @@ Celkové testy:                ~625
 ├── Slice #9:                   28
 ├── Slice #8 (Passkeys):        16
 ├── Dynamic Combobox K7:        35
-├── Organisations CRUD:         30
+├── Organisations CRUD:         56
 └── Slice #5a (Sklad):          18
 
-Test files:   41
-Duration:     ~85s
+Test files:   42
+Duration:     ~90s
 ```
 
 ---
@@ -202,6 +201,6 @@ Duration:     ~85s
 
 ---
 
-**Last updated:** 2026-05-31 (ADR-0020 Accepted + sync čísel)
-**Tests:** ~625 ✅ | **CI:** zelené ✅ | **OpenAPI:** 66 endpointov ✅
+**Last updated:** 2026-05-31 (Slice #5a kompletný — frontend, sklad overview, testy)
+**Tests:** ~651 ✅ | **CI:** zelené ✅ | **OpenAPI:** 67 endpointov ✅
 **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
