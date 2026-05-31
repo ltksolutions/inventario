@@ -7,12 +7,32 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                           |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (ADR-0022 preberacie protokoly PDF — Proposed; predtým Slice #5a frontend + sklad overview ✅; ADR-0021 QR revidovaný) |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                         |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                     |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                        |
+| Atribút                   | Hodnota                                                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-31 (ADR-0023 beneficiary + priamy loan — Proposed; ADR-0022 protokoly PDF — Proposed; dependabot PR #1 merged) |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                              |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                          |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                             |
+
+---
+
+### ADR-0023 — Žiadosť v mene inej osoby + priama výpožička (Proposed) 📝
+
+Upraví model z ADR-0012 (kde platílo žiadateľ = vypožičiavajúci, Loan vždy zo žiadosti).
+Dve rozhodnutia:
+
+- **`LoanRequest.beneficiaryId`** — žiadosť môže byť pre seba alebo pre inú osobu.
+  `requesterId` = kto podal, `beneficiaryId` = pre koho (default self). Pri approve
+  `Loan.borrowerId = beneficiaryId` (nie requesterId). Žiadať za hocikoho smú všetci
+  (EMPLOYEE+) — žiadosť nič nevydáva, gatekeeper je správca pri schvaľovaní. Read-RBAC:
+  EMPLOYEE vidí `requesterId === self` ALEBO `beneficiaryId === self`.
+- **Priamy Loan bez žiadosti** — `Loan.requestId` sa stane nullable; nový
+  `POST /v1/loans` (ASSET_MANAGER/ADMIN) vytvorí výpožičku priamo (`AVAILABLE → BORROWED`,
+  bez RESERVED). Pokrýva US-017 quick loan, ktorý #5 odložil. Jeden `Loan` model pre oba toky.
+
+Protokoly (ADR-0022) bez zmeny — strany berú z `Loan`, nie z `LoanRequest`, takže direct
+loan funguje rovnako. Schema fixes + migrácia (`beneficiaryId = requesterId` pre existujúce).
+Fázovanie K1–K6 v ADR. Súbor: `docs/decisions/0023-loan-beneficiary-and-direct-loan.md`.
 
 ---
 
