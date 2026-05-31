@@ -50,7 +50,7 @@ export interface SelectFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: SelectOption[];
+  options: readonly SelectOption[];
   disabled?: boolean;
   /** Tailwind utility override — napr. 'w-40' alebo 'w-full' */
   className?: string;

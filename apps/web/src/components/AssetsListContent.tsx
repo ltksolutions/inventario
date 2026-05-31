@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react';
 import { AssetsTable } from './AssetsTable';
 import { SelectField } from './SelectField';
 import { TableSkeleton } from './Skeleton';
+import { TRACKING_MODE_FILTER_OPTIONS } from './TrackingModeBadge';
 
 import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
@@ -185,11 +186,7 @@ export function AssetsListContent(): JSX.Element {
               setTrackingModeFilter(v);
               setPage(1);
             }}
-            options={[
-              { value: '', label: 'Všetky typy' },
-              { value: 'SERIALIZED', label: 'Serializované' },
-              { value: 'BULK', label: 'BULK (hromadné)' },
-            ]}
+            options={TRACKING_MODE_FILTER_OPTIONS}
             className="w-40"
           />
         </div>

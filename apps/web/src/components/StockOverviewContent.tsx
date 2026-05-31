@@ -148,7 +148,7 @@ export function StockOverviewContent(): JSX.Element {
         <div>
           <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Sklad</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Prehľad zásob hromadných (BULK) položiek organizácie.
+            Prehľad zásob množstevných položiek organizácie.
           </p>
         </div>
       </header>
@@ -379,12 +379,12 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }): JSX.Element {
     <div className="rounded-xl border border-border-subtle bg-surface-card py-12 text-center">
       <Warehouse aria-hidden="true" className="mx-auto h-10 w-10 text-text-muted" />
       <p className="mt-3 text-sm font-medium text-text-primary">
-        {hasFilter ? 'Žiadne položky pre zvolený filter' : 'Žiadne BULK položky v evidencii'}
+        {hasFilter ? 'Žiadne položky pre zvolený filter' : 'Žiadne množstevné položky v evidencii'}
       </p>
       <p className="mt-1 text-sm text-text-secondary">
         {hasFilter
           ? 'Skúste zmeniť filter.'
-          : 'BULK položky pridáte v sekcii Majetok (trackingMode = BULK).'}
+          : 'Množstevné položky pridáte v sekcii Majetok (typ: Množstevná).'}
       </p>
     </div>
   );

@@ -5,6 +5,8 @@
 
 import Link from 'next/link';
 
+import { TrackingModeBadge } from './TrackingModeBadge';
+
 import type { AssetSummary, CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
@@ -32,8 +34,8 @@ import { cn } from '@/lib/cn';
  *   "no rows" empty state, so this component just renders rows.
  *
  * BULK vs SERIALIZED (ADR-0020):
- *   BULK položky zobrazujú badge „BULK" pri inventárnom čísle a
- *   množstvo na sklade v stĺpci „Množstvo". SERIALIZED položky
+ *   BULK (Množstevná) položky zobrazujú ikonku Warehouse pri inventárnom čísle a
+ *   množstvo na sklade v stĺpci „Množstvo". SERIALIZED (Kusová) položky
  *   (default) majú v tom stĺpci „—".
  */
 
@@ -112,11 +114,7 @@ export function AssetsTable({
                     >
                       {asset.inventoryNumber}
                     </Link>
-                    {isBulk && (
-                      <span className="inline-block rounded bg-blue-100 px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-wider text-blue-700">
-                        BULK
-                      </span>
-                    )}
+                    {isBulk && <TrackingModeBadge mode="BULK" variant="badge" />}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-text-primary">{asset.name}</td>
