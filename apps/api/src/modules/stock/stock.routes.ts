@@ -2,6 +2,7 @@
  * Stock routes — HTTP endpointy pre skladové pohyby BULK položiek.
  *
  * RBAC:
+ *   GET  /v1/stock                      ASSET_MANAGER + ADMIN (prehľad skladu)
  *   GET  /v1/stock/:itemId/movements    EMPLOYEE+ (čítanie histórie)
  *   POST /v1/stock/:itemId/receive      ASSET_MANAGER + ADMIN
  *   POST /v1/stock/:itemId/adjust       ASSET_MANAGER + ADMIN
@@ -77,6 +78,21 @@ const ReconcileResponseSchema = z.object({
   wasConsistent: z.boolean(),
 });
 
+const BulkItemOverviewSchema = z.object({
+  _id: z.string(),
+  inventoryNumber: z.string(),
+  name: z.string(),
+  quantityOnHand: z.number().int().nullable(),
+  categoryId: z.string(),
+  locationId: z.string(),
+  lastReceiptQuantity: z.number().int().nullable(),
+});
+
+const StockOverviewResponseSchema = z.object({
+  data: z.array(BulkItemOverviewSchema),
+  total: z.number().int().nonnegative(),
+});
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -99,6 +115,36 @@ const stockRoutes: FastifyPluginAsync = async (fastify) => {
   ] as const);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
   const canAdmin = fastify.requireRole(['ADMIN']);
+  const canManage = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
+
+  // --- GET /v1/stock -------------------------------------------------------
+  app.get(
+    '/v1/stock',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canManage],
+      schema: {
+        tags: ['Stock'],
+        summary: 'Prehľad skladu — všetky BULK položky tenanta',
+        description:
+          'Vráti zoznam všetkých BULK položiek tenanta s aktuálnym zostatkom ' +
+          'a množstvom posledného príjmu (pre farebné indikátory). ' +
+          'Vyžaduje ASSET_MANAGER alebo ADMIN rolu.',
+        security: [{ bearerAuth: [] }],
+        response: { 200: StockOverviewResponseSchema },
+      },
+    },
+    async (request) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const items = await stockRepo.listBulkItemsWithLastReceipt(tenantId);
+      return {
+        data: items.map((item) => ({
+          ...item,
+          _id: String(item._id),
+        })),
+        total: items.length,
+      };
+    },
+  );
 
   // --- GET /v1/stock/:itemId/movements -------------------------------------
   app.get(

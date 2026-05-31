@@ -26,7 +26,7 @@ import { ObjectId } from 'mongodb';
 import { requireTenantId } from '../../lib/organisation-scoping.js';
 
 import type { StockMovement } from '@inventario/shared-types';
-import type { ClientSession, Collection, Db, WithId } from 'mongodb';
+import type { ClientSession, Collection, Db, ObjectId as ObjectIdType, WithId } from 'mongodb';
 
 export interface ListMovementsParams {
   limit?: number;
@@ -42,8 +42,10 @@ export interface ListMovementsResult {
 
 export class StockMovementsRepository {
   private readonly collection: Collection<StockMovement>;
+  private readonly db: Db;
 
   constructor(db: Db) {
+    this.db = db;
     this.collection = db.collection<StockMovement>('stock_movements');
   }
 
@@ -202,4 +204,90 @@ export class StockMovementsRepository {
 
     return result?.total ?? 0;
   }
+
+  /**
+   * Zoznam všetkých BULK položiek tenanta s ich aktuálnym zostatkom
+   * a kvantitatou posledného príjmu (RECEIPT) — pre skladový prehľad.
+   *
+   * Aggregácia:
+   *   1. Získa všetky assets tenanta s trackingMode === 'BULK'
+   *   2. Pre každú položku $lookup-ne posledný RECEIPT pohyb
+   *      (sort createdAt desc, limit 1)
+   *   3. Vráti: _id, inventoryNumber, name, quantityOnHand,
+   *      categoryId, locationId, lastReceiptQuantity (null ak žiadny)
+   *
+   * Používa sa len na čítanie (bez transakcie).
+   */
+  async listBulkItemsWithLastReceipt(organisationId: string): Promise<BulkItemOverview[]> {
+    const tenantId = requireTenantId(organisationId);
+
+    const pipeline = [
+      // Krok 1: len BULK položky tohto tenanta
+      {
+        $match: {
+          organisationId: tenantId,
+          trackingMode: 'BULK',
+          deletedAt: null,
+        },
+      },
+      // Krok 2: join na posledný RECEIPT pohyb
+      {
+        $lookup: {
+          from: 'stock_movements',
+          let: { itemId: { $toString: '$_id' }, orgId: '$organisationId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$itemId', '$itemId'] },
+                    { $eq: ['$organisationId', '$orgId'] },
+                    { $eq: ['$type', 'RECEIPT'] },
+                  ],
+                },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
+          as: 'lastReceipts',
+        },
+      },
+      // Krok 3: projektácia — len polia, ktoré UI potrebuje
+      {
+        $project: {
+          _id: 1,
+          inventoryNumber: 1,
+          name: 1,
+          quantityOnHand: 1,
+          categoryId: 1,
+          locationId: 1,
+          lastReceiptQuantity: {
+            $ifNull: [{ $first: '$lastReceipts.quantity' }, null],
+          },
+        },
+      },
+      // Krok 4: zoradiť podľa inventorného čísla
+      { $sort: { inventoryNumber: 1 } },
+    ];
+
+    // Aggregácia beží nad assets kolekciou
+    const assetsCollection = this.db.collection('assets');
+    return assetsCollection.aggregate<BulkItemOverview>(pipeline).toArray();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface BulkItemOverview {
+  _id: ObjectIdType;
+  inventoryNumber: string;
+  name: string;
+  quantityOnHand: number | null;
+  categoryId: string;
+  locationId: string;
+  /** Množstvo posledného príjmu. Null ak žiadny RECEIPT ešte nebol. */
+  lastReceiptQuantity: number | null;
 }

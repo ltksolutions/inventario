@@ -1403,6 +1403,44 @@ export function useStockMovements(
   });
 }
 
+/**
+ * GET /v1/stock — prehľad skladu, všetky BULK položky tenanta.
+ * ASSET_MANAGER + ADMIN.
+ */
+export function useStockOverview(): UseQueryResult<
+  { data: BulkItemOverview[]; total: number },
+  Error
+> {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<{ data: BulkItemOverview[]; total: number }, Error>({
+    queryKey: ['stock-overview'],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const { data, error } = await genericGet('/v1/stock', {});
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Nepodarilo sa načítať prehľad skladu',
+        );
+      }
+      if (!data) throw new Error('Prázdna odpoveď z /v1/stock');
+      return data as { data: BulkItemOverview[]; total: number };
+    },
+  });
+}
+
+export interface BulkItemOverview {
+  _id: string;
+  inventoryNumber: string;
+  name: string;
+  quantityOnHand: number | null;
+  categoryId: string;
+  locationId: string;
+  /** Množstvo posledného príjmu. Null ak žiadny RECEIPT ešte nebol. */
+  lastReceiptQuantity: number | null;
+}
+
 export interface ReceiveStockInput {
   quantity: number;
   locationId: string;

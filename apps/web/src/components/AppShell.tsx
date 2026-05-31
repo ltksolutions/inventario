@@ -31,6 +31,7 @@ import {
   Menu,
   ShieldCheck,
   Users,
+  Warehouse,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -50,11 +51,13 @@ interface NavItem {
   label: string;
   icon: typeof Home;
   adminOnly?: boolean;
+  managerOnly?: boolean;
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/assets', label: 'Majetok', icon: Boxes },
+  { href: '/stock', label: 'Sklad', icon: Warehouse, managerOnly: true },
   { href: '/loans', label: 'Žiadosti', icon: ClipboardList },
   { href: '/my-loans', label: 'Moje výpožičky', icon: Library },
   { href: '/ciselniky', label: 'Číselníky', icon: ListChecks },
@@ -108,7 +111,10 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
 
   // Filter nav items by role
   const isAdmin = roles.includes('ADMIN');
-  const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  const isManager = roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager),
+  );
 
   return (
     <div className="min-h-screen bg-surface-page">
