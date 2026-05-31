@@ -25,6 +25,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { AssetDetailEditForm } from './AssetDetailEditForm';
 import { AssetDetailReadView } from './AssetDetailReadView';
+import { StockPanel } from './StockPanel';
 
 import type { AssetDetail, LoanSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
@@ -72,11 +73,19 @@ const LOAN_STATUS_LABELS: Record<string, string> = {
 // Tabs
 // ---------------------------------------------------------------------------
 
-type TabId = 'overview' | 'history' | 'audit' | 'attachments' | 'related';
+type TabId = 'overview' | 'stock' | 'history' | 'audit' | 'attachments' | 'related';
 
-const TABS: { id: TabId; label: string; icon: JSX.Element }[] = [
+const TABS_SERIALIZED: { id: TabId; label: string; icon: JSX.Element }[] = [
   { id: 'overview', label: 'Detail', icon: <ClipboardList className="h-4 w-4" /> },
   { id: 'history', label: 'História pohybov', icon: <CalendarDays className="h-4 w-4" /> },
+  { id: 'audit', label: 'Audit log', icon: <ShieldAlert className="h-4 w-4" /> },
+  { id: 'attachments', label: 'Prílohy', icon: <Paperclip className="h-4 w-4" /> },
+  { id: 'related', label: 'Súvisiace', icon: <Boxes className="h-4 w-4" /> },
+];
+
+const TABS_BULK: { id: TabId; label: string; icon: JSX.Element }[] = [
+  { id: 'overview', label: 'Detail', icon: <ClipboardList className="h-4 w-4" /> },
+  { id: 'stock', label: 'Sklad', icon: <Boxes className="h-4 w-4" /> },
   { id: 'audit', label: 'Audit log', icon: <ShieldAlert className="h-4 w-4" /> },
   { id: 'attachments', label: 'Prílohy', icon: <Paperclip className="h-4 w-4" /> },
   { id: 'related', label: 'Súvisiace', icon: <Boxes className="h-4 w-4" /> },
@@ -94,6 +103,9 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
   const canEdit = useCanEditAssets();
+
+  const isBulk = assetQuery.data?.trackingMode === 'BULK';
+  const TABS = isBulk ? TABS_BULK : TABS_SERIALIZED;
 
   const categoriesById = new Map((categoriesQuery.data?.data ?? []).map((c) => [c._id, c]));
   const locationsById = new Map((locationsQuery.data?.data ?? []).map((l) => [l._id, l]));
@@ -192,6 +204,9 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                       categoriesById={categoriesById}
                       locationsById={locationsById}
                     />
+                  )}
+                  {activeTab === 'stock' && assetQuery.data && (
+                    <StockPanel asset={assetQuery.data} />
                   )}
                   {activeTab === 'history' && <LoanHistoryTab assetId={assetId} />}
                   {activeTab === 'audit' && (

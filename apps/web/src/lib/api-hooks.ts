@@ -619,6 +619,10 @@ export interface AssetDetail {
   internalNotes: string | null;
   isLoanable: boolean;
   requiresApproval: boolean;
+  /** ADR-0020: SERIALIZED (default) alebo BULK (hromadné množstevné položky). */
+  trackingMode: 'SERIALIZED' | 'BULK';
+  /** ADR-0020: cache zo StockMovement ledgera. Null pre SERIALIZED. */
+  quantityOnHand: number | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -1314,6 +1318,205 @@ export function useCreateAsset(): UseMutationResult<AssetDetail, Error, CreateAs
       void queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Stock — skladové pohyby BULK položiek (ADR-0020)
+// ---------------------------------------------------------------------------
+
+/**
+ * Jeden pohyb zo StockMovement ledgera.
+ * Zrkadlí StockMovementSchema z @inventario/shared-types (wire shape).
+ */
+export interface StockMovement {
+  _id: string;
+  organisationId: string;
+  itemId: string;
+  type: 'RECEIPT' | 'LOAN_OUT' | 'LOAN_RETURN' | 'ADJUSTMENT';
+  /** Signed delta: kladné = príjem, záporné = výdaj. */
+  quantity: number;
+  balanceAfter: number;
+  locationId: string;
+  reason: string | null;
+  note: string | null;
+  loanId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+}
+
+export interface StockMovementsListOptions {
+  limit?: number;
+  skip?: number;
+  type?: StockMovement['type'];
+}
+
+export interface ReconcileResult {
+  itemId: string;
+  ledgerBalance: number;
+  cacheWas: number | null;
+  wasConsistent: boolean;
+}
+
+// Generic fetch cast — stock endpointy nie sú zatiaľ v openapi spec paths type.
+const genericGet = apiClient.GET as (
+  path: string,
+  opts: unknown,
+) => Promise<{ data: unknown; error: unknown }>;
+
+/**
+ * GET /v1/stock/:itemId/movements — paginovaný zoznam pohybov.
+ * Len pre BULK položky (backend overuje trackingMode).
+ * EMPLOYEE+ môže čítať.
+ */
+export function useStockMovements(
+  itemId: string | null,
+  options: StockMovementsListOptions = {},
+): UseQueryResult<ListResponse<StockMovement>, Error> {
+  const { limit = 50, skip = 0, type } = options;
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<ListResponse<StockMovement>, Error>({
+    queryKey: ['stock-movements', itemId, { limit, skip, type }],
+    enabled: isAuthenticated && typeof itemId === 'string' && itemId.length > 0,
+    queryFn: async () => {
+      if (!itemId) throw new Error('itemId je povinné.');
+      const query: Record<string, unknown> = { limit, skip };
+      if (type !== undefined) query['type'] = type;
+      const { data, error } = await genericGet(`/v1/stock/${itemId}/movements`, {
+        params: { query },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Nepodarilo sa načítať pohyby skladu',
+        );
+      }
+      if (!data) throw new Error('Prázdna odpoveď z /v1/stock/:itemId/movements');
+      return data as ListResponse<StockMovement>;
+    },
+  });
+}
+
+export interface ReceiveStockInput {
+  quantity: number;
+  locationId: string;
+  reason?: string | null;
+  note?: string | null;
+}
+
+export interface AdjustStockInput {
+  /** Signed delta — kladné alebo záporné, nesmie byť 0. */
+  quantity: number;
+  locationId: string;
+  /** Povinný dôvod — min 3 znaky. */
+  reason: string;
+  note?: string | null;
+}
+
+/**
+ * POST /v1/stock/:itemId/receive — príjem na sklad (RECEIPT).
+ * ASSET_MANAGER + ADMIN.
+ * Invaliduje stock-movements aj asset (quantityOnHand cache).
+ */
+export function useReceiveStock(
+  itemId: string,
+): UseMutationResult<StockMovement, Error, ReceiveStockInput> {
+  const queryClient = useQueryClient();
+  const genericPost2 = apiClient.POST as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useMutation<StockMovement, Error, ReceiveStockInput>({
+    mutationFn: async (input) => {
+      const { data, error } = await genericPost2(`/v1/stock/${itemId}/receive`, { body: input });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Príjem na sklad zlyhal');
+      }
+      if (!data) throw new Error('Prázdna odpoveď po príjme na sklad');
+      return data as StockMovement;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['stock-movements', itemId] });
+      // Invaliduj asset detail — quantityOnHand cache sa zmenila
+      void queryClient.invalidateQueries({ queryKey: ['asset', itemId] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/**
+ * POST /v1/stock/:itemId/adjust — ručná korekcia (ADJUSTMENT).
+ * ASSET_MANAGER + ADMIN. Dôvod je povinný.
+ */
+export function useAdjustStock(
+  itemId: string,
+): UseMutationResult<StockMovement, Error, AdjustStockInput> {
+  const queryClient = useQueryClient();
+  const genericPost2 = apiClient.POST as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useMutation<StockMovement, Error, AdjustStockInput>({
+    mutationFn: async (input) => {
+      const { data, error } = await genericPost2(`/v1/stock/${itemId}/adjust`, { body: input });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Korekcia skladu zlyhala');
+      }
+      if (!data) throw new Error('Prázdna odpoveď po korekcii skladu');
+      return data as StockMovement;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['stock-movements', itemId] });
+      void queryClient.invalidateQueries({ queryKey: ['asset', itemId] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/**
+ * POST /v1/stock/:itemId/reconcile — diagnostická oprava cache. ADMIN only.
+ * Overí sum(ledger) vs quantityOnHand cache a prípadne opraví.
+ */
+export function useReconcileStock(itemId: string): UseMutationResult<ReconcileResult, Error, void> {
+  const queryClient = useQueryClient();
+  const genericPost2 = apiClient.POST as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useMutation<ReconcileResult, Error, void>({
+    mutationFn: async () => {
+      const { data, error } = await genericPost2(`/v1/stock/${itemId}/reconcile`, {});
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Reconciliation skladu zlyhala',
+        );
+      }
+      if (!data) throw new Error('Prázdna odpoveď po reconciliation');
+      return data as ReconcileResult;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['asset', itemId] });
+      void queryClient.invalidateQueries({ queryKey: ['stock-movements', itemId] });
+    },
+  });
+}
+
+/**
+ * Môže aktuálny user robiť skladové pohyby (receive/adjust)?
+ * ASSET_MANAGER + ADMIN. Pessimisticky false počas načítavania.
+ */
+export function useCanManageStock(): boolean {
+  const { user } = useAuth();
+  const roles = user?.roles ?? [];
+  return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
 }
 
 // ---------------------------------------------------------------------------
