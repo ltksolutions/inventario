@@ -559,4 +559,339 @@ describe('/v1/organisations', () => {
       expect(res.statusCode).toBe(404);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // GET + PATCH /v1/organisations/current (tenant self-service)
+  // -------------------------------------------------------------------------
+
+  describe('/v1/organisations/current', () => {
+    // -----------------------------------------------------------------------
+    // GET /current — ľubovolný ეlen tenanta môže čítať vlastnú org
+    // -----------------------------------------------------------------------
+
+    describe('GET /v1/organisations/current', () => {
+      it('returns 200 with org data for ADMIN', async () => {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+        });
+        expect(res.statusCode).toBe(200);
+        const body = res.json<{ _id: string; slug: string; displayName: string }>();
+        expect(typeof body._id).toBe('string');
+        expect(typeof body.slug).toBe('string');
+        expect(typeof body.displayName).toBe('string');
+      });
+
+      it('returns 200 with org data for EMPLOYEE', async () => {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${employeeToken}` },
+        });
+        expect(res.statusCode).toBe(200);
+        const body = res.json<{ _id: string }>();
+        expect(typeof body._id).toBe('string');
+      });
+
+      it('returns 200 with org data for ASSET_MANAGER', async () => {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${managerToken}` },
+        });
+        expect(res.statusCode).toBe(200);
+      });
+
+      it('returns 401 without auth', async () => {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+        });
+        expect(res.statusCode).toBe(401);
+      });
+
+      it('vracia organisationId odvozené z JWT, nie z URL', async () => {
+        // Admin a employee patria do rovnakého test tenanta.
+        // GET /current musí obom vrátiť tú istú org.
+        const adminRes = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+        });
+        const empRes = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${employeeToken}` },
+        });
+        expect(adminRes.statusCode).toBe(200);
+        expect(empRes.statusCode).toBe(200);
+        expect(adminRes.json<{ _id: string }>()._id).toBe(empRes.json<{ _id: string }>()._id);
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // PATCH /current — len ADMIN, SAFE subset
+    // -----------------------------------------------------------------------
+
+    describe('PATCH /v1/organisations/current', () => {
+      it('ADMIN môže zmeniť displayName', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { displayName: 'Aktualizovaný názov' },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ displayName: string }>().displayName).toBe('Aktualizovaný názov');
+      });
+
+      it('ADMIN môže zmeniť primaryContactEmail', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { primaryContactEmail: 'kontakt@example.sk' },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ primaryContactEmail: string }>().primaryContactEmail).toBe(
+          'kontakt@example.sk',
+        );
+      });
+
+      it('EMPLOYEE dostane 403', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${employeeToken}` },
+          payload: { displayName: 'Nepovolene' },
+        });
+        expect(res.statusCode).toBe(403);
+      });
+
+      it('ASSET_MANAGER dostane 403', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${managerToken}` },
+          payload: { displayName: 'Nepovolene' },
+        });
+        expect(res.statusCode).toBe(403);
+      });
+
+      it('bez autentifikácie vracia 401', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          payload: { displayName: 'Ghost' },
+        });
+        expect(res.statusCode).toBe(401);
+      });
+
+      it('prázdny patch (bez polí) vráti 200 bez zmeny', async () => {
+        const before = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+        });
+        const beforeName = before.json<{ displayName: string }>().displayName;
+
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: {},
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ displayName: string }>().displayName).toBe(beforeName);
+      });
+
+      it('PATCH /current nemení plan ani status (platform-only polia)', async () => {
+        // plan a status nie sú v UpdateOwnOrganisationBodySchema —
+        // Zod ich stripne, teda patch musí uspäť bez zmeny týchto polí.
+        const before = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+        });
+        const { plan: planBefore, status: statusBefore } = before.json<{
+          plan: string;
+          status: string;
+        }>();
+
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          // plan + status sú známe polia ale nie sú v SAFE subset schéme
+          payload: { displayName: 'Povolene', plan: 'ENTERPRISE', status: 'SUSPENDED' },
+        });
+        expect(res.statusCode).toBe(200);
+        const body = res.json<{ plan: string; status: string; displayName: string }>();
+        expect(body.displayName).toBe('Povolene');
+        expect(body.plan).toBe(planBefore);
+        expect(body.status).toBe(statusBefore);
+      });
+
+      // --- Cross-tenant izolácia ---
+
+      it('cross-tenant: ADMIN nemôže patcho vať org iného tenanta cez /current', async () => {
+        // Vytvoriť druhý tenant a user v ňom
+        const secondTenantOrg = await createOrg(
+          validCreateOrgBody({ slug: 'second-tenant-cross' }),
+        );
+        const secondOrgId = String(secondTenantOrg['_id']);
+        const displayNameBefore = String(secondTenantOrg['displayName']);
+
+        // Admin z prvého tenanta PATCH /current — musí zmeniť LEN svoju org,
+        // nie secondOrgId.
+        const patchRes = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { displayName: 'Should only change my org' },
+        });
+        expect(patchRes.statusCode).toBe(200);
+
+        // Druhý tenant musí zostať nedotknutý.
+        const secondRes = await app.inject({
+          method: 'GET',
+          url: `/v1/organisations/${secondOrgId}`,
+          headers: { cookie: `inv_access=${adminToken}` },
+        });
+        expect(secondRes.statusCode).toBe(200);
+        expect(secondRes.json<{ displayName: string }>().displayName).toBe(displayNameBefore);
+      });
+
+      // --- Billing validácia ---
+
+      it('billing: validá IČO (8 číslic)', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { ico: '12345678', isVatPayer: false } },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ billing: { ico: string } }>().billing?.ico).toBe('12345678');
+      });
+
+      it('billing: neplatné IČO (nie 8 číslic) vráti 400', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { ico: '1234', isVatPayer: false } },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('billing: neplatné IČO (obsahuje písmená) vráti 400', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { ico: 'ABCD1234', isVatPayer: false } },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('billing: validý IČ DPH (SK + 10 číslic)', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { icDph: 'SK1234567890', isVatPayer: true } },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ billing: { icDph: string } }>().billing?.icDph).toBe('SK1234567890');
+      });
+
+      it('billing: IČ DPH s medzerami sa normalizuje', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { icDph: 'SK 1234 567 890', isVatPayer: true } },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ billing: { icDph: string } }>().billing?.icDph).toBe('SK1234567890');
+      });
+
+      it('billing: neplatný IČ DPH (bez prefixu SK) vráti 400', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { icDph: 'CZ1234567890', isVatPayer: true } },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('billing: validý IBAN', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { iban: 'SK3112000000198742637541', isVatPayer: false } },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ billing: { iban: string } }>().billing?.iban).toBe(
+          'SK3112000000198742637541',
+        );
+      });
+
+      it('billing: IBAN s medzerami sa normalizuje', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { iban: 'SK31 1200 0000 1987 4263 7541', isVatPayer: false } },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ billing: { iban: string } }>().billing?.iban).toBe(
+          'SK3112000000198742637541',
+        );
+      });
+
+      it('billing: neplatný IBAN vráti 400', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { iban: 'INVALID-IBAN', isVatPayer: false } },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('billing: neplatný billingEmail vráti 400', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { billingEmail: 'nie-je-email', isVatPayer: false } },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('billing: null vynuluje celý billing blok', async () => {
+        // Najprv nastav billing
+        await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: { ico: '12345678', isVatPayer: false } },
+        });
+        // Potom ho vynuluj
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { billing: null },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ billing: unknown }>().billing).toBeNull();
+      });
+    });
+  });
 });
