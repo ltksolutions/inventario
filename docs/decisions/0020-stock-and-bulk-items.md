@@ -7,8 +7,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 |                   |                                                                                                                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**        | 🟡 Proposed                                                                                                                                                             |
-| **Dátum**         | 2026-05-30                                                                                                                                                              |
+| **Status**        | ✅ Accepted                                                                                                                                                             |
+| **Dátum**         | 2026-05-30 (Proposed), 2026-05-31 (Accepted)                                                                                                                            |
 | **Autori**        | Ján Letko, Claude Opus 4.8 (LTK Solutions)                                                                                                                              |
 | **Súvisiace ADR** | [0012 Loans state machine](0012-loans-state-machine.md), [0010 Multi-tenant](0010-multi-tenant-white-label.md), [0005 Mongo native driver](0005-mongo-native-driver.md) |
 
@@ -248,6 +248,22 @@ sa tieto dva ADR čítajú spolu.
 - Obrazovka „Príjem na sklad" (RECEIPT) + ručná korekcia (ADJUSTMENT) pre ADMIN/ASSET_MANAGER
 - `quantity` v žiadosti a zápožičke; čiastočné vrátenie BULK
 - Zoznam položiek rozlišuje SERIALIZED vs BULK (badge, množstvo v stĺpci)
+
+#### Stav implementácie
+
+**Hotové (Slice #5a K1–K5, 2026-05-30 — backend zelený, CI prechádza):**
+
+- K1 — schémy: `TrackingMode` enum, `StockMovementSchema` (append-only ledger),
+  `trackingMode` + `quantityOnHand` na `AssetSchema`, audit log akcie STOCK\_\*
+- K2–K5 — `StockMovementsRepository`, `StockService` (`receive`/`adjust`/`reconcile`),
+  `stock.routes.ts` (4 endpointy), 18 integračných testov. `reconcile` je diagnostická
+  oprava cache voči ledgeru (viď riziká: drift cache vs ledger), nie `STOCKTAKE` z Fázy 2.
+
+**Zostáva z Fázy 1 (frontend + loans rozmer):**
+
+- Frontend: obrazovka príjmu/korekcie, badge SERIALIZED vs BULK, množstvo v stĺpci zoznamu
+- `quantity` na `LoanRequestItem`/`LoanItem` + čiastočné vrátenie — až v rámci Slice #5b
+  (loans), nie je súčasťou #5a foundation
 
 ### Fáza 2 — Plný sklad (po pilote, podľa reálnej potreby)
 

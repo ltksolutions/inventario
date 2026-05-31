@@ -83,7 +83,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Frontend**      | ✅ billing settings + tenant detail + loader systém |
 | **Production**    | ✅ LIVE — app.inventario.estate                     |
 | **CI**            | ✅ Zelené (CI 69+)                                  |
-| **ADR-čka**       | ✅ 0001–0019, 🟡 0020 (Proposed — sklad)            |
+| **ADR-čka**       | ✅ 0001–0020 (0020 sklad — Accepted 2026-05-31)     |
 | **openapi.json**  | ✅ Aktuálne (62 endpointov, 37 paths)               |
 
 ---
@@ -110,11 +110,10 @@ SPDX-License-Identifier: CC-BY-4.0
 TenantsContent, InvitationsContent, MembersContent, CiselnikyContent — po smoke
 teste, ak bude čas. Globálny `RouteProgressBar` kryje tieto stránky medzitým.
 
-### 4. Rozhodnúť o ADR-0020 (sklad) — prečítať + povýšiť
+### 4. ~~Rozhodnúť o ADR-0020 (sklad) — prečítať + povýšiť~~ ✅ HOTOVÉ (2026-05-31)
 
-[ADR-0020](../decisions/0020-stock-and-bulk-items.md) je v stave **Proposed**.
-Model je odsúhlasený v princípe; prečítať s odstupom a buď povýšiť na Accepted,
-alebo doladiť. Otvorená sub-vidlica už rozhodnutá (ledger, nie počítadlo).
+[ADR-0020](../decisions/0020-stock-and-bulk-items.md) povýšený na **Accepted**.
+Foundation K1–K5 je postavená podľa neho; doplnený stav implementácie do Fázy 1.
 
 ### 5. Pilot tenant onboarding (pred Slice #5)
 
