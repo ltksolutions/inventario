@@ -174,6 +174,10 @@ export interface AssetSummary {
   status: string;
   categoryId: string;
   locationId: string;
+  /** ADR-0020: SERIALIZED (default) alebo BULK. */
+  trackingMode: 'SERIALIZED' | 'BULK';
+  /** ADR-0020: zostatok pre BULK položky, null pre SERIALIZED. */
+  quantityOnHand: number | null;
   [key: string]: unknown;
 }
 

@@ -62,6 +62,7 @@ export function AssetsListContent(): JSX.Element {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(20);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [trackingModeFilter, setTrackingModeFilter] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Paginated assets request. The query key includes both pagination
@@ -96,6 +97,9 @@ export function AssetsListContent(): JSX.Element {
       if (statusFilter && asset.status !== statusFilter) {
         return false;
       }
+      if (trackingModeFilter && asset.trackingMode !== trackingModeFilter) {
+        return false;
+      }
       if (normalisedSearch) {
         const haystack = `${asset.inventoryNumber} ${asset.name}`.toLowerCase();
         if (!haystack.includes(normalisedSearch)) {
@@ -104,12 +108,13 @@ export function AssetsListContent(): JSX.Element {
       }
       return true;
     });
-  }, [assetsQuery.data, statusFilter, searchTerm]);
+  }, [assetsQuery.data, statusFilter, trackingModeFilter, searchTerm]);
 
   const total = assetsQuery.data?.pagination.total ?? 0;
   const hasMore = assetsQuery.data?.pagination.hasMore ?? false;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const hasActiveFilter = statusFilter !== '' || searchTerm.trim() !== '';
+  const hasActiveFilter =
+    statusFilter !== '' || trackingModeFilter !== '' || searchTerm.trim() !== '';
 
   const canEdit = useCanEditAssets();
 
@@ -135,7 +140,7 @@ export function AssetsListContent(): JSX.Element {
 
       <section
         aria-label="Filtre"
-        className="mb-4 grid gap-3 rounded-xl border border-border-subtle bg-surface-card p-4 shadow-sm sm:grid-cols-[1fr_auto_auto]"
+        className="mb-4 grid gap-3 rounded-xl border border-border-subtle bg-surface-card p-4 shadow-sm sm:grid-cols-[1fr_auto_auto_auto]"
       >
         <label className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Hľadať</span>
@@ -168,6 +173,24 @@ export function AssetsListContent(): JSX.Element {
               ...ASSET_STATUS_VALUES.map((s) => ({ value: s, label: STATUS_LABELS[s] ?? s })),
             ]}
             className="w-44"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1 text-sm text-text-secondary">
+          <span className="font-medium">Typ</span>
+          <SelectField
+            label="Typ sledovania"
+            value={trackingModeFilter}
+            onChange={(v) => {
+              setTrackingModeFilter(v);
+              setPage(1);
+            }}
+            options={[
+              { value: '', label: 'Všetky typy' },
+              { value: 'SERIALIZED', label: 'Serializované' },
+              { value: 'BULK', label: 'BULK (hromadné)' },
+            ]}
+            className="w-40"
           />
         </div>
 
@@ -206,7 +229,7 @@ export function AssetsListContent(): JSX.Element {
       </p>
 
       {assetsQuery.isLoading ? (
-        <TableSkeleton rows={Math.min(pageSize, 8)} columns={5} />
+        <TableSkeleton rows={Math.min(pageSize, 8)} columns={6} />
       ) : filteredAssets.length === 0 ? (
         <EmptyState hasActiveFilter={hasActiveFilter} />
       ) : (

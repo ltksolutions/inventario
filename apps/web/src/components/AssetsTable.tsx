@@ -30,6 +30,11 @@ import { cn } from '@/lib/cn';
  * Empty / loading state:
  *   The parent (AssetsListContent) handles loading skeletons and the
  *   "no rows" empty state, so this component just renders rows.
+ *
+ * BULK vs SERIALIZED (ADR-0020):
+ *   BULK položky zobrazujú badge „BULK" pri inventárnom čísle a
+ *   množstvo na sklade v stĺpci „Množstvo". SERIALIZED položky
+ *   (default) majú v tom stĺpci „—".
  */
 
 const STATUS_LABELS: Record<string, string> = {
@@ -83,6 +88,7 @@ export function AssetsTable({
             <Th>Inventárne číslo</Th>
             <Th>Názov</Th>
             <Th>Stav</Th>
+            <Th className="text-right">Množstvo</Th>
             <Th>Kategória</Th>
             <Th>Lokalita</Th>
           </tr>
@@ -91,18 +97,27 @@ export function AssetsTable({
           {assets.map((asset) => {
             const category = categoriesById.get(asset.categoryId);
             const location = locationsById.get(asset.locationId);
+            const isBulk = asset.trackingMode === 'BULK';
             return (
               <tr
                 key={asset._id}
                 className="transition hover:bg-surface-subtle focus-within:bg-surface-subtle"
               >
+                {/* Inventárne číslo + BULK badge */}
                 <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-text-primary">
-                  <Link
-                    href={`/assets/${asset._id}`}
-                    className="rounded text-brand-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {asset.inventoryNumber}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/assets/${asset._id}`}
+                      className="rounded text-brand-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      {asset.inventoryNumber}
+                    </Link>
+                    {isBulk && (
+                      <span className="inline-block rounded bg-blue-100 px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-wider text-blue-700">
+                        BULK
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-text-primary">{asset.name}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm">
@@ -114,6 +129,17 @@ export function AssetsTable({
                   >
                     {STATUS_LABELS[asset.status] ?? asset.status}
                   </span>
+                </td>
+                {/* Množstvo — len pre BULK */}
+                <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm">
+                  {isBulk ? (
+                    <span className="font-semibold tabular-nums text-text-primary">
+                      {asset.quantityOnHand ?? 0}
+                      <span className="ml-1 text-xs font-normal text-text-muted">ks</span>
+                    </span>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary">
                   {category ? (
@@ -138,11 +164,14 @@ export function AssetsTable({
   );
 }
 
-function Th({ children }: { children: ReactNode }): JSX.Element {
+function Th({ children, className }: { children: ReactNode; className?: string }): JSX.Element {
   return (
     <th
       scope="col"
-      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted"
+      className={cn(
+        'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted',
+        className,
+      )}
     >
       {children}
     </th>
