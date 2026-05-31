@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Roadmap — Inventario
 
-> **Last updated:** 29. máj 2026
+> **Last updated:** 31. máj 2026
 > **Status:** Active
 > **Current version:** v0.4 (Production LIVE)
 
@@ -99,6 +99,9 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 - [ ] Brand customization per tenant (logo upload, color picker)
 - [ ] Email notifications (transakčné cez Resend / Postmark)
 - [ ] Email templates (žiadosť o výpožičku, schválené, blízky termín, po-termíne)
+- [ ] **QR kódy majetku + verejný „lost & found" lookup** (ADR-0021): `publicToken` na assete,
+      on-demand `GET /v1/assets/:id/qr`, opt-in `GET /public/scan/:publicToken` s rate-limitom,
+      `appBaseUrl` + `inventoryNumberFormat` + `publicAssetLookup` + `foundContactInfo` na `Organisation`
 
 ### Frontend (slice #5)
 
@@ -110,7 +113,7 @@ Inventario je **dlhodobý open-source projekt** určený pre slovenský verejný
 ### Compliance
 
 - [ ] GDPR Article 30 hardening (extended audit log s data categories)
-- [ ] DPIA (Data Protection Impact Assessment) dokument
+- [ ] DPIA (Data Protection Impact Assessment) dokument — vrátane verejného majetkového lookupu (ADR-0021)
 - [ ] Data Processing Agreement (DPA) template pre Enterprise
 - [ ] Privacy Policy + Terms of Service (SK + EN)
 
@@ -289,6 +292,7 @@ Update history:
 | 2026-05-22 | v1.2   | MCP server reframe — odstránený z Done, presúnutý do v0.7 backlog; opravená docs URL |
 | 2026-05-23 | v1.3   | K10 + K11 označené ako done — boli hotové od 2026-05-16, zabudnuté checkboxy         |
 | 2026-05-29 | v1.4   | v0.4 Production LIVE — 607 testov, platform admin, MFA fix, mobile nav, email fix    |
+| 2026-05-31 | v1.5   | QR kódy (ADR-0021) zaradené do v0.5 backend; DPIA rozšírená o verejný lookup         |
 
 ---
 
