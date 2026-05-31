@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                        |
 | ------------------------- | ---------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-30 (Slice #5a K1–K5 ✅)                |
+| **Posledná aktualizácia** | 2026-05-31 (ADR-0020 Accepted)                 |
 | **Aktuálna fáza**         | Production LIVE ✅ — UX polish + billing model |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`  |
 | **GitHub**                | https://github.com/ltksolutions/inventario     |
@@ -79,12 +79,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Oblasť            | Status                                              |
 | ----------------- | --------------------------------------------------- |
-| **Backend testy** | ✅ ~607 (37 test files)                             |
+| **Backend testy** | ✅ ~625 (41 test files)                             |
 | **Frontend**      | ✅ billing settings + tenant detail + loader systém |
 | **Production**    | ✅ LIVE — app.inventario.estate                     |
 | **CI**            | ✅ Zelené (CI 69+)                                  |
 | **ADR-čka**       | ✅ 0001–0020 (0020 sklad — Accepted 2026-05-31)     |
-| **openapi.json**  | ✅ Aktuálne (62 endpointov, 37 paths)               |
+| **openapi.json**  | ✅ Aktuálne (66 endpointov)                         |
 
 ---
 
@@ -162,7 +162,7 @@ DPIA, Security Whitepaper, Data Retention Schedule, IS Policy.
 ## 🏗️ Backend status
 
 ```
-Celkové testy:                ~607
+Celkové testy:                ~625
 ├── Slice #1–#3:              ~310
 ├── Slice #4–#6b:             ~169
 ├── Slice #6c:                  21
@@ -170,9 +170,10 @@ Celkové testy:                ~607
 ├── Slice #9:                   28
 ├── Slice #8 (Passkeys):        16
 ├── Dynamic Combobox K7:        35
-└── Organisations CRUD:         30
+├── Organisations CRUD:         30
+└── Slice #5a (Sklad):          18
 
-Test files:   37
+Test files:   41
 Duration:     ~85s
 ```
 
@@ -201,6 +202,6 @@ Duration:     ~85s
 
 ---
 
-**Last updated:** 2026-05-30 (koniec dňa)
-**Tests:** ~607 ✅ | **CI:** zelené ✅ | **OpenAPI:** 62 endpointov ✅
+**Last updated:** 2026-05-31 (ADR-0020 Accepted + sync čísel)
+**Tests:** ~625 ✅ | **CI:** zelené ✅ | **OpenAPI:** 66 endpointov ✅
 **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
