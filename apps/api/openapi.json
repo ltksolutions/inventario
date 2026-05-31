@@ -1251,7 +1251,6 @@
               "type": "string",
               "enum": [
                 "EMPLOYEE",
-                "TEAM_MANAGER",
                 "ASSET_MANAGER",
                 "ADMIN",
                 "EXTERNAL"
@@ -1403,7 +1402,6 @@
                       "type": "string",
                       "enum": [
                         "EMPLOYEE",
-                        "TEAM_MANAGER",
                         "ASSET_MANAGER",
                         "ADMIN",
                         "EXTERNAL"
@@ -3695,6 +3693,10 @@
                   "idempotencyKey": {
                     "type": "string",
                     "maxLength": 100
+                  },
+                  "beneficiaryId": {
+                    "type": "string",
+                    "pattern": "^[a-f\\d]{24}$"
                   }
                 },
                 "required": [
@@ -4124,6 +4126,90 @@
                     "pagination"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a direct loan (without a prior request)",
+        "tags": [
+          "Loans"
+        ],
+        "description": "Creates a loan immediately, without requiring a LoanRequest. Asset goes directly AVAILABLE → BORROWED. Use for walk-in handover when the borrower is physically present. `requestId` is null on the resulting Loan. Requires ASSET_MANAGER or ADMIN role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "borrowerId": {
+                    "type": "string",
+                    "pattern": "^[a-f\\d]{24}$",
+                    "description": "MongoDB ObjectId (24 hex znakov)"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "assetId": {
+                          "type": "string",
+                          "pattern": "^[a-f\\d]{24}$",
+                          "description": "MongoDB ObjectId (24 hex znakov)"
+                        }
+                      },
+                      "required": [
+                        "assetId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 50
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  },
+                  "dueAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO 8601 timestamp v UTC"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true,
+                    "default": null
+                  }
+                },
+                "required": [
+                  "borrowerId",
+                  "items",
+                  "purpose",
+                  "dueAt"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
                 }
               }
             }
