@@ -46,8 +46,16 @@ export type LoanRequestItem = z.infer<typeof LoanRequestItemSchema>;
 export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
   .merge(OrganisationScopedSchema)
   .extend({
-    /** ID žiadateľa. */
+    /** ID žiadateľa — kto žiadosť podal. Vždy prihlásený používateľ (server-set). */
     requesterId: ObjectIdSchema,
+
+    /**
+     * ID beneficiára — pre koho je výpožička určená.
+     * Default = requesterId (žiadosť pre seba).
+     * Pri žiadosti za inú osobu sa nastaví na cieľového používateľa (ADR-0023).
+     * Musí byť aktívny používateľ v tom istom tenante.
+     */
+    beneficiaryId: ObjectIdSchema,
 
     /** Účel — krátky text, prečo si zápožičku berie. */
     purpose: z.string().min(3, 'Účel je povinný.').max(500),
@@ -105,9 +113,15 @@ export const CreateLoanRequestSchema = LoanRequestSchema.omit({
   approvers: true,
   resultingLoanId: true,
   rejectionReason: true,
+  beneficiaryId: true, // Server-set: defaults to requesterId if omitted
 }).extend({
   /** Status sa vždy nastavuje na PENDING pri vytvorení. */
   status: z.literal(LoanRequestStatus.PENDING).default(LoanRequestStatus.PENDING),
+  /**
+   * Voliteľný beneficiár — pre koho je výpožička určená.
+   * Ak chýba, server nastaví na requesterId (žiadosť pre seba).
+   */
+  beneficiaryId: ObjectIdSchema.optional(),
 });
 
 export type CreateLoanRequestInput = z.infer<typeof CreateLoanRequestSchema>;
@@ -165,8 +179,11 @@ export type LoanItem = z.infer<typeof LoanItemSchema>;
 export const LoanSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
   .merge(OrganisationScopedSchema)
   .extend({
-    /** Referencia na žiadosť, z ktorej zápožička vznikla. */
-    requestId: ObjectIdSchema,
+    /**
+     * Referencia na žiadosť, z ktorej zápožička vznikla.
+     * Null pri priamej výpožičke (direct loan) bez predchádzajúcej žiadosti (ADR-0023).
+     */
+    requestId: ObjectIdSchema.nullable().default(null),
 
     /** Vypožičiavajúca osoba. */
     borrowerId: ObjectIdSchema,
@@ -233,6 +250,32 @@ export const CreateLoanSchema = LoanSchema.omit({
 });
 
 export type CreateLoanInput = z.infer<typeof CreateLoanSchema>;
+
+/**
+ * Priama výpožička bez žiadosti — vytvorená správcom majetku alebo adminom (ADR-0023).
+ * `requestId` je vždy null, `borrowerId` je povinný v tele.
+ */
+export const CreateDirectLoanSchema = z.object({
+  /** Osoba, ktorá si výpožičku berie (povinné). */
+  borrowerId: ObjectIdSchema,
+  /** Položky — assetIds. */
+  items: z
+    .array(
+      z.object({
+        assetId: ObjectIdSchema,
+      }),
+    )
+    .min(1, 'Priama výpožička musí mať aspoň jednu položku.')
+    .max(50),
+  /** Účel výpožičky. */
+  purpose: z.string().min(3, 'Účel je povinný.').max(500),
+  /** Dohodnutý termín vrátenia. */
+  dueAt: TimestampSchema,
+  /** Voľné poznámky. */
+  notes: z.string().max(2000).nullable().default(null),
+});
+
+export type CreateDirectLoanInput = z.infer<typeof CreateDirectLoanSchema>;
 
 /**
  * Vrátenie zápožičky — vyplní sa pri prevzatí späť do skladu.

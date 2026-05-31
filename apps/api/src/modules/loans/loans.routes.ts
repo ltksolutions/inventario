@@ -17,7 +17,7 @@
  * Slice #5 K4.
  */
 
-import { LoanStatus, ReturnLoanSchema } from '@inventario/shared-types';
+import { LoanStatus, ReturnLoanSchema, CreateDirectLoanSchema } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
@@ -184,6 +184,31 @@ const loansRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       return service.getLoanById(request.params.id, request.currentUser);
+    },
+  );
+
+  // --- POST /v1/loans (direct loan without request) ------------------------
+  app.post(
+    '/v1/loans',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Loans'],
+        summary: 'Create a direct loan (without a prior request)',
+        description:
+          'Creates a loan immediately, without requiring a LoanRequest. ' +
+          'Asset goes directly AVAILABLE → BORROWED. ' +
+          'Use for walk-in handover when the borrower is physically present. ' +
+          '`requestId` is null on the resulting Loan. ' +
+          'Requires ASSET_MANAGER or ADMIN role.',
+        security: [{ bearerAuth: [] }],
+        body: CreateDirectLoanSchema,
+        response: { 201: SingleResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      const loan = await service.createDirectLoan(request.body, request.currentUser, request);
+      return reply.status(201).send(loan);
     },
   );
 

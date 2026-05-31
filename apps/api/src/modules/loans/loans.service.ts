@@ -27,6 +27,8 @@
  * Slice #5 K3 — initial implementation.
  */
 
+import { ObjectId } from 'mongodb';
+
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
 
 import type { LoanRequestsRepository } from './loan-requests.repository.js';
@@ -36,6 +38,7 @@ import type { AssetsRepository } from '../assets/assets.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
 import type {
   AssetStatus,
+  CreateDirectLoanInput,
   CreateLoanRequestInput,
   Loan,
   LoanItem,
@@ -99,7 +102,19 @@ export class LoansService {
     private readonly mongoClient: MongoClient,
     private readonly emailService: EmailService | null = null,
     private readonly frontendUrl: string = 'https://app.inventario.estate',
+    /**
+     * Tenant database handle. MUST be the same Db the repositories use
+     * (fastify.mongo.db). Do NOT fall back to `mongoClient.db()` without
+     * a name — that returns the URI default DB, which differs from the
+     * test DB and breaks cross-collection lookups (users, memberships).
+     */
+    private readonly db: Db | null = null,
   ) {}
+
+  /** Resolve the tenant Db handle, preferring the injected one. */
+  private getDb(): Db {
+    return this.db ?? (this.mongoClient.db() as Db);
+  }
 
   // -------------------------------------------------------------------------
   // Read paths
@@ -119,13 +134,16 @@ export class LoansService {
     const limit = params.limit ?? 20;
     const skip = params.skip ?? 0;
 
-    // Employees can only see their own requests.
-    const requesterId = isManager ? params.requesterId : String(actor._id);
+    // Employees see requests where they are requester OR beneficiary (ADR-0023).
+    const actorId = String(actor._id);
 
     const { items, total } = await this.loanRequestsRepo.list({
       organisationId: tenantId,
       ...(params.status !== undefined && { status: params.status }),
-      ...(requesterId !== undefined && { requesterId }),
+      // ADR-0023: EMPLOYEE sees requests where requesterId === self OR beneficiaryId === self
+      ...(isManager
+        ? params.requesterId !== undefined && { requesterId: params.requesterId }
+        : { requesterId: actorId, beneficiaryId: actorId }),
       limit,
       skip,
     });
@@ -276,9 +294,39 @@ export class LoansService {
       }
 
       // ----- Step 3: create the LoanRequest document -----
+      // beneficiaryId: ak niet v inpute, default = requesterId (žiadosť pre seba)
+      const beneficiaryId = input.beneficiaryId ?? actorId;
+
+      // Validácia beneficiára: musí byť aktívny používateľ v tom istom tenante
+      if (beneficiaryId !== actorId) {
+        const usersCol = this.getDb().collection('users');
+        const beneficiary = await usersCol.findOne(
+          { _id: new ObjectId(beneficiaryId) as never, deletedAt: null, isActive: true },
+          { session },
+        );
+        if (!beneficiary) {
+          throw new BadRequestError(
+            `Beneficiary user '${beneficiaryId}' does not exist or is not active.`,
+          );
+        }
+        // Cross-tenant check: membership alebo user.organisationId musí byť v tomto tenante
+        const membershipsCol = this.getDb().collection('memberships');
+        const membership = await membershipsCol.findOne(
+          { userId: beneficiaryId, organisationId: tenantId, status: 'ACTIVE', deletedAt: null },
+          { session },
+        );
+        const legacyOrgMatch = String(beneficiary['organisationId']) === tenantId;
+        if (!membership && !legacyOrgMatch) {
+          throw new BadRequestError(
+            `Beneficiary user '${beneficiaryId}' is not a member of this organisation.`,
+          );
+        }
+      }
+
       const loanRequestDoc: Omit<LoanRequest, '_id'> = {
         organisationId: tenantId,
         requesterId: actorId,
+        beneficiaryId,
         purpose: input.purpose,
         plannedFrom: input.plannedFrom,
         plannedTo: input.plannedTo,
@@ -352,7 +400,7 @@ export class LoansService {
     if (!this.emailService?.isConfigured) return;
     try {
       // Find all ASSET_MANAGER + ADMIN users in this tenant
-      const membershipsCol = (this.mongoClient.db() as Db).collection('memberships');
+      const membershipsCol = this.getDb().collection('memberships');
       const managers = await membershipsCol
         .find({
           organisationId: tenantId,
@@ -362,7 +410,7 @@ export class LoansService {
         })
         .toArray();
 
-      const usersCol = (this.mongoClient.db() as Db).collection('users');
+      const usersCol = this.getDb().collection('users');
       for (const m of managers) {
         const user = await usersCol.findOne({ _id: m['userId'] as never, deletedAt: null });
         if (user?.['email']) {
@@ -439,10 +487,11 @@ export class LoansService {
       }));
 
       // ----- Step 4: create Loan document -----
+      // borrowerId = beneficiaryId (ADR-0023): kto si požičiava, nie kto žiadal
       const loanDoc: Omit<Loan, '_id'> = {
         organisationId: tenantId,
         requestId: id,
-        borrowerId: String(loanRequest.requesterId),
+        borrowerId: String(loanRequest.beneficiaryId ?? loanRequest.requesterId),
         purpose: loanRequest.purpose,
         pickedUpAt: now,
         handedOverBy: actorId,
@@ -554,7 +603,7 @@ export class LoansService {
   ): Promise<void> {
     if (!this.emailService?.isConfigured) return;
     try {
-      const usersCol = (this.mongoClient.db() as Db).collection('users');
+      const usersCol = this.getDb().collection('users');
       const user = await usersCol.findOne({ _id: requesterId as never, deletedAt: null });
       if (user?.['email']) {
         await this.emailService.sendLoanApprovedEmail(user['email'] as string, {
@@ -630,7 +679,7 @@ export class LoansService {
     if (this.emailService?.isConfigured) {
       void (async () => {
         try {
-          const usersCol = (this.mongoClient.db() as Db).collection('users');
+          const usersCol = this.getDb().collection('users');
           const lr = await this.loanRequestsRepo.findById(tenantId, id);
           if (lr) {
             const u = await usersCol.findOne({ _id: lr.requesterId as never, deletedAt: null });
@@ -707,6 +756,143 @@ export class LoansService {
         session,
       );
     });
+  }
+
+  /**
+   * Create a direct loan without a prior request (ADR-0023 — quick loan, US-017).
+   *
+   * ASSET_MANAGER or ADMIN only (enforced in routes).
+   * Asset goes directly AVAILABLE → BORROWED without RESERVED intermediate.
+   * requestId = null on the resulting Loan.
+   */
+  async createDirectLoan(
+    input: CreateDirectLoanInput,
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<Record<string, unknown>> {
+    const tenantId = String(actor.organisationId);
+    const actorId = String(actor._id);
+    const now = new Date().toISOString();
+
+    const loan = await this.runInTransaction(async (session) => {
+      // ----- Step 1: validate borrower — must be active member of this tenant -----
+      const borrowerId = input.borrowerId;
+      const usersCol = this.getDb().collection('users');
+      const borrowerDoc = await usersCol.findOne(
+        { _id: new ObjectId(borrowerId) as never, deletedAt: null, isActive: true },
+        { session },
+      );
+      if (!borrowerDoc) {
+        throw new BadRequestError(`Borrower user '${borrowerId}' does not exist or is not active.`);
+      }
+      const membershipsCol = this.getDb().collection('memberships');
+      const membership = await membershipsCol.findOne(
+        { userId: borrowerId, organisationId: tenantId, status: 'ACTIVE', deletedAt: null },
+        { session },
+      );
+      const legacyOrgMatch = String(borrowerDoc['organisationId']) === tenantId;
+      if (!membership && !legacyOrgMatch) {
+        throw new BadRequestError(
+          `Borrower user '${borrowerId}' is not a member of this organisation.`,
+        );
+      }
+
+      // ----- Step 2: validate and snapshot every asset -----
+      const loanItems: LoanItem[] = [];
+
+      for (const item of input.items) {
+        const asset = await this.assetsRepo.findById(tenantId, item.assetId, session);
+        if (!asset) {
+          throw new BadRequestError(`Asset ${item.assetId} does not exist or is not accessible.`);
+        }
+        if (!asset.isLoanable) {
+          throw new BadRequestError(
+            `Asset ${asset.inventoryNumber} (${asset.name}) is not loanable.`,
+          );
+        }
+        if (asset.status !== 'AVAILABLE') {
+          throw new BadRequestError(
+            `Asset ${asset.inventoryNumber} (${asset.name}) is not available (current status: ${asset.status}).`,
+          );
+        }
+        loanItems.push({
+          assetId: item.assetId,
+          snapshot: { inventoryNumber: asset.inventoryNumber, name: asset.name },
+          condition: {
+            atPickup: { condition: 'GOOD' as const, note: null, photoIds: [] },
+            atReturn: null,
+          },
+        });
+      }
+
+      // ----- Step 3: create Loan document (requestId = null) -----
+      const loanDoc: Omit<Loan, '_id'> = {
+        organisationId: tenantId,
+        requestId: null,
+        borrowerId,
+        purpose: input.purpose,
+        pickedUpAt: now,
+        handedOverBy: actorId,
+        dueAt: input.dueAt,
+        returnedAt: null,
+        returnedTo: null,
+        items: loanItems,
+        status: 'ACTIVE' as LoanStatus,
+        extensionCount: 0,
+        handoverProtocolId: null,
+        returnProtocolId: null,
+        notes: input.notes ?? null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: actorId,
+        updatedBy: actorId,
+        deletedAt: null,
+        deletedBy: null,
+      };
+
+      const insertedLoan = await this.loansRepo.insert(loanDoc, session);
+      const loanId = String(insertedLoan._id);
+
+      // ----- Step 4: assets AVAILABLE → BORROWED (no RESERVED step) -----
+      for (const item of loanItems) {
+        const updated = await this.assetsRepo.update(
+          tenantId,
+          item.assetId,
+          {
+            status: 'BORROWED' as AssetStatus,
+            currentLoanId: loanId,
+            updatedAt: now,
+            updatedBy: actorId,
+          },
+          session,
+        );
+        if (!updated) {
+          throw new BadRequestError(
+            `Asset ${item.assetId} could not be borrowed — it may have just been modified. Please try again.`,
+          );
+        }
+      }
+
+      // ----- Step 5: audit log -----
+      await this.auditLog.record(
+        actor,
+        request,
+        {
+          action: 'LOAN_CREATED_DIRECT',
+          target: {
+            entityType: 'Loan',
+            entityId: loanId,
+            snapshot: { borrowerId, dueAt: input.dueAt, itemCount: loanItems.length },
+          },
+          description: `Direct loan created for ${loanItems.length} asset(s), due ${input.dueAt}. Handed over by ${actor.displayName}.`,
+        },
+        session,
+      );
+
+      return insertedLoan;
+    });
+
+    return loanToApiShape(loan);
   }
 
   /**
@@ -954,8 +1140,11 @@ function hasManagerRole(actor: WithId<User>): boolean {
 }
 
 function assertCanReadLoanRequest(doc: WithId<LoanRequest>, actor: WithId<User>): void {
-  const isOwner = String(doc.requesterId) === String(actor._id);
-  if (!isOwner && !hasManagerRole(actor)) {
+  const actorId = String(actor._id);
+  const isRequester = String(doc.requesterId) === actorId;
+  // ADR-0023: beneficiary can also read the request (someone applied on their behalf)
+  const isBeneficiary = doc.beneficiaryId != null && String(doc.beneficiaryId) === actorId;
+  if (!isRequester && !isBeneficiary && !hasManagerRole(actor)) {
     throw new ForbiddenError('You do not have permission to view this loan request.');
   }
 }

@@ -20,6 +20,7 @@ describe('LoanRequestSchema', () => {
     deletedAt: null,
     deletedBy: null,
     requesterId: '507f1f77bcf86cd799439012',
+    beneficiaryId: '507f1f77bcf86cd799439012', // ADR-0023: default = requesterId (žiadosť pre seba)
     purpose: 'Kvalifikácia U21 — Maďarsko, Budapešť',
     plannedFrom: '2024-03-18T08:00:00.000Z',
     plannedTo: '2024-03-23T20:00:00.000Z',

@@ -27,6 +27,11 @@ export interface ListLoanRequestsParams {
   status?: LoanRequestStatus;
   /** Filter by requester — EMPLOYEE sees only own requests, managers see all. */
   requesterId?: string;
+  /**
+   * Filter by beneficiary — when set together with requesterId for EMPLOYEE,
+   * the repository uses $or so they see requests where they are requester OR beneficiary.
+   */
+  beneficiaryId?: string;
   limit?: number;
   skip?: number;
 }
@@ -92,6 +97,7 @@ export class LoanRequestsRepository {
     organisationId,
     status,
     requesterId,
+    beneficiaryId,
     limit = 20,
     skip = 0,
   }: ListLoanRequestsParams): Promise<ListLoanRequestsResult> {
@@ -99,7 +105,16 @@ export class LoanRequestsRepository {
 
     const callerFilter: Record<string, unknown> = {};
     if (status !== undefined) callerFilter['status'] = status;
-    if (requesterId !== undefined) callerFilter['requesterId'] = requesterId;
+
+    // ADR-0023: EMPLOYEE filter — sees requests where requester OR beneficiary
+    if (requesterId !== undefined && beneficiaryId !== undefined && requesterId === beneficiaryId) {
+      // Self-view: both fields point to same user — use $or
+      callerFilter['$or'] = [{ requesterId }, { beneficiaryId }];
+    } else if (requesterId !== undefined) {
+      callerFilter['requesterId'] = requesterId;
+    } else if (beneficiaryId !== undefined) {
+      callerFilter['beneficiaryId'] = beneficiaryId;
+    }
 
     const effectiveFilter = tenantFilter<LoanRequest>(
       tenantId,

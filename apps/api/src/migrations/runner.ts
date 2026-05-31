@@ -22,6 +22,7 @@ import { migrate_2026_05_29_asset_type_condition_collections } from './2026-05-2
 import { migrate_2026_05_29b_seed_default_categories } from './2026-05-29b-seed-default-categories.js';
 import { migrate_2026_05_29c_fix_email_unique_index } from './2026-05-29c-fix-email-unique-index.js';
 import { migrate_2026_05_31_remove_team_manager_role } from './2026-05-31-remove-team-manager-role.js';
+import { migrate_2026_05_31b_loan_request_beneficiary } from './2026-05-31b-loan-request-beneficiary.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -70,6 +71,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     description:
       'ADR-0024: Remove TEAM_MANAGER from roles[] on memberships + users; backfill EMPLOYEE if emptied.',
     run: migrate_2026_05_31_remove_team_manager_role,
+  },
+  {
+    key: '2026-05-31b-loan-request-beneficiary',
+    description:
+      'ADR-0023: Backfill beneficiaryId = requesterId on existing loan_requests (loan for self).',
+    run: migrate_2026_05_31b_loan_request_beneficiary,
   },
 ];
 

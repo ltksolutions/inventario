@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (ADR-0024 odstránenie TEAM_MANAGER — ✅ implementované; ADR-0023 beneficiary + priamy loan — Proposed; ADR-0022 protokoly PDF — Proposed) |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                            |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                        |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                           |
+| Atribút                   | Hodnota                                                                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-31 (ADR-0024 odstránenie TEAM_MANAGER — ✅ implementované; ADR-0023 beneficiary + priamy loan — ✅ implementované; ADR-0022 protokoly PDF — Proposed) |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                                     |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                 |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                    |
 
 ---
 
@@ -46,23 +46,36 @@ ADR: `docs/decisions/0024-remove-team-manager-role.md`.
 
 ---
 
-### ADR-0023 — Žiadosť v mene inej osoby + priama výpožička (Proposed) 📝
+### ADR-0023 — Žiadosť v mene inej osoby + priama výpožička ✅ IMPLEMENTOVANÉ
 
-Upraví model z ADR-0012 (kde platílo žiadateľ = vypožičiavajúci, Loan vždy zo žiadosti).
-Dve rozhodnutia:
+Upravený model z ADR-0012 (kde platilo žiadateľ = vypožičiavajúci, Loan vždy zo žiadosti).
+Dve zmeny:
 
-- **`LoanRequest.beneficiaryId`** — žiadosť môže byť pre seba alebo pre inú osobu.
-  `requesterId` = kto podal, `beneficiaryId` = pre koho (default self). Pri approve
-  `Loan.borrowerId = beneficiaryId` (nie requesterId). Žiadať za hocikoho smú všetci
-  (EMPLOYEE+) — žiadosť nič nevydáva, gatekeeper je správca pri schvaľovaní. Read-RBAC:
-  EMPLOYEE vidí `requesterId === self` ALEBO `beneficiaryId === self`.
-- **Priamy Loan bez žiadosti** — `Loan.requestId` sa stane nullable; nový
-  `POST /v1/loans` (ASSET_MANAGER/ADMIN) vytvorí výpožičku priamo (`AVAILABLE → BORROWED`,
-  bez RESERVED). Pokrýva US-017 quick loan, ktorý #5 odložil. Jeden `Loan` model pre oba toky.
+- **`LoanRequest.beneficiaryId`** — žiadosť pre seba alebo pre inú osobu. `requesterId` = kto
+  podal, `beneficiaryId` = pre koho (default self). Pri approve `Loan.borrowerId = beneficiaryId`.
+  Žiadať za hocikoho smú všetci (EMPLOYEE+). Read-RBAC: EMPLOYEE vidí `requesterId === self`
+  ALEBO `beneficiaryId === self`.
+- **Priamy Loan bez žiadosti** — `Loan.requestId` je nullable; nový `POST /v1/loans`
+  (ASSET_MANAGER/ADMIN) vytvorí výpožičku priamo (`AVAILABLE → BORROWED`, bez RESERVED).
+  Pokrýva US-017 quick loan.
 
-Protokoly (ADR-0022) bez zmeny — strany berú z `Loan`, nie z `LoanRequest`, takže direct
-loan funguje rovnako. Schema fixes + migrácia (`beneficiaryId = requesterId` pre existujúce).
-Fázovanie K1–K6 v ADR. Súbor: `docs/decisions/0023-loan-beneficiary-and-direct-loan.md`.
+Vykonané zmeny:
+
+- `packages/shared-types/src/schemas/loan.ts` — `beneficiaryId` na `LoanRequestSchema`,
+  `requestId` nullable na `LoanSchema`, nový `CreateDirectLoanSchema`
+- `audit-log.ts` — nová akcia `LOAN_CREATED_DIRECT`
+- `loans.service.ts` — beneficiary validácia + `borrowerId = beneficiaryId` pri approve,
+  nová `createDirectLoan` metóda, EMPLOYEE list filter `$or` (requester/beneficiary)
+- `loan-requests.repository.ts` — `beneficiaryId` filter v `list()` (self-view `$or`)
+- `loan-requests.routes.ts` + `loans.routes.ts` — body schema beneficiaryId, nový `POST /v1/loans`
+- Migrácia `2026-05-31b-loan-request-beneficiary.ts` — backfill `beneficiaryId = requesterId`
+- `tests/integration/loans-adr-0023.test.ts` — beneficiary + direct loan testy (667 testov zelených)
+
+**Dôležité zistenie:** `LoansService` dostáva `fastify.mongo.db` cez konštruktor (nový param).
+`mongoClient.db()` bez mena vracia default DB z URI, nie tenant/test DB — to lámalo
+cross-collection lookupy (users, memberships). Pridaný `getDb()` helper.
+
+ADR: `docs/decisions/0023-loan-beneficiary-and-direct-loan.md`.
 
 ---
 

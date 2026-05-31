@@ -82,6 +82,14 @@ const CreateLoanRequestBodySchema = z.object({
     .min(1, 'Žiadosť musí obsahovať aspoň jednu položku.')
     .max(50, 'Žiadosť môže obsahovať najviac 50 položiek.'),
   idempotencyKey: z.string().max(100).optional(),
+  /**
+   * Voliteľný beneficiár — pre koho je výpožička určená (ADR-0023).
+   * Ak chýba, server nastaví na requesterId (žiadosť pre seba).
+   */
+  beneficiaryId: z
+    .string()
+    .regex(/^[a-f\d]{24}$/i, 'Neplatný formát beneficiaryId.')
+    .optional(),
 });
 
 const RejectBodySchema = z.object({
@@ -107,6 +115,7 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.mongo.client,
     fastify.emailService,
     fastify.config.FRONTEND_BASE_URL ?? 'https://app.inventario.estate',
+    fastify.mongo.db,
   );
 
   await loanRequestsRepo.ensureIndexes();

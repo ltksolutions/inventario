@@ -89,6 +89,7 @@ export const AuditLogSchema = z.object({
     'LOAN_EXTENDED',
     'LOAN_MARKED_OVERDUE',
     'LOAN_MARKED_LOST',
+    'LOAN_CREATED_DIRECT', // ADR-0023: direct loan without prior request
 
     // Stock movements (BULK položky — ADR-0020)
     'STOCK_RECEIVED',
