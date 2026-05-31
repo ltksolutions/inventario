@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                   |
-| ------------------------- | --------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (Slice #5a frontend + sklad overview ✅)       |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`             |
-| **GitHub**                | https://github.com/ltksolutions/inventario                |
+| Atribút                   | Hodnota                                                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-31 (Slice #5a frontend + sklad overview ✅; ADR-0021 QR revidovaný — publicToken + konfig. inventoryNumber + appBaseUrl) |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                        |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                    |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                       |
 
 ---
 
@@ -83,7 +83,7 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Frontend**      | ✅ Slice #5a: StockPanel, prehľad skladu, BULK badge/filter |
 | **Production**    | ✅ LIVE — app.inventario.estate                             |
 | **CI**            | ✅ Zelené                                                   |
-| **ADR-čka**       | ✅ 0001–0020 (0020 sklad — Accepted)                        |
+| **ADR-čka**       | ✅ 0001–0021 (0021 QR — Proposed)                           |
 | **openapi.json**  | ✅ Aktuálne (67 endpointov)                                 |
 
 ---
@@ -122,6 +122,30 @@ Pilot informá návrh Slice #5b (loans) + reálny pomer serialized vs bulk.
 ### 6. email_unique index — overiť na prod
 
 - [ ] Atlas: skontrolovať že `email_unique` / `email_1` index bol dropnutý migráciou
+
+### 7. QR kódy majetku — ADR-0021 (Proposed, revid. 2026-05-31) → implementácia
+
+Rozhodnuté v diskusii 2026-05-31 (viď `docs/decisions/0021-asset-qr-codes.md`):
+
+- QR obsahuje **URL viazanú na tenant doménu** + náhodný **`publicToken`**:
+  `https://{tenantDomain}/scan/{publicToken}` — kvôli forkom (ADR-0010), nikdy nehardkódovať doménu
+- Kľúč v QR = **`publicToken`** (náhodný, neuhádnuteľný, nanoid/UUIDv4), **nie** `inventoryNumber` ani `_id`
+  — verejný povrch nie je enumerovateľný. Generácia vždy pri POST, unique index, nemenný.
+- **`inventoryNumber`** ostáva administratívne čitateľné pole (štítok, zostavy) a je
+  **konfigurovateľné per tenant** — `inventoryNumberFormat { prefix, padding, includeYear, resetYearly }`,
+  default `{PREFIX}-{YYYY}-{NNNN}` (parametrická varianta, nie voľný template)
+- QR sa **generuje on-demand**, neukladá: `GET /v1/assets/:id/qr?format=svg|png` (auth, EMPLOYEE+)
+- **Verejný lost & found** lookup, **opt-in per tenant**: `GET /public/scan/:publicToken`,
+  rate-limited, vlastné **`PublicAssetView` DTO** (explicitný whitelist, NIE Pick/Omit z Asset)
+- `Organisation` dostane `appBaseUrl` (zdroj tenant domény, **rozhodnuté** — nie z `Host` hlavičky),
+  `inventoryNumberFormat`, `publicAssetLookup: boolean` (default false), `foundContactInfo`
+- Migrácia: dogenerovať `publicToken` existujúcim assetom
+- Odložené (Fáza 2): per-asset `discoverable`, plný template-based formát, PDF hárky štítkov
+- ⚠️ **DPIA dopad** — verejný majetkový lookup je nová kategória spracúvania → zahrnúť do Compliance Fázy 2
+
+**Status:** ADR Proposed (revidovaný). Pred implementáciou povýšiť na Accepted. Sklad (#5a) hotový, loans (#5b)
+ešte nie — QR je nezávislé, dá sa zaradiť kedykoľvek (vhodný malý slice po pilote alebo popri ňom).
+Implementácia na **Opus** (verejný povrch + DPIA dopad).
 
 ---
 

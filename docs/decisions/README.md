@@ -41,3 +41,4 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0015 | [Cross-tenant memberships — User ↔ Organisation many-to-many](0015-cross-tenant-memberships.md)              | ✅ Accepted                                               | 2026-05-23 |
 | 0016 | [Passkeys / WebAuthn — implementačný plán Slice #8 (post-memberships)](0016-passkeys-implementation-plan.md) | ✅ Accepted (supersedes 0014 v schema/audit/recovery)     | 2026-05-25 |
 | 0017 | [MCP server — AI integration cez Model Context Protocol](0017-mcp-server.md)                                 | ✅ Accepted (design); implementácia Q1 2027 ako Slice #10 | 2026-05-25 |
+| 0021 | [QR kódy majetku — obsah, generovanie, verejný lost & found lookup](0021-asset-qr-codes.md)                  | Proposed                                                  | 2026-05-31 |
