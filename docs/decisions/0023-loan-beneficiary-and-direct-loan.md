@@ -60,7 +60,8 @@ a `Loan` vlastne sú.
 - **Protokoly (ADR-0022).** HANDOVER protokol musí vedieť zachytiť reálneho vypožičiavajúceho
   aj keď žiadosť neexistuje — snapshot strán berie z `Loan`, nie z `LoanRequest`.
 - **Existujúci `TEAM_MANAGER`.** `UserRole` už má `TEAM_MANAGER` s popisom „môže vybavovať
-  zápožičky pre celý tím". Beneficiary model treba zladiť s týmto zámerom, nie ho duplikovať.
+  zápožičky pre celý tím". Beneficiary model ho činí nadbytočným — jeho odstránenie rieši
+  [ADR-0024](0024-remove-team-manager-role.md).
 
 ## Možnosti
 
@@ -130,17 +131,18 @@ priamo: asset ide `AVAILABLE → BORROWED` v jednej transakcii, bez RESERVED med
 
 - Podanie žiadosti za inú osobu **nie je privilegovaná operácia** — žiadosť nič nevydáva,
   len rezervuje a čaká na rozhodnutie správcu, ktorý je tak či tak gatekeeper.
-- EMPLOYEE, TEAM_MANAGER, ASSET_MANAGER, ADMIN, EXTERNAL → všetci môžu podať žiadosť
+- EMPLOYEE, ASSET_MANAGER, ADMIN, EXTERNAL → všetci môžu podať žiadosť
   s ľubovoľným `beneficiaryId` v rámci tenanta. (Súčasné `canRead` na `POST /v1/loan-requests`
   ostáva.)
 - **Read-side RBAC sa rozšíri o beneficiary:** dnes EMPLOYEE vidí žiadosti, kde
   `requesterId === self`. Po zmene má vidieť aj tie, kde `beneficiaryId === self`
   (niekto požiadal v jeho mene — má o tom vedieť). Manažéri (ASSET_MANAGER/ADMIN) vidia
   všetko ako doteraz.
-- **Vzťah k `TEAM_MANAGER`:** beneficiary model je všeobecnejší mechanizmus než tímové
-  vybavovanie. Plné tímové žiadosti (`teamId`, scoping na členov tímu) ostávajú odložené
-  ([ADR-0012](0012-loans-state-machine.md), po `Team` entity). `TEAM_MANAGER` zatiaľ
-  využíva ten istý beneficiary mechanizmus ako ostatní — žiadny špeciálny tok preň v tomto ADR.
+- **Vzťah k tímovému vybavovaniu:** beneficiary model je všeobecnejší mechanizmus než
+  tradičné tímové vybavovanie. Plné tímové žiadosti (`teamId`, scoping na členov tímu) ostávajú
+  odložené ([ADR-0012](0012-loans-state-machine.md), po `Team` entity). Pôvodná rola
+  `TEAM_MANAGER` sa ako nadbytočná ruší ([ADR-0024](0024-remove-team-manager-role.md));
+  beneficiary mechanizmus ju plne nahrádza.
 
 ### 3. `Loan.requestId` sa stane nullable (B1)
 
@@ -218,7 +220,7 @@ Ostatné endpointy z [ADR-0012](0012-loans-state-machine.md) bez zmeny.
   rovnako bez vetvenia.
 - Request/approval flow ostáva nedotknutý pre plánované žiadosti (SFZ scenár).
 - Beneficiary v audite drží „kto žiadal" aj „pre koho" — čistá stopa pre verejný sektor.
-- Pripravené pre neskoršie tímové žiadosti (`TEAM_MANAGER`, `teamId`) — beneficiary je
+- Pripravené pre neskoršie tímové žiadosti (`teamId`, po `Team` entity) — beneficiary je
   všeobecnejší základ, na ktorom sa dá tímový tok postaviť.
 
 ### Negatívne / kompromisy
@@ -268,6 +270,6 @@ a [ADR-0022](0022-loan-protocol-pdf.md)):
 - [ADR-0010 Multi-tenant white-label](0010-multi-tenant-white-label.md) — beneficiary/borrower musia byť v tom istom tenante
 - [ADR-0005 Mongo native driver + Repository pattern](0005-mongo-native-driver.md) — transakčný pattern pre direct loan
 - [packages/shared-types/src/schemas/loan.ts](../../packages/shared-types/src/schemas/loan.ts) — `LoanRequest.requesterId` (+ nové `beneficiaryId`), `Loan.requestId` (→ nullable)
-- [packages/shared-types/src/enums/user-role.ts](../../packages/shared-types/src/enums/user-role.ts) — `TEAM_MANAGER` (tímové vybavovanie — budúci nadstavbový tok nad beneficiary)
+- [packages/shared-types/src/enums/user-role.ts](../../packages/shared-types/src/enums/user-role.ts) — `TEAM_MANAGER` sa ako nadbytočný ruší (ADR-0024); beneficiary ho nahrádza
 - [apps/api/src/modules/loans/loans.service.ts](../../apps/api/src/modules/loans/loans.service.ts) — `createLoanRequest`/`approveLoanRequest` (borrower odvodenie) + nový `createDirectLoan`
 - [apps/api/src/modules/loans/loan-requests.routes.ts](../../apps/api/src/modules/loans/loan-requests.routes.ts) — RBAC konštanty `canRead`/`canWrite`

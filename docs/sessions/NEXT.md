@@ -7,12 +7,30 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (ADR-0023 beneficiary + priamy loan — Proposed; ADR-0022 protokoly PDF — Proposed; dependabot PR #1 merged) |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                              |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                          |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                             |
+| Atribút                   | Hodnota                                                                                                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-31 (ADR-0024 odstránenie TEAM_MANAGER — Proposed; ADR-0023 beneficiary + priamy loan; ADR-0022 protokoly PDF; dependabot PR #1 merged) |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                      |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                  |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                     |
+
+---
+
+### ADR-0024 — Odstránenie role TEAM_MANAGER (Proposed) 🧹
+
+`TEAM_MANAGER` je pozostatok SFZ modelu (tréner vybavuje za tím) — mŕtva rola bez
+vlastného oprávnenia. ADR-0023 beneficiary model nahradil dôvod jej existencie
+(žiadať za iných smú všetci). Rozhodnutie: **úplnе odstrániť** z `UserRole` enumu aj kódu.
+Výsledné roly: EMPLOYEE, ASSET_MANAGER, ADMIN, EXTERNAL.
+
+- **POZOR na rozlíšenie:** mažeme systémovú `UserRole.TEAM_MANAGER`. Pole
+  `Membership.teams[].role: 'MANAGER'` (rola v rámci konkrétneho tímu) sa NEMENÍ.
+- RBAC: odstrániť z `canRead` guаrdov v loans routes (žiadna zmena reálnych oprávnení).
+- Migrácia: `$pull` z `Membership.roles` + `User.roles`, fallback `['EMPLOYEE']` ak by pole
+  ostalo prázdne (`roles.min(1)`). Zapojiť do `runPendingMigrations`.
+- Dotkne sa aj SFZ repa (zdieľaný shared-types) — overiť živé použitie.
+
+Fázovanie K1–K6 v ADR. Súbor: `docs/decisions/0024-remove-team-manager-role.md`.
 
 ---
 
