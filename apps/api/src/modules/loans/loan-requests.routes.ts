@@ -114,13 +114,7 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
   // Expose service on fastify instance so loans.routes.ts can reuse it.
   fastify.decorate('loansService', service);
 
-  const canRead = fastify.requireRole([
-    'EMPLOYEE',
-    'TEAM_MANAGER',
-    'ASSET_MANAGER',
-    'ADMIN',
-    'EXTERNAL',
-  ]);
+  const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
 
   // --- GET /v1/loan-requests -----------------------------------------------

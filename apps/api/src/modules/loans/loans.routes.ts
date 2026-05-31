@@ -105,13 +105,7 @@ const loansRoutes: FastifyPluginAsync = async (fastify) => {
   // Service is decorated by loan-requests.routes.ts which is registered first.
   const service = fastify.loansService;
 
-  const canRead = fastify.requireRole([
-    'EMPLOYEE',
-    'TEAM_MANAGER',
-    'ASSET_MANAGER',
-    'ADMIN',
-    'EXTERNAL',
-  ]);
+  const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
 
   // --- GET /v1/loans/my ----------------------------------------------------

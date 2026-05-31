@@ -189,37 +189,6 @@ describe('RBAC on /v1/assets', () => {
     });
   });
 
-  describe('TEAM_MANAGER forbidden writes', () => {
-    it('TEAM_MANAGER cannot POST /v1/assets (403)', async () => {
-      const { token } = await provisionUser(app, {
-        oid: 'team-mgr-post-attempt',
-        role: UserRole.TEAM_MANAGER,
-      });
-      const res = await app.inject({
-        method: 'POST',
-        url: '/v1/assets',
-        headers: { cookie: `inv_access=${token}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'TM' }),
-      });
-      expect(res.statusCode).toBe(403);
-    });
-
-    it('TEAM_MANAGER cannot PATCH /v1/assets/:id (403)', async () => {
-      const asset = await insertTestAsset(app);
-      const { token } = await provisionUser(app, {
-        oid: 'team-mgr-patch-attempt',
-        role: UserRole.TEAM_MANAGER,
-      });
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/assets/${asset._id}`,
-        headers: { cookie: `inv_access=${token}` },
-        payload: { name: 'Should not be allowed' },
-      });
-      expect(res.statusCode).toBe(403);
-    });
-  });
-
   describe('EXTERNAL forbidden writes', () => {
     it('EXTERNAL cannot POST /v1/assets (403)', async () => {
       const { token } = await provisionUser(app, {

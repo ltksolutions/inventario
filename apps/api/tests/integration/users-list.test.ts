@@ -129,7 +129,7 @@ describe('GET /v1/users', () => {
       await insertTestUser(app, { email: 'mgr@example.com', roles: [UserRole.ASSET_MANAGER] });
       await insertTestUser(app, {
         email: 'both@example.com',
-        roles: [UserRole.EMPLOYEE, UserRole.TEAM_MANAGER],
+        roles: [UserRole.EMPLOYEE],
       });
       const res = await app.inject({
         method: 'GET',
@@ -228,7 +228,6 @@ describe('GET /v1/users', () => {
   describe('RBAC', () => {
     it.each([
       ['EMPLOYEE', UserRole.EMPLOYEE],
-      ['TEAM_MANAGER', UserRole.TEAM_MANAGER],
       ['ASSET_MANAGER', UserRole.ASSET_MANAGER],
       ['EXTERNAL', UserRole.EXTERNAL],
     ])('returns 403 for %s', async (_label, role) => {

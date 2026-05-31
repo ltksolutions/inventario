@@ -7,30 +7,42 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                                        |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (ADR-0024 odstránenie TEAM_MANAGER — Proposed; ADR-0023 beneficiary + priamy loan; ADR-0022 protokoly PDF; dependabot PR #1 merged) |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                      |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                  |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                     |
+| Atribút                   | Hodnota                                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-05-31 (ADR-0024 odstránenie TEAM_MANAGER — ✅ implementované; ADR-0023 beneficiary + priamy loan — Proposed; ADR-0022 protokoly PDF — Proposed) |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                            |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                        |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                           |
 
 ---
 
-### ADR-0024 — Odstránenie role TEAM_MANAGER (Proposed) 🧹
+### ADR-0024 — Odstránenie role TEAM_MANAGER ✅ IMPLEMENTOVANÉ
 
-`TEAM_MANAGER` je pozostatok SFZ modelu (tréner vybavuje za tím) — mŕtva rola bez
-vlastného oprávnenia. ADR-0023 beneficiary model nahradil dôvod jej existencie
-(žiadať za iných smú všetci). Rozhodnutie: **úplnе odstrániť** z `UserRole` enumu aj kódu.
-Výsledné roly: EMPLOYEE, ASSET_MANAGER, ADMIN, EXTERNAL.
+`TEAM_MANAGER` bol pozostatok SFZ modelu — mŕtva rola bez vlastného oprávnenia, nahradená
+beneficiary modelom (ADR-0023). Odstránený z `UserRole` enumu aj kódu. Výsledné roly:
+EMPLOYEE, ASSET_MANAGER, ADMIN, EXTERNAL.
 
-- **POZOR na rozlíšenie:** mažeme systémovú `UserRole.TEAM_MANAGER`. Pole
-  `Membership.teams[].role: 'MANAGER'` (rola v rámci konkrétneho tímu) sa NEMENÍ.
-- RBAC: odstrániť z `canRead` guаrdov v loans routes (žiadna zmena reálnych oprávnení).
-- Migrácia: `$pull` z `Membership.roles` + `User.roles`, fallback `['EMPLOYEE']` ak by pole
-  ostalo prázdne (`roles.min(1)`). Zapojiť do `runPendingMigrations`.
-- Dotkne sa aj SFZ repa (zdieľaný shared-types) — overiť živé použitie.
+Vykonané zmeny:
 
-Fázovanie K1–K6 v ADR. Súbor: `docs/decisions/0024-remove-team-manager-role.md`.
+- `packages/shared-types/src/enums/user-role.ts` — odstránený `TEAM_MANAGER` + akt. popisy rolí
+- `loan-requests.routes.ts` + `loans.routes.ts` — `canRead` už bez `TEAM_MANAGER`
+- `tests/integration/rbac.test.ts` — odstránený `TEAM_MANAGER forbidden writes` blok (pokryté EMPLOYEE/EXTERNAL)
+- Migrácia `2026-05-31-remove-team-manager-role.ts` — `$pull` z `memberships.roles` + `users.roles`,
+  fallback `['EMPLOYEE']` pri prázdnom poli; zaregistrovaná v `runner.ts`
+
+**POZN.:** `Membership.teams[].role: 'MANAGER'` (rola v rámci tímu) sa NEMENILA — iný koncept.
+
+**Po pullе spustiť lokálne:**
+
+```
+pnpm --filter @inventario/shared-types build
+pnpm typecheck && pnpm test
+```
+
+(shared-types build regeneruje JSON Schema; OpenAPI + api-types sa regenú cez pretypecheck hook.)
+
+**Ešte overiť:** SFZ Asset-Management repo — či tam `TEAM_MANAGER` nemá živé použitie (zdieľaný princíp).
+ADR: `docs/decisions/0024-remove-team-manager-role.md`.
 
 ---
 

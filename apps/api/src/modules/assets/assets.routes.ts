@@ -129,13 +129,7 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
   await repo.ensureIndexes();
 
   // RBAC role lists — defined once for readability and easy auditing.
-  const canRead = fastify.requireRole([
-    'EMPLOYEE',
-    'TEAM_MANAGER',
-    'ASSET_MANAGER',
-    'ADMIN',
-    'EXTERNAL',
-  ]);
+  const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
   const canDelete = fastify.requireRole(['ADMIN']);
 

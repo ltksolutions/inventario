@@ -58,10 +58,7 @@ const PatchMembershipBodySchema = z
   .object({
     roles: z
       .array(
-        z.enum(['EMPLOYEE', 'TEAM_MANAGER', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as [
-          UserRole,
-          ...UserRole[],
-        ]),
+        z.enum(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as [UserRole, ...UserRole[]]),
       )
       .min(1, 'Membership musí mať aspoň jednu rolu.'),
     status: z.enum(['ACTIVE', 'SUSPENDED']),

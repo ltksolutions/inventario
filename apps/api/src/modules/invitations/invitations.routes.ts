@@ -64,7 +64,6 @@ const IS_TEST = process.env['NODE_ENV'] === 'test';
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.ADMIN]: 'Administrátor',
   [UserRole.ASSET_MANAGER]: 'Správca majetku',
-  [UserRole.TEAM_MANAGER]: 'Vedúci tímu',
   [UserRole.EMPLOYEE]: 'Zamestnanec',
   [UserRole.EXTERNAL]: 'Externý používateľ',
 };

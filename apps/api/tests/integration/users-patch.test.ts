@@ -54,10 +54,12 @@ describe('PATCH /v1/users/:id', () => {
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE, UserRole.TEAM_MANAGER] },
+        payload: { roles: [UserRole.EMPLOYEE, UserRole.ASSET_MANAGER] },
       });
       expect(res.statusCode).toBe(200);
-      expect(res.json<{ roles: string[] }>().roles).toEqual(['EMPLOYEE', 'TEAM_MANAGER']);
+      expect(res.json<{ roles: string[] }>().roles).toEqual(
+        expect.arrayContaining(['EMPLOYEE', 'ASSET_MANAGER']),
+      );
     });
 
     it('dedupes duplicate roles in the request body', async () => {

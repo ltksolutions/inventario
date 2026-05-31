@@ -106,13 +106,7 @@ const stockRoutes: FastifyPluginAsync = async (fastify) => {
 
   await stockRepo.ensureIndexes();
 
-  const canRead = fastify.requireRole([
-    'EMPLOYEE',
-    'TEAM_MANAGER',
-    'ASSET_MANAGER',
-    'ADMIN',
-    'EXTERNAL',
-  ] as const);
+  const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as const);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
   const canAdmin = fastify.requireRole(['ADMIN']);
   const canManage = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);

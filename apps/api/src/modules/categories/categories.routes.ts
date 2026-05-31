@@ -149,13 +149,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   await repo.ensureIndexes();
 
   // Same RBAC pattern as assets.
-  const canRead = fastify.requireRole([
-    'EMPLOYEE',
-    'TEAM_MANAGER',
-    'ASSET_MANAGER',
-    'ADMIN',
-    'EXTERNAL',
-  ]);
+  const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
   const canDelete = fastify.requireRole(['ADMIN']);
 

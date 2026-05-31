@@ -291,13 +291,7 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Tenant-self read role — any member of the tenant. Used only for the
   // GET /current endpoint; the actor's own organisationId is the key.
-  const canReadOwn = fastify.requireRole([
-    'EMPLOYEE',
-    'TEAM_MANAGER',
-    'ASSET_MANAGER',
-    'ADMIN',
-    'EXTERNAL',
-  ]);
+  const canReadOwn = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
 
   // --- GET /v1/organisations/current ---------------------------------------
   //
