@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (ADR-0026 ✅ K1–K7, 690 testov; Vlna 1 upratovania: ADR-0006/0008/0021 → Accepted, docs/workflows/ zmazaný) |
-| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                             |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                          |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                             |
+| Atribút                   | Hodnota                                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-01 (Vlna 2: ADR-0022 revidované → Accepted, PDF on-demand bez ukladania; Vlna 1: ADR-0006/0008/0021 Accepted) |
+| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                            |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                         |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                            |
 
 ---
 
@@ -42,13 +42,17 @@ ADR: `docs/decisions/0023-loan-beneficiary-and-direct-loan.md`.
 
 ---
 
-### ADR-0022 — Preberacie protokoly PDF ⚠️ TREBA REVIDOVAŤ (Opus)
+### ADR-0022 — Preberacie protokoly (on-demand PDF) ✅ ACCEPTED (revid. 2026-06-01)
 
-Rozhodnutie 2026-06-01: PDF sa **neukladá** — `LoanProtocol` záznam (číslo, snapshoty, podpisy)
-zostáva, ale PDF sa generuje čisto **on-demand** pri stiahnutí. Attachments infra nie je predpokladom.
-`pdfAttachmentId` závislosť vypadáva z ADR.
+Revidované: PDF sa **neukladá** — `LoanProtocol` záznam (číslo, snapshoty, podpisy) zostáva, ale PDF
+sa generuje čisto **on-demand** pri stiahnutí. Attachments infra **nie je** predpoklad. HANDOVER
+protokol vzniká pri `fulfil` (nie approve — zosúladené s ADR-0026), 1 žiadosť → N Loanov → N protokolov.
+Determinizmus renderu je kritický invariant (povinný byte-equality test).
 
-**Ďalší krok:** Opus session — revidovať ADR-0022 (odstranenie attachments, on-demand model), potom Accepted.
+**Implementácia (K1–K8, na Sonnet, keď bude potreba):** K1 odstrániť `pdfAttachmentId` zo schémy,
+K2 `pdf-lib` + font + renderer, K3 `protocolNumber` generátor, K4 repo+service (vznik v `fulfil`/`return`),
+K5 routes (vrátane `GET /v1/protocols/:id/pdf` on-demand), K6 sign (CLICK_TO_SIGN), K7 testy, K8 milestone.
+ADR: `docs/decisions/0022-loan-protocol-pdf.md` (Accepted).
 
 ---
 

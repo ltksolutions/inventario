@@ -3,14 +3,14 @@ SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# 0022. Preberacie protokoly — model životného cyklu, PDF generovanie a podpisy
+# 0022. Preberacie protokoly — model životného cyklu, on-demand PDF a podpisy
 
-|                   |                                                                                                                                                                                                                                                                                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Status**        | Proposed                                                                                                                                                                                                                                                                                                                                         |
-| **Dátum**         | 2026-05-31                                                                                                                                                                                                                                                                                                                                       |
-| **Autori**        | Ján Letko, Claude Opus 4.8 (LTK Solutions)                                                                                                                                                                                                                                                                                                       |
-| **Súvisiace ADR** | [0012 Loans state machine](0012-loans-state-machine.md) (odložil PDF protokoly na #5b — toto ADR ich rozhoduje), [0010 Multi-tenant white-label](0010-multi-tenant-white-label.md), [0005 Mongo native driver](0005-mongo-native-driver.md), [0021 QR kódy majetku](0021-asset-qr-codes.md), [0011 EUPL licensing](0011-licensing-eupl-reuse.md) |
+|                   |                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Status**        | ✅ Accepted                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Dátum**         | 2026-05-31 (pôvodný návrh) · **revidované 2026-06-01** (PDF bez ukladania + zosúladenie s ADR-0026)                                                                                                                                                                                                                                                                                                    |
+| **Autori**        | Ján Letko, Claude Opus 4.8 (LTK Solutions)                                                                                                                                                                                                                                                                                                                                                             |
+| **Súvisiace ADR** | [0012 Loans state machine](0012-loans-state-machine.md), [0026 Katalógové žiadosti + vydávanie](0026-catalog-requests-and-fulfilment.md) (mení, kedy protokol vzniká), [0010 Multi-tenant white-label](0010-multi-tenant-white-label.md), [0005 Mongo native driver](0005-mongo-native-driver.md), [0021 QR kódy majetku](0021-asset-qr-codes.md), [0011 EUPL licensing](0011-licensing-eupl-reuse.md) |
 
 ## Kontext
 
@@ -24,78 +24,100 @@ existuje v `shared-types` od slice #1, ale Slice #5 MVP ho vedome **odložil**:
 `Loan.returnProtocolId` ostávajú vždy `null`. Toto ADR rozhoduje, ako sa táto
 medzera uzavrie.
 
-Treba rozhodnúť **štyri veci**:
+> **Revízia 2026-06-01.** Pôvodný návrh (2026-05-31) predpokladal, že PDF sa renderuje
+> a **ukladá** do `attachments` collection (`pdfAttachmentId`), čo robilo attachments
+> infra predpokladom tohto ADR. Po rozhodnutí _„neukladať nič, čo vieme deterministicky
+> vygenerovať on-demand"_ sa model zjednodušuje: **PDF sa neukladá vôbec** — renderuje sa
+> čisto on-demand pri stiahnutí. Záznam `LoanProtocol` (číslo, snapshoty, podpisy) zostáva
+> ako právne ukotvenie, attachments infra **prestáva byť predpoklad**. Zároveň revízia
+> zosúlaďuje _kedy_ protokol vzniká s [ADR-0026](0026-catalog-requests-and-fulfilment.md),
+> ktorý medzičasom prepísal loans model (approve už nevydáva — Loan vzniká pri `fulfil`).
 
-1. **Kedy v životnom cykle vzniká protokol** — čo je „záznam" a čo je „PDF", a kedy
-   ktoré vzniká vzhľadom na existujúce transakcie approve/return.
-2. **Akou technológiou sa PDF renderuje** v Node/Fastify prostredí nasadenom na Verceli.
-3. **Ako sa rieši slovenská diakritika** v PDF.
-4. **Ako sa rieši white-label** (logo a identita tenanta) a **kde je PDF uložené**.
+Treba rozhodnúť **päť vecí**:
+
+1. **Kedy v životnom cykle vzniká protokol** — čo je „záznam" a kedy vzniká vzhľadom na
+   loan transakcie (po ADR-0026: vydanie `fulfil` a vrátenie `return`).
+2. **Či sa PDF ukladá, alebo generuje on-demand.**
+3. **Akou technológiou sa PDF renderuje** v Node/Fastify prostredí nasadenom na Verceli.
+4. **Ako sa rieši slovenská diakritika** v PDF.
+5. **Ako sa rieši white-label** (logo a identita tenanta) a **čo znamená `pdfSha256`**
+   bez ukladania.
 
 ### Obmedzenia
 
 - **Existujúca schéma je zdroj pravdy.** `LoanProtocolSchema` už definuje finálny tvar:
   `type` (HANDOVER/RETURN/AMENDMENT), `protocolNumber` (`PROT-YYYY-NNNNNN`), `parties`
   (handover/receive so snapshotmi), `items` (so stavom a fotkami), `signatures`
-  (handover/receive, metóda, IP, `signatureImageId`), `pdfAttachmentId`, `pdfSha256`,
-  `status` (DRAFT/SIGNED/AMENDED/VOIDED). **Toto ADR schému nemení** — len rozhoduje,
-  ako sa napĺňa a renderuje. Akákoľvek zmena ide cez Zod (Zod → TS → JSON Schema →
-  Mongo `$jsonSchema` → OpenAPI).
-- **`LoanProtocolSchema` nemá `organisationId`.** Rovnaký multi-tenant bug ako mal
-  `Loan`/`LoanRequest` pred Slice #5 K1 ([ADR-0012](0012-loans-state-machine.md)). Treba
-  doplniť `OrganisationScopedSchema` merge — porušuje [ADR-0010](0010-multi-tenant-white-label.md).
+  (handover/receive, metóda, IP, `signatureImageId`), `pdfSha256`, `status`
+  (DRAFT/SIGNED/AMENDED/VOIDED). Schéma už má `OrganisationScopedSchema` merge
+  (multi-tenant invariant splnený). Toto ADR schému **mení len v jednej veci** — viď
+  rozhodnutie 5 (pole `pdfAttachmentId` sa odstráni ako nepotrebné). Akákoľvek zmena ide
+  cez Zod (Zod → TS → JSON Schema → Mongo `$jsonSchema` → OpenAPI).
+- **ADR-0026 prepísal loans model.** Žiadosť je katalógová (kategória + množstvo), approve
+  **už nevytvára Loan** ani nevydáva. Loan vzniká až pri `POST /v1/loan-requests/:id/fulfil`
+  (alebo pri priamej výpožičke `POST /v1/loans`, ADR-0023). HANDOVER protokol preto patrí
+  k **vydaniu** (`fulfil` / direct loan), nie k approve. RETURN patrí k `return`.
 - **Nasadenie na Verceli (serverless).** Tvrdé limity na veľkosť funkcie a cold-start.
-  Headless Chromium (~300 MB) je tu reálny problém — viď rozhodnutie 2.
+  Headless Chromium (~300 MB) je tu reálny problém — viď rozhodnutie 3.
 - **Slovenčina.** Dokument je v slovenčine (`ľ š č ť ž ý á í é ä ô ...`). Štandardné
   PDF (WinAnsi) fonty diakritiku nepokrývajú — toto musí byť explicitné rozhodnutie,
   nie objavená chyba pri implementácii.
-- **Transakcie musia ostať rýchle.** Mongo transakcie v approve/return menia viacero
-  dokumentov cez 3–4 kolekcie ([ADR-0012](0012-loans-state-machine.md)). Ťažké
-  renderovanie PDF **nesmie** byť vnútri transakcie.
+- **Loan transakcie musia ostať rýchle.** Mongo transakcie vo `fulfil`/`return` menia
+  viacero dokumentov cez 3–4 kolekcie. Ťažké renderovanie PDF **nesmie** byť vnútri
+  transakcie.
 - **Multi-tenancy a forky ([ADR-0010](0010-multi-tenant-white-label.md)).** Logo a
   identita v hlavičke protokolu sú per-tenant. Zdroj loga je `Organisation.brandKit.logoUrl`
   (default null → Inventario default). Nikdy nehardkódovať.
 - **Integrita.** Protokol je po podpise **nemenný**; zmeny idú formou dodatku (AMENDMENT
   s `originalProtocolId`). `pdfSha256` slúži ako dôkaz integrity.
+- **Minimalizácia úložiska.** Nič, čo vieme deterministicky vygenerovať zo záznamu, sa
+  neukladá. PDF je čistá funkcia záznamu → patrí medzi generované, nie uložené artefakty
+  (rovnaký princíp ako QR kódy v [ADR-0021](0021-asset-qr-codes.md)).
 - **Solo dev pred pilotom** — reálne riziko over-engineeringu (kvalifikované e-podpisy
-  eIDAS, biometria, archivačné politiky) skôr, než existuje reálny tenant a feedback.
+  eIDAS, biometria, archivačné politiky, blob storage) skôr, než existuje reálny tenant
+  a feedback.
 
 ## Možnosti
 
-### 1. Kedy vzniká protokol (záznam vs. PDF)
+### 1. Kedy vzniká protokol (záznam) a či sa PDF ukladá
 
-#### Možnosť A: Záznam + PDF synchrónne v transakcii approve/return
+#### Možnosť A: Záznam + PDF synchrónne v transakcii, PDF uložené
 
-Pri schválení/vrátení sa v tej istej Mongo transakcii vytvorí `LoanProtocol` aj
-vyrenderuje a uloží PDF.
+Pri vydaní/vrátení sa v tej istej Mongo transakcii vytvorí `LoanProtocol`, vyrenderuje
+a uloží PDF do attachments.
 
 - Plus: protokol (vrátane PDF) vždy existuje hneď po prechode.
 - Mínus: ťažký render (font embedding, logo fetch, layout) **vnútri** transakcie =
   dlhá transakcia, vyššia šanca na write-conflict/abort; sieťový fetch loga v transakcii
-  je anti-pattern; zlyhanie renderu by zhodilo celý approve/return.
+  je anti-pattern; zlyhanie renderu by zhodilo celý fulfil/return; **a navyše ukladá
+  plne odvoditeľný artefakt** (PDF), čo porušuje minimalizáciu úložiska.
 
-#### Možnosť B: Žiadny záznam, PDF čisto on-demand
+#### Možnosť B: Žiadny záznam, PDF aj číslo čisto on-demand
 
-Pri approve/return sa nestane nič navyše. PDF sa generuje deterministicky až pri
-stiahnutí, žiadny `LoanProtocol` dokument neexistuje.
+Pri vydaní/vrátení sa nestane nič navyše. PDF aj `protocolNumber` sa počítajú za behu
+pri stiahnutí, žiadny `LoanProtocol` dokument neexistuje.
 
 - Plus: najjednoduchšie, žiadna perzistencia.
 - Mínus: **stráca sa právny záznam** — neexistuje nemenný dokument s `protocolNumber`,
-  podpismi a `pdfSha256` zachytený v momente odovzdania; podpisy nemajú kam ísť; číslo
-  protokolu by sa muselo počítať za behu (nestabilné). Pre právny dokument neprijateľné.
+  podpismi a snapshotmi zachytený v momente odovzdania; podpisy nemajú kam ísť; číslo
+  protokolu počítané za behu je nestabilné (nemá kde „bývať"). Pre právny dokument
+  neprijateľné.
 
-#### Možnosť C: Záznam v transakcii, PDF on-demand (zvolené)
+#### Možnosť C: Záznam v transakcii, PDF čisto on-demand bez ukladania (zvolené)
 
-Pri approve/return sa v transakcii vytvorí `LoanProtocol` dokument so `status: DRAFT`,
-prideleným `protocolNumber` a snapshotmi strán a položiek. PDF (a `pdfSha256`) sa
-renderuje **mimo transakcie** — buď fire-and-forget hneď po commite, alebo lazy pri
-prvom stiahnutí; `pdfAttachmentId` sa doplní po vyrenderovaní.
+Pri vydaní (`fulfil` / direct loan) a vrátení (`return`) sa v transakcii vytvorí
+`LoanProtocol` dokument so `status: DRAFT`, prideleným `protocolNumber` a snapshotmi
+strán a položiek. **PDF sa neukladá nikde** — renderuje sa deterministicky až pri
+každom stiahnutí zo záznamu. `pdfSha256` sa môže (voliteľne) vypočítať a uložiť ako
+dôkaz integrity konkrétnej vyrenderovanej verzie, ale samotné bajty PDF sa nedržia.
 
-- Plus: záznam je právne ukotvený v momente odovzdania (číslo, strany, stav položiek),
-  transakcia ostáva rýchla a bez sieťových volaní; presne na toto je schéma navrhnutá
-  (`status: DRAFT`, `pdfAttachmentId` nullable, `pdfSha256` nullable).
-- Mínus: dvojfázovosť (záznam vznikne, PDF chvíľu „nie je") — treba ošetriť stav, keď
-  je `pdfAttachmentId === null` (regenerovať on-demand).
+- Plus: záznam je právne ukotvený v momente odovzdania (číslo, strany, stav položiek,
+  podpisy), transakcia ostáva rýchla a bez sieťových volaní; **žiadna attachments infra
+  nie je potrebná**; žiadny odvoditeľný artefakt v úložisku; presne na toto je schéma
+  navrhnutá (`status: DRAFT`, `pdfSha256` nullable).
+- Mínus: PDF sa renderuje pri každom stiahnutí (lacná operácia, cacheovateľná na CDN);
+  determinizmus renderu je teraz **kritický** (inak by sa „ten istý" protokol stiahol
+  zakaždým s iným hashom) — viď rozhodnutie 4.
 
 ### 2. PDF rendering technológia
 
@@ -113,266 +135,258 @@ prvom stiahnutí; `pdfAttachmentId` sa doplní po vyrenderovaní.
 
 Render HTML/CSS šablóny cez headless Chromium.
 
-- Plus: krajší layout, CSS, jednoduché zalamovanie; HTML šablóna je čitateľnejšia než
-  kreslenie po súradniciach; diakritika „zadarmo" cez webfonty.
-- Mínus: **~300 MB Chromium** — na Verceli serverless funkcii problém (veľkosť, cold-start,
-  `@sparticuz/chromium` hacky); ťažšie deterministický byte-output (verzie Chromia menia
-  rendering → nestabilný hash); ťažší prevádzkový profil pre solo-hosted forky.
+- Plus: krajší layout, CSS, jednoduché zalamovanie; diakritika „zadarmo" cez webfonty.
+- Mínus: **~300 MB Chromium** — na Verceli serverless funkcii problém; ťažšie deterministický
+  byte-output (verzie Chromia menia rendering → nestabilný hash); ťažší prevádzkový profil
+  pre solo-hosted forky. Pri on-demand renderi (rozhodnutie 1C) je determinizmus o to
+  dôležitejší — Chromium ho nezaručuje.
 
 #### Možnosť C: `pdfmake` / `pdfkit`
 
-Deklaratívny (pdfmake) alebo imperatívny (pdfkit) JS PDF builder.
-
 - Plus: deklaratívne tabuľky (pdfmake) pohodlnejšie než holé `pdf-lib`.
 - Mínus: ďalší závis s vlastným font-handlingom; `pdf-lib` je už zvolený štandard v
-  ekosystéme projektu pre QR/štítky úvahy a má najmenší a najtransparentnejší footprint;
-  netreba zavádzať druhý PDF stack.
+  ekosystéme projektu (QR/štítky úvahy) a má najmenší footprint; netreba druhý PDF stack.
 
 ### 3. Diakritika
 
 #### Možnosť A: Štandardné PDF fonty (Helvetica/WinAnsi)
 
-- Plus: nula závisov.
-- Mínus: **nepodporuje slovenskú diakritiku** (`ľ š č ť ž ô ...` chýbajú) — neprijateľné.
+- Mínus: **nepodporuje slovenskú diakritiku** — neprijateľné.
 
 #### Možnosť B: Embedovaný TTF/OTF font s plnou latin-ext sadou (zvolené)
 
-Embednúť open-source font (napr. **DejaVu Sans** alebo **Noto Sans**, oboje licenčne
-kompatibilné s EUPL/CC-BY projektom) cez `@pdf-lib/fontkit`.
+Embednúť open-source font (**DejaVu Sans** alebo **Noto Sans**, licenčne kompatibilné
+s EUPL/CC-BY projektom) cez `@pdf-lib/fontkit`.
 
 - Plus: plná podpora SK diakritiky; font je súčasť repozitára → deterministický a
   offline render.
-- Mínus: font subset zväčší PDF (mitigovateľné subsettingom); jeden závis navyše
-  (`@pdf-lib/fontkit`).
-
-### 4. Úložisko PDF + white-label
-
-Schéma už hovorí, že PDF ide do `attachments` collection a `LoanProtocol` drží len
-metadata + `pdfAttachmentId`. Attachments infra ([ADR-0012] ju označil ako „nie v MVP")
-je teda **predpoklad** tohto ADR — viď rozhodnutie 5. Logo do hlavičky sa berie z
-`Organisation.brandKit.logoUrl` (alebo Inventario default, ak null).
+- Mínus: font subset zväčší PDF (mitigovateľné subsettingom); jeden závis navyše.
 
 ## Rozhodnutie
 
-### 1. Životný cyklus: záznam v transakcii, PDF on-demand (Možnosť C)
+### 1. Životný cyklus: záznam v transakcii, PDF čisto on-demand bez ukladania (Možnosť C)
 
-- **Pri approve** (HANDOVER) a **pri return** (RETURN) sa **v rovnakej transakcii** ako
-  doteraz vytvorí `LoanProtocol` dokument:
+- **Pri vydaní** (HANDOVER — vzniká v transakcii `fulfil` v `loans.service.ts`, resp. pri
+  priamej výpožičke `createDirectLoan`) a **pri vrátení** (RETURN — v transakcii `return`)
+  sa **v rovnakej transakcii** vytvorí `LoanProtocol` dokument:
   - `status: 'DRAFT'`,
   - pridelený `protocolNumber` (viď rozhodnutie 6),
   - `parties` a `items` ako **snapshoty** (meno, email, org. jednotka, inv. číslo, názov,
     sériové číslo, kategória, stav) — protokol je nemenný, takže nesmie závisieť na
     neskorších zmenách asset/user dokumentov,
-  - `pdfAttachmentId: null`, `pdfSha256: null`, `signatures: { handover: null, receive: null }`.
+  - `pdfSha256: null`, `signatures: { handover: null, receive: null }`.
   - `Loan.handoverProtocolId` / `Loan.returnProtocolId` sa nastaví v tej istej transakcii.
-- **PDF sa renderuje mimo transakcie.** Po commite sa zavolá render; výsledné PDF sa uloží
-  do attachments a `pdfAttachmentId` + `pdfSha256` sa doplnia na protokol (`status` ostáva
-  `DRAFT`, kým nie je podpísaný — viď rozhodnutie 7).
-- **Lazy fallback:** endpoint na stiahnutie PDF vždy skontroluje `pdfAttachmentId`; ak je
-  `null` (render zlyhal/ešte nebežal), vyrenderuje a uloží synchrónne pri requeste. PDF je
-  čistá funkcia záznamu, takže regenerácia dá ten istý obsah (a ten istý hash).
+
+  > **Pozn. k ADR-0026:** jedna katalógová žiadosť → N Loanov (postupné vydávanie). Každé
+  > `fulfil` volanie vytvára **vlastný Loan** a teda **vlastný HANDOVER protokol**. Protokol
+  > je viazaný na konkrétny Loan (`loanId`), nie na žiadosť.
+
+- **PDF sa neukladá.** Endpoint `GET /v1/protocols/:id/pdf` vyrenderuje PDF **on-demand
+  pri každom requeste** zo snapshotov v zázname a vráti ho ako `application/pdf`. Žiadny
+  blob, žiadna attachments collection, žiadny `pdfAttachmentId`.
+
+- **`pdfSha256` (voliteľné, lazy):** keďže render je deterministický (rozhodnutie 4), hash
+  výsledného PDF je stabilný. Pri prvom stiahnutí (alebo pri podpise) sa môže `pdfSha256`
+  dopočítať a uložiť na záznam ako dôkaz integrity — overenie „toto PDF zodpovedá podpísanému
+  protokolu" sa robí porovnaním hashu, nie uchovaním bajtov. Ak `pdfSha256` je `null`, ešte
+  nebol vypočítaný; to nie je chyba.
 
 ```mermaid
 flowchart TD
-    AP["approve / return<br/>(Mongo transakcia)"] --> RC["LoanProtocol DRAFT<br/>+ protocolNumber<br/>+ snapshoty strán a položiek<br/>+ Loan.*ProtocolId"]
+    FF["fulfil / return<br/>(Mongo transakcia)"] --> RC["LoanProtocol DRAFT<br/>+ protocolNumber<br/>+ snapshoty strán a položiek<br/>+ Loan.*ProtocolId"]
     RC --> CM["commit"]
-    CM --> RN["render PDF (mimo transakcie)<br/>fire-and-forget"]
-    RN --> ST["uloženie do attachments<br/>+ pdfAttachmentId + pdfSha256"]
-    DL["GET .../protocol.pdf"] --> CK{pdfAttachmentId?}
-    CK -- áno --> SV["stream PDF z attachments"]
-    CK -- nie --> RG["render synchrónne, ulož, stream"]
+    DL["GET /v1/protocols/:id/pdf"] --> RN["render PDF on-demand<br/>(deterministicky zo snapshotov)"]
+    RN --> SV["stream application/pdf"]
+    RN -.voliteľne.-> SH["dopočítať + uložiť pdfSha256<br/>(ak ešte null)"]
 ```
 
 ### 2. PDF cez `pdf-lib` + `@pdf-lib/fontkit` (Možnosť A)
 
-`pdf-lib` je zvolený renderer. Dôvod: serverless-friendly (žiadny Chromium), deterministický
-byte-output (stabilný `pdfSha256`), priamočiare embedovanie loga a fontu. Layout protokolu
-sa implementuje ako parametrická funkcia `renderProtocolPdf(protocol, organisation, font, logo)`
+`pdf-lib` je zvolený renderer. Serverless-friendly (žiadny Chromium), deterministický
+byte-output (kritické pri on-demand renderi), priamočiare embedovanie loga a fontu.
+Layout protokolu = parametrická funkcia `renderProtocolPdf(protocol, organisation, font, logo)`
 vracajúca `Uint8Array`.
 
 ### 3. Embedovaný TTF font (Možnosť B)
 
-Do repozitára pribudne open-source font s plnou latin-ext sadou (**DejaVu Sans** alebo
-**Noto Sans** — finálny výber pri implementácii, podľa licencie a veľkosti subsetu),
-embedovaný cez `@pdf-lib/fontkit`. Žiadne WinAnsi štandardné fonty pre telo dokumentu.
-Font subset je zapnutý kvôli veľkosti PDF.
+Open-source font s plnou latin-ext sadou (**DejaVu Sans** alebo **Noto Sans** — finálny
+výber pri implementácii podľa licencie a veľkosti subsetu), embedovaný cez `@pdf-lib/fontkit`.
+Žiadne WinAnsi štandardné fonty pre telo dokumentu. Font subset zapnutý kvôli veľkosti.
 
-### 4. Determinizmus a `pdfSha256`
+### 4. Determinizmus renderu — teraz kritický
 
-PDF render musí byť **deterministický**, aby `pdfSha256` bol stabilný (rovnaký vstup →
-rovnaké bajty → rovnaký hash):
+Keďže PDF sa **negeneruje raz a neukladá**, ale renderuje **pri každom stiahnutí**, render
+musí byť **plne deterministický** — to isté PDF zakaždým:
 
-- žiadne `now()` vnútri renderu — všetky dátumy sa berú zo záznamu (`issuedAt`, podpisy),
+- žiadne `now()` v renderi — všetky dátumy zo záznamu (`issuedAt`, podpisy),
 - `pdf-lib` `CreationDate`/`ModDate` sa nastaví **explicitne** na `issuedAt`, nie na čas
-  renderu (inak by každý render dal iný hash),
-- font a logo sú fixné vstupy.
+  renderu (inak by každé stiahnutie dalo iný hash),
+- font a logo sú fixné vstupy (logo cacheované — viď rozhodnutie 5),
+- žiadne náhodné/iterované ID objektov závislé od času.
 
-`pdfSha256` sa počíta nad výsledným bajtovým poľom a ukladá na protokol ako dôkaz integrity.
+Test, ktorý dvakrát vyrenderuje ten istý protokol a porovná bajty/hash, je **povinný** —
+je to invariant celého on-demand modelu, nie nice-to-have.
 
-### 5. Úložisko: `attachments` collection (predpoklad — attachments infra)
+### 5. Schéma: odstrániť `pdfAttachmentId`; white-label hlavička
 
-PDF sa ukladá ako attachment; `LoanProtocol.pdfAttachmentId` naň referuje. To znamená, že
-**attachments infra je predpoklad** tohto ADR (`AttachmentSchema` v shared-types existuje;
-repository/service/storage backend treba). Rozhodnutie o storage backende (GridFS vs. externý
-blob/S3-kompatibilný) je **mimo rozsah tohto ADR** a rieši ho samostatné rozhodnutie o
-attachments (kandidát na ADR-0023). Pre prvú fázu je akceptovateľný aj GridFS na Atlase.
-
-White-label logo: z `Organisation.brandKit.logoUrl`; ak `null`, použije sa Inventario default
-([`docs/assets/brand/inventario/logo.svg`](../assets/brand/inventario/) → rasterizovaný PNG
-pre `pdf-lib`, ktorý SVG natívne neembeduje). Identita v hlavičke: `Organisation.displayName`
-
-- (ak vyplnené) `billing.legalName`, `ico`, `dic` z [`OrganisationBillingSchema`](../../packages/shared-types/src/schemas/organisation.ts).
+- **Odstrániť pole `pdfAttachmentId`** z `LoanProtocolSchema` — pri on-demand modeli nemá
+  význam (PDF nemá attachment, na ktorý by referovalo). `pdfSha256` zostáva. Regen JSON
+  Schema + OpenAPI. Keďže `LoanProtocol` sa zatiaľ nikde negeneruje (žiadne živé dáta),
+  je to bezpečná čistá zmena bez migrácie.
+- White-label logo: z `Organisation.brandKit.logoUrl`; ak `null`, Inventario default
+  ([`docs/assets/brand/inventario/logo.svg`](../assets/brand/inventario/) → rasterizovaný
+  PNG, `pdf-lib` neembeduje SVG). Identita v hlavičke: `Organisation.displayName`
+  - (ak vyplnené) `billing.legalName`, `ico`, `dic` z
+    [`OrganisationBillingSchema`](../../packages/shared-types/src/schemas/organisation.ts).
+- Logo sa **cacheuje** (rasterizovaný PNG per tenant) — pri on-demand renderi by inak každé
+  stiahnutie fetchovalo externú URL. Cache + fallback na default pri nedostupnosti.
 
 ### 6. `protocolNumber` — formát a generovanie
 
-Formát je už v schéme: `PROT-YYYY-NNNNNN` (regex `^PROT-\d{4}-\d{6}$`).
+Formát je v schéme: `PROT-YYYY-NNNNNN` (regex `^PROT-\d{4}-\d{6}$`).
 
 - **Per tenant + per rok**, zero-padded na 6 cifier, **transakčne** generované rovnakým
-  princípom ako `inventoryNumber` (server-side, atomické, žiadne medzery garantované len
-  v rámci normálnej prevádzky).
-- Poradové počítadlo je **scoped na `organisationId` + rok** vystavenia. (Konzistentné s
-  parametrickým `inventoryNumberFormat` z [ADR-0021](0021-asset-qr-codes.md), ale protokol
-  má **fixný** formát — nie je per-tenant konfigurovateľný, lebo `PROT-` prefix je
-  vynútený regexom schémy. Prípadná konfigurovateľnosť je mimo rozsah.)
-- Číslo sa prideľuje v tej istej transakcii ako vznik `LoanProtocol` (rozhodnutie 1), aby
-  nevznikli dva protokoly s rovnakým číslom.
+  princípom ako `inventoryNumber` (server-side, atomické).
+- Poradové počítadlo **scoped na `organisationId` + rok** vystavenia. `PROT-` prefix je
+  fixný (vynútený regexom schémy — nie je per-tenant konfigurovateľný, na rozdiel od
+  `inventoryNumberFormat` z [ADR-0021](0021-asset-qr-codes.md)).
+- Číslo sa prideľuje v tej istej transakcii ako vznik `LoanProtocol` (rozhodnutie 1).
+- Unique index na `(organisationId, protocolNumber)`.
 
 ### 7. Podpisy — MVP rozsah: CLICK_TO_SIGN
 
 Schéma podporuje `BIOMETRIC | CLICK_TO_SIGN | EXTERNAL`. Pre prvú fázu **iba `CLICK_TO_SIGN`**:
 
-- po vyrenderovaní DRAFT PDF obe strany potvrdia („klik-to-sign") → zapíše sa
-  `signatures.handover` / `signatures.receive` (`signedAt`, `method: CLICK_TO_SIGN`,
-  `ipAddress`, `signatureImageId: null`),
-- keď sú **obe** strany podpísané, protokol prejde `DRAFT → SIGNED` a PDF sa **re-renderuje**
-  s vyznačenými podpismi (nový `pdfSha256`); od toho momentu je **nemenný**.
-- `BIOMETRIC` (podpis prstom na dotykovom displeji → `signatureImageId`) a `EXTERNAL`
-  (kvalifikovaný e-podpis / eIDAS) sú **mimo rozsah** prvej fázy.
+- obe strany potvrdia („klik-to-sign") → zapíše sa `signatures.handover` / `signatures.receive`
+  (`signedAt`, `method: CLICK_TO_SIGN`, `ipAddress`, `signatureImageId: null`),
+- keď sú **obe** strany podpísané, protokol prejde `DRAFT → SIGNED`. Od toho momentu je
+  obsah záznamu **nemenný**; on-demand PDF odvtedy obsahuje vyznačené podpisy.
+- `pdfSha256` sa (ak ešte null) dopočíta pri prechode na SIGNED — fixuje sa hash záväznej
+  (podpísanej) verzie.
+- `BIOMETRIC` (podpis prstom → `signatureImageId`) a `EXTERNAL` (eIDAS / QES) sú **mimo
+  rozsah** prvej fázy.
 
 > **Pozn.:** „SIGNED" tu znamená preukázateľný súhlasový záznam (čas, IP, identita prihláseného
-> používateľa), **nie** kvalifikovaný elektronický podpis v zmysle eIDAS. Pre právnu váhu
-> postačuje pre interné preberacie protokoly väčšiny tenantov; tenant s požiadavkou na QES
-> potrebuje `EXTERNAL` (neskoršia fáza).
+> používateľa), **nie** kvalifikovaný elektronický podpis v zmysle eIDAS. Pre interné
+> preberacie protokoly väčšiny tenantov postačuje; tenant s požiadavkou na QES potrebuje
+> `EXTERNAL` (neskoršia fáza).
 
 ### 8. AMENDMENT (dodatok)
 
 Po `SIGNED` je protokol nemenný. Oprava = **nový** `LoanProtocol` `type: AMENDMENT` s
-`originalProtocolId` ukazujúcim na pôvodný; pôvodný prejde `SIGNED → AMENDED`. VOIDED slúži
-na anulovanie bez zmeny obsahu. Plný amendment flow (UI, dôvod, re-sign) je v rozsahu, ale
-**až po** HANDOVER/RETURN happy-path — viď fázovanie.
-
-### 9. Schema fix — `organisationId` na `LoanProtocolSchema`
-
-Pred implementáciou doplniť `OrganisationScopedSchema` merge do `LoanProtocolSchema`
-(rovnako ako Slice #5 K1 spravil pre `Loan`/`LoanRequest`). Bez toho protokol porušuje
-[ADR-0010](0010-multi-tenant-white-label.md). Regen JSON Schema + OpenAPI.
+`originalProtocolId` na pôvodný; pôvodný prejde `SIGNED → AMENDED`. VOIDED anuluje bez
+zmeny obsahu. Plný amendment flow (UI, dôvod, re-sign) je v rozsahu, ale **až po**
+HANDOVER/RETURN happy-path — viď fázovanie.
 
 ### Endpoint inventory (návrh)
 
-| Method | Path                             | Telo / výstup                   | Roly                               |
-| ------ | -------------------------------- | ------------------------------- | ---------------------------------- |
-| `GET`  | `/v1/loans/:id/protocols`        | zoznam protokolov k zápožičke   | borrower ALEBO ASSET_MANAGER+ADMIN |
-| `GET`  | `/v1/protocols/:protocolId`      | metadata protokolu (JSON)       | účastník ALEBO ASSET_MANAGER+ADMIN |
-| `GET`  | `/v1/protocols/:protocolId/pdf`  | `application/pdf` (lazy render) | účastník ALEBO ASSET_MANAGER+ADMIN |
-| `POST` | `/v1/protocols/:protocolId/sign` | `{ method: 'CLICK_TO_SIGN' }`   | príslušná strana protokolu         |
+| Method | Path                             | Telo / výstup                        | Roly                               |
+| ------ | -------------------------------- | ------------------------------------ | ---------------------------------- |
+| `GET`  | `/v1/loans/:id/protocols`        | zoznam protokolov k zápožičke (JSON) | borrower ALEBO ASSET_MANAGER+ADMIN |
+| `GET`  | `/v1/protocols/:protocolId`      | metadata protokolu (JSON)            | účastník ALEBO ASSET_MANAGER+ADMIN |
+| `GET`  | `/v1/protocols/:protocolId/pdf`  | `application/pdf` (on-demand render) | účastník ALEBO ASSET_MANAGER+ADMIN |
+| `POST` | `/v1/protocols/:protocolId/sign` | `{ method: 'CLICK_TO_SIGN' }`        | príslušná strana protokolu         |
 
-Samotné **vytvorenie** protokolu nemá vlastný endpoint — vzniká ako side-effect approve/return
-(rozhodnutie 1). Stiahnutie PDF je idempotentné a cacheovateľné (po SIGNED je obsah nemenný).
+Samotné **vytvorenie** protokolu nemá vlastný endpoint — vzniká ako side-effect
+`fulfil` / direct loan / `return` (rozhodnutie 1). Stiahnutie PDF je idempotentné a
+cacheovateľné (po SIGNED je obsah nemenný, takže aj PDF bajty sú nemenné).
 
 ## Dôsledky
 
 ### Pozitívne
 
 - Právny záznam je ukotvený v momente odovzdania (číslo, strany, stav položiek, podpisy),
-  bez spomalenia kritickej approve/return transakcie.
+  bez spomalenia kritickej `fulfil`/`return` transakcie.
+- **Žiadna attachments infra nie je potrebná** — odpadá rozhodnutie o blob/GridFS storage,
+  odpadá kandidátne ADR na attachments, odpadá ukladanie odvoditeľného artefaktu. Menší
+  povrch, menej kódu, menej prevádzky.
 - `pdf-lib` + embedovaný font = serverless-friendly, deterministický, plná SK diakritika,
   bez Chromium footprintu na Verceli aj v solo-hosted forkoch.
 - White-label hlavička z `brandKit.logoUrl` + billing identity → protokol vyzerá ako dokument
-  tenanta, nie Inventaria; default fallback ostáva čistý.
-- Deterministický render → `pdfSha256` je zmysluplný dôkaz integrity; nemennosť po SIGNED +
-  AMENDMENT flow zodpovedajú už existujúcej schéme bez jej zmeny.
+  tenanta; default fallback ostáva čistý.
+- Deterministický render → `pdfSha256` je zmysluplný dôkaz integrity aj bez uchovania bajtov;
+  nemennosť po SIGNED + AMENDMENT flow zodpovedajú existujúcej schéme.
 - Napĺňa `Loan.handoverProtocolId` / `returnProtocolId`, ktoré ADR-0012 nechal `null` —
-  uzatvára vedome odloženú medzeru #5b.
+  uzatvára vedome odloženú medzeru, zosúladené s ADR-0026 (protokol viazaný na Loan z `fulfil`).
+- Rovnaký princíp ako QR kódy (ADR-0021): generuj on-demand, neukladaj odvoditeľné.
 
 ### Negatívne / kompromisy
 
-- **Závislosť na attachments infra**, ktorá ešte nie je hotová — toto ADR ju robí
-  predpokladom a deleguje rozhodnutie o storage backende na samostatné ADR (kandidát 0023).
-  Bez attachments sa PDF nemá kam uložiť (zmiernené lazy on-demand renderom, ale streamovať
-  treba aj tak).
-- **Ručný layout v `pdf-lib`** (súradnice, zalamovanie tabuľky položiek pri 25+ položkách,
-  stránkovanie) je pracnejší než HTML/CSS šablóna; treba ošetriť pretečenie na ďalšiu stranu.
+- **Determinizmus renderu je teraz kritický invariant** (nie optimalizácia). Akýkoľvek
+  `now()` alebo verz-závislé správanie v renderi rozbije stabilitu `pdfSha256`. Mitigácia:
+  povinný test dvojitého renderu, explicitné metadata dátumy.
+- **PDF sa renderuje pri každom stiahnutí** — vyššia CPU réžia než jednorazový render +
+  cache bajtov. Pri očakávanom objeme (protokoly sa sťahujú zriedka, nie v hot-path) je to
+  zanedbateľné; v prípade potreby CDN cache podľa `pdfSha256` ako ETag.
 - **CLICK_TO_SIGN nie je QES.** Pre tenanta s požiadavkou na kvalifikovaný podpis (eIDAS)
   prvá fáza nestačí — `EXTERNAL` je neskôr.
-- **Re-render po podpise** mení `pdfSha256` — treba jasne komunikovať, že hash DRAFT a hash
-  SIGNED sa líšia (hash sa viaže na konkrétnu verziu; SIGNED verzia je tá záväzná).
+- **Ručný layout v `pdf-lib`** (súradnice, zalamovanie tabuľky pri 25+ položkách,
+  stránkovanie) je pracnejší než HTML/CSS šablóna.
 
 ### Riziká, ktoré treba sledovať
 
-- **Determinizmus renderu.** Ak sa do PDF dostane `now()` (CreationDate/ModDate, „vygenerované
-  dňa"), hash bude pri každom renderi iný a `pdfSha256` stratí zmysel. Mitigácia: všetky časy
-  zo záznamu, explicitné metadata dátumy = `issuedAt`, test ktorý dvakrát vyrenderuje ten istý
-  protokol a porovná bajty/hash.
-- **Snapshot vs. živé dáta.** Ak by sa protokol renderoval zo _živých_ asset/user dokumentov
-  namiesto zo snapshotov v zázname, neskoršia zmena (premenovaný asset, zmenené meno) by ticho
-  prepísala „históriu". Mitigácia: render číta **výhradne** zo snapshotov v `LoanProtocol`.
-- **Race na `protocolNumber`.** Dva súbežné approve v rovnakom tenante/roku. Mitigácia:
-  atomický counter v transakcii (rovnaký pattern ako `inventoryNumber`), unique index na
+- **Determinizmus renderu.** Najvyššie riziko celého modelu — viď vyššie. Povinný
+  byte-equality test.
+- **Snapshot vs. živé dáta.** Render číta **výhradne** zo snapshotov v `LoanProtocol`, nikdy
+  zo živých asset/user dokumentov — inak by neskoršia zmena ticho prepísala „históriu".
+- **Race na `protocolNumber`.** Dva súbežné `fulfil` v rovnakom tenante/roku. Mitigácia:
+  atomický counter v transakcii (ako `inventoryNumber`), unique index na
   `(organisationId, protocolNumber)`.
-- **Veľkosť funkcie / font.** Embedovaný font + logo zväčšujú bundle. Mitigácia: font subset,
-  logo ako rozumne veľký PNG; sledovať Vercel function size limit.
-- **Logo z `brandKit.logoUrl` je externá URL.** Fetch loga pri renderi je sieťové volanie —
-  nesmie byť v transakcii (nie je, render je mimo nej); ošetriť timeout a fallback na default
-  logo pri nedostupnosti; zvážiť cache rasterizovaného loga.
-- **SVG logo.** `pdf-lib` neembeduje SVG. Inventario default aj tenant logá v SVG treba
-  rasterizovať na PNG (build-time pre default, on-the-fly/cache pre tenant). Pridať do
-  implementačných poznámok.
+- **Logo z `brandKit.logoUrl` je externá URL.** Pri on-demand renderi by každé stiahnutie
+  fetchovalo logo — preto **cache rasterizovaného loga** per tenant + fallback na default
+  pri nedostupnosti/timeoute. Render je mimo transakcie, takže fetch nikdy neblokuje loan flow.
+- **SVG logo.** `pdf-lib` neembeduje SVG → rasterizácia na PNG (build-time pre Inventario
+  default, on-the-fly + cache pre tenant logá).
 - **GDPR/DPIA.** Protokol obsahuje osobné údaje (meno, email, podpis, IP). Patrí do GDPR
-  Article 30 inventára a retenčnej/pseudonymizačnej politiky (Phase D) — `ipAddress` a
-  podpisové artefakty zahrnúť do retenčného plánu; zvážiť, či IP je nevyhnutná.
+  Article 30 inventára a retenčnej/pseudonymizačnej politiky (Phase D / Compliance Fáza 2) —
+  `ipAddress` a podpisové artefakty zahrnúť do retenčného plánu; zvážiť, či IP je nevyhnutná.
+  (Keďže PDF sa neukladá, perzistované osobné údaje sú len v `LoanProtocol` zázname — menší
+  povrch na ochranu než pri uložených PDF blob-och.)
 
 ## Fázovanie
 
 ### Fáza 1 — HANDOVER + RETURN happy-path (po pilote / podľa potreby)
 
-- **K1** — schema fix: `OrganisationScopedSchema` merge do `LoanProtocolSchema`; regen
-  JSON Schema + OpenAPI. (Haiku)
+- **K1** — schema: **odstrániť `pdfAttachmentId`** z `LoanProtocolSchema`; regen JSON Schema
+  - OpenAPI. (`organisationId` merge už existuje.) (Haiku)
 - **K2** — embedovaný font do repo + `@pdf-lib/fontkit`; default logo rasterizácia (SVG→PNG);
   `renderProtocolPdf()` deterministický renderer (telo, tabuľka položiek, stránkovanie,
   hlavička s logom/identitou, pätka s podpismi). (Sonnet)
 - **K3** — `protocolNumber` transakčný generátor (`PROT-YYYY-NNNNNN`, scoped org+rok, unique
   index). (Sonnet)
-- **K4** — `LoanProtocolsRepository` + service: vznik DRAFT protokolu v approve/return
-  transakcii (úprava `loans.service.ts`), nastavenie `Loan.*ProtocolId`, post-commit render
-  - uloženie `pdfAttachmentId`/`pdfSha256`. (Sonnet)
+- **K4** — `LoanProtocolsRepository` + service: vznik DRAFT protokolu v transakcii **`fulfil`**
+  (HANDOVER), **`createDirectLoan`** (HANDOVER), **`return`** (RETURN) v `loans.service.ts`;
+  nastavenie `Loan.*ProtocolId`. (Sonnet)
 - **K5** — routes: `GET /v1/loans/:id/protocols`, `GET /v1/protocols/:id`,
-  `GET /v1/protocols/:id/pdf` (lazy render), RBAC. (Sonnet)
+  `GET /v1/protocols/:id/pdf` (on-demand render, voliteľný lazy `pdfSha256`), RBAC. (Sonnet)
 - **K6** — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN), prechod `DRAFT → SIGNED` keď obe
-  strany, re-render. (Sonnet)
-- **K7** — testy: determinizmus renderu (rovnaký vstup → rovnaký hash), diakritika,
+  strany, fixácia `pdfSha256`. (Sonnet)
+- **K7** — testy: **determinizmus renderu (dvojitý render → rovnaký hash)**, diakritika,
   číslovanie + race, RBAC, cross-tenant izolácia, snapshot-not-live, stránkovanie pri 25+
-  položkách. (Sonnet)
+  položkách, protokol per Loan pri viacnásobnom `fulfil` (ADR-0026). (Sonnet)
 - **K8** — milestone doc + session log. (Haiku)
 
-> **Predpoklad:** attachments infra (úložisko + repo/service) — buď samostatné ADR-0023
-> pred K4, alebo minimálna GridFS implementácia v rámci K4.
+> **Žiadny predpoklad attachments infra.** Revízia 2026-06-01 túto závislosť odstránila.
 
 ### Fáza 2 — podľa reálnej potreby
 
 - AMENDMENT flow (dôvod, re-sign, `originalProtocolId`, VOIDED) s UI.
-- `BIOMETRIC` podpis (canvas → `signatureImageId`).
+- `BIOMETRIC` podpis (canvas → `signatureImageId`). **Pozn.:** podpisový obrázok je jediný
+  artefakt, ktorý by sa musel ukladať (nie je odvoditeľný) — vtedy sa rieši minimálne
+  úložisko pre `signatureImageId`, nie pre PDF.
 - `EXTERNAL` / QES (eIDAS) integrácia pre tenantov s právnou požiadavkou.
 - Konfigurovateľná šablóna protokolu (logo pozícia, doplnkové právne klauzuly per tenant).
-- Hromadná tlač / batch export protokolov.
+- CDN cache PDF podľa `pdfSha256` (ETag) ak by objem stiahnutí narástol.
 
 ## Referencie
 
-- [ADR-0012 Loans state machine + Slice #5 MVP](0012-loans-state-machine.md) — odložil PDF protokoly na #5b; toto ADR ich rozhoduje
+- [ADR-0012 Loans state machine + Slice #5 MVP](0012-loans-state-machine.md) — odložil PDF protokoly; toto ADR ich rozhoduje
+- [ADR-0026 Katalógové žiadosti + vydávanie](0026-catalog-requests-and-fulfilment.md) — mení, kedy protokol vzniká (fulfil, nie approve); 1 žiadosť → N Loanov → N protokolov
 - [ADR-0010 Multi-tenant white-label](0010-multi-tenant-white-label.md) — `organisationId` invariant, white-label logo z `brandKit`
+- [ADR-0021 QR kódy majetku](0021-asset-qr-codes.md) — rovnaký princíp „generuj on-demand, neukladaj odvoditeľné"
 - [ADR-0005 Mongo native driver + Repository pattern](0005-mongo-native-driver.md) — `LoanProtocolsRepository` cez OrganisationScopedRepository, transakčný pattern
-- [ADR-0021 QR kódy majetku](0021-asset-qr-codes.md) — paralela pre per-tenant číslovanie a on-demand generovanie artefaktu
-- [packages/shared-types/src/schemas/loan-protocol.ts](../../packages/shared-types/src/schemas/loan-protocol.ts) — existujúca schéma protokolu (zdroj pravdy, nemení sa; doplní sa `organisationId`)
+- [packages/shared-types/src/schemas/loan-protocol.ts](../../packages/shared-types/src/schemas/loan-protocol.ts) — existujúca schéma (K1 odstráni `pdfAttachmentId`)
 - [packages/shared-types/src/schemas/loan.ts](../../packages/shared-types/src/schemas/loan.ts) — `Loan.handoverProtocolId` / `returnProtocolId`
 - [packages/shared-types/src/schemas/organisation.ts](../../packages/shared-types/src/schemas/organisation.ts) — `brandKit.logoUrl`, `displayName`, `billing` identity pre hlavičku
-- [apps/api/src/modules/loans/loans.service.ts](../../apps/api/src/modules/loans/loans.service.ts) — miesto, kde sa DRAFT protokol vytvorí v approve/return transakcii
+- [apps/api/src/modules/loans/loans.service.ts](../../apps/api/src/modules/loans/loans.service.ts) — miesto, kde DRAFT protokol vzniká v transakciách fulfil/return/createDirectLoan
 - [Phase D — GDPR Article 30](../milestones/phase-d-eu-compliance.md) — protokol obsahuje osobné údaje, retencia/pseudonymizácia

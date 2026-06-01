@@ -50,7 +50,7 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0019 | [Fakturačné údaje tenanta — vnorený `billing` objekt + self-service](0019-tenant-billing-model.md)               | ✅ Accepted                                               | 2026-05-30 |
 | 0020 | [Skladové množstevné položky — `trackingMode` + StockMovement ledger](0020-stock-and-bulk-items.md)              | ✅ Accepted                                               | 2026-05-31 |
 | 0021 | [QR kódy majetku — obsah, generovanie, verejný lost & found lookup](0021-asset-qr-codes.md)                      | ✅ Accepted                                               | 2026-05-31 |
-| 0022 | [Preberacie protokoly — model, PDF generovanie a podpisy](0022-loan-protocol-pdf.md)                             | Proposed                                                  | 2026-05-31 |
+| 0022 | [Preberacie protokoly — model, on-demand PDF a podpisy](0022-loan-protocol-pdf.md)                               | ✅ Accepted (revíd. 2026-06-01)                           | 2026-05-31 |
 | 0023 | [Žiadosť v mene inej osoby + priama výpožička](0023-loan-beneficiary-and-direct-loan.md)                         | ✅ Accepted                                               | 2026-05-31 |
 | 0024 | [Odstránenie role TEAM_MANAGER](0024-remove-team-manager-role.md)                                                | ✅ Accepted                                               | 2026-05-31 |
 | 0025 | [Výpožičky bez termínu (open-ended) + dotiahnutie formulára žiadosti](0025-open-ended-loans-and-request-form.md) | ✅ Accepted                                               | 2026-06-01 |
