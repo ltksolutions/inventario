@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                               |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (Vlna 2: ADR-0022 revidované → Accepted, PDF on-demand bez ukladania; Vlna 1: ADR-0006/0008/0021 Accepted) |
-| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                            |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                         |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                            |
+| Atribút                   | Hodnota                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Posledná aktualizácia** | 2026-06-01 (Vlna 3: threat model STRIDE + DPIA template hotové; Vlna 2: ADR-0022 on-demand PDF; Vlna 1: ADR-0006/0008/0021 Accepted) |
+| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                                           |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                        |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                           |
 
 ---
 
@@ -106,7 +106,31 @@ Milestone: `docs/milestones/slice-5-loans-mvp.md`
 
 ### Compliance Fáza 2 (po 1. tenantovi)
 
-DPIA, Threat model STRIDE, Audit log retention job, Security Whitepaper.
+✅ **Hotové (2026-06-01, Vlna 3):** Threat model STRIDE (`docs/compliance/threat-model.md`),
+DPIA template pre tenant-ov (`docs/compliance/legal/dpia-template.md`).
+
+⏳ **Zostáva:** Security Whitepaper, Data Retention Schedule (detail), Information Security Policy,
+DPIA Reference Pack (verejná verzia).
+
+#### 🔧 Audit log retention job — ready-to-implement (Sonnet)
+
+Automatická pseudonymizácia starých audit záznamov podľa retention schedule. Základ už existuje:
+`AuditLogSchema` má pole `pseudonymizedAt` a helpery `defaultLegalBasisFor` / `defaultDataCategoriesFor`.
+
+**Plan:**
+
+- Retention podľa akcie: bežné CRUD = 24 mes, auth/security = 60 mes, `ORGANISATION_*` = 84 mes
+- Pseudonymizácia (NIE delete): `actor.userId` → `'PSEUDONYMIZED'`, vymazať `actor.displayName` +
+  `actor.ipAddress` + `actor.userAgent`, zachovať `action` + `at` + `severity` pre štatistiky;
+  nastaviť `pseudonymizedAt`
+- Append-only invariant: pseudonymizácia je jediný povolený UPDATE na `audit_logs` (cez dedikovaný
+  service, nie cez bežný repo write path)
+- Spustenie: Vercel cron (mesačne), idempotentné (filter `pseudonymizedAt: null AND at < cutoff`)
+- Soft-deleted `users` po 24 mes → pseudonymizácia (rovnaký princíp)
+- Testy: retention bucket per akcia, idempotencia, append-only (žiadny iný UPDATE), cross-tenant scope
+
+Schéma/helpery: `packages/shared-types/src/schemas/audit-log.ts`, `apps/api/src/modules/audit/audit.service.ts`.
+Retention tabuľka: ROPA sekcia 6 (`docs/compliance/gdpr-article-30.md`).
 
 ### Slice #10 — MCP server (Q1 2027, ~10 dní)
 
@@ -172,6 +196,6 @@ Duration:     ~95s
 
 ---
 
-**Last updated:** 2026-06-01 (Vlna 1 upratovania: ADR-0006/0008/0021 Accepted; ADR-0022 čaká na revíziu)
+**Last updated:** 2026-06-01 (Vlna 3 upratovania: threat model STRIDE + DPIA template hotové)
 **Tests:** 690 ✅ | **CI:** zelené ✅ | **OpenAPI:** 69 endpointov ✅
 **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

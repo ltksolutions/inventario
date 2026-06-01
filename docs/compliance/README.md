@@ -28,13 +28,15 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 | [`legal/dpa-template.md`](./legal/dpa-template.md)         | **DPA Template** — Zmluva o spracúvaní osobných údajov medzi LTK a tenant-om (čl. 28 GDPR)                                          |
 | [`legal/terms-of-service.md`](./legal/terms-of-service.md) | **Terms of Service** — Všeobecné obchodné podmienky používania platformy Inventario (Hlavná zmluva v zmysle DPA), vrátane AUP a SLA |
 | [`legal/sub-processors.md`](./legal/sub-processors.md)     | **Verejný register sub-processors** — publikovaný na https://inventario.estate/sub-processors                                       |
+| [`legal/dpia-template.md`](./legal/dpia-template.md)       | **DPIA Template** — pred-vyplnená šablóna DPIA pre tenant-a (prevádzkovateľa), čl. 35 GDPR + čl. 28 ods. 3 písm. f (pomoc s DPIA)   |
 
 ### Interné procesné dokumenty
 
-| Dokument                                                       | Účel                                                                           |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [`breach-notification-plan.md`](./breach-notification-plan.md) | **Breach Notification Plan** — postup pri Porušení ochrany OÚ (čl. 33–34 GDPR) |
-| [`disaster-recovery-plan.md`](./disaster-recovery-plan.md)     | **Disaster Recovery Plan** — obnova po havárii, RPO ≤ 24h, RTO ≤ 8h            |
+| Dokument                                                       | Účel                                                                                                        |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| [`breach-notification-plan.md`](./breach-notification-plan.md) | **Breach Notification Plan** — postup pri Porušení ochrany OÚ (čl. 33–34 GDPR)                              |
+| [`disaster-recovery-plan.md`](./disaster-recovery-plan.md)     | **Disaster Recovery Plan** — obnova po havárii, RPO ≤ 24h, RTO ≤ 8h                                         |
+| [`threat-model.md`](./threat-model.md)                         | **Threat Model (STRIDE)** — analýza hrozieb aplikačnej a infra vrstvy (32 hrozieb, 0 vysokých reziduálnych) |
 
 ### Posúdenie rizika
 
@@ -64,16 +66,18 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 - Sub-processor list (`legal/sub-processors.md`)
 - Threshold Assessment / DPIA Pre-screen (`threshold-assessment.md`)
 - WCAG 2.1 AA audit
+- **Threat Model (STRIDE)** (`threat-model.md`) — 32 hrozieb, 0 vysokých reziduálnych
+- **DPIA Template pre tenant-ov** (`legal/dpia-template.md`) — pred-vyplnená šablóna
 
 ### ✅ Fáza 1 kompletná — všetky dokumenty pre go-live SFZ pilot
 
 ### ⏳ Pripravované — Fáza 2 (pred ďalšími tenant-mi po SFZ)
 
-- **DPIA Template pre tenant-ov** (`legal/dpia-template.md`) — pre-filled DPIA šablóna, ktorú tenant prispôsobí svojmu kontextu (čl. 28 ods. 3 písm. f — pomoc s DPIA)
 - **Security & Privacy Whitepaper** (verejný PDF — sales enabler, šetrí customer due diligence)
 - **Data Retention Schedule** (detailný per-category dokument nad rámec sumáru v ROPA)
 - **Information Security Policy** (interný)
-- **DPIA Reference Pack** publikovaný na https://inventario.estate/dpia
+- **DPIA Reference Pack** publikovaný na https://inventario.estate/dpia (verejná verzia DPIA template)
+- **Audit log retention job** — automatická pseudonymizácia po 24/60/84 mes (impl. — viac v NEXT.md)
 
 ### 📅 Plánované v budúcnosti
 
