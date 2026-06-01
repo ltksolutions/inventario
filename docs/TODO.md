@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-01 (DSAR čl. 16/17/18/20 všetky DONE)                                        |
+| **Posledná aktualizácia** | 2026-06-01 (retention job #8 DONE)                                                   |
 | **Stav projektu**         | Production LIVE ✅ — 0 otvorených ADR, 0 tech-dlhu                                   |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
@@ -86,7 +86,7 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] last-admin guard (`assertNotLastAdminForDeletion` per-org) — sólo admin sa nedá zmazať
   - [x] audit `DATA_DELETION_REQUESTED` refaktorovaný na `AuditLogService` (legalBasis, dataCategories, plný actor snapshot)
   - [x] testy `auth-erasure.test.ts` (endpoint predtým nemal žiadne)
-- **Budúce zlepšenie (P2):** 30-dňový grace period sa dorobí pri retention jobe (#8) — zdieľa pseudonymizačnú vrstvu. Okamžitá pseudonymizácia je validné splnenie čl. 17 medzitým.
+- **Pozn.:** 30-dňový grace period pre admin soft-delete pokrýva `RetentionService.pseudonymizeSoftDeletedUsers` (#8).
 
 ### 6. Right to restrict (čl. 18) ✅ DONE (2026-06-01)
 
@@ -118,17 +118,18 @@ SPDX-License-Identifier: CC-BY-4.0
   - [ ] K8 — milestone doc
 - **Kritický invariant:** determinizmus renderu (povinný byte-equality test) — PDF sa neukladá, `pdfSha256` lazy dopočítaný
 
-### 8. Audit log retention job — automatická pseudonymizácia
+### 8. Audit log retention job — automatická pseudonymizácia ✅ DONE (2026-06-01)
 
-- **Stav:** ⏳ základ existuje (`pseudonymizedAt` pole + helpery `defaultLegalBasisFor`/`defaultDataCategoriesFor`)
-- **Model:** Sonnet
-- **Špec:** detailne v [`NEXT.md`](./sessions/NEXT.md) (Compliance Fáza 2)
-- **Rozsah:**
-  - [ ] Retention buckety: bežné CRUD = 24 mes, auth/security = 60 mes, `ORGANISATION_*` = 84 mes
-  - [ ] Pseudonymizácia (NIE delete): `actor.userId` → `'PSEUDONYMIZED'`, vymazať `displayName`/`ipAddress`/`userAgent`, zachovať `action`/`at`/`severity`, nastaviť `pseudonymizedAt`
-  - [ ] Append-only invariant: pseudonymizácia = jediný povolený UPDATE na `audit_logs` (dedikovaný service)
-  - [ ] Vercel cron mesačne, idempotentný (`pseudonymizedAt: null AND at < cutoff`)
-  - [ ] Soft-deleted `users` po 24 mes → pseudonymizácia (rovnaký princíp)
+- **Stav:** ✅ implementované
+- **Session:** [`docs/sessions/2026-06-01-retention-job.md`](./sessions/2026-06-01-retention-job.md)
+- **Čo bolo implementované:**
+  - [x] `RetentionRepository` — jediný povolený UPDATE na `audit_logs`; `pseudonymizeAuditLogs(actions, cutoff)` + `pseudonymizeSoftDeletedUsers(cutoff)`; append-only invariant zachovaný (samostatná trieda od `AuditLogRepository`)
+  - [x] `RetentionService.run(now?)` — 3 buckety: CRUD (24m), security/GDPR (60m), org lifecycle (84m); soft-deleted users (24m); sekvenčné kroky; idempotentné; testovateľné cez `now` parameter
+  - [x] `POST /v1/system/retention/run` — chránený `CRON_SECRET` headerom; 503 ak nekonfigurovaný; 401 na zlý token; 200 + `RetentionRunResult` JSON
+  - [x] `vercel.json` cron: `0 3 1 * *` (1. každého mesiaca o 03:00 UTC)
+  - [x] `CRON_SECRET` do `config.ts` + `turbo.json` globalEnv
+  - [x] unit testy `retention.test.ts` (16 testov) + integračné `retention-cron.test.ts` (4 testy)
+- **Po deployi treba:** nastaviť `CRON_SECRET` v Vercel → Settings → Environment Variables (`openssl rand -hex 32`)
 
 ---
 
@@ -187,7 +188,7 @@ SPDX-License-Identifier: CC-BY-4.0
 ## Ako čítať tento backlog
 
 - **Najbližší balík pred pilotom:** ✅ hotový (QR + email index) — SFZ pilot je odomknutý
-- **DSAR práva (čl. 16/17/18/20):** ✅ hotové (položky 3–6)
+- **DSAR práva (čl. 16/17/18/20) + retention job:** ✅ hotové (položky 3–8)
 - **Najväčšia jednotlivá feature v zálohe:** položka 7 (PDF protokoly)
 - **Čisto dokumentácia, dá sa kedykoľvek:** položky 9–12
 

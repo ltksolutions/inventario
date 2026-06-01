@@ -184,6 +184,18 @@ const envSchema = z.object({
 
   // Test JWT — no longer used (removed in Slice #6c K17)
   TEST_JWT_PUBLIC_KEY: z.string().optional(),
+
+  // ---------------------------------------------------------------------
+  // Vercel Cron — retention job (GDPR čl. 5 ods. 1 písm. e)
+  // ---------------------------------------------------------------------
+  //
+  // Secret shared between Vercel cron scheduler and the API endpoint.
+  // Vercel auto-sets CRON_SECRET in production deployments; for local
+  // dev / manual triggers set it in .env.local. Min 32 chars.
+  // If unset, the cron endpoint returns 503 (disabled).
+  //
+  // Generate: openssl rand -hex 32
+  CRON_SECRET: z.string().min(32).optional(),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

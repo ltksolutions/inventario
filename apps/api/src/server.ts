@@ -48,6 +48,7 @@ import locationsRoutes from './modules/locations/locations.routes.js';
 import membershipsRoutes from './modules/memberships/memberships.routes.js';
 import organisationsRoutes from './modules/organisations/organisations.routes.js';
 import stockRoutes from './modules/stock/stock.routes.js';
+import retentionRoutes from './modules/system/retention.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import authPlugin from './plugins/auth.js';
 import configPlugin from './plugins/config.js';
@@ -182,6 +183,7 @@ export async function buildServer(
   await app.register(invitationsRoutes);
   await app.register(membershipsRoutes);
   await app.register(stockRoutes);
+  await app.register(retentionRoutes);
 
   // --- Root redirect to /docs ----------------------------------------------
   app.get('/', async (_request, reply) => {

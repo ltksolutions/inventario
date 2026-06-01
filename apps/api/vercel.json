@@ -8,6 +8,12 @@
       "memory": 1024
     }
   },
+  "crons": [
+    {
+      "path": "/v1/system/retention/run",
+      "schedule": "0 3 1 * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
