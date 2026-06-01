@@ -36,14 +36,17 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] whitelist test pre `PublicAssetViewSchema` (K6)
   - [x] openapi regen (K7)
 
-### 2. email_unique index — overiť/dotiahnuť na prod Atlas
+### 2. email_unique index — reziduálny globálny index ✅ DONE (2026-06-01)
 
-- **Stav:** migrácia `2026-05-29c` existuje, treba overiť reálny efekt na produkcii
-- **Model:** Sonnet / manuál
-- **Rozsah:**
-  - [ ] Skontrolovať, či bol starý `email_unique` / `email_1` index reálne dropnutý na prod Atlas
-  - [ ] Ak nie → dobehnúť pred onboardingom 2. tenanta (inak E11000 kolízie pri JIT naprieč tenantmi)
-- **Pozn.:** skôr overenie + prípadný fix než feature
+- **Stav:** ✅ vyriešené (manuálny drop na prod + nová migrácia ako poistka)
+- **Session:** [`docs/sessions/2026-06-01-email-index-fix.md`](./sessions/2026-06-01-email-index-fix.md)
+- **Root cause:** migrácia `2026-05-29c` mala fixný zoznam mien (`email_unique`, `email_1`, `users_email_unique`), ale reálny index na prod sa volal `users_email_global_unique` → drop ho minul, migrácia sa zapísala ako completed (už sa nespustí znova). Reziduálny globálny `{ email: 1 } UNIQUE` by spôsobil E11000 pri 2. tenantovi (rovnaký email v dvoch orgoch).
+- **Čo bolo spravené:**
+  - [x] manuálny drop `users_email_global_unique` na prod Atlas → users má teraz správne 4 indexy
+  - [x] nová migrácia `2026-06-01b-drop-residual-email-index` — inšpektuje živý zoznam indexov, dropne ANY single-field unique index na `email` bez ohľadu na meno; composite `organisationId_email_unique` nechá; idempotentná
+  - [x] zaregistrovaná v `runner.ts` (poistka pre dev cluster + budúce forky, self-healing)
+  - [x] 6 unit testov `migration-drop-residual-email-index.test.ts`
+- **Cieľový stav prod (overené):** `_id_`, `organisationId_isActive_deletedAt`, `entraOid_unique_partial`, `organisationId_email_unique` — žiadny globálny email index
 
 ---
 
@@ -183,7 +186,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Ako čítať tento backlog
 
-- **Najbližší balík pred pilotom:** položka 2 (email_unique index overenie)
+- **Najbližší balík pred pilotom:** ✅ hotový (QR + email index) — SFZ pilot je odomknutý
 - **DSAR práva (čl. 16/17/18/20):** ✅ hotové (položky 3–6)
 - **Najväčšia jednotlivá feature v zálohe:** položka 7 (PDF protokoly)
 - **Čisto dokumentácia, dá sa kedykoľvek:** položky 9–12

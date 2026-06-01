@@ -24,6 +24,7 @@ import { migrate_2026_05_29c_fix_email_unique_index } from './2026-05-29c-fix-em
 import { migrate_2026_05_31_remove_team_manager_role } from './2026-05-31-remove-team-manager-role.js';
 import { migrate_2026_05_31b_loan_request_beneficiary } from './2026-05-31b-loan-request-beneficiary.js';
 import { migrate_2026_06_01_asset_public_token } from './2026-06-01-asset-public-token.js';
+import { migrate_2026_06_01b_drop_residual_email_index } from './2026-06-01b-drop-residual-email-index.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -83,6 +84,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     key: '2026-06-01-asset-public-token',
     description: 'ADR-0021: Dogeneruj publicToken pre existujúce assety (CSPRNG, base32).',
     run: migrate_2026_06_01_asset_public_token,
+  },
+  {
+    key: '2026-06-01b-drop-residual-email-index',
+    description:
+      'Drop residual global email unique index on users (2026-05-29c missed the actual name).',
+    run: migrate_2026_06_01b_drop_residual_email_index,
   },
 ];
 

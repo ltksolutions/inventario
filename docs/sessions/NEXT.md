@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                 |
 | ------------------------- | ------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (DSAR #3–#6 DONE — všetky 4 práva hotové)    |
+| **Posledná aktualizácia** | 2026-06-01 (DSAR #3–#6 + email index fix DONE)          |
 | **Aktuálna fáza**         | Production LIVE — smoke test + pilot onboarding je next |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`           |
 | **GitHub**                | https://github.com/ltksolutions/inventario              |
@@ -38,27 +38,29 @@ K1–K7 DONE. Session doc: `docs/sessions/2026-06-01-adr-0021-qr-k1-k3.md`
 
 ---
 
+## email_unique index ✅ VYRIEŠENÉ (P0 pred pilotom)
+
+Reziduálny globálny `users_email_global_unique` ({ email } UNIQUE) na prod — migrácia `2026-05-29c` ho minula (zlé meno v drop liste). Manuálne dropnutý na prod Atlas + nová migrácia `2026-06-01b` (inšpektuje živé indexy, poistka pre dev/forky). Prod má teraz správne 4 indexy. Session doc: `docs/sessions/2026-06-01-email-index-fix.md`
+
+**SFZ pilot je tým odomknutý** — žiadne E11000 riziko pri 2. tenantovi.
+
+---
+
 ## 🔥 Najbližšie kroky
 
-### 1. OpenAPI regen + full test suite
-
-```bash
-pnpm --filter @inventario/api openapi:export:offline
-pnpm test
-```
-
-### 2. Smoke test po deployi
+### 1. Smoke test po deployi (nové DSAR + erasure/restrict)
 
 - [ ] `GET /v1/me/export` — vráti JSON so všetkými sekciami
 - [ ] `PATCH /v1/me` — firstName/lastName/preferences sa uložia
-- [ ] `/scan/[publicToken]` + QR na detaile assetu
-- [ ] `/settings/organisation` — foundContactInfo
+- [ ] `POST /v1/users/:id/restriction` — restrict testovacieho usera → jeho write → 403; unrestrict → write OK
+- [ ] `DELETE /v1/auth/me` — NEtestovať na reálnom admin účte (nezvratné!); ak treba, na vyhradenom test useri
+- [ ] over v Atlase že `users` má 4 indexy (migrácia `2026-06-01b` na prod = no-op, index už dropnutý ručne)
 
-### 3. Pilot tenant onboarding
+### 2. Pilot tenant onboarding (P0 závislosti hotové)
 
-SFZ (`inventario@futbalsfz.sk`) — pred onboardingom skontrolovať `email_unique` index na prod Atlas.
+SFZ (`inventario@futbalsfz.sk`) — email index vyriešený, QR hotové, DSAR hotové. Onboarding je odblokovaný.
 
-### 4. Compliance Fáza 2 (P2/P3)
+### 3. Compliance Fáza 2 (P2/P3)
 
 - Audit log retention job (#8) — Vercel cron + pseudonymizácia; pri ňom dorobiť 30-dňový grace period pre erasure (#5)
 - ADR-0022 Preberacie protokoly (PDF)
@@ -75,5 +77,5 @@ SFZ (`inventario@futbalsfz.sk`) — pred onboardingom skontrolovať `email_uniqu
 
 ---
 
-**Last updated:** 2026-06-01 (DSAR #3–#6 DONE)
+**Last updated:** 2026-06-01 (DSAR #3–#6 + email index fix DONE)
 **Tests:** zelené ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
