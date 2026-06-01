@@ -3539,7 +3539,7 @@
         "tags": [
           "Loan Requests"
         ],
-        "description": "Returns a paginated list of loan requests. EMPLOYEE sees only their own requests. ASSET_MANAGER and ADMIN see all requests in the tenant, optionally filtered by `status` or `requesterId`.",
+        "description": "Vráti stránkovaný zoznam žiadostí. EMPLOYEE vidí len vlastné. ASSET_MANAGER a ADMIN vidia všetky v rámci tenanta.",
         "parameters": [
           {
             "schema": {
@@ -3568,6 +3568,9 @@
               "enum": [
                 "PENDING",
                 "APPROVED",
+                "PARTIALLY_FULFILLED",
+                "FULFILLED",
+                "CLOSED",
                 "REJECTED",
                 "CANCELLED"
               ]
@@ -3647,11 +3650,11 @@
         }
       },
       "post": {
-        "summary": "Create a loan request",
+        "summary": "Create a loan request (katalógová žiadosť, ADR-0026)",
         "tags": [
           "Loan Requests"
         ],
-        "description": "Creates a new loan request. All requested assets must be AVAILABLE. Assets are atomically moved to RESERVED status. Any EMPLOYEE can submit a request.",
+        "description": "Vytvorí novú katalógovú žiadosť (kategória + množstvo). Žiadosť nerezervuje majetok — správca vydá pri fulfil. Každý EMPLOYEE môže podať žiadosť.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3678,13 +3681,23 @@
                     "items": {
                       "type": "object",
                       "properties": {
-                        "assetId": {
+                        "categoryId": {
                           "type": "string",
                           "pattern": "^[a-f\\d]{24}$"
+                        },
+                        "quantityRequested": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "note": {
+                          "type": "string",
+                          "maxLength": 1000,
+                          "nullable": true
                         }
                       },
                       "required": [
-                        "assetId"
+                        "categoryId",
+                        "quantityRequested"
                       ],
                       "additionalProperties": false
                     },
@@ -3736,7 +3749,6 @@
         "tags": [
           "Loan Requests"
         ],
-        "description": "Returns a single loan request. Accessible to the original requester or any ASSET_MANAGER / ADMIN.",
         "parameters": [
           {
             "schema": {
@@ -3772,7 +3784,7 @@
         "tags": [
           "Loan Requests"
         ],
-        "description": "Cancels a PENDING loan request. All reserved assets are released back to AVAILABLE. Only the original requester or an ADMIN can cancel.",
+        "description": "Zruší PENDING žiadosť. ADR-0026: nič sa neuvoľňuje (nebola rezervácia). Môže len autor žiadosti alebo ADMIN.",
         "parameters": [
           {
             "schema": {
@@ -3812,7 +3824,7 @@
         "tags": [
           "Loan Requests"
         ],
-        "description": "Approves a PENDING loan request. In MVP, approval = immediate pickup: all assets move RESERVED → BORROWED and a Loan document is created with status ACTIVE. Requires ASSET_MANAGER or ADMIN role.",
+        "description": "Schváli PENDING žiadosť (stav → APPROVED). ADR-0026: schválenie UŽ NEVYTVÁRA Loan — to sa deje pri fulfil. Vyžaduje ASSET_MANAGER alebo ADMIN.",
         "parameters": [
           {
             "schema": {
@@ -3844,13 +3856,150 @@
         }
       }
     },
+    "/v1/loan-requests/{id}/fulfil": {
+      "post": {
+        "summary": "Fulfil a loan request (vydanie, ADR-0026)",
+        "tags": [
+          "Loan Requests"
+        ],
+        "description": "Vydá majetok z APPROVED / PARTIALLY_FULFILLED žiadosti. Správca mapuje položky žiadosti na konkrétne kusy (SERIALIZED) alebo BULK množstvo. Vznikne nový Loan. Žiadosť prejde do PARTIALLY_FULFILLED / FULFILLED / CLOSED. Vyžaduje ASSET_MANAGER alebo ADMIN.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "requestItemIndex": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "SERIALIZED"
+                              ]
+                            },
+                            "assetIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-f\\d]{24}$"
+                              },
+                              "minItems": 1
+                            }
+                          },
+                          "required": [
+                            "requestItemIndex",
+                            "type",
+                            "assetIds"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "requestItemIndex": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "BULK"
+                              ]
+                            },
+                            "bulkItemId": {
+                              "type": "string",
+                              "pattern": "^[a-f\\d]{24}$"
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          },
+                          "required": [
+                            "requestItemIndex",
+                            "type",
+                            "bulkItemId",
+                            "quantity"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "dueAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true,
+                    "default": null
+                  },
+                  "closeRemainder": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true,
+                    "default": null
+                  }
+                },
+                "required": [
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/loan-requests/{id}/reject": {
       "post": {
         "summary": "Reject a loan request",
         "tags": [
           "Loan Requests"
         ],
-        "description": "Rejects a PENDING loan request. All reserved assets are released back to AVAILABLE. The `reason` field is required. Requires ASSET_MANAGER or ADMIN role.",
+        "description": "Zamietne PENDING žiadosť. ADR-0026: žiadna rezervácia — nič sa neuvoľňuje. Vyžaduje ASSET_MANAGER alebo ADMIN.",
         "requestBody": {
           "required": true,
           "content": {
