@@ -115,6 +115,11 @@ function OrganisationSettingsPanel(): JSX.Element {
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // foundContactInfo state (ADR-0021)
+  const [foundEmail, setFoundEmail] = useState('');
+  const [foundPhone, setFoundPhone] = useState('');
+  const [foundMessage, setFoundMessage] = useState('');
+
   // Hydrate form once the org loads
   const org = query.data;
   useEffect(() => {
@@ -133,6 +138,10 @@ function OrganisationSettingsPanel(): JSX.Element {
     setRegisteredAddress(b?.registeredAddress ?? EMPTY_ADDRESS);
     setHasMailingAddress(b?.mailingAddress != null);
     setMailingAddress(b?.mailingAddress ?? EMPTY_ADDRESS);
+    // foundContactInfo hydration (ADR-0021)
+    setFoundEmail(org.foundContactInfo?.email ?? '');
+    setFoundPhone(org.foundContactInfo?.phone ?? '');
+    setFoundMessage(org.foundContactInfo?.message ?? '');
   }, [org]);
 
   if (query.isLoading) return <PageSkeleton />;
@@ -188,6 +197,14 @@ function OrganisationSettingsPanel(): JSX.Element {
         displayName: displayName.trim() || org!.displayName,
         primaryContactEmail: primaryContactEmail.trim() || null,
         billing: buildBilling(),
+        foundContactInfo:
+          foundEmail.trim() || foundPhone.trim() || foundMessage.trim()
+            ? {
+                email: foundEmail.trim() || null,
+                phone: foundPhone.trim() || null,
+                message: foundMessage.trim() || null,
+              }
+            : null,
       },
       {
         onSuccess: () => {
@@ -232,6 +249,44 @@ function OrganisationSettingsPanel(): JSX.Element {
               onChange={(e) => setPrimaryContactEmail(e.target.value)}
               placeholder="kontakt@organizacia.sk"
               className={inputCls()}
+            />
+          </Field>
+        </Section>
+
+        <Section title="QR kódy — kontakt na vrátenie">
+          <p className="-mt-1 text-xs text-text-secondary">
+            Tieto informácie sa zobrazia na verejnej stránke po naskenovaní QR kódu nálezcom.
+            Odporúčame organizačný kontakt, nie osobný. Nechajte prázdne, ak nechcete zverejniť
+            kontakt.
+          </p>
+          <Field label="E-mail" hint="napr. majetok@organizacia.sk">
+            <input
+              type="email"
+              value={foundEmail}
+              onChange={(e) => setFoundEmail(e.target.value)}
+              placeholder="majetok@organizacia.sk"
+              className={inputCls()}
+            />
+          </Field>
+          <Field label="Telefón" hint="napr. +421900000000">
+            <input
+              type="tel"
+              value={foundPhone}
+              onChange={(e) => setFoundPhone(e.target.value)}
+              placeholder="+421900000000"
+              className={inputCls()}
+            />
+          </Field>
+          <Field
+            label="Správa pre nálezcu"
+            hint="Krátka inštrukcia, napr. Kontaktujte nás na vrátenie. Ďakujeme!"
+          >
+            <textarea
+              rows={3}
+              value={foundMessage}
+              onChange={(e) => setFoundMessage(e.target.value)}
+              placeholder="Kontaktujte nás — radi vám poradíme, ako majetok vrátiť. Ďakujeme!"
+              className={inputCls() + ' resize-none'}
             />
           </Field>
         </Section>

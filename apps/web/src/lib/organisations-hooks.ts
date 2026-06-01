@@ -54,6 +54,12 @@ export interface OrganisationSummary {
   entraTenantId: string | null;
   customDomain: string | null;
   billing: BillingInfo | null;
+  /** Kontakt na vrátenie najdeného majetku (ADR-0021). */
+  foundContactInfo: {
+    email: string | null;
+    phone: string | null;
+    message: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -125,6 +131,12 @@ export interface UpdateCurrentOrganisationInput {
   displayName?: string;
   primaryContactEmail?: string | null;
   billing?: BillingInfo | null;
+  /** Kontakt na vrátenie najdeného majetku — zobrazí sa na verejnej scan stránke (ADR-0021). */
+  foundContactInfo?: {
+    email?: string | null;
+    phone?: string | null;
+    message?: string | null;
+  } | null;
 }
 
 export function useUpdateCurrentOrganisation(): UseMutationResult<

@@ -21,7 +21,9 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+
+const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
 import { AssetDetailEditForm } from './AssetDetailEditForm';
 import { AssetDetailReadView } from './AssetDetailReadView';
@@ -168,7 +170,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                   onEdit={() => setMode('edit')}
                 />
                 {/* QR card */}
-                <QrCard inventoryNumber={assetQuery.data.inventoryNumber} />
+                <QrCard assetId={assetId} inventoryNumber={assetQuery.data.inventoryNumber} />
               </div>
 
               {/* Tabs */}
@@ -385,56 +387,44 @@ function AssetHeroCard({
 }
 
 // ---------------------------------------------------------------------------
-// QR card
+// QR card (ADR-0021 K3+K5)
 // ---------------------------------------------------------------------------
 
-function QrCard({ inventoryNumber }: { inventoryNumber: string }): JSX.Element {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [qrSvg, setQrSvg] = useState<string | null>(null);
+/**
+ * QrCard — zobrazuje QR kod pre asset.
+ *
+ * Pouziva backend endpoint GET /v1/assets/:id/qr?format=svg (ADR-0021 K3).
+ * Image sa nacitava cez <img> tag s credentials — cookie auth funguje
+ * automaticky (same-site request na API_BASE).
+ * Download button fetchuje PNG blob a triggerne <a download>.
+ */
+function QrCard({
+  assetId,
+  inventoryNumber,
+}: {
+  assetId: string;
+  inventoryNumber: string;
+}): JSX.Element {
+  const [downloading, setDownloading] = useState(false);
+  const qrSvgUrl = `${API_BASE}/v1/assets/${assetId}/qr?format=svg`;
+  const qrPngUrl = `${API_BASE}/v1/assets/${assetId}/qr?format=png`;
 
-  useEffect(() => {
-    // Use qrcode-generator via CDN-free approach: build a minimal QR SVG
-    // We generate a URL that encodes the inventory number
-    const url = `https://app.inventario.estate/assets?q=${encodeURIComponent(inventoryNumber)}`;
-
-    // Load qrcode-generator dynamically
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
-    script.onload = () => {
-      try {
-        // @ts-expect-error — global from CDN
-        const qr = window.qrcode(0, 'M') as {
-          addData: (s: string) => void;
-          make: () => void;
-          createSvgTag: (cellSize: number, margin: number) => string;
-        };
-        qr.addData(url);
-        qr.make();
-        setQrSvg(qr.createSvgTag(4, 0));
-      } catch {
-        // fallback: show placeholder
-      }
-    };
-    // Check if already loaded
-    // @ts-expect-error — global from CDN
-    if (typeof window.qrcode !== 'undefined') {
-      try {
-        // @ts-expect-error — global from CDN
-        const qr = window.qrcode(0, 'M') as {
-          addData: (s: string) => void;
-          make: () => void;
-          createSvgTag: (cellSize: number, margin: number) => string;
-        };
-        qr.addData(url);
-        qr.make();
-        setQrSvg(qr.createSvgTag(4, 0));
-      } catch {
-        /* ignore */
-      }
-    } else {
-      document.head.appendChild(script);
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const res = await fetch(qrPngUrl, { credentials: 'include' });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${inventoryNumber}-qr.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
     }
-  }, [inventoryNumber]);
+  }
 
   return (
     <div className="flex flex-col rounded-xl border border-border-subtle bg-surface-card p-5 shadow-sm lg:p-6">
@@ -445,25 +435,32 @@ function QrCard({ inventoryNumber }: { inventoryNumber: string }): JSX.Element {
         </div>
         <button
           type="button"
-          title="Stiahnuť"
-          className="rounded p-1.5 text-text-muted transition hover:bg-surface-subtle hover:text-text-primary"
+          title="Stiahnuť PNG"
+          disabled={downloading}
+          onClick={() => void handleDownload()}
+          className="rounded p-1.5 text-text-muted transition hover:bg-surface-subtle hover:text-text-primary disabled:opacity-50"
         >
-          <Download aria-hidden="true" className="h-4 w-4" />
+          {downloading ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download aria-hidden="true" className="h-4 w-4" />
+          )}
         </button>
       </div>
 
-      {/* QR code */}
-      <div
-        ref={containerRef}
-        className="mx-auto w-40 rounded-xl border border-border-subtle bg-white p-3 lg:w-44"
-        style={{ lineHeight: 0 }}
-        dangerouslySetInnerHTML={qrSvg ? { __html: qrSvg } : undefined}
-      >
-        {!qrSvg && (
-          <div className="flex h-40 items-center justify-center lg:h-44">
-            <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
-          </div>
-        )}
+      {/* QR SVG — nacitany z API (same-origin), cookie auth automaticky.
+           Pouzivame <img> nie next/image lebo src je API URL s credentials;
+           next/image nepodporuje credentials: include na same-origin fetch. */}
+      <div className="mx-auto w-40 rounded-xl border border-border-subtle bg-white p-3 lg:w-44">
+        <img
+          src={qrSvgUrl}
+          alt={`QR kod pre ${inventoryNumber}`}
+          className="h-full w-full"
+          onError={(e) => {
+            // Ak API vrati 409 (appBaseUrl nie je nastaveny) — skry obrazok
+            (e.target as HTMLImageElement).style.opacity = '0.2';
+          }}
+        />
       </div>
 
       <div className="mt-3 text-center">
@@ -473,15 +470,13 @@ function QrCard({ inventoryNumber }: { inventoryNumber: string }): JSX.Element {
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
-        <button type="button" className="text-xs font-semibold text-brand-primary hover:underline">
-          Tlač štítka →
-        </button>
+      <div className="mt-4 border-t border-border-subtle pt-4">
         <button
           type="button"
-          className="text-xs font-medium text-text-muted hover:text-text-primary"
+          onClick={() => void handleDownload()}
+          className="w-full text-xs font-medium text-text-secondary hover:text-text-primary"
         >
-          Otvoriť link →
+          Stiahnuť PNG na tlač →
         </button>
       </div>
     </div>
