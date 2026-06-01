@@ -392,6 +392,52 @@ export class UsersRepository {
   }
 
   /**
+   * Set or clear the GDPR čl. 18 restriction flag on a user within the
+   * tenant. Returns the updated doc or null if not found / cross-tenant.
+   *
+   * When `isRestricted` is true, also stamps `restrictedAt` and optional
+   * `restrictionReason`. When false, clears both. Caller sets
+   * `updatedAt`/`updatedBy`.
+   */
+  async setRestriction(
+    organisationId: string,
+    id: string,
+    args: {
+      isRestricted: boolean;
+      restrictedAt: string | null;
+      restrictionReason: string | null;
+      updatedAt: string;
+      updatedBy: string;
+    },
+    session?: ClientSession,
+  ): Promise<WithId<User> | null> {
+    const tenantId = requireTenantId(organisationId);
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      tenantFilter<User>(tenantId, {
+        _id: new ObjectId(id) as unknown as User['_id'],
+      } as Filter<User>),
+      {
+        $set: {
+          isRestricted: args.isRestricted,
+          restrictedAt: args.restrictedAt,
+          restrictionReason: args.restrictionReason,
+          updatedAt: args.updatedAt,
+          updatedBy: args.updatedBy,
+        },
+      },
+      {
+        returnDocument: 'after',
+        projection: PUBLIC_PROJECTION,
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
+
+  /**
    * Count users who are active AND have the ADMIN role within the
    * tenant, excluding the given userId
    *

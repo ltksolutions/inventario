@@ -699,6 +699,99 @@ export class UsersService {
   }
 
   // -------------------------------------------------------------------------
+  // GDPR čl. 18 — right to restriction of processing (admin action)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Set or clear the GDPR čl. 18 processing-restriction flag on a user
+   * within the actor's tenant. Admin action.
+   *
+   * When `restrict` is true:  isRestricted=true, restrictedAt=now,
+   *   restrictionReason=reason (optional). Emits USER_RESTRICTED.
+   * When `restrict` is false: isRestricted=false, restrictedAt=null,
+   *   restrictionReason=null. Emits USER_UNRESTRICTED.
+   *
+   * Idempotent: setting an already-restricted user to restricted (or an
+   * already-unrestricted one to unrestricted) is a BadRequest — the
+   * caller should know the current state. This prevents spurious audit
+   * noise and surfaces likely UI bugs.
+   *
+   * Cross-tenant access blocked via tenant-scoped repo call (404, not 403,
+   * so we don't leak the existence of the cross-tenant document).
+   *
+   * Runs in a transaction so the flag flip and the audit event commit
+   * atomically.
+   */
+  async setRestriction(
+    id: string,
+    restrict: boolean,
+    reason: string | null,
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<Record<string, unknown>> {
+    if (!this.auditLog || !this.mongoClient) {
+      throw new Error('UsersService.setRestriction requires auditLog and mongoClient.');
+    }
+    const auditLog = this.auditLog;
+    const actorId = String(actor._id);
+    const tenantId = String(actor.organisationId);
+
+    const updated = await this.runInTransaction(async (session) => {
+      const before = await this.repo.findById(tenantId, id, session);
+      if (!before) {
+        throw new NotFoundError('User', id);
+      }
+
+      const currentlyRestricted = before.isRestricted === true;
+      if (currentlyRestricted === restrict) {
+        throw new BadRequestError(
+          restrict ? 'User is already restricted.' : 'User is not currently restricted.',
+        );
+      }
+
+      const now = new Date().toISOString();
+      const after = await this.repo.setRestriction(
+        tenantId,
+        id,
+        {
+          isRestricted: restrict,
+          restrictedAt: restrict ? now : null,
+          restrictionReason: restrict ? reason : null,
+          updatedAt: now,
+          updatedBy: actorId,
+        },
+        session,
+      );
+      if (!after) {
+        throw new NotFoundError('User', id);
+      }
+
+      await auditLog.record(
+        actor,
+        request,
+        {
+          action: restrict ? 'USER_RESTRICTED' : 'USER_UNRESTRICTED',
+          target: {
+            entityType: 'User',
+            entityId: String(after._id),
+            snapshot: { email: after.email, displayName: after.displayName },
+          },
+          description: restrict
+            ? `Restricted processing for "${after.displayName}" (${after.email})${reason ? ` — ${reason}` : ''}`
+            : `Lifted processing restriction for "${after.displayName}" (${after.email})`,
+          severity: 'WARNING',
+          ...(restrict && reason ? { metadata: { reason } } : {}),
+        },
+        session,
+      );
+
+      return after;
+    });
+
+    return toApiShape(updated);
+  }
+
+  // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
 

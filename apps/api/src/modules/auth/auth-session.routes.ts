@@ -303,18 +303,25 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       await session.endSession();
     }
 
-    // Audit
-    await fastify.mongo.db.collection('audit_logs').insertOne({
+    // Audit — cez AuditLogService pre konzistentný tvar (legalBasis,
+    // dataCategories, plný actor snapshot). DATA_DELETION_REQUESTED =
+    // legal_obligation per GDPR čl. 17.
+    await fastify.auditLog.record(request.currentUser, request, {
       action: 'DATA_DELETION_REQUESTED',
+      target: {
+        entityType: 'User',
+        entityId: userId,
+        snapshot: {
+          email: request.currentUser.email,
+          displayName: request.currentUser.displayName,
+        },
+      },
+      description: `User "${request.currentUser.displayName}" requested account erasure (GDPR čl. 17)`,
       severity: 'WARNING',
-      actor: { userId, email: request.currentUser.email },
-      target: { entityType: 'User', entityId: userId },
-      organisationId: request.organisationId,
       metadata: {
         deletedMemberships: allMemberships.length,
         orgs: activeOrgs,
       },
-      createdAt: now,
     });
 
     // Zmazanie JWT cookies
@@ -330,5 +337,5 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
 export default fp(authSessionRoutesPlugin, {
   name: 'auth-session-routes',
-  dependencies: ['config', 'mongo', 'inventario-jwt', 'auth'],
+  dependencies: ['config', 'mongo', 'inventario-jwt', 'auth', 'audit'],
 });

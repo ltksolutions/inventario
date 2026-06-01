@@ -174,9 +174,37 @@ export const UserSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
 
     /**
      * Globálna aktívnosť účtu.
-     * false = súdny zákaz / GDPR right-to-restrict / admin block.
+     * false = súdny zákaz / admin block / deaktivácia.
+     *
+     * POZNÁMKA: `isActive: false` blokuje login úplne (deaktivácia). Pre GDPR
+     * čl. 18 (right to restrict) použiť samostatný `isRestricted` — ten dáta
+     * UCHOVÁVA a umožňuje read prístup vlastníkovi, ale blokuje ďalšie
+     * spracovanie (write operácie, zaradenie do nových procesov).
      */
     isActive: z.boolean().default(true),
+
+    // -----------------------------------------------------------------
+    // GDPR čl. 18 — right to restriction of processing
+    // -----------------------------------------------------------------
+
+    /**
+     * GDPR čl. 18 — obmedzenie spracovania.
+     *
+     * true = osobné údaje sa UCHOVÁVAJÚ, ale nesmú sa ďalej spracúvať
+     * (okrem uloženia). Na rozdiel od `isActive: false` (deaktivácia účtu)
+     * obmedzený používateľ môže mať read prístup k vlastným údajom, ale
+     * systém nesmie s jeho údajmi inak nakladať — write operácie sú blokované.
+     *
+     * Enforcement: auth middleware odmietne mutujúce požiadavky (POST/PATCH/
+     * DELETE) obmedzeného používateľa s 403; GET ostávajú povolené.
+     */
+    isRestricted: z.boolean().default(false),
+
+    /** Kedy bolo obmedzenie spracovania nastavené. Null ak nie je obmedzený. */
+    restrictedAt: TimestampSchema.nullable().default(null),
+
+    /** Voliteľný dôvod obmedzenia (pre audit/compliance). */
+    restrictionReason: z.string().max(500).nullable().default(null),
 
     /** Posledné prihlásenie (globálne, nie per-tenant). */
     lastLoginAt: TimestampSchema.nullable().default(null),

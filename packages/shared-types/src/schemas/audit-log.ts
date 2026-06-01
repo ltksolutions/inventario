@@ -102,6 +102,8 @@ export const AuditLogSchema = z.object({
     'DATA_EXPORT_REQUESTED',
     'DATA_DELETION_REQUESTED',
     'USER_PSEUDONYMIZED',
+    'USER_RESTRICTED',
+    'USER_UNRESTRICTED',
 
     // Membership (slice #9d K18)
     'MEMBERSHIP_CREATED',

@@ -146,6 +146,23 @@ const ListUsersResponseSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Admin: GDPR cl. 18 restriction body
+// ---------------------------------------------------------------------------
+
+/**
+ * Body for POST /v1/users/:id/restriction (GDPR Art. 18).
+ *
+ * `restrict: true`  sets the processing-restriction flag (optional reason).
+ * `restrict: false` clears it.
+ */
+const RestrictionBodySchema = z
+  .object({
+    restrict: z.boolean(),
+    reason: z.string().min(1).max(500).trim().nullable().optional(),
+  })
+  .describe('Set/clear processing restriction (GDPR Art. 18).');
+
+// ---------------------------------------------------------------------------
 // Admin: PATCH body
 // ---------------------------------------------------------------------------
 
@@ -424,6 +441,42 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       await service.resetMfa(request.params.id, request.currentUser, request);
       return reply.code(204).send(null);
+    },
+  );
+
+  // --- POST /v1/users/:id/restriction --------------------------------------
+  app.post(
+    '/v1/users/:id/restriction',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canAdmin],
+      schema: {
+        tags: ['Users'],
+        summary: 'Set or clear processing restriction (admin, GDPR Art. 18)',
+        description:
+          'Sets (`restrict: true`) or clears (`restrict: false`) the GDPR Art. 18 ' +
+          "processing-restriction flag on a user. A restricted user's data is retained " +
+          'but further processing is blocked: the auth middleware rejects mutating ' +
+          'requests (POST/PATCH/DELETE) with 403 while still allowing reads (GET). ' +
+          'Optional `reason` is recorded for compliance. Emits USER_RESTRICTED or ' +
+          'USER_UNRESTRICTED audit event. Idempotent calls (already in the requested ' +
+          'state) return 400. Requires ADMIN role.',
+        security: [{ bearerAuth: [] }],
+        params: UserIdParamsSchema,
+        body: RestrictionBodySchema,
+        response: {
+          200: UserResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      const { restrict, reason } = request.body;
+      return service.setRestriction(
+        request.params.id,
+        restrict,
+        reason ?? null,
+        request.currentUser,
+        request,
+      );
     },
   );
 };

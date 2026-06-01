@@ -168,7 +168,9 @@ function defaultLegalBasisFor(action: string): AuditLog['legalBasis'] {
   if (
     action === 'DATA_EXPORT_REQUESTED' ||
     action === 'DATA_DELETION_REQUESTED' ||
-    action === 'USER_PSEUDONYMIZED'
+    action === 'USER_PSEUDONYMIZED' ||
+    action === 'USER_RESTRICTED' ||
+    action === 'USER_UNRESTRICTED'
   ) {
     return 'legal_obligation';
   }
@@ -260,6 +262,9 @@ function defaultDataCategoriesFor(action: string): NonNullable<AuditLog['dataCat
     action === 'USER_PSEUDONYMIZED'
   ) {
     return ['identification', 'contact', 'account', 'authentication'];
+  }
+  if (action === 'USER_RESTRICTED' || action === 'USER_UNRESTRICTED') {
+    return ['account'];
   }
 
   // Membership lifecycle (slice #9d)

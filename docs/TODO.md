@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-01 (založené po Vlnách 1–4 upratovania)                                      |
+| **Posledná aktualizácia** | 2026-06-01 (DSAR čl. 16/17/18/20 všetky DONE)                                        |
 | **Stav projektu**         | Production LIVE ✅ — 0 otvorených ADR, 0 tech-dlhu                                   |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
@@ -74,18 +74,26 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] `PATCH /v1/me` endpoint — RBAC: každý autentifikovaný používateľ (self)
   - [x] 16 integračných testov v `users-patch-me.test.ts`
 
-### 5. Right to erasure / hard delete (čl. 17)
+### 5. Right to erasure / hard delete (čl. 17) ✅ DONE (2026-06-01)
 
-- **Stav:** ⏳ existuje len soft-delete
-- **Model:** Sonnet
-- **Rozsah:** asynchrónny hard-erasure job po 30 dňoch od soft-delete
-- **Súvis:** zdieľa „pseudonymizačnú/mazaciu" vrstvu s položkou 8 (retention job)
+- **Stav:** ✅ implementované (okamžitá pseudonymizácia)
+- **Session:** [`docs/sessions/2026-06-01-dsar-erasure-restrict.md`](./sessions/2026-06-01-dsar-erasure-restrict.md)
+- **Čo bolo implementované:**
+  - [x] `DELETE /v1/auth/me` (už existoval z K17) — okamžitá pseudonymizácia User + soft-delete všetkých memberships v transakcii
+  - [x] last-admin guard (`assertNotLastAdminForDeletion` per-org) — sólo admin sa nedá zmazať
+  - [x] audit `DATA_DELETION_REQUESTED` refaktorovaný na `AuditLogService` (legalBasis, dataCategories, plný actor snapshot)
+  - [x] testy `auth-erasure.test.ts` (endpoint predtým nemal žiadne)
+- **Budúce zlepšenie (P2):** 30-dňový grace period sa dorobí pri retention jobe (#8) — zdieľa pseudonymizačnú vrstvu. Okamžitá pseudonymizácia je validné splnenie čl. 17 medzitým.
 
-### 6. Right to restrict (čl. 18)
+### 6. Right to restrict (čl. 18) ✅ DONE (2026-06-01)
 
-- **Stav:** ⏳ plánované (ROPA)
-- **Model:** Sonnet
-- **Rozsah:** `isRestricted` flag na `User` + obmedzenie spracovania v UI
+- **Stav:** ✅ implementované
+- **Session:** [`docs/sessions/2026-06-01-dsar-erasure-restrict.md`](./sessions/2026-06-01-dsar-erasure-restrict.md)
+- **Čo bolo implementované:**
+  - [x] `isRestricted` + `restrictedAt` + `restrictionReason` na User schéme (samostatné od `isActive`)
+  - [x] `POST /v1/users/:id/restriction` (admin) — set/clear flag, idempotencia (400), audit `USER_RESTRICTED`/`USER_UNRESTRICTED`
+  - [x] enforcement v auth middleware: restricted user = read-only (mutujúce metódy → 403, GET povolené; erasure čl. 17 má prednosť)
+  - [x] testy `users-restriction.test.ts`
 
 ---
 
@@ -175,8 +183,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Ako čítať tento backlog
 
-- **Najbližší balík pred pilotom:** položky 1 + 2 (QR + index overenie)
-- **Hneď ako budú živé dáta tenanta:** položky 3–6 (DSAR práva — právna povinnosť)
+- **Najbližší balík pred pilotom:** položka 2 (email_unique index overenie)
+- **DSAR práva (čl. 16/17/18/20):** ✅ hotové (položky 3–6)
 - **Najväčšia jednotlivá feature v zálohe:** položka 7 (PDF protokoly)
 - **Čisto dokumentácia, dá sa kedykoľvek:** položky 9–12
 

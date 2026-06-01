@@ -9,21 +9,26 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                 |
 | ------------------------- | ------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (DSAR #3 + #4 DONE — export + self-patch)    |
+| **Posledná aktualizácia** | 2026-06-01 (DSAR #3–#6 DONE — všetky 4 práva hotové)    |
 | **Aktuálna fáza**         | Production LIVE — smoke test + pilot onboarding je next |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`           |
 | **GitHub**                | https://github.com/ltksolutions/inventario              |
 
 ---
 
-## DSAR práva dotknutých osôb — čiastočne DONE
+## DSAR práva dotknutých osôb ✅ KOMPLETNE (čl. 16, 17, 18, 20)
 
 - ✅ **#3 Right to data portability (čl. 20):** `GET /v1/me/export` — JSON export profil + memberships + audit logy ako actor
-- ✅ **#4 Self-service oprava profilu (čl. 16):** `PATCH /v1/me` — firstName, lastName, displayName, preferences; strict Zod schema
-- ⏳ **#5 Right to erasure (čl. 17):** asynchrónny hard-erasure job po 30 dňoch
-- ⏳ **#6 Right to restrict (čl. 18):** `isRestricted` flag + obmedzenie spracovania
+- ✅ **#4 Self-service oprava profilu (čl. 16):** `PATCH /v1/me` — strict Zod schema (4 polia)
+- ✅ **#5 Right to erasure (čl. 17):** `DELETE /v1/auth/me` — okamžitá pseudonymizácia + soft-delete memberships, last-admin guard, audit cez AuditLogService
+- ✅ **#6 Right to restrict (čl. 18):** `POST /v1/users/:id/restriction` (admin) + `isRestricted` flag + enforcement v auth middleware (restricted = read-only)
 
-Session doc: `docs/sessions/2026-06-01-dsar-export-patch-me.md`
+Session docs:
+`docs/sessions/2026-06-01-dsar-export-patch-me.md` (#3+#4)
+`docs/sessions/2026-06-01-dsar-erasure-restrict.md` (#5+#6)
+
+> **Budúce zlepšenie (P2, viazané na retention job #8):** erasure (#5) je teraz okamžitá pseudonymizácia.
+> 30-dňový grace period sa dorobí až keď sa stavá Vercel cron pre retention job — zdíľa s ním pseudonymizačnú vrstvu.
 
 ---
 
@@ -53,10 +58,10 @@ pnpm test
 
 SFZ (`inventario@futbalsfz.sk`) — pred onboardingom skontrolovať `email_unique` index na prod Atlas.
 
-### 4. Ďalšie DSAR práva (P1)
+### 4. Compliance Fáza 2 (P2/P3)
 
-- `#5` Right to erasure (čl. 17) — hard-erasure job
-- `#6` Right to restrict (čl. 18) — `isRestricted` flag
+- Audit log retention job (#8) — Vercel cron + pseudonymizácia; pri ňom dorobiť 30-dňový grace period pre erasure (#5)
+- ADR-0022 Preberacie protokoly (PDF)
 
 ---
 
@@ -70,5 +75,5 @@ SFZ (`inventario@futbalsfz.sk`) — pred onboardingom skontrolovať `email_uniqu
 
 ---
 
-**Last updated:** 2026-06-01 (DSAR #3 + #4 DONE)
+**Last updated:** 2026-06-01 (DSAR #3–#6 DONE)
 **Tests:** zelené ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

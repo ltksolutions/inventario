@@ -1607,6 +1607,71 @@
         }
       }
     },
+    "/v1/users/{id}/restriction": {
+      "post": {
+        "summary": "Set or clear processing restriction (admin, GDPR Art. 18)",
+        "tags": [
+          "Users"
+        ],
+        "description": "Sets (`restrict: true`) or clears (`restrict: false`) the GDPR Art. 18 processing-restriction flag on a user. A restricted user's data is retained but further processing is blocked: the auth middleware rejects mutating requests (POST/PATCH/DELETE) with 403 while still allowing reads (GET). Optional `reason` is recorded for compliance. Emits USER_RESTRICTED or USER_UNRESTRICTED audit event. Idempotent calls (already in the requested state) return 400. Requires ADMIN role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "restrict": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "restrict"
+                ],
+                "additionalProperties": false,
+                "description": "Set/clear processing restriction (GDPR Art. 18)."
+              }
+            }
+          },
+          "description": "Set/clear processing restriction (GDPR Art. 18)."
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/assets": {
       "get": {
         "summary": "List assets",

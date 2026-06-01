@@ -181,6 +181,31 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
 
     request.currentUser = userDoc as unknown as WithId<User>;
 
+    // ----- GDPR čl. 18 enforcement: restricted users are read-only -----
+    //
+    // A user with `isRestricted: true` has their processing restricted: data
+    // is retained and readable, but no further processing is permitted. We
+    // enforce this by rejecting mutating HTTP methods (POST/PATCH/PUT/DELETE)
+    // with 403, while allowing safe methods (GET/HEAD/OPTIONS).
+    //
+    // Exceptions (always allowed even when restricted):
+    //   - DELETE /v1/auth/me  — right to erasure (čl. 17) overrides restriction
+    //   - lifting the restriction itself is an admin action on ANOTHER user's
+    //     account, so it runs under the admin's (unrestricted) context — no
+    //     exception needed here.
+    if (userDoc['isRestricted'] === true) {
+      const method = request.method.toUpperCase();
+      const isMutating = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+      const isErasureRequest = method === 'DELETE' && request.url.startsWith('/v1/auth/me');
+
+      if (isMutating && !isErasureRequest) {
+        throw new ForbiddenError(
+          'PROCESSING_RESTRICTED: Your data processing is restricted (GDPR Art. 18). ' +
+            'Only read operations are permitted. Contact an administrator.',
+        );
+      }
+    }
+
     // ADR-0015 compat: the `organisationId` field was removed from User
     // documents by the memberships migration (tenant scope now lives on
     // Membership). Many service methods still read `actor.organisationId`
