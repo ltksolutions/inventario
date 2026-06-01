@@ -25,16 +25,18 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### 1. ADR-0021 — QR kódy majetku
 
-- **Stav:** ADR ✅ Accepted, kód **úplne chýba** (žiadny QR ani public-asset modul v API)
+- **Stav:** ADR ✅ Accepted, K1-K3 ✅ DONE (2026-06-01)
 - **Model:** Sonnet
 - **ADR:** [`docs/decisions/0021-asset-qr-codes.md`](./decisions/0021-asset-qr-codes.md)
+- **Session:** [`docs/sessions/2026-06-01-adr-0021-qr-k1-k3.md`](./sessions/2026-06-01-adr-0021-qr-k1-k3.md)
 - **Rozsah:**
-  - [ ] `publicToken` (náhodný, neuhádnuteľný) na `AssetSchema` + generovanie pri POST
-  - [ ] QR obsah = URL s tokenom, **doménovo nezávislé** (tvrdá požiadavka kvôli forkom — fork nesmie generovať kódy ukazujúce na pôvodnú inštanciu)
-  - [ ] on-demand QR render (neperzistovať obrázok)
-  - [ ] verejný `GET /v1/public/assets/:token` lookup — opt-in per tenant (`publicAssetLookup`, default `false`), samostatné `PublicAssetView` DTO s **explicitným whitelistom** polí (NIE Pick/Omit), rate-limited
-  - [ ] `inventoryNumber` konfigurovateľný per tenant (prefix konvencia)
-  - [ ] frontend: zobrazenie QR na detaile majetku + verejná „našiel som to" stránka
+  - [x] `publicToken` na `AssetSchema` + generovanie pri POST (K1+K2)
+  - [x] `inventoryNumberFormat` per tenant — prefix, padding, includeYear, resetYearly (K2)
+  - [x] on-demand QR render `GET /v1/assets/:id/qr?format=svg|png` (K3)
+  - [ ] verejný `GET /v1/public/scan/:token` — opt-in, `PublicAssetView` whitelist, rate-limited (K4)
+  - [ ] frontend: `/scan/[token]` route + QR na detaile + Settings foundContactInfo (K5)
+  - [ ] whitelist test pre `PublicAssetViewSchema` (K6)
+  - [ ] openapi regen (K7)
 
 ### 2. email_unique index — overiť/dotiahnuť na prod Atlas
 

@@ -1,22 +1,28 @@
-// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-FileCopyrightText: 2026 Jan Letko / LTK Solutions
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * Assets routes — HTTP endpoints for asset management.
+ * Assets routes - HTTP endpoints for asset management.
  *
  * RBAC matrix:
- *   - GET    /v1/assets       EMPLOYEE+
- *   - GET    /v1/assets/:id   EMPLOYEE+
- *   - POST   /v1/assets       ASSET_MANAGER + ADMIN
- *   - PATCH  /v1/assets/:id   ASSET_MANAGER + ADMIN
- *   - DELETE /v1/assets/:id   ADMIN only
+ *   - GET    /v1/assets              EMPLOYEE+
+ *   - GET    /v1/assets/:id          EMPLOYEE+
+ *   - GET    /v1/assets/:id/qr       EMPLOYEE+ (ADR-0021 K3)
+ *   - POST   /v1/assets              ASSET_MANAGER + ADMIN
+ *   - PATCH  /v1/assets/:id          ASSET_MANAGER + ADMIN
+ *   - DELETE /v1/assets/:id          ADMIN only
  *
- * ADR-0021 (K2): `inventoryNumberPrefix` bol ODSTRÁNENÝ z POST body.
- * Server číta prefix (a celý formát) z `Organisation.inventoryNumberFormat`.
- * Ak tenant nemá formát nastavený, POST vráti 400 s jasnou správou.
+ * ADR-0021 (K2): inventoryNumberPrefix bol odstraneny z POST body.
+ * Server cita prefix (a cely format) z Organisation.inventoryNumberFormat.
+ * Ak tenant nema format nastaveny, POST vrati 400 s jasnou spravou.
+ *
+ * ADR-0021 (K3): GET /v1/assets/:id/qr generuje QR kod on-demand.
+ * URL v QR = ${organisation.appBaseUrl}/scan/${asset.publicToken}.
+ * Domena VYLUCNE z appBaseUrl - NIKDY z Host hlavicky.
  */
 
 import { UpdateAssetSchema } from '@inventario/shared-types';
+import QRCode from 'qrcode';
 import { z } from 'zod';
 
 import { CategoriesRepository } from '../categories/categories.repository.js';
@@ -39,16 +45,13 @@ const ListAssetsQuerySchema = z.object({
 });
 
 const AssetIdParamsSchema = z.object({
-  id: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát ID (očakáva sa 24 hex znakov).'),
+  id: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatny format ID (ocakava sa 24 hex znakov).'),
 });
 
-/**
- * Body schema pre POST /v1/assets (ADR-0021 K2).
- *
- * `inventoryNumberPrefix` bol ODSTRÁNENÝ — server číta prefix z
- * `Organisation.inventoryNumberFormat`. Klient neposiela prefix.
- * `inventoryNumber` sa generuje serverom (nie je v body).
- */
+const QrQuerySchema = z.object({
+  format: z.enum(['svg', 'png']).default('svg'),
+});
+
 const ApiCreateAssetBodySchema = z
   .object({
     serialNumber: z.string().max(200).nullable().default(null),
@@ -149,6 +152,74 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // --- GET /v1/assets/:id/qr -----------------------------------------------
+  // ADR-0021 K3: on-demand QR render. URL v QR = appBaseUrl/scan/publicToken.
+  // Content-Type: image/svg+xml alebo image/png podla ?format=.
+  // Cache-Control: immutable (token je nemenný, teda QR je stabilný).
+  // Domena VYLUCNE z organisation.appBaseUrl - NIKDY z Host hlavicky.
+  app.get(
+    '/v1/assets/:id/qr',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
+      schema: {
+        tags: ['Assets'],
+        summary: 'Generuj QR kod pre asset (ADR-0021)',
+        description:
+          'On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. ' +
+          'Vyzaduje nastaveny appBaseUrl na Organisation - inak 409. ' +
+          'format=svg (default) alebo png.',
+        security: [{ bearerAuth: [] }],
+        params: AssetIdParamsSchema,
+        querystring: QrQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const { id } = request.params;
+      const { format } = request.query;
+
+      // Nacitaj asset (tenant-scoped)
+      const asset = await repo.findById(tenantId, id);
+      if (!asset) {
+        return reply.status(404).send({ message: 'Asset not found.' });
+      }
+
+      // Nacitaj org pre appBaseUrl - VYLUCNE z DB, nikdy z request headers
+      const org = await orgsRepo.findById(tenantId);
+      if (!org || !org.appBaseUrl) {
+        return reply.status(409).send({
+          message:
+            'Nastavte appBaseUrl na organizacii pred pouzitim QR kodov (Settings -> Organizacia).',
+        });
+      }
+
+      const url = `${org.appBaseUrl}/scan/${asset.publicToken}`;
+
+      if (format === 'png') {
+        const pngBuffer = await QRCode.toBuffer(url, {
+          type: 'png',
+          margin: 2,
+          width: 300,
+        });
+        return reply
+          .header('Content-Type', 'image/png')
+          .header('Cache-Control', 'public, max-age=31536000, immutable')
+          .send(pngBuffer);
+      }
+
+      // SVG default
+      const svgString = await QRCode.toString(url, {
+        type: 'svg',
+        margin: 2,
+        width: 300,
+      });
+      return reply
+        .header('Content-Type', 'image/svg+xml')
+        .header('Cache-Control', 'public, max-age=31536000, immutable')
+        .send(svgString);
+    },
+  );
+
   // --- POST /v1/assets -----------------------------------------------------
   app.post(
     '/v1/assets',
@@ -158,10 +229,9 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Assets'],
         summary: 'Create a new asset',
         description:
-          'Server generuje `inventoryNumber` z `Organisation.inventoryNumberFormat` (prefix, ' +
-          'padding, includeYear, resetYearly) a `publicToken` cez CSPRNG. ' +
-          'Tenant musí mať nastavený `inventoryNumberFormat` — inak 400. ' +
-          'Vyžaduje ASSET_MANAGER alebo ADMIN.',
+          'Server generuje inventoryNumber z Organisation.inventoryNumberFormat a publicToken cez CSPRNG. ' +
+          'Tenant musi mat nastaveny inventoryNumberFormat - inak 400. ' +
+          'Vyzaduje ASSET_MANAGER alebo ADMIN.',
         security: [{ bearerAuth: [] }],
         body: ApiCreateAssetBodySchema,
         response: { 201: AssetResponseSchema },
@@ -188,7 +258,7 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Assets'],
         summary: 'Update an existing asset',
-        description: 'Partial update. `inventoryNumber` a `publicToken` sú nemenné.',
+        description: 'Partial update. inventoryNumber a publicToken su nemenné.',
         security: [{ bearerAuth: [] }],
         params: AssetIdParamsSchema,
         body: UpdateAssetSchema,
@@ -208,7 +278,7 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Assets'],
         summary: 'Soft-delete an asset',
-        description: 'Nastaví deletedAt/deletedBy. Vyžaduje ADMIN.',
+        description: 'Nastavi deletedAt/deletedBy. Vyzaduje ADMIN.',
         security: [{ bearerAuth: [] }],
         params: AssetIdParamsSchema,
         response: { 204: z.null() },

@@ -1,184 +1,100 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+SPDX-FileCopyrightText: 2026 Jan Letko / LTK Solutions
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# NEXT — čo robiť v ďalšej session
+# NEXT — co robit v dalšej session
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                                                         |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (Vlna 4: tech-debt uzavretý — čistý stôl; Vlna 3: threat model + DPIA template; Vlna 2: ADR-0022 on-demand PDF; Vlna 1: ADR-0006/0008/0021 Accepted) |
-| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                                                                      |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                   |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                      |
+| Atribút                   | Hodnota                                                                            |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-01 (ADR-0021 K1-K3 done — publicToken, inventoryNumberFormat, QR endpoint) |
+| **Aktuálna fáza**         | Production LIVE — ADR-0021 K4 (verejny lookup) je next                             |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                      |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                         |
 
 ---
 
-### ADR-0026 — Katalógové žiadosti + oddelené vydávanie ✅ IMPLEMENTOVANÉ
+## 🔥 Teraz: ADR-0021 QR kody — K4 je next
 
-**✅ HOTOVÉ** — K1–K7 hotové, 690 testov zelených. Session: `docs/sessions/2026-06-01-adr-0026-implementation.md`.
+**K1 ✅ schemy** — publicToken, PublicAssetViewSchema, InventoryNumberFormatSchema, appBaseUrl, foundContactInfo, publicAssetLookup  
+**K2 ✅ publicToken generácia + tenant-level inventoryNumberFormat** — repository, service, migrácia, testy  
+**K3 ✅ QR render endpoint** — `GET /v1/assets/:id/qr?format=svg|png`, qrcode npm, cache immutable
 
-**Zostatok:** OpenAPI regen po deployi, smoke test formulára.
+### K4 — verejny `GET /v1/public/scan/:token` endpoint (NEXT)
 
----
+Nový plugin `public-assets.routes.ts`:
 
-### ADR-0025 — Open-ended výpožičky + dotiahnutie formulára žiadosti ✅ IMPLEMENTOVANÉ
+- Bez auth, rate-limited 30/min/IP (fastify rate-limit)
+- Logika: `repo.findByPublicToken(token)` → loadOrg → ak `publicAssetLookup=false` → 404
+- Response: `PublicAssetView` mapper — **pole po poli, NIE spread** (whitelist je bezp. invariant)
+- Pola: `organisationName`, `organisationLogoUrl`, `inventoryNumber`, `name`, `foundContact`
+- HTTP 200 pre found+enabled, 404 pre not-found ALEBO disabled (nerozlišovať — privacy)
 
-ADR: `docs/decisions/0025-open-ended-loans-and-request-form.md` (Accepted).
+### K5 — frontend
 
----
+- `/scan/[publicToken]` route (Next.js)
+- Redirect logika: prihlásený → `/assets/:id`, nie → login page alebo verejná stránka
+- QR zobrazenie na detaile assetu (`/assets/[id]`)
+- Settings: org `foundContactInfo` formulár s GDPR hint textom
 
-### ADR-0024 — Odstránenie role TEAM_MANAGER ✅ IMPLEMENTOVANÉ
+### K6 — whitelist test (kriticke!)
 
-ADR: `docs/decisions/0024-remove-team-manager-role.md`.
+```ts
+expect(Object.keys(PublicAssetViewSchema.shape).sort()).toEqual(
+  [
+    'foundContact',
+    'inventoryNumber',
+    'name',
+    'organisationLogoUrl',
+    'organisationName',
+  ].sort(),
+);
+```
 
----
+### K7 — regen artefaktov
 
-### ADR-0023 — Žiadosť v mene inej osoby + priama výpožička ✅ IMPLEMENTOVANÉ
+```
+pnpm --filter @inventario/api openapi:export:offline
+pnpm test
+```
 
-ADR: `docs/decisions/0023-loan-beneficiary-and-direct-loan.md`.
-
----
-
-### ADR-0022 — Preberacie protokoly (on-demand PDF) ✅ ACCEPTED (revid. 2026-06-01)
-
-Revidované: PDF sa **neukladá** — `LoanProtocol` záznam (číslo, snapshoty, podpisy) zostáva, ale PDF
-sa generuje čisto **on-demand** pri stiahnutí. Attachments infra **nie je** predpoklad. HANDOVER
-protokol vzniká pri `fulfil` (nie approve — zosúladené s ADR-0026), 1 žiadosť → N Loanov → N protokolov.
-Determinizmus renderu je kritický invariant (povinný byte-equality test).
-
-**Implementácia (K1–K8, na Sonnet, keď bude potreba):** K1 odstrániť `pdfAttachmentId` zo schémy,
-K2 `pdf-lib` + font + renderer, K3 `protocolNumber` generátor, K4 repo+service (vznik v `fulfil`/`return`),
-K5 routes (vrátane `GET /v1/protocols/:id/pdf` on-demand), K6 sign (CLICK_TO_SIGN), K7 testy, K8 milestone.
-ADR: `docs/decisions/0022-loan-protocol-pdf.md` (Accepted).
-
----
-
-### Slice #5a K2–K5 — repository, service, routes, testy ✅
-
-- 18 integračných testov, stock endpointy, StockService, `openapi.json` refreshnutý
-
-### Slice #5a K1 — schémy (ADR-0020) ✅
-
-- `TrackingMode` enum, `StockMovementSchema`, `AssetSchema` rozšírená
+Commit: `chore(api): refresh openapi.json (ADR-0021)`
 
 ---
 
-## 🔥 Najbližšie kroky (priorita)
+## ADR-0026 — Katalogove žiadosti + oddelene vydávanie ✅ IMPLEMENTOVANE
 
-> Plný implementačný backlog (P0–P4) žije v [`docs/TODO.md`](../TODO.md). Tu sú len kroky reálne na rade teraz.
+K1–K7 hotove, 690 testov zelených. Session: `docs/sessions/2026-06-01-adr-0026-implementation.md`.
 
-### 1. Smoke test po deployi
+---
 
-- [ ] `/settings/organisation` — formulár + uloženie billing funguje
-- [ ] IČO zadané pri novej registrácii sa objaví v billing
-- [ ] RouteProgressBar — viditeľný počas načítavania
-- [ ] `/stock` — sklad prehľad pre ASSET_MANAGER+
-- [ ] ADR-0026 formulár žiadosti (kategória+množstvo) + vydávanie (Vydať tlačidlo)
+## ADR-0025 / ADR-0024 / ADR-0023 ✅ IMPLEMENTOVANE
 
-### 2. Pilot tenant onboarding
+---
+
+## ADR-0022 — Preberacie protokoly (on-demand PDF) ✅ ACCEPTED
+
+Revidovane: PDF sa neuklada — LoanProtocol zaznam (cislo, snapshoty, podpisy) zostava, PDF
+sa generuje cisto on-demand pri stiahnutí. K1-K8 cakaju na implementaciu (P2 backlog).
+
+---
+
+## Planované (neskôr)
+
+### Smoke test po deployi
+
+- [ ] `/settings/organisation` — formular + ulozenie billing funguje
+- [ ] ADR-0026 formular žiadosti (kategória+množstvo) + vydávanie
+
+### Pilot tenant onboarding
 
 SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom.
 
-### 3. email_unique index — overiť na prod Atlas
+### email_unique index — overiť na prod Atlas
 
 - [ ] Skontrolovať že `email_unique` / `email_1` index bol dropnutý migráciou 2026-05-29c
-
-### 4. QR kódy majetku — ADR-0021 ✅ Accepted → implementácia (Sonnet)
-
-ADR rozhodnutý, všetky detaily v `docs/decisions/0021-asset-qr-codes.md`.
-
----
-
-## 📅 Plánované (neskôr)
-
-### Slice #5 — Loans Backend ✅ HOTOVÉ
-
-- **#5a — Sklad foundation** ✅ (2026-05-31)
-- **Loans MVP** ✅ (2026-05-31): ADR-0012/0023/0025
-- **ADR-0026** ✅ (2026-06-01): katalógové žiadosti + oddelené vydávanie, 690 testov
-
-Milestone: `docs/milestones/slice-5-loans-mvp.md`
-
-### Compliance Fáza 2 (po 1. tenantovi)
-
-✅ **Hotové (2026-06-01, Vlna 3):** Threat model STRIDE (`docs/compliance/threat-model.md`),
-DPIA template pre tenant-ov (`docs/compliance/legal/dpia-template.md`).
-
-⏳ **Zostáva:** Security Whitepaper, Data Retention Schedule (detail), Information Security Policy,
-DPIA Reference Pack (verejná verzia).
-
-#### 🔧 Audit log retention job — ready-to-implement (Sonnet)
-
-Automatická pseudonymizácia starých audit záznamov podľa retention schedule. Základ už existuje:
-`AuditLogSchema` má pole `pseudonymizedAt` a helpery `defaultLegalBasisFor` / `defaultDataCategoriesFor`.
-
-**Plan:**
-
-- Retention podľa akcie: bežné CRUD = 24 mes, auth/security = 60 mes, `ORGANISATION_*` = 84 mes
-- Pseudonymizácia (NIE delete): `actor.userId` → `'PSEUDONYMIZED'`, vymazať `actor.displayName` +
-  `actor.ipAddress` + `actor.userAgent`, zachovať `action` + `at` + `severity` pre štatistiky;
-  nastaviť `pseudonymizedAt`
-- Append-only invariant: pseudonymizácia je jediný povolený UPDATE na `audit_logs` (cez dedikovaný
-  service, nie cez bežný repo write path)
-- Spustenie: Vercel cron (mesačne), idempotentné (filter `pseudonymizedAt: null AND at < cutoff`)
-- Soft-deleted `users` po 24 mes → pseudonymizácia (rovnaký princíp)
-- Testy: retention bucket per akcia, idempotencia, append-only (žiadny iný UPDATE), cross-tenant scope
-
-Schéma/helpery: `packages/shared-types/src/schemas/audit-log.ts`, `apps/api/src/modules/audit/audit.service.ts`.
-Retention tabuľka: ROPA sekcia 6 (`docs/compliance/gdpr-article-30.md`).
-
-### Slice #10 — MCP server (Q1 2027, ~10 dní)
-
-| Fáza | Bloky   | Popis                                                     |
-| ---- | ------- | --------------------------------------------------------- |
-| #10a | K1–K4   | Backend foundation: mcp-access-token, repository, routes  |
-| #10b | K5–K10  | MCP server scaffold: SDK, token resolver, JWT, rate limit |
-| #10c | K11–K16 | Tools: 10 read + 7 write + audit log                      |
-| #10d | K17–K18 | Frontend `/settings/integrations`                         |
-| #10e | K19–K23 | Tests + docs + Vercel + DNS                               |
-
-### Post-launch (LOW priority)
-
-`Cmd+K` tenant picker, SOC 2 Type II, dashboard štatistiky, QR štítky PDF.
-
-#### Slice #6c follow-up featury (nový vývoj, nie dlh)
-
-Nasledujúce sú **nové funkčnosti** nad rámec hotového Slice #6c (invitations). Nie sú technický dlh
-— sú to potenciálne rozšírenia, ktoré sa implementujú podľa potreby (každé = nový kód + testy + endpoint):
-
-- **Resend invitation** — znovu odoslať pozvánku s novým tokenom (expired/lost e-mail)
-- **Per-email domain exception** — pozvať e-mail mimo `allowedDomains` s expl. výnimkou
-- **Email change verification** — overovací flow pri zmene e-mailu existujúceho používateľa
-- **Bulk invite cez CSV** — hromadné pozvanie nahraním CSV s e-mailmi
-- **Per-tenant email provider override** — tenant si zvolí vlastný Resend namiesto default Ecomail
-
-Priorita LOW — SFZ pilot ich nepotrebuje. Otvárajú sa, keď reálny tenant požiada.
-
----
-
-## 🏗️ Backend status
-
-```
-Celkové testy:                690
-├── Slice #1–#3:              ~310
-├── Slice #4–#6b:             ~169
-├── Slice #6c:                  21
-├── Slice #7 + K12a/b:          29
-├── Slice #9:                   28
-├── Slice #8 (Passkeys):        16
-├── Dynamic Combobox K7:        35
-├── Organisations CRUD:         56
-├── Slice #5a (Sklad):          18
-├── ADR-0023 (loans bndf):      ~16
-├── ADR-0025 (open-ended):       13
-└── ADR-0026 (katalóg. žiad.):   28
-
-Test files:   ~43
-Duration:     ~95s
-```
 
 ---
 
@@ -194,19 +110,15 @@ Duration:     ~95s
 
 ## 📂 Kde nájdeš čo
 
-| Typ                               | Lokácia                                                 |
-| --------------------------------- | ------------------------------------------------------- |
-| **Aktuálny stav**                 | `docs/sessions/NEXT.md` (TY SI TU)                      |
-| **Session 2026-06-01 (ADR-0026)** | `docs/sessions/2026-06-01-adr-0026-implementation.md`   |
-| **Session 2026-06-01 (ADR-0025)** | `docs/sessions/2026-06-01-adr-0025-open-ended-loans.md` |
-| **Session 2026-05-31 (večer)**    | `docs/sessions/2026-05-31-adr-0024-0023-loans.md`       |
-| **Session 2026-05-31 (QR)**       | `docs/sessions/2026-05-31-qr-publictoken-revizia.md`    |
-| **Session 2026-05-30**            | `docs/sessions/2026-05-30-billing-and-tenant-detail.md` |
-| **ADR-čka**                       | `docs/decisions/0001..0026-*.md`                        |
-| **Slice milestones**              | `docs/milestones/slice-*.md`                            |
+| Typ                               | Lokácia                                               |
+| --------------------------------- | ----------------------------------------------------- |
+| **Aktuálny stav**                 | `docs/sessions/NEXT.md` (TY SI TU)                    |
+| **Session 2026-06-01 (K1-K3)**    | `docs/sessions/2026-06-01-adr-0021-qr-k1-k3.md`       |
+| **Session 2026-06-01 (ADR-0026)** | `docs/sessions/2026-06-01-adr-0026-implementation.md` |
+| **ADR-čka**                       | `docs/decisions/0001..0026-*.md`                      |
+| **Slice milestones**              | `docs/milestones/slice-*.md`                          |
 
 ---
 
-**Last updated:** 2026-06-01 (Vlna 4 upratovania: tech-debt uzavretý — čistý stôl, 0 otvorených ADR, 0 dlhu)
-**Tests:** 690 ✅ | **CI:** zelené ✅ | **OpenAPI:** 69 endpointov ✅
-**Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
+**Last updated:** 2026-06-01 (ADR-0021 K1-K3 done, K4 je next)  
+**Tests:** 690+ ✅ | **CI:** zelene ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

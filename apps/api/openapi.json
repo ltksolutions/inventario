@@ -1587,7 +1587,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Server generuje `inventoryNumber` z `Organisation.inventoryNumberFormat` (prefix, padding, includeYear, resetYearly) a `publicToken` cez CSPRNG. Tenant musí mať nastavený `inventoryNumberFormat` — inak 400. Vyžaduje ASSET_MANAGER alebo ADMIN.",
+        "description": "Server generuje inventoryNumber z Organisation.inventoryNumberFormat a publicToken cez CSPRNG. Tenant musi mat nastaveny inventoryNumberFormat - inak 400. Vyzaduje ASSET_MANAGER alebo ADMIN.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1769,7 +1769,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Partial update. `inventoryNumber` a `publicToken` sú nemenné.",
+        "description": "Partial update. inventoryNumber a publicToken su nemenné.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1941,7 +1941,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Nastaví deletedAt/deletedBy. Vyžaduje ADMIN.",
+        "description": "Nastavi deletedAt/deletedBy. Vyzaduje ADMIN.",
         "parameters": [
           {
             "schema": {
@@ -1971,6 +1971,49 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/assets/{id}/qr": {
+      "get": {
+        "summary": "Generuj QR kod pre asset (ADR-0021)",
+        "tags": [
+          "Assets"
+        ],
+        "description": "On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. Vyzaduje nastaveny appBaseUrl na Organisation - inak 409. format=svg (default) alebo png.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "svg",
+                "png"
+              ],
+              "default": "svg"
+            },
+            "in": "query",
+            "name": "format",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
           }
         }
       }
