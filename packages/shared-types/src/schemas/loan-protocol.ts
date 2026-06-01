@@ -13,8 +13,9 @@ import {
  * Tento dokument je **nemenný** od momentu podpisu (handover/return). Akékoľvek
  * zmeny po podpise sa robia formou **dodatku** (nový protokol s referenciou na pôvodný).
  *
- * Súbor s PDF protokolom je v `attachments` collection, tu sú len metadata
- * a štruktúrovaný obsah.
+ * PDF sa **neukladá** — renderuje sa deterministicky on-demand zo snapshotov v tomto
+ * zázname (ADR-0022, rev. 2026-06-01). Tu sú len metadata, štruktúrovaný obsah a
+ * (voliteľne) `pdfSha256` ako dôkaz integrity konkrétnej vyrenderovanej verzie.
  */
 export const LoanProtocolSchema = BaseDocumentSchema.merge(OrganisationScopedSchema).extend({
   /** Typ protokolu. */
@@ -96,9 +97,6 @@ export const LoanProtocolSchema = BaseDocumentSchema.merge(OrganisationScopedSch
       .nullable()
       .default(null),
   }),
-
-  /** ID generovaného PDF v storage (attachment). */
-  pdfAttachmentId: ObjectIdSchema.nullable().default(null),
 
   /** SHA-256 hash PDF — pre dôkaz integrity protokolu. */
   pdfSha256: z

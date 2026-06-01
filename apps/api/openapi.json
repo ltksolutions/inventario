@@ -5470,6 +5470,15 @@
         }
       }
     },
+    "/v1/system/retention/run": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "responses": {

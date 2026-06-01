@@ -102,20 +102,21 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 🟡 P2 — Accepted ADR čakajúce na implementáciu
 
-### 7. ADR-0022 — Preberacie protokoly (on-demand PDF)
+### 7. ADR-0022 — Preberacie protokoly (on-demand PDF) — ⏳ K1 DONE, K2–K8 čaká
 
-- **Stav:** ADR ✅ Accepted (revidované Vlna 2), **žiadny `protocols` modul v API**
-- **Model:** Sonnet
+- **Stav:** K1 hotový (schéma), K2–K8 naplánované — viac sessions
+- **Model:** Sonnet (K2–K7), Haiku (K8)
 - **ADR:** [`docs/decisions/0022-loan-protocol-pdf.md`](./decisions/0022-loan-protocol-pdf.md)
+- **Plán ďalšej session:** [`docs/sessions/2026-06-01-loan-protocols-plan.md`](./sessions/2026-06-01-loan-protocols-plan.md)
 - **Rozsah (K1–K8):**
-  - [ ] K1 — odstrániť `pdfAttachmentId` zo schémy
-  - [ ] K2 — `pdf-lib` + `@pdf-lib/fontkit` + embedovaný TTF (SK diakritika) renderer
-  - [ ] K3 — `protocolNumber` generátor
-  - [ ] K4 — repo + service: HANDOVER protokol vzniká pri `fulfil`/`createDirectLoan`, RETURN pri `return`
-  - [ ] K5 — routes vrátane `GET /v1/protocols/:id/pdf` (on-demand)
-  - [ ] K6 — CLICK_TO_SIGN podpis
-  - [ ] K7 — testy
-  - [ ] K8 — milestone doc
+  - [x] **K1** — schéma: odstránený `pdfAttachmentId` z `LoanProtocolSchema`; openapi regen ✅ (2026-06-01)
+  - [ ] K2 — embedovaný font (DejaVu/Noto) + `@pdf-lib/fontkit` + default logo rasterizácia (SVG→PNG); `renderProtocolPdf()` deterministický renderer
+  - [ ] K3 — `protocolNumber` transakčný generátor (`PROT-YYYY-NNNNNN`, scoped org+rok, unique index)
+  - [ ] K4 — `LoanProtocolsRepository` + service: vznik DRAFT protokolu v transakciách `fulfilLoanRequest` (HANDOVER), `createDirectLoan` (HANDOVER), `returnLoan` (RETURN); nastavenie `Loan.*ProtocolId`
+  - [ ] K5 — routes: `GET /v1/loans/:id/protocols`, `GET /v1/protocols/:id`, `GET /v1/protocols/:id/pdf` (on-demand render), RBAC
+  - [ ] K6 — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN), prechod `DRAFT → SIGNED`, fixácia `pdfSha256`
+  - [ ] K7 — testy: determinizmus renderu (dvojitý render → rovnaký hash), diakritika, číslovanie + race, RBAC, cross-tenant, snapshot-not-live, stránkovanie 25+ poloziek
+  - [ ] K8 — milestone doc + session log
 - **Kritický invariant:** determinizmus renderu (povinný byte-equality test) — PDF sa neukladá, `pdfSha256` lazy dopočítaný
 
 ### 8. Audit log retention job — automatická pseudonymizácia ✅ DONE (2026-06-01)

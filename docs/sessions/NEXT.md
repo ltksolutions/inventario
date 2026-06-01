@@ -62,10 +62,19 @@ Reziduálny `users_email_global_unique` dropnutý manuálne na prod + migrácia 
 
 SFZ (`inventario@futbalsfz.sk`) — všetky P0 závislosti hotové. Onboarding je odblokovaný.
 
-### 3. Ďalšie (P2/P3)
+### 3. ADR-0022 Preberacie protokoly — K1 DONE, K2–K8 čaká
 
-- ADR-0022 Preberacie protokoly (PDF)
+K1 hotový (schéma: `pdfAttachmentId` odstránený, openapi regen OK). Zvyšok je naplánovaný — viac sessions.
+**Plán:** [`docs/sessions/2026-06-01-loan-protocols-plan.md`](./2026-06-01-loan-protocols-plan.md)
+Pred K2 rozhodnúť: font (DejaVu vs Noto) + logo cache (teraz vs Fáza 2). K2 (renderer) = samostatná session, chce čistú hlavu (determinizmus je kritický invariant).
+
+### 4. Po protokoloch (poradie podľa Jana)
+
+- REUSE/EUPL technická compliance — `reuse lint` zelený, SPDX hlavičky, LICENSES/ (Jan to chce kompletne dotiahnuť)
+- Onboarding wizard — **až po pilote** (pilot povie čo má wizard riešiť; stavať naslepo = prerábka)
+- EÚ fondy — až keď bude konkrétna výzva (právna/dotačná oblasť, nie kódovanie)
 - Compliance docs (položky 9–12 v TODO.md)
+- SFZ pilot onboarding — plán hotový: [`docs/sessions/2026-06-01-sfz-pilot-onboarding-plan.md`](./2026-06-01-sfz-pilot-onboarding-plan.md)
 
 ---
 
