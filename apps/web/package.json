@@ -30,7 +30,7 @@
     "openapi-fetch": "^0.17.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-hook-form": "^7.76.1",
+    "react-hook-form": "^7.77.0",
     "tailwind-merge": "^2.5.5",
     "zod": "^3.23.8"
   },
