@@ -53,17 +53,26 @@ SPDX-License-Identifier: CC-BY-4.0
 > v `apps/api/src/modules/users/users.routes.ts` reálne **nie sú**. Sú to **právne záväzky**,
 > nie nice-to-have — musia fungovať skôr, než príde tenant so živými dátami subjektov.
 
-### 3. Right to data portability (čl. 20)
+### 3. Right to data portability (čl. 20) ✅ DONE (2026-06-01)
 
-- **Stav:** ⏳ plánované (ROPA)
-- **Model:** Sonnet
-- **Rozsah:** `GET /v1/me/export` — JSON export celého profilu dotknutej osoby
+- **Stav:** ✅ implementované
+- **Session:** [`docs/sessions/2026-06-01-dsar-export-patch-me.md`](./sessions/2026-06-01-dsar-export-patch-me.md)
+- **Čo bolo implementované:**
+  - [x] `AuditLogRepository.findByActor(userId)` — efektívny lookup cez existujúci `actor_userId` index
+  - [x] `UsersService.exportSelf()` — paralelný fetch memberships + audit logov, `toSafeProfileShape` (secrets strip), fire-and-forget `DATA_EXPORT_REQUESTED` audit event
+  - [x] `GET /v1/me/export` endpoint — RBAC: každý autentifikovaný používateľ (self)
+  - [x] 10 integračných testov v `users-export.test.ts`
 
-### 4. Self-service oprava profilu (čl. 16)
+### 4. Self-service oprava profilu (čl. 16) ✅ DONE (2026-06-01)
 
-- **Stav:** ⏳ čiastočné — vie to len ADMIN cez `PATCH /v1/users/:id`
-- **Model:** Sonnet
-- **Rozsah:** `PATCH /v1/me` — používateľ si sám opraví vlastné údaje
+- **Stav:** ✅ implementované
+- **Session:** [`docs/sessions/2026-06-01-dsar-export-patch-me.md`](./sessions/2026-06-01-dsar-export-patch-me.md)
+- **Čo bolo implementované:**
+  - [x] `UpdateSelfInput` typ — `Partial<Pick<User, 'firstName' | 'lastName' | 'displayName' | 'preferences'>>`
+  - [x] `UsersService.updateSelf()` — auto-derivácia `displayName`, `toSafeProfileShape`, fire-and-forget `USER_UPDATED` audit event
+  - [x] `PatchMeBodySchema` so `.strict().partial()` — zakazáné polia (roles, email, isActive) vrátia 400
+  - [x] `PATCH /v1/me` endpoint — RBAC: každý autentifikovaný používateľ (self)
+  - [x] 16 integračných testov v `users-patch-me.test.ts`
 
 ### 5. Right to erasure / hard delete (čl. 17)
 

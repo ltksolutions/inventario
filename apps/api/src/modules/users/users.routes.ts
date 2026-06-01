@@ -17,6 +17,8 @@
  *
  * RBAC matrix:
  *   - `GET /v1/me`            any authenticated user (self)
+ *   - `GET /v1/me/export`     any authenticated user (self) — GDPR čl. 20
+ *   - `PATCH /v1/me`          any authenticated user (self) — GDPR čl. 16
  *   - admin endpoints         ADMIN only
  *
  * Audit:
@@ -30,9 +32,13 @@ import { USER_ROLE_VALUES } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { AuditLogRepository } from '../audit/audit.repository.js';
+import { MembershipsRepository } from '../memberships/memberships.repository.js';
+
 import { UsersRepository } from './users.repository.js';
 import { UsersService } from './users.service.js';
 
+import type { UpdateSelfInput } from './users.service.js';
 import type { User } from '@inventario/shared-types';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -60,6 +66,49 @@ const MeResponseSchema = z.object({
   lastLoginAt: z.string().nullable(),
   preferences: z.record(z.string(), z.unknown()),
   createdAt: z.string(),
+});
+
+/**
+ * Self-service profile update body (GDPR čl. 16).
+ *
+ * Only the fields a user is permitted to change for themselves.
+ * All other fields (roles, email, isActive, …) are intentionally absent
+ * from this schema — any extras in the request body are rejected by Zod
+ * strict mode (via fastify-type-provider-zod strictness defaults).
+ */
+const PatchMeBodySchema = z
+  .object({
+    firstName: z.string().min(1).max(100).trim(),
+    lastName: z.string().min(1).max(100).trim(),
+    /**
+     * If omitted, the server auto-derives `"{firstName} {lastName}"`
+     * when either name field is being updated.
+     */
+    displayName: z.string().min(1).max(200).trim(),
+    preferences: z.record(z.string(), z.unknown()),
+  })
+  .strict()
+  .partial()
+  .describe(
+    'Self-service profile update (GDPR čl. 16); firstName, lastName, displayName, preferences.',
+  );
+
+const PatchMeResponseSchema = z.record(z.string(), z.unknown());
+
+// ---------------------------------------------------------------------------
+// GDPR export schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Response schema pre GET /v1/me/export.
+ * Lenient — jednotlivé polia (memberships, auditLog) sú pole záznamov
+ * s neobmedzenou štruktúrou, preto z.array(z.record(...)).
+ */
+const ExportResponseSchema = z.object({
+  exportedAt: z.string(),
+  profile: z.record(z.string(), z.unknown()),
+  memberships: z.array(z.record(z.string(), z.unknown())),
+  auditLog: z.array(z.record(z.string(), z.unknown())),
 });
 
 // ---------------------------------------------------------------------------
@@ -137,8 +186,17 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
   // Wire up dependencies. Service gets full set: audit log + mongoClient
   // for K10 admin write paths. JIT-provisioning (slice #2) still works
   // with these wired up — they're only used on the admin update path.
+  // membershipsRepo + auditLogRepo are needed for GDPR export (K??).
   const repo = new UsersRepository(fastify.mongo.db);
-  const service = new UsersService(repo, fastify.auditLog, fastify.mongo.client);
+  const membershipsRepo = new MembershipsRepository(fastify.mongo.db);
+  const auditLogRepo = new AuditLogRepository(fastify.mongo.db);
+  const service = new UsersService(
+    repo,
+    fastify.auditLog,
+    fastify.mongo.client,
+    membershipsRepo,
+    auditLogRepo,
+  );
 
   await repo.ensureIndexes();
 
@@ -181,6 +239,60 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         preferences: user.preferences as Record<string, unknown>,
         createdAt: user.createdAt,
       };
+    },
+  );
+
+  // --- GET /v1/me/export ---------------------------------------------------
+  app.get(
+    '/v1/me/export',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser],
+      schema: {
+        tags: ['Users'],
+        summary: 'Export personal data (GDPR Art. 20)',
+        description:
+          'Returns a structured JSON export of all personal data held for the ' +
+          'currently authenticated user. Covers: full profile, all tenant memberships, ' +
+          'and all audit log entries where the user is the actor. ' +
+          'Secrets (passwordHash, mfaSecret, mfaRecoveryCodes) are always excluded. ' +
+          'Emits a DATA_EXPORT_REQUESTED audit event (GDPR Art. 30). ' +
+          'Any authenticated user may call this endpoint for their own data only.',
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: ExportResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      return service.exportSelf(request.currentUser, request);
+    },
+  );
+
+  // --- PATCH /v1/me --------------------------------------------------------
+  app.patch(
+    '/v1/me',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser],
+      schema: {
+        tags: ['Users'],
+        summary: 'Update own profile (GDPR Art. 16)',
+        description:
+          "Self-service partial update of the authenticated user's profile. " +
+          'Permitted fields: `firstName`, `lastName`, `displayName`, `preferences`. ' +
+          'Forbidden fields (roles, email, isActive, …) are excluded from this schema — ' +
+          'include them in the body and they will be rejected with 400. ' +
+          'If `firstName` or `lastName` is updated without an explicit `displayName`, ' +
+          'the server auto-derives `"{firstName} {lastName}"`. ' +
+          'Emits a USER_UPDATED audit event with a diff of changed fields.',
+        security: [{ bearerAuth: [] }],
+        body: PatchMeBodySchema,
+        response: {
+          200: PatchMeResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      return service.updateSelf(request.body as UpdateSelfInput, request.currentUser, request);
     },
   );
 

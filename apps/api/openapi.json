@@ -1215,6 +1215,121 @@
             }
           }
         }
+      },
+      "patch": {
+        "summary": "Update own profile (GDPR Art. 16)",
+        "tags": [
+          "Users"
+        ],
+        "description": "Self-service partial update of the authenticated user's profile. Permitted fields: `firstName`, `lastName`, `displayName`, `preferences`. Forbidden fields (roles, email, isActive, …) are excluded from this schema — include them in the body and they will be rejected with 400. If `firstName` or `lastName` is updated without an explicit `displayName`, the server auto-derives `\"{firstName} {lastName}\"`. Emits a USER_UPDATED audit event with a diff of changed fields.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "preferences": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Self-service profile update (GDPR čl. 16); firstName, lastName, displayName, preferences."
+              }
+            }
+          },
+          "description": "Self-service profile update (GDPR čl. 16); firstName, lastName, displayName, preferences."
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/export": {
+      "get": {
+        "summary": "Export personal data (GDPR Art. 20)",
+        "tags": [
+          "Users"
+        ],
+        "description": "Returns a structured JSON export of all personal data held for the currently authenticated user. Covers: full profile, all tenant memberships, and all audit log entries where the user is the actor. Secrets (passwordHash, mfaSecret, mfaRecoveryCodes) are always excluded. Emits a DATA_EXPORT_REQUESTED audit event (GDPR Art. 30). Any authenticated user may call this endpoint for their own data only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "exportedAt": {
+                      "type": "string"
+                    },
+                    "profile": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "memberships": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "auditLog": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "exportedAt",
+                    "profile",
+                    "memberships",
+                    "auditLog"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/users": {

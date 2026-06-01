@@ -31,7 +31,9 @@ import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
 
 import type { UsersRepository, UserUpdatePatch } from './users.repository.js';
+import type { AuditLogRepository } from '../audit/audit.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
+import type { MembershipsRepository } from '../memberships/memberships.repository.js';
 import type { FastifyRequest } from 'fastify';
 import type { ClientSession, Filter, MongoClient, WithId } from 'mongodb';
 
@@ -71,6 +73,33 @@ export interface ListUsersResponse {
 }
 
 /**
+ * Shape returned by GET /v1/me/export (GDPR čl. 20 — prenositeľnosť údajov).
+ *
+ * Obsahuje:
+ *   - `profile`     — celý user dokument (bez secrets)
+ *   - `memberships` — všetky členstvá naprieč tenantmi
+ *   - `auditLog`    — všetky záznamy kde je používateľ actor
+ *   - `exportedAt`  — timestamp exportu
+ */
+export interface ExportSelfResult {
+  exportedAt: string;
+  profile: Record<string, unknown>;
+  memberships: Record<string, unknown>[];
+  auditLog: Record<string, unknown>[];
+}
+
+/**
+ * Self-service profile update input (GDPR čl. 16).
+ *
+ * Only the fields a user is permitted to change for themselves. All other
+ * User fields (roles, email, isActive, organisationId, …) are excluded at
+ * the route schema level and never reach the service.
+ */
+export type UpdateSelfInput = Partial<
+  Pick<User, 'firstName' | 'lastName' | 'displayName' | 'preferences'>
+>;
+
+/**
  * Service-layer parameters for the `list` endpoint. Tenant scope is
  * inferred from the actor and threaded through; callers pass
  * pagination / filter knobs only.
@@ -103,6 +132,8 @@ export class UsersService {
     private readonly repo: UsersRepository,
     private readonly auditLog: AuditLogService | null,
     private readonly mongoClient: MongoClient | null,
+    private readonly membershipsRepo: MembershipsRepository | null = null,
+    private readonly auditLogRepo: AuditLogRepository | null = null,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -201,6 +232,160 @@ export class UsersService {
       throw new NotFoundError('User', id);
     }
     return toApiShape(doc);
+  }
+
+  // -------------------------------------------------------------------------
+  // GDPR: right to data portability (čl. 20)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Assemble a full personal data export for the authenticated user.
+   *
+   * Collected in parallel:
+   *   1. User profile (already loaded as `actor` from request context)
+   *   2. All memberships for this userId (across all tenants they ever joined)
+   *   3. All audit log entries where this userId is the actor
+   *
+   * After collection, emits a DATA_EXPORT_REQUESTED audit event (fire-and-
+   * forget — failure here must NOT abort the export response). This records
+   * the exercise of the GDPR right per Art. 30 processing register.
+   *
+   * Secrets (passwordHash, mfaSecret, mfaRecoveryCodes) are excluded:
+   *   - Profile: already stripped by UsersRepository (PUBLIC_PROJECTION)
+   *   - Memberships + audit logs: contain no secrets
+   *
+   * Throws if membershipsRepo or auditLogRepo are not wired (programmer
+   * error — routes plugin must pass them).
+   */
+  async exportSelf(actor: WithId<User>, request: FastifyRequest): Promise<ExportSelfResult> {
+    if (!this.membershipsRepo || !this.auditLogRepo) {
+      throw new Error(
+        'UsersService.exportSelf requires membershipsRepo and auditLogRepo — ' +
+          'instantiate the service via the routes plugin.',
+      );
+    }
+
+    const userId = String(actor._id);
+
+    // Fetch memberships and audit logs in parallel — both are read-only,
+    // no transaction needed.
+    const [memberships, auditEntries] = await Promise.all([
+      this.membershipsRepo.findByUser(userId),
+      this.auditLogRepo.findByActor(userId),
+    ]);
+
+    const result: ExportSelfResult = {
+      exportedAt: new Date().toISOString(),
+      profile: toSafeProfileShape(actor),
+      memberships: memberships.map((m) => ({ ...m, _id: String(m._id) })),
+      auditLog: auditEntries.map((e) => ({
+        ...e,
+        _id: String((e as Record<string, unknown>)['_id']),
+      })),
+    };
+
+    // Fire-and-forget: record the export event for GDPR Art. 30 register.
+    // We do NOT await — a logging failure must not break the export response.
+    if (this.auditLog) {
+      void this.auditLog
+        .record(actor, request, {
+          action: 'DATA_EXPORT_REQUESTED',
+          target: {
+            entityType: 'User',
+            entityId: userId,
+            snapshot: { email: actor.email, displayName: actor.displayName },
+          },
+          description: `User "${actor.displayName}" (${actor.email}) requested personal data export`,
+          legalBasis: 'legal_obligation',
+        })
+        .catch((err: unknown) => {
+          // Best-effort: log to stderr but do not surface to the user.
+          console.error('[exportSelf] Failed to emit DATA_EXPORT_REQUESTED audit event:', err);
+        });
+    }
+
+    return result;
+  }
+
+  // -------------------------------------------------------------------------
+  // GDPR: right to rectification (čl. 16) — self-service profile update
+  // -------------------------------------------------------------------------
+
+  /**
+   * Self-service profile update for the authenticated user.
+   *
+   * Permitted fields: `firstName`, `lastName`, `displayName`, `preferences`.
+   * Forbidden fields (silently excluded at route schema level, never reach here):
+   *   roles, email, isActive, organisationId, accountType, entraOid, etc.
+   *
+   * `displayName` auto-derivation: if `firstName` or `lastName` is being
+   * updated but `displayName` is NOT explicitly provided, the service
+   * recomputes it as `"{newFirstName} {newLastName}"` so the display name
+   * stays in sync automatically.
+   *
+   * Emits `USER_UPDATED` audit event with a shallow diff of changed fields
+   * (same pattern as admin PATCH). Fire-and-forget — a logging failure must
+   * NOT abort the profile update response.
+   *
+   * No transaction needed: this is a single-document update with no
+   * cross-collection invariants to enforce.
+   */
+  async updateSelf(
+    patch: UpdateSelfInput,
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<Record<string, unknown>> {
+    const actorId = String(actor._id);
+    const tenantId = String(actor.organisationId);
+    const now = new Date().toISOString();
+
+    // Auto-derive displayName if name fields change but displayName is not
+    // explicitly provided.
+    const nextFirstName = patch.firstName ?? actor.firstName;
+    const nextLastName = patch.lastName ?? actor.lastName;
+    const nextDisplayName =
+      patch.displayName ??
+      (patch.firstName !== undefined || patch.lastName !== undefined
+        ? `${nextFirstName} ${nextLastName}`
+        : undefined);
+
+    const repoPatch: UserUpdatePatch = {
+      ...(patch.firstName !== undefined ? { firstName: patch.firstName } : {}),
+      ...(patch.lastName !== undefined ? { lastName: patch.lastName } : {}),
+      ...(nextDisplayName !== undefined ? { displayName: nextDisplayName } : {}),
+      ...(patch.preferences !== undefined ? { preferences: patch.preferences } : {}),
+      updatedAt: now,
+      updatedBy: actorId,
+    };
+
+    const updated = await this.repo.update(tenantId, actorId, repoPatch);
+    if (!updated) {
+      // Should not happen — actor is the currently authenticated user.
+      throw new NotFoundError('User', actorId);
+    }
+
+    // Fire-and-forget audit event.
+    if (this.auditLog) {
+      const changes = computeShallowDiff(actor, updated, ['updatedAt', 'updatedBy']);
+      if (changes.length > 0) {
+        void this.auditLog
+          .record(actor, request, {
+            action: 'USER_UPDATED',
+            target: {
+              entityType: 'User',
+              entityId: actorId,
+              snapshot: { email: updated.email, displayName: updated.displayName },
+            },
+            description: `User "${updated.displayName}" updated their profile (${changes.length} field${changes.length === 1 ? '' : 's'} changed)`,
+            changes,
+          })
+          .catch((err: unknown) => {
+            console.error('[updateSelf] Failed to emit USER_UPDATED audit event:', err);
+          });
+      }
+    }
+
+    return toSafeProfileShape(updated);
   }
 
   // -------------------------------------------------------------------------
@@ -733,6 +918,36 @@ function arraysEqual<T>(a: readonly T[], b: readonly T[]): boolean {
 function toApiShape(doc: WithId<User>): Record<string, unknown> {
   return {
     ...doc,
+    _id: String(doc._id),
+  };
+}
+
+/**
+ * Like `toApiShape` but explicitly strips secret fields that must never
+ * appear in a GDPR export or any user-facing response:
+ *   - passwordHash   — bcrypt hash of the local-account password
+ *   - mfaSecret      — TOTP shared secret
+ *   - mfaRecoveryCodes — hashed backup codes
+ *
+ * `UsersRepository` already excludes these via `PUBLIC_PROJECTION` on
+ * every DB read, so for documents loaded through the repository this is
+ * a no-op safety net. For documents constructed in memory (e.g. from
+ * request context populated before the projection takes effect in tests)
+ * this guarantee is essential.
+ */
+function toSafeProfileShape(doc: WithId<User>): Record<string, unknown> {
+  const {
+    passwordHash: _pw,
+    mfaSecret: _ms,
+    mfaRecoveryCodes: _mc,
+    ...rest
+  } = doc as User & {
+    passwordHash?: unknown;
+    mfaSecret?: unknown;
+    mfaRecoveryCodes?: unknown;
+  };
+  return {
+    ...rest,
     _id: String(doc._id),
   };
 }

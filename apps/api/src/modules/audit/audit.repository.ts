@@ -52,6 +52,24 @@ export class AuditLogRepository {
   }
 
   /**
+   * Find all audit log entries where the given userId is the actor.
+   *
+   * Used by GDPR right to data portability (GET /v1/me/export) to include
+   * the user's activity history in their personal data export. Results are
+   * sorted newest-first. No tenant filter — the userId is already globally
+   * unique (ObjectId) and we want all entries across tenants (e.g. if the
+   * user was ever a member of multiple tenants).
+   *
+   * Uses the `actor_userId` index for efficient lookup.
+   */
+  async findByActor(userId: string): Promise<AuditLog[]> {
+    return this.collection
+      .find({ 'actor.userId': userId })
+      .sort({ at: -1 })
+      .toArray() as unknown as AuditLog[];
+  }
+
+  /**
    * Insert an audit log record.
    *
    * Optionally accepts a `session` for inclusion in a transaction. When
