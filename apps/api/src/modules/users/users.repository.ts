@@ -286,6 +286,37 @@ export class UsersRepository {
   }
 
   /**
+   * Update a user by their `_id` without tenant scoping.
+   *
+   * Used ONLY by `UsersService.updateSelf` (GDPR čl. 16 self-service patch).
+   * The caller is the authenticated user themselves — no cross-tenant risk
+   * because the `_id` comes directly from the verified JWT subject claim.
+   *
+   * Tenant-scoped `update()` cannot be used here because older user documents
+   * in production may lack the `organisationId` field (backfilled in-memory
+   * by `loadCurrentUser` but not written to DB until a migration runs).
+   */
+  async updateSelfById(
+    id: string,
+    patch: UserUpdatePatch,
+    session?: ClientSession,
+  ): Promise<WithId<User> | null> {
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      { _id: new ObjectId(id) as unknown as User['_id'], deletedAt: null },
+      { $set: patch },
+      {
+        returnDocument: 'after',
+        projection: PUBLIC_PROJECTION,
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
+
+  /**
    * Apply a partial update within the tenant. Returns updated doc or
    * null if not found, soft-deleted, or in a different tenant. Caller
    * is responsible for setting `updatedAt`/`updatedBy` in the patch.

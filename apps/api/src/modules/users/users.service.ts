@@ -336,7 +336,6 @@ export class UsersService {
     request: FastifyRequest,
   ): Promise<Record<string, unknown>> {
     const actorId = String(actor._id);
-    const tenantId = String(actor.organisationId);
     const now = new Date().toISOString();
 
     // Auto-derive displayName if name fields change but displayName is not
@@ -358,7 +357,7 @@ export class UsersService {
       updatedBy: actorId,
     };
 
-    const updated = await this.repo.update(tenantId, actorId, repoPatch);
+    const updated = await this.repo.updateSelfById(actorId, repoPatch);
     if (!updated) {
       // Should not happen — actor is the currently authenticated user.
       throw new NotFoundError('User', actorId);
