@@ -68,6 +68,8 @@ ADR: `docs/decisions/0022-loan-protocol-pdf.md` (Accepted).
 
 ## 🔥 Najbližšie kroky (priorita)
 
+> Plný implementačný backlog (P0–P4) žije v [`docs/TODO.md`](../TODO.md). Tu sú len kroky reálne na rade teraz.
+
 ### 1. Smoke test po deployi
 
 - [ ] `/settings/organisation` — formulár + uloženie billing funguje
