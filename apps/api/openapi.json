@@ -2018,6 +2018,106 @@
         }
       }
     },
+    "/v1/public/scan/{publicToken}": {
+      "get": {
+        "summary": "Verejny lost & found lookup po QR tokene (ADR-0021)",
+        "tags": [
+          "Public"
+        ],
+        "description": "Bez autentifikacie. Vracia minimalne informacie o najdenom majetku. 404 ak tenant nema zapnuty publicAssetLookup ALEBO token neexistuje (no oracle).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "publicToken",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "organisationName": {
+                      "type": "string"
+                    },
+                    "organisationLogoUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "nullable": true
+                    },
+                    "inventoryNumber": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "foundContact": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "phone": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "message": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "email",
+                        "phone",
+                        "message"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "organisationName",
+                    "organisationLogoUrl",
+                    "inventoryNumber",
+                    "name",
+                    "foundContact"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/asset-conditions": {
       "get": {
         "summary": "List asset conditions",
