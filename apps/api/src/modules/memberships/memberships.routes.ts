@@ -108,13 +108,11 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       .limit(limit)
       .toArray();
 
-    const total = await fastify.mongo.db
-      .collection('memberships')
-      .countDocuments({
-        organisationId: request.organisationId,
-        status: 'ACTIVE',
-        deletedAt: null,
-      });
+    const total = await fastify.mongo.db.collection('memberships').countDocuments({
+      organisationId: request.organisationId,
+      status: 'ACTIVE',
+      deletedAt: null,
+    });
 
     // Batch lookup userov — len picker-safe polia
     const userIds = memberships
