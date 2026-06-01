@@ -193,6 +193,26 @@ export const FoundContactInfoSchema = z
 
 export type FoundContactInfo = z.infer<typeof FoundContactInfoSchema>;
 
+/**
+ * Konfigurácia preberacích protokolov — per tenant (ADR-0022).
+ *
+ * Používa sa pri vzniku `LoanProtocol` (fulfil / direct loan / return): hodnoty sa
+ * **kopírujú do snapshotu** na zázname protokolu, render ich číta odtiaľ — NIE zo živého
+ * nastavenia. Tým ostane už vystavený protokol nemenný aj keď tenant neskôr zmení default
+ * (kritické pre determinizmus renderu a `pdfSha256`).
+ *
+ * Logo a identita v hlavičke sa berú z `brandKit.logoUrl` + `billing` (nie odtiaľto).
+ * Font je fixný default (DejaVu Sans, embedovaný v API) — zatiaľ bez per-tenant voľby.
+ */
+export const OrganisationProtocolSettingsSchema = z
+  .object({
+    /** Veľkosť papiera pre generované protokoly. Default A4 (EU). */
+    paperSize: z.enum(['A4', 'LETTER']).default('A4'),
+  })
+  .strict();
+
+export type OrganisationProtocolSettings = z.infer<typeof OrganisationProtocolSettingsSchema>;
+
 export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).extend({
   /**
    * Tenant display name. Free-form, shown in UI alongside the wordmark.
@@ -302,6 +322,13 @@ export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).ext
    * vyžaduje. Viď `InventoryNumberFormatSchema`.
    */
   inventoryNumberFormat: InventoryNumberFormatSchema.nullable().default(null),
+
+  /**
+   * Konfigurácia preberacích protokolov (ADR-0022). Null = default
+   * `{ paperSize: 'A4' }`. Viď `OrganisationProtocolSettingsSchema`. Hodnoty sa
+   * kopírujú do snapshotu na `LoanProtocol` pri jeho vzniku (nemennosť + determinizmus).
+   */
+  protocolSettings: OrganisationProtocolSettingsSchema.nullable().default(null),
 
   // -----------------------------------------------------------------
   // Auth + member policy (ADR-0013)

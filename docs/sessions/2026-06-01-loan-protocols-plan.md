@@ -18,36 +18,57 @@ K1 je hotový a otestovaný: `pdfAttachmentId` odstránený z `LoanProtocolSchem
 shared-types build + openapi regen + full test zelené. Schéma je teraz finálny tvar
 pre on-demand model (PDF sa neukladá, `pdfSha256` lazy).
 
+**Rozšírené 2026-06-01 (diskusia s Janom) — ešte súčasť K1, schema zmeny hotové:**
+
+- `LoanProtocolSchema.paperSize` (`'A4' | 'LETTER'`, default A4) — **snapshot** veľkosti
+  papiera na zázname (NIE živé nastavenie — nemennosť + determinizmus).
+- `Organisation.protocolSettings` (`OrganisationProtocolSettingsSchema`, nullable) —
+  per-tenant default papier; hodnota sa kopíruje do snapshotu pri vzniku protokolu.
+- Oboje exportované cez barrel (`schemas/index.js` `export *`). **Po týchto zmenách znova
+  spustiť** `pnpm --filter @inventario/shared-types build` → openapi regen → full test
+  (beží Janika).
+
 Zvyšok (K2–K8) je realisticky **2–3 sessions**. K2 (renderer) je najväčší jednotlivý
 kus a má zmysel ho robiť ako samostatnú session s plnou pozornosťou — determinizmus
 renderu je kritický invariant, nie detail.
 
 ---
 
-## Rozhodnutia na potvrdenie PRED K2
+## Rozhodnutia (POTVRDENÉ 2026-06-01 s Janom)
 
-Tieto dve veci určujú rozsah K2. Treba ich rozhodnúť na začiatku ďalšej session:
+Týmto sú R1–R3 uzavreté, K2 ide podľa nich:
 
-### R1. Font — DejaVu Sans vs Noto Sans
+### R1. Font — jeden default, žiadny výber ✅
 
-Obe sú licenčne kompatibilné (DejaVu = public-domain-like / Bitstream Vera licencia;
-Noto = OFL 1.1 — pri OFL pozor na REUSE/SPDX záznam). Obe pokrývajú plnú SK diakritiku.
+**DejaVu Sans**, embedovaný v API, subset zapnutý. Multilanguage (latin-ext + cyrilika +
+grécka v jednom súbore), permisívna licencia. **Žiadne** per-tenant font pole, **žiadny**
+upload, žiadna validácia. Plne deterministické. (Per-tenant font / upload = mimo rozsah,
+ani Fáza 2 pokiaľ nepríde reálna požiadavka.)
 
-- **DejaVu Sans** — väčší glyf coverage, väčší súbor (~700 KB regular), jednoduchšia licencia.
-- **Noto Sans** — modernejší vzhľad, OFL (treba `LICENSES/OFL-1.1.txt` + SPDX), menší ak subset.
+### R2. Papier — A4 default, per-tenant A4/LETTER, ako snapshot ✅
 
-> **Odporúčanie:** DejaVu Sans pre jednoduchšiu licenčnú stopu (dôležité pri REUSE cleanup,
-> ktorý je ďalšia priorita po protokoloch). Subsetting zapnúť kvôli veľkosti.
+Schéma už hotová (viž vyššie). K2 renderer číta `protocol.paperSize` zo záznamu, NIE zo
+živého tenant nastavenia. K4 pri vzniku protokolu skopíruje
+`Organisation.protocolSettings.paperSize` (alebo default A4 ak null) do `LoanProtocol.paperSize`.
+Renderer mapuje A4 → 595×842 pt, LETTER → 612×792 pt.
 
-### R2. Logo cache — teraz alebo Fáza 2?
+### R3. Logo — per-tenant z `brandKit.logoUrl`, BEZ cache (fetch pri každom stiahnutí) ✅
 
-ADR hovorí: default Inventario logo (SVG→PNG rasterizácia, build-time) v K2; per-tenant
-logo cache z `brandKit.logoUrl` je zmienené ale môže ísť až do Fázy 2.
+`brandKit.logoUrl` už existuje na schéme — žiadne nové pole. Render fetchne logo z URL pri
+každom stiahnutí PDF. **Povinné ochrany** (inak krehké):
 
-> **Odporúčanie:** v K2 spraviť len **default logo** (build-time PNG v repo). Per-tenant
-> `brandKit.logoUrl` fetch + cache odložiť do Fázy 2 — pilot tenant (SFZ) zatiaľ logo
-> nemá nastavené, takže default postačuje a šetrí to komplexitu (external fetch, cache
-> invalidation, fallback na timeout). Render ostáva čistá funkcia s logom ako fixným vstupom.
+- **timeout** na fetch (napr. 3–5 s) — render sa nesmie zaseknúť na pomalom logu,
+- **fallback na default Inventario logo** ak fetch zlyhá / timeout / nie je PNG/JPG,
+- logo fetch je MIMO loan transakcie (render je on-demand, nikdy neblokuje fulfil/return),
+- `pdf-lib` neembeduje SVG → ak je `logoUrl` SVG, použiť default (rasterizácia tenant SVG = Fáza 2).
+
+> **Dôsledok determinizmu (vyriešiť v K6):** logo je externý vstup, ktorý sa môže zmeniť.
+> `pdfSha256` sa fixuje až pri prechode na SIGNED (rozhodnutie 7 ADR), dovtedy je DRAFT render
+> „živý". Po SIGNED by zmena loga zmenila hash — preto pri fixácii `pdfSha256` (K6) explicitne
+> rozhodnúť: buď sa logo bytes zafixujú ku snapshotu pri SIGNED, alebo sa akceptuje že
+> `pdfSha256` platí pre verziu loga v čase podpisu. Nenechať na náhodu.
+
+> **Cache = Fáza 2** ako optimalizácia bez zmeny kontraktu (rasterizovaný PNG per tenant).
 
 ---
 
@@ -55,17 +76,20 @@ logo cache z `brandKit.logoUrl` je zmienené ale môže ísť až do Fázy 2.
 
 **Cieľ:** deterministický `renderProtocolPdf(protocol, organisation, font, logo) → Uint8Array`.
 
-- Pridať font do repa: `apps/api/src/modules/protocols/assets/<font>.ttf` (+ SPDX/licencia)
+- Pridať font do repa: `apps/api/src/modules/protocols/assets/DejaVuSans.ttf` (+ SPDX/licencia)
 - Pridať `@pdf-lib/fontkit` závis (`pdf-lib` už možno je — overiť v package.json)
-- Default logo: SVG → PNG build-time rasterizácia (alebo predpripravený PNG v repo)
+- Default Inventario logo: predpripravený PNG v repo (`pdf-lib` neembeduje SVG)
+- **Paper size:** `protocol.paperSize` → A4 (595×842 pt) alebo LETTER (612×792 pt)
 - `renderProtocolPdf()`:
-  - hlavička: logo + `Organisation.displayName` + (ak je) `billing.legalName/ico/dic`
+  - hlavička: logo (tenant `brandKit.logoUrl` s timeout+fallback, inak default) +
+    `Organisation.displayName` + (ak je) `billing.legalName/ico/dic`
   - telo: typ protokolu (HANDOVER/RETURN), `protocolNumber`, `issuedAt`, strany (handover/receive snapshoty)
   - tabuľka položiek: inv. číslo, názov, sériové číslo, kategória, stav — **stránkovanie pri 25+ položkách**
   - pätka: podpisové bloky (handover/receive) — prázdne v DRAFT, vyplnené v SIGNED
-  - **DETERMINIZMUS:** `CreationDate`/`ModDate` = `issuedAt` (NIE `now()`); žiadne náhodné ID; font+logo fixné vstupy
-- **Pozn.:** renderer sám osebe nepotrebuje DB ani transakcie — je to čistá funkcia. Dá sa
-  vyvíjať a testovať izolovane (vyrenderovať z fixture objektu, otvoriť PDF, skontrolovať diakritiku).
+  - **DETERMINIZMUS:** `CreationDate`/`ModDate` = `issuedAt` (NIE `now()`); žiadne náhodné ID; font fixný vstup
+- **Pozn.:** renderer číta výhradne zo záznamu (`protocol.*`), DB/transakcie nepotrebuje
+  okrem logo fetchu. Dá sa vyvíjať a testovať izolovane (vyrenderovať z fixture, otvoriť PDF,
+  skontrolovať diakritiku + paper size).
 
 **Mini-test už v K2** (nie až K7): dvojitý render toho istého fixture → identický hash.
 Ak toto nesedí hneď, render nie je deterministický a nemá zmysel ísť ďalej.
@@ -91,6 +115,8 @@ Ak toto nesedí hneď, render nie je deterministický a nemá zmysel ísť ďale
   - `returnLoan` → RETURN protokol, `Loan.returnProtocolId`
 - Protokol vzniká so `status: DRAFT`, prideleným `protocolNumber`, **snapshotmi** strán a
   položiek (NIKDY živé asset/user dáta — snapshot v momente transakcie)
+- **`paperSize` snapshot:** skopírovať `Organisation.protocolSettings?.paperSize ?? 'A4'`
+  do `LoanProtocol.paperSize` pri vzniku
 - `pdfSha256: null`, `signatures: { handover: null, receive: null }`
 - **Pozn. ADR-0026:** jedno `fulfil` = jeden Loan = jeden HANDOVER protokol (viazaný na `loanId`)
 - Service dostane `db` explicitne (getDb pattern — pozor na `mongoClient.db()` bez argumentu!)
@@ -113,6 +139,7 @@ Ak toto nesedí hneď, render nie je deterministický a nemá zmysel ísť ďale
 - Zapíše `signatures.handover` / `.receive` (signedAt, method, ipAddress, signatureImageId: null)
 - Keď **obe** strany podpísané → `DRAFT → SIGNED`
 - Pri prechode na SIGNED dopočítať a fixovať `pdfSha256` (hash záväznej verzie)
+- **Rozhodnúť logo-vs-hash otázku z R3** (zafixovať logo bytes alebo akceptovať verziu v čase podpisu)
 - RBAC: len príslušná strana protokolu môže podpísať svoju časť
 - BIOMETRIC + EXTERNAL = mimo rozsah (Fáza 2)
 
@@ -122,10 +149,12 @@ Ak toto nesedí hneď, render nie je deterministický a nemá zmysel ísť ďale
 
 - **Determinizmus renderu** — dvojitý render → rovnaký hash (kritický invariant)
 - Diakritika — SK znaky (`ľščťžýáíéäô`) sa vyrenderujú správne
+- **Paper size** — A4 vs LETTER dáva správne rozmery stránky; snapshot sa nemení po zmene tenant settingu
 - `protocolNumber` číslovanie + **race** (dva súbežné fulfil v rovnakom org/roku)
 - RBAC — borrower vidí svoje, manager všetky, cudzí 403
 - Cross-tenant izolácia — protokol z org A neviditeľný v org B
 - **Snapshot-not-live** — zmena assetu/usera po vzniku protokolu NEMENÍ obsah protokolu
+- Logo fallback — neplatná/nedostupná `logoUrl` → default logo, render nespadne
 - Stránkovanie pri 25+ položkách
 - Protokol per Loan pri viacnásobnom `fulfil` (ADR-0026)
 - Podpis: jednostranný = stále DRAFT; obojstranný = SIGNED + pdfSha256 fixed
@@ -144,9 +173,9 @@ Ak toto nesedí hneď, render nie je deterministický a nemá zmysel ísť ďale
 ## Poradie a deľba na sessions (návrh)
 
 ```
-Session A:  R1+R2 rozhodnutia → K2 (renderer + mini determinizmus test)   [Sonnet, veľká]
-Session B:  K3 (číslo) → K4 (repo + service integrácia)                    [Sonnet]
-Session C:  K5 (routes) → K6 (podpis) → K7 (testy) → K8 (docs)             [Sonnet + Haiku]
+Session A:  K2 (renderer + paper size + logo fetch/fallback + mini determinizmus test)  [Sonnet, veľká]
+Session B:  K3 (číslo) → K4 (repo + service integrácia vrátane paperSize snapshot)        [Sonnet]
+Session C:  K5 (routes) → K6 (podpis + logo/hash rozhodnutie) → K7 (testy) → K8 (docs)    [Sonnet + Haiku]
 ```
 
 Možné zlúčiť B+C ak K2 ide hladko. K2 sa NEZLUČUJE s ničím — je to základ a chce čistú hlavu.
@@ -156,7 +185,19 @@ Možné zlúčiť B+C ak K2 ide hladko. K2 sa NEZLUČUJE s ničím — je to zá
 ## Invarianty (nezabudnúť)
 
 1. **Determinizmus renderu** — žiadne `now()`, dátumy zo záznamu, explicitné PDF metadata
-2. **Snapshot, nie živé dáta** — render číta výhradne z `LoanProtocol`, nikdy z asset/user
+2. **Snapshot, nie živé dáta** — render číta výhradne z `LoanProtocol` (vrátane `paperSize`),
+   nikdy z asset/user/organisation live nastavení (okrem loga — externý vstup, viď R3)
 3. **Nemennosť po SIGNED** — zmena = AMENDMENT (Fáza 2), nie edit
-4. **Transakčná bezpečnosť** — protokol vzniká v existujúcej fulfil/return/direct transakcii, render je MIMO transakcie
-5. **Po zmene schémy:** `pnpm --filter @inventario/shared-types build` → openapi regen → full test (beží Janika, nie Claude cez MCP)
+4. **Transakčná bezpečnosť** — protokol vzniká v existujúcej fulfil/return/direct transakcii,
+   render (vrátane logo fetchu) je MIMO transakcie
+5. **Po zmene schémy:** `pnpm --filter @inventario/shared-types build` → openapi regen → full
+   test (beží Janika, nie Claude cez MCP)
+
+---
+
+## Tlač (žiadny extra kód)
+
+`GET /v1/protocols/:id/pdf` vráti `application/pdf` s fyzickou veľkosťou stránky (A4/LETTER
+zo snapshotu). Prehliadač aj budúca mobilná app otvoria ten istý endpoint a natívny tlačový
+dialóg vytlačí na správnu veľkosť papiera. Žiadne UI riešenie tlače netreba — je to vlastnosť
+samotného PDF.

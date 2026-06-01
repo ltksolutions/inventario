@@ -169,6 +169,8 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           publicAssetLookup: false,
           foundContactInfo: null,
           inventoryNumberFormat: null,
+          // ADR-0022: preberacie protokoly — default A4, tenant zmení cez Settings
+          protocolSettings: null,
           allowedAuthProviders: [
             AuthProvider.GOOGLE,
             AuthProvider.APPLE,

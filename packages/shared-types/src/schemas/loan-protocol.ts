@@ -35,6 +35,16 @@ export const LoanProtocolSchema = BaseDocumentSchema.merge(OrganisationScopedSch
   /** Dátum vystavenia. */
   issuedAt: TimestampSchema,
 
+  /**
+   * Veľkosť papiera pre on-demand render — **snapshot** v momente vzniku protokolu
+   * (ADR-0022, rev. 2026-06-01). Zámerne sa ukladá na zázname, NIE číta zo živého
+   * nastavenia tenanta: protokol je nemenný, takže neskoršia zmena tenant defaultu
+   * (A4 → LETTER) nesmie zmeniť už vystavený protokol — inak by sa rozbil determinizmus
+   * renderu a `pdfSha256`. Default A4. Hodnota sa kopíruje z `Organisation.protocolSettings.paperSize`
+   * pri vzniku protokolu.
+   */
+  paperSize: z.enum(['A4', 'LETTER']).default('A4'),
+
   /** Strany protokolu. */
   parties: z.object({
     /** Odovzdávajúci (pri HANDOVER = správca, pri RETURN = vypožičiavajúci). */

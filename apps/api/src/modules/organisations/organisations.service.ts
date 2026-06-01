@@ -234,6 +234,8 @@ export class OrganisationsService {
       publicAssetLookup: false,
       foundContactInfo: null,
       inventoryNumberFormat: null,
+      // ADR-0022: preberacie protokoly — tenant nakonfiguruje cez Settings (default A4)
+      protocolSettings: null,
       createdAt: now,
       updatedAt: now,
       createdBy: 'SYSTEM',
