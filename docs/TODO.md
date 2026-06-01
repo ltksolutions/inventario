@@ -14,8 +14,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-01 (retention job #8 DONE)                                                   |
-| **Stav projektu**         | Production LIVE ✅ — 0 otvorených ADR, 0 tech-dlhu                                   |
+| **Posledná aktualizácia** | 2026-06-01 (ADR-0027 label printing prijatý)                                         |
+| **Stav projektu**         | Production LIVE ✅ — 2 Accepted ADR čaká impl (0022 protokoly, 0027 štítky)          |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
 
@@ -132,6 +132,22 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] unit testy `retention.test.ts` (16 testov) + integračné `retention-cron.test.ts` (4 testy)
 - **Po deployi treba:** nastaviť `CRON_SECRET` v Vercel → Settings → Environment Variables (`openssl rand -hex 32`)
 
+### 16. ADR-0027 — Tlač QR štítkov (Avery PDF + Zebra ZPL) — ⏳ čaká impl
+
+- **Stav:** ADR ✅ Accepted (2026-06-01), žiadny `labels` modul v API
+- **Model:** Sonnet (L1–L6), Haiku (L1 schéma doplnky + L7 docs)
+- **ADR:** [`docs/decisions/0027-qr-label-printing.md`](./decisions/0027-qr-label-printing.md)
+- **Rozhodnutie:** PDF Avery hárok = default (každý tenant); Zebra ZPL = opt-in per tenant (`labelPrinting.mode`); doručenie ZPL cez Zebra Browser Print (lokálny agent), backend nikdy nekomunikuje s tlačiarňou; vlastný ZPL builder bez závisu
+- **Rozsah (L1–L7):**
+  - [ ] L1 — `OrganisationLabelSettingsSchema` (`labelPrinting`) na `Organisation`; openapi regen; **doplniť `labelPrinting: null` do všetkých org-create ciest** (JIT, register, oauth, test fixtures — rovnaká pasca ako `protocolSettings`)
+  - [ ] L2 — `renderLabelSheetPdf()` Avery mriežka (QR + inventoryNumber + názov, DejaVu Sans, ≥1 preset, deterministický)
+  - [ ] L3 — `renderLabelZpl()` vlastný ZPL builder (`^BQ` QR + `^FD` text + `^CI28` UTF-8, rozmery z configu)
+  - [ ] L4 — routes: `GET /v1/labels/sheet`, `GET /v1/assets/:id/label?format=zpl`, `POST /v1/labels/zpl` (EMPLOYEE+, on-demand)
+  - [ ] L5 — frontend: tlačidlo na detaile + dávková tlač; podľa `mode` buď PDF (OS dialóg) alebo Zebra Browser Print agent
+  - [ ] L6 — testy: deterministický PDF, ZPL snapshot, diakritika `^CI28`, cross-tenant, fork doména v QR, RBAC, dávka
+  - [ ] L7 — milestone doc + návod pre tenanta „ako nainštalovať Browser Print"
+- **Zdieľa s ADR-0022:** `pdf-lib` + embedovaný DejaVu Sans + on-demand render princíp (rozumné robiť po/spolu s protokolmi K2)
+
 ---
 
 ## 🟢 P3 — Compliance Fáza 2 dokumenty
@@ -190,7 +206,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 - **Najbližší balík pred pilotom:** ✅ hotový (QR + email index) — SFZ pilot je odomknutý
 - **DSAR práva (čl. 16/17/18/20) + retention job:** ✅ hotové (položky 3–8)
-- **Najväčšia jednotlivá feature v zálohe:** položka 7 (PDF protokoly)
+- **Najväčšie featury v zálohe:** položka 7 (PDF protokoly, ADR-0022) a 16 (QR štítky, ADR-0027) — zdieľajú `pdf-lib` + DejaVu Sans render
 - **Čisto dokumentácia, dá sa kedykoľvek:** položky 9–12
 
 **Pravidlo aktualizácie:** položku zatvor (✅ / presun do „Hotové" v príslušnom milestone/session doc)
