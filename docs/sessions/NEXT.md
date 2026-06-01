@@ -7,12 +7,50 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (ADR-0025 open-ended výpožičky + dotiahnutie formulára žiadosti — ✅ implementované; ADR-0024 TEAM_MANAGER — ✅; ADR-0023 beneficiary + priamy loan — ✅; ADR-0022 protokoly PDF — Proposed) |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                                                                               |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                                                           |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                                                              |
+| Atribút                   | Hodnota                                                                                                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-01 (ADR-0026 katalógové žiadosti + oddelené vydávanie — ✅ Accepted, implementácia NASLEDUJE; ADR-0025 open-ended — ✅ implementované; ADR-0024 TEAM_MANAGER — ✅; ADR-0023 beneficiary + priamy loan — ✅) |
+| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 prepis loans modelu pred pilotom                                                                                                                                                      |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                                                                       |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                                                                          |
+
+---
+
+### ADR-0026 — Katalógové žiadosti + oddelené vydávanie 🔥 ACCEPTED — IMPLEMENTÁCIA NASLEDUJE
+
+**Toto je ďalší krok.** Smoke test formulára žiadosti odhalil chýbajúci typ žiadosti: model
+pozná len konkrétnu žiadosť (vyber assetId), ale ~95 % reálnych žiadostí je **katalógových**
+(„1 projektor, 10 kužeľov, myš ak je skladom“ — kategória+množstvo, konkrétny kus priradí
+správca pri vydaní).
+
+**Model:** Žiadosť = katalógový dopyt (kategória + množstvo + poznámka), nedrží zásobu.
+Správca je jediný gatekeeper — pri vydaní mapuje na konkrétne kusy / BULK a vydá. 1 žiadosť
+→ N Loanov postupne. Approve a vydanie **oddelené**.
+
+**Nový FSM:** `PENDING → APPROVED → PARTIALLY_FULFILLED → FULFILLED/CLOSED` (+ REJECTED/CANCELLED).
+Approve už nevytvára Loan — vydanie cez nový `POST /v1/loan-requests/:id/fulfil`.
+
+**Prečo teraz:** systém je prázdny → žiadna migrácia. O mesiac na živých dátach by to bola
+riziková migrácia FSM. Robíme načisto.
+
+**Implementačný plán (K1–K7, na Sonnet):**
+
+| Blok | Popis                                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------ |
+| K1   | Schéma: `LoanRequestStatus` (7 stavov), `LoanRequestItem` prepis (categoryId+quantity), `resultingLoanIds[]` |
+| K2   | Repository + service FSM (createCatalogRequest, approve, **fulfil**, reject, cancel)                         |
+| K3   | Routes: create (kat.+množstvo), approve (len stav), **fulfil** (nový), reject, cancel                        |
+| K4   | Frontend `/loans/request` — kategória+množstvo formulár (žiadny asset picker)                                |
+| K5   | Frontend — obrazovka vydávania pre správcu (mapovanie na kusy/BULK, čiastočné vydanie)                       |
+| K6   | Tests — FSM, čiastočné vydanie, N Loanov, over-fulfilment guard, súbeh, RBAC                                 |
+| K7   | OpenAPI + api-types regen, devlog, cross-linky                                                               |
+
+**Postup:** blok po bloku (K1 → typecheck → K2 …), nie všetko naraz.
+
+**Prepísať cross-linky** v ADR-0012/0020/0023/0025 (tento ADR mení ich predpoklady) — súčasť K7.
+
+ADR: `docs/decisions/0026-catalog-requests-and-fulfilment.md` (Accepted).
+Session: `docs/sessions/2026-06-01-adr-0026-catalog-requests.md`.
 
 ---
 
@@ -206,12 +244,17 @@ Fázovanie a sub-tasky (K1–K8) v ADR. **Čaká na rozhodnutie:** spustiť pred
 | **Frontend**      | ✅ Slice #5a: StockPanel, prehľad skladu, BULK badge/filter |
 | **Production**    | ✅ LIVE — app.inventario.estate                             |
 | **CI**            | ✅ Zelené                                                   |
-| **ADR-čka**       | ✅ 0001–0025 (0021 QR, 0022 PDF — Proposed)                 |
+| **ADR-čka**       | ✅ 0001–0026 (0021 QR, 0022 PDF — Proposed)                 |
 | **openapi.json**  | ✅ Aktuálne (69 endpointov)                                 |
 
 ---
 
 ## 🔥 Najbližšie kroky (priorita)
+
+### 0. ADR-0026 implementácia (K1–K7) — PRVÁ PRIORITA, na Sonnet
+
+Prepis loans modelu na katalógové žiadosti + oddelené vydávanie. Detailný plán vyššie
+(sekcia „ADR-0026 — Katalógové žiadosti“). Blok po bloku, po každom zelený typecheck + test.
 
 ### 1. Smoke test po deployi
 
