@@ -138,6 +138,24 @@ updates:
       - dependency-name: "@commitlint/config-conventional"
         update-types: ["version-update:semver-major"]
 
+      # ---------------------------------------------------------------
+      # 2026-06-01 — nextra peer-dependency resolver konflikt
+      # ---------------------------------------------------------------
+      # Dependabot updater padá na `nextra` + `nextra-theme-docs` (apps/docs,
+      # Nextra v4 + Next 15 + React 19) s chybou:
+      #   dependency_file_not_resolvable — "Missing or invalid configuration
+      #   while installing peer dependencies."
+      # Príčina: Dependabotov izolovaný resolver je prísnejší než náš lokálny
+      # pnpm (máme `auto-install-peers=true` + `strict-peer-dependencies=true`
+      # v .npmrc). Nextra v4 má široké/konfliktné peer ranges, ktoré Dependabot
+      # nevie vyriešiť — a reaz peer závislostí okolo nej (typescript, zod,
+      # vitest, fastify-type-provider-zod) padala "za kompániu".
+      # Toto NIE je projektový problém — `pnpm install` lokálne aj v CI prechádza.
+      # Nextra-u aktualizujeme manuálne (docs web nie je kritický path).
+      # Re-evaluovať ak Nextra v5 stabilizuje peer deps.
+      - dependency-name: "nextra"
+      - dependency-name: "nextra-theme-docs"
+
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
