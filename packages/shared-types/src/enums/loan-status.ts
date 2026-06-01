@@ -1,19 +1,31 @@
 /**
- * Stavy žiadosti o zápožičku.
+ * Stavy žiadosti o zápožičku (ADR-0026 — katalógové žiadosti + oddelené vydávanie).
  *
  * Životný cyklus:
- *   PENDING → APPROVED → (zápožička vznikne)
+ *   PENDING → APPROVED → PARTIALLY_FULFILLED → FULFILLED
+ *                      → FULFILLED             (vydanie pokrylo celé množstvo)
+ *                      → CLOSED               (správca uzavrel, zvyšok prepadol)
  *   PENDING → REJECTED
  *   PENDING → CANCELLED (zrušil žiadateľ)
+ *
+ * Approve = „beriem do riešenia" — nevytvára Loan.
+ * Vydanie cez POST /v1/loan-requests/:id/fulfil → vznik Loan-u.
+ * 1 žiadosť → N Loanov postupne (resultingLoanIds[]).
  */
 export const LoanRequestStatus = {
-  /** Vytvorená, čaká na schválenie správcom. */
+  /** Vytvorená, čaká na rozhodnutie správcu. */
   PENDING: 'PENDING',
-  /** Schválená, môže byť prevzatá. */
+  /** Schválená, ešte nič nevydané — čaká na (prvé) vydanie. */
   APPROVED: 'APPROVED',
-  /** Zamietnutá správcom. */
+  /** Aspoň jedno vydanie prebehlo, žiadosť ostáva otvorená (zvyšok nevydaný). */
+  PARTIALLY_FULFILLED: 'PARTIALLY_FULFILLED',
+  /** Vydané celé žiadané množstvo (alebo správca uzavrel ako vybavené). */
+  FULFILLED: 'FULFILLED',
+  /** Správca uzavrel s nevydaným zvyškom — zvyšok prepadol. Terminálny. */
+  CLOSED: 'CLOSED',
+  /** Zamietnutá správcom pred akýmkoľvek vydaním. Terminálny. */
   REJECTED: 'REJECTED',
-  /** Zrušená žiadateľom pred schválením. */
+  /** Zrušená žiadateľom pred akýmkoľvek vydaním. Terminálny. */
   CANCELLED: 'CANCELLED',
 } as const;
 
@@ -22,6 +34,14 @@ export type LoanRequestStatus = (typeof LoanRequestStatus)[keyof typeof LoanRequ
 export const LOAN_REQUEST_STATUS_VALUES = Object.values(
   LoanRequestStatus,
 ) as readonly LoanRequestStatus[];
+
+/** Terminálne stavy žiadosti — ďalšie prechody nie sú možné. */
+export const LOAN_REQUEST_TERMINAL_STATUSES: readonly LoanRequestStatus[] = [
+  LoanRequestStatus.FULFILLED,
+  LoanRequestStatus.CLOSED,
+  LoanRequestStatus.REJECTED,
+  LoanRequestStatus.CANCELLED,
+] as const;
 
 /**
  * Stavy aktívnej zápožičky.

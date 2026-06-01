@@ -1,30 +1,23 @@
 /**
  * LoansService — business logic for the loan request + loan lifecycle.
  *
- * State machine summary (per ADR-0012):
+ * State machine summary (ADR-0026):
  *
- *   LoanRequest: PENDING → APPROVED | REJECTED | CANCELLED
- *   Loan:        ACTIVE  → RETURNED | DAMAGED  | LOST
+ *   LoanRequest: PENDING → APPROVED → PARTIALLY_FULFILLED → FULFILLED / CLOSED
+ *                PENDING → REJECTED
+ *                PENDING → CANCELLED
  *
- * Asset states driven by this service:
- *   createLoanRequest  → AVAILABLE → RESERVED   (atomic with request creation)
- *   approveLoanRequest → RESERVED  → BORROWED   (atomic with Loan creation)
- *   rejectLoanRequest  → RESERVED  → AVAILABLE  (atomic with request rejection)
- *   cancelLoanRequest  → RESERVED  → AVAILABLE  (atomic with request cancellation)
- *   returnLoan         → BORROWED  → AVAILABLE | IN_SERVICE (per item.requiresService)
- *   markLoanLost       → BORROWED  → LOST
+ *   Loan (created by fulfil, not approve):
+ *     ACTIVE → RETURNED | DAMAGED | LOST
  *
- * OVERDUE is NOT a persistent DB status — it is a computed field
- * (`isOverdue: now() > dueAt && status === 'ACTIVE'`) added by `toApiShape`.
+ * Key ADR-0026 changes vs ADR-0012:
+ *   - createLoanRequest   — NO reservation (katalógová žiadosť, nedrží zásobu)
+ *   - approveLoanRequest  — ONLY status change PENDING → APPROVED, NO Loan created
+ *   - fulfilLoanRequest   — NEW: maps category+quantity → assets, creates Loan,
+ *                           increments quantityFulfilled, recomputes request status
+ *   - reject / cancel     — NO reservation release (nič nebolo rezervované)
  *
- * RBAC in this service vs. routes:
- *   Coarse-grained role guards (EMPLOYEE+ / ASSET_MANAGER+ADMIN) are
- *   enforced in the routes layer via `fastify.requireRole()`. Fine-
- *   grained ownership checks (e.g. "only the requester or an ADMIN can
- *   cancel") live in this service because they require loading the
- *   document first.
- *
- * Slice #5 K3 — initial implementation.
+ * OVERDUE is NOT a persistent DB status — computed field on GET.
  */
 
 import { ObjectId } from 'mongodb';
@@ -39,7 +32,7 @@ import type { AuditLogService } from '../audit/audit.service.js';
 import type {
   AssetStatus,
   CreateDirectLoanInput,
-  CreateLoanRequestInput,
+  FulfilLoanRequestInput,
   Loan,
   LoanItem,
   LoanRequest,
@@ -55,9 +48,21 @@ import type { Db, ClientSession, MongoClient, WithId } from 'mongodb';
 // Public API types
 // ---------------------------------------------------------------------------
 
+export interface CreateCatalogLoanRequestInput {
+  purpose: string;
+  plannedFrom: string;
+  plannedTo?: string | null | undefined;
+  items: Array<{
+    categoryId: string;
+    quantityRequested: number;
+    note?: string | null | undefined;
+  }>;
+  idempotencyKey?: string | null | undefined;
+  beneficiaryId?: string | undefined;
+}
+
 export interface ListLoanRequestsServiceParams {
   status?: LoanRequestStatus;
-  /** Explicit requester filter — managers may pass any userId; employees pass own id. */
   requesterId?: string;
   limit?: number;
   skip?: number;
@@ -69,10 +74,6 @@ export interface ListLoansServiceParams {
   assetId?: string;
   limit?: number;
   skip?: number;
-}
-
-export interface LoanRequestApiShape extends Record<string, unknown> {
-  isOverdue?: never; // LoanRequest has no overdue concept
 }
 
 export interface LoanApiShape extends Record<string, unknown> {
@@ -111,7 +112,6 @@ export class LoansService {
     private readonly db: Db | null = null,
   ) {}
 
-  /** Resolve the tenant Db handle, preferring the injected one. */
   private getDb(): Db {
     return this.db ?? (this.mongoClient.db() as Db);
   }
@@ -120,11 +120,6 @@ export class LoansService {
   // Read paths
   // -------------------------------------------------------------------------
 
-  /**
-   * List loan requests.
-   * - EMPLOYEE: can only list own requests (requesterId filter forced to self).
-   * - ASSET_MANAGER / ADMIN: can list all, or filter by requesterId.
-   */
   async listLoanRequests(
     params: ListLoanRequestsServiceParams,
     actor: WithId<User>,
@@ -133,14 +128,11 @@ export class LoansService {
     const isManager = hasManagerRole(actor);
     const limit = params.limit ?? 20;
     const skip = params.skip ?? 0;
-
-    // Employees see requests where they are requester OR beneficiary (ADR-0023).
     const actorId = String(actor._id);
 
     const { items, total } = await this.loanRequestsRepo.list({
       organisationId: tenantId,
       ...(params.status !== undefined && { status: params.status }),
-      // ADR-0023: EMPLOYEE sees requests where requesterId === self OR beneficiaryId === self
       ...(isManager
         ? params.requesterId !== undefined && { requesterId: params.requesterId }
         : { requesterId: actorId, beneficiaryId: actorId }),
@@ -151,24 +143,14 @@ export class LoansService {
     return paginatedResponse(items.map(loanRequestToApiShape), total, limit, skip);
   }
 
-  /**
-   * Get a single loan request by id.
-   * Accessible to the requester themselves or any ASSET_MANAGER / ADMIN.
-   */
   async getLoanRequestById(id: string, actor: WithId<User>): Promise<Record<string, unknown>> {
     const tenantId = String(actor.organisationId);
     const doc = await this.loanRequestsRepo.findById(tenantId, id);
     if (!doc) throw new NotFoundError('LoanRequest', id);
-
     assertCanReadLoanRequest(doc, actor);
     return loanRequestToApiShape(doc);
   }
 
-  /**
-   * List loans.
-   * - EMPLOYEE: forced filter to own loans (borrowerId = self).
-   * - ASSET_MANAGER / ADMIN: can filter freely.
-   */
   async listLoans(
     params: ListLoansServiceParams,
     actor: WithId<User>,
@@ -177,7 +159,6 @@ export class LoansService {
     const isManager = hasManagerRole(actor);
     const limit = params.limit ?? 20;
     const skip = params.skip ?? 0;
-
     const borrowerId = isManager ? params.borrowerId : String(actor._id);
 
     const { items, total } = await this.loansRepo.list({
@@ -192,10 +173,6 @@ export class LoansService {
     return paginatedResponse(items.map(loanToApiShape), total, limit, skip);
   }
 
-  /**
-   * List loans for the current user (/my-loans shortcut).
-   * Always forces borrowerId = self.
-   */
   async listMyLoans(
     params: Omit<ListLoansServiceParams, 'borrowerId' | 'assetId'>,
     actor: WithId<User>,
@@ -203,40 +180,26 @@ export class LoansService {
     return this.listLoans({ ...params, borrowerId: String(actor._id) }, actor);
   }
 
-  /**
-   * Get a single loan by id.
-   * Accessible to the borrower or any ASSET_MANAGER / ADMIN.
-   */
   async getLoanById(id: string, actor: WithId<User>): Promise<Record<string, unknown>> {
     const tenantId = String(actor.organisationId);
     const doc = await this.loansRepo.findById(tenantId, id);
     if (!doc) throw new NotFoundError('Loan', id);
-
     assertCanReadLoan(doc, actor);
     return loanToApiShape(doc);
   }
 
   // -------------------------------------------------------------------------
-  // Write paths — all transactional
+  // Write paths
   // -------------------------------------------------------------------------
 
   /**
-   * Create a loan request.
+   * Create a katalógová žiadosť (ADR-0026).
    *
-   * Validates that every requested asset:
-   *   - Exists in this tenant
-   *   - Is AVAILABLE (not RESERVED / BORROWED / etc.)
-   *   - Is loanable (`isLoanable: true`)
-   *   - Is not soft-deleted
-   *
-   * On success, all assets are atomically moved AVAILABLE → RESERVED
-   * and the LoanRequest document is created with status PENDING.
-   *
-   * If any asset fails validation, the transaction aborts (no partial
-   * reservations).
+   * NO asset reservation — žiadosť nedrží zásobu.
+   * Server resolves categorySnapshot for each item.
    */
   async createLoanRequest(
-    input: CreateLoanRequestInput,
+    input: CreateCatalogLoanRequestInput,
     actor: WithId<User>,
     request: FastifyRequest,
   ): Promise<Record<string, unknown>> {
@@ -244,110 +207,68 @@ export class LoansService {
     const actorId = String(actor._id);
     const now = new Date().toISOString();
 
-    const created = await this.runInTransaction(async (session) => {
-      // ----- Step 1: validate and snapshot every requested asset -----
-      const validatedItems: LoanRequest['items'] = [];
+    // Resolve beneficiaryId
+    const beneficiaryId = input.beneficiaryId ?? actorId;
+    if (beneficiaryId !== actorId) {
+      await this.assertBeneficiaryIsActiveMember(tenantId, beneficiaryId);
+    }
 
-      for (const item of input.items) {
-        const asset = await this.assetsRepo.findById(tenantId, item.assetId, session);
+    // Resolve category snapshots
+    const categoriesCol = this.getDb().collection('categories');
+    const resolvedItems: LoanRequest['items'] = [];
 
-        if (!asset) {
-          throw new BadRequestError(`Asset ${item.assetId} does not exist or is not accessible.`);
-        }
-        if (!asset.isLoanable) {
-          throw new BadRequestError(
-            `Asset ${asset.inventoryNumber} (${asset.name}) is not loanable.`,
-          );
-        }
-        if (asset.status !== 'AVAILABLE') {
-          throw new BadRequestError(
-            `Asset ${asset.inventoryNumber} (${asset.name}) is not available (current status: ${asset.status}).`,
-          );
-        }
-
-        validatedItems.push({
-          assetId: item.assetId,
-          snapshot: {
-            inventoryNumber: asset.inventoryNumber,
-            name: asset.name,
-          },
-          status: 'PENDING',
-          substitutedWithAssetId: null,
-          approverNote: null,
-        });
+    for (const item of input.items) {
+      if (!ObjectId.isValid(item.categoryId)) {
+        throw new BadRequestError(`Neplatný formát categoryId: ${item.categoryId}`);
       }
-
-      // ----- Step 2: reserve all assets atomically -----
-      for (const item of validatedItems) {
-        const updated = await this.assetsRepo.update(
-          tenantId,
-          item.assetId,
-          { status: 'RESERVED' as AssetStatus, updatedAt: now, updatedBy: actorId },
-          session,
-        );
-        if (!updated) {
-          // Race: asset was modified/deleted between our findById and update.
-          throw new BadRequestError(
-            `Asset ${item.assetId} could not be reserved — it may have just been modified. Please try again.`,
-          );
-        }
-      }
-
-      // ----- Step 3: create the LoanRequest document -----
-      // beneficiaryId: ak niet v inpute, default = requesterId (žiadosť pre seba)
-      const beneficiaryId = input.beneficiaryId ?? actorId;
-
-      // Validácia beneficiára: musí byť aktívny používateľ v tom istom tenante
-      if (beneficiaryId !== actorId) {
-        const usersCol = this.getDb().collection('users');
-        const beneficiary = await usersCol.findOne(
-          { _id: new ObjectId(beneficiaryId) as never, deletedAt: null, isActive: true },
-          { session },
-        );
-        if (!beneficiary) {
-          throw new BadRequestError(
-            `Beneficiary user '${beneficiaryId}' does not exist or is not active.`,
-          );
-        }
-        // Cross-tenant check: membership alebo user.organisationId musí byť v tomto tenante
-        const membershipsCol = this.getDb().collection('memberships');
-        const membership = await membershipsCol.findOne(
-          { userId: beneficiaryId, organisationId: tenantId, status: 'ACTIVE', deletedAt: null },
-          { session },
-        );
-        const legacyOrgMatch = String(beneficiary['organisationId']) === tenantId;
-        if (!membership && !legacyOrgMatch) {
-          throw new BadRequestError(
-            `Beneficiary user '${beneficiaryId}' is not a member of this organisation.`,
-          );
-        }
-      }
-
-      const loanRequestDoc: Omit<LoanRequest, '_id'> = {
+      const category = await categoriesCol.findOne({
+        _id: new ObjectId(item.categoryId) as never,
         organisationId: tenantId,
-        requesterId: actorId,
-        beneficiaryId,
-        purpose: input.purpose,
-        plannedFrom: input.plannedFrom,
-        plannedTo: input.plannedTo,
-        items: validatedItems,
-        status: 'PENDING' as LoanRequest['status'],
-        approvers: [],
-        resultingLoanId: null,
-        rejectionReason: null,
-        teamId: null,
-        idempotencyKey: input.idempotencyKey ?? null,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: actorId,
-        updatedBy: actorId,
         deletedAt: null,
-        deletedBy: null,
-      };
+        isActive: true,
+      });
+      if (!category) {
+        throw new BadRequestError(
+          `Kategória '${item.categoryId}' neexistuje alebo nie je aktívna.`,
+        );
+      }
+      resolvedItems.push({
+        categoryId: item.categoryId,
+        categorySnapshot: {
+          name: category['name'] as string,
+          slug: category['slug'] as string,
+        },
+        quantityRequested: item.quantityRequested,
+        quantityFulfilled: 0,
+        note: item.note ?? null,
+      });
+    }
 
+    const loanRequestDoc: Omit<LoanRequest, '_id'> = {
+      organisationId: tenantId,
+      requesterId: actorId,
+      beneficiaryId,
+      purpose: input.purpose,
+      plannedFrom: input.plannedFrom,
+      plannedTo: input.plannedTo ?? null,
+      items: resolvedItems,
+      status: 'PENDING' as LoanRequest['status'],
+      approvers: [],
+      resultingLoanIds: [],
+      rejectionReason: null,
+      teamId: null,
+      idempotencyKey: input.idempotencyKey ?? null,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: actorId,
+      updatedBy: actorId,
+      deletedAt: null,
+      deletedBy: null,
+    };
+
+    const created = await this.runInTransaction(async (session) => {
       const inserted = await this.loanRequestsRepo.insert(loanRequestDoc, session);
 
-      // ----- Step 4: audit log -----
       await this.auditLog.record(
         actor,
         request,
@@ -363,7 +284,7 @@ export class LoansService {
               itemCount: inserted.items.length,
             },
           },
-          description: `Loan request created for ${inserted.items.length} asset(s), planned ${inserted.plannedFrom} – ${inserted.plannedTo}.`,
+          description: `Katalógová žiadosť vytvorená pre ${inserted.items.length} kategóriu/í.`,
         },
         session,
       );
@@ -371,7 +292,6 @@ export class LoansService {
       return inserted;
     });
 
-    // Fire-and-forget email to managers (after transaction)
     void this.notifyManagersNewRequest(
       tenantId,
       String(created._id),
@@ -386,64 +306,76 @@ export class LoansService {
     return loanRequestToApiShape(created);
   }
 
-  // Fire-and-forget email to managers — after transaction commits
-  private async notifyManagersNewRequest(
-    tenantId: string,
-    requestId: string,
-    requesterName: string,
-    purpose: string,
-    itemCount: number,
-    plannedFrom: string,
-    plannedTo: string | null,
-    logger: { warn: (msg: object, txt: string) => void },
-  ): Promise<void> {
-    if (!this.emailService?.isConfigured) return;
-    try {
-      // Find all ASSET_MANAGER + ADMIN users in this tenant
-      const membershipsCol = this.getDb().collection('memberships');
-      const managers = await membershipsCol
-        .find({
-          organisationId: tenantId,
-          status: 'ACTIVE',
-          deletedAt: null,
-          roles: { $in: ['ASSET_MANAGER', 'ADMIN'] },
-        })
-        .toArray();
-
-      const usersCol = this.getDb().collection('users');
-      for (const m of managers) {
-        const user = await usersCol.findOne({ _id: m['userId'] as never, deletedAt: null });
-        if (user?.['email']) {
-          await this.emailService.sendLoanRequestPendingEmail(user['email'] as string, {
-            requesterName,
-            purpose,
-            itemCount,
-            plannedFrom,
-            plannedTo,
-            requestId,
-            frontendUrl: this.frontendUrl,
-          });
-        }
-      }
-    } catch (err) {
-      logger.warn({ err }, 'Failed to send loan request pending email to managers');
-    }
-  }
-
   /**
-   * Approve a loan request.
+   * Approve a loan request (ADR-0026).
    *
-   * Caller must be ASSET_MANAGER or ADMIN (enforced in routes).
-   *
-   * In MVP, approval = immediate pickup:
-   *   - All reserved assets → BORROWED (currentLoanId set)
-   *   - Loan document created with status ACTIVE
-   *   - LoanRequest → APPROVED (resultingLoanId set)
-   *
-   * All three writes are atomic.
+   * ONLY changes status PENDING → APPROVED.
+   * Does NOT create a Loan — that happens in fulfilLoanRequest.
+   * No asset state changes.
    */
   async approveLoanRequest(
     id: string,
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<Record<string, unknown>> {
+    const tenantId = String(actor.organisationId);
+    const actorId = String(actor._id);
+    const now = new Date().toISOString();
+
+    const updated = await this.runInTransaction(async (session) => {
+      const loanRequest = await this.loanRequestsRepo.findById(tenantId, id, session);
+      if (!loanRequest) throw new NotFoundError('LoanRequest', id);
+      if (loanRequest.status !== 'PENDING') {
+        throw new BadRequestError(
+          `Žiadosť nemožno schváliť — aktuálny stav je ${loanRequest.status}. Schváliť možno len PENDING žiadosti.`,
+        );
+      }
+
+      const result = await this.loanRequestsRepo.update(
+        tenantId,
+        id,
+        {
+          status: 'APPROVED' as LoanRequestStatus,
+          updatedAt: now,
+          updatedBy: actorId,
+        },
+        session,
+      );
+      if (!result) throw new NotFoundError('LoanRequest', id);
+
+      await this.auditLog.record(
+        actor,
+        request,
+        {
+          action: 'LOAN_REQUEST_APPROVED',
+          target: {
+            entityType: 'LoanRequest',
+            entityId: id,
+            snapshot: { approvedBy: actorId, itemCount: loanRequest.items.length },
+          },
+          description: `Žiadosť schválená správcom ${actor.displayName} — čaká na vydanie.`,
+        },
+        session,
+      );
+
+      return result;
+    });
+
+    return loanRequestToApiShape(updated);
+  }
+
+  /**
+   * Fulfil a loan request — the actual handout (ADR-0026).
+   *
+   * Maps category+quantity items → concrete assets (SERIALIZED) or BULK quantity.
+   * Creates a Loan document. Updates quantityFulfilled on each request item.
+   * Recomputes request status (PARTIALLY_FULFILLED / FULFILLED / CLOSED).
+   *
+   * Caller must be ASSET_MANAGER or ADMIN (enforced in routes).
+   */
+  async fulfilLoanRequest(
+    id: string,
+    input: FulfilLoanRequestInput,
     actor: WithId<User>,
     request: FastifyRequest,
   ): Promise<Record<string, unknown>> {
@@ -455,39 +387,78 @@ export class LoansService {
       // ----- Step 1: load and validate request -----
       const loanRequest = await this.loanRequestsRepo.findById(tenantId, id, session);
       if (!loanRequest) throw new NotFoundError('LoanRequest', id);
-      if (loanRequest.status !== 'PENDING') {
+
+      if (loanRequest.status !== 'APPROVED' && loanRequest.status !== 'PARTIALLY_FULFILLED') {
         throw new BadRequestError(
-          `Cannot approve a loan request with status ${loanRequest.status}. Only PENDING requests can be approved.`,
+          `Vydanie nie je možné — žiadosť je v stave ${loanRequest.status}. ` +
+            `Vydávať možno len APPROVED alebo PARTIALLY_FULFILLED žiadosti.`,
         );
       }
 
-      // ----- Step 2: sanity check — all assets still RESERVED -----
-      for (const item of loanRequest.items) {
-        const asset = await this.assetsRepo.findById(tenantId, item.assetId, session);
-        if (!asset || asset.status !== 'RESERVED') {
+      // ----- Step 2: build Loan items + validate assets -----
+      const loanItems: LoanItem[] = [];
+      const itemIncrements: Array<{ index: number; delta: number }> = [];
+
+      for (const fulfilItem of input.items) {
+        const reqItem = loanRequest.items[fulfilItem.requestItemIndex];
+        if (!reqItem) {
           throw new BadRequestError(
-            `Asset ${item.assetId} is no longer in RESERVED state (current: ${asset?.status ?? 'not found'}). ` +
-              `The request cannot be approved. Please reject it and ask the requester to submit a new one.`,
+            `requestItemIndex ${fulfilItem.requestItemIndex} neexistuje v tejto žiadosti.`,
           );
         }
+
+        // Guard: over-fulfilment check
+        const remaining = reqItem.quantityRequested - reqItem.quantityFulfilled;
+        const issuingQty =
+          fulfilItem.type === 'SERIALIZED' ? fulfilItem.assetIds.length : fulfilItem.quantity;
+
+        if (issuingQty > remaining) {
+          throw new BadRequestError(
+            `Položka ${fulfilItem.requestItemIndex}: vydávate ${issuingQty}, ale zostatok je len ${remaining}.`,
+          );
+        }
+
+        if (fulfilItem.type === 'SERIALIZED') {
+          for (const assetId of fulfilItem.assetIds) {
+            const asset = await this.assetsRepo.findById(tenantId, assetId, session);
+            if (!asset) {
+              throw new BadRequestError(`Asset '${assetId}' neexistuje alebo nie je dostupný.`);
+            }
+            if (!asset.isLoanable) {
+              throw new BadRequestError(
+                `Asset ${asset.inventoryNumber} (${asset.name}) nie je požičiavateľný.`,
+              );
+            }
+            if (asset.status !== 'AVAILABLE') {
+              throw new BadRequestError(
+                `Asset ${asset.inventoryNumber} (${asset.name}) nie je dostupný (stav: ${asset.status}).`,
+              );
+            }
+            loanItems.push({
+              assetId,
+              snapshot: { inventoryNumber: asset.inventoryNumber, name: asset.name },
+              condition: {
+                atPickup: { condition: 'GOOD' as const, note: null, photoIds: [] },
+                atReturn: null,
+              },
+            });
+          }
+        } else {
+          // BULK — stock movement handled below; loan item uses bulkItemId as assetId
+          loanItems.push({
+            assetId: fulfilItem.bulkItemId,
+            snapshot: { inventoryNumber: '', name: reqItem.categorySnapshot.name },
+            condition: {
+              atPickup: { condition: 'GOOD' as const, note: null, photoIds: [] },
+              atReturn: null,
+            },
+          });
+        }
+
+        itemIncrements.push({ index: fulfilItem.requestItemIndex, delta: issuingQty });
       }
 
-      // ----- Step 3: build Loan items (with pickup condition snapshot) -----
-      const loanItems: LoanItem[] = loanRequest.items.map((item) => ({
-        assetId: item.assetId,
-        snapshot: item.snapshot,
-        condition: {
-          atPickup: {
-            condition: 'GOOD' as const, // MVP: no condition form at pickup; default to GOOD
-            note: null,
-            photoIds: [],
-          },
-          atReturn: null,
-        },
-      }));
-
-      // ----- Step 4: create Loan document -----
-      // borrowerId = beneficiaryId (ADR-0023): kto si požičiava, nie kto žiadal
+      // ----- Step 3: create Loan -----
       const loanDoc: Omit<Loan, '_id'> = {
         organisationId: tenantId,
         requestId: id,
@@ -495,7 +466,7 @@ export class LoansService {
         purpose: loanRequest.purpose,
         pickedUpAt: now,
         handedOverBy: actorId,
-        dueAt: loanRequest.plannedTo,
+        dueAt: input.dueAt,
         returnedAt: null,
         returnedTo: null,
         items: loanItems,
@@ -503,7 +474,7 @@ export class LoansService {
         extensionCount: 0,
         handoverProtocolId: null,
         returnProtocolId: null,
-        notes: null,
+        notes: input.notes ?? null,
         createdAt: now,
         updatedAt: now,
         createdBy: actorId,
@@ -515,31 +486,67 @@ export class LoansService {
       const insertedLoan = await this.loansRepo.insert(loanDoc, session);
       const loanId = String(insertedLoan._id);
 
-      // ----- Step 5: assets RESERVED → BORROWED -----
-      for (const item of loanRequest.items) {
-        await this.assetsRepo.update(
+      // ----- Step 4: asset state changes -----
+      for (const fulfilItem of input.items) {
+        if (fulfilItem.type === 'SERIALIZED') {
+          for (const assetId of fulfilItem.assetIds) {
+            await this.assetsRepo.update(
+              tenantId,
+              assetId,
+              {
+                status: 'BORROWED' as AssetStatus,
+                currentLoanId: loanId,
+                updatedAt: now,
+                updatedBy: actorId,
+              },
+              session,
+            );
+          }
+        }
+        // BULK: StockMovement LOAN_OUT — handled via StockService (separate call or inline)
+        // For now: BULK asset state update is a no-op at asset level (tracked via ledger in ADR-0020)
+      }
+
+      // ----- Step 5: increment quantityFulfilled + push loanId -----
+      // We do this one by one because each item may have a different index.
+      // Last write wins for resultingLoanIds push — we only push once per fulfil call.
+      let updatedRequest: WithId<LoanRequest> | null = null;
+      for (const inc of itemIncrements) {
+        updatedRequest = await this.loanRequestsRepo.incrementItemFulfilled(
           tenantId,
-          item.assetId,
-          {
-            status: 'BORROWED' as AssetStatus,
-            currentLoanId: loanId,
-            updatedAt: now,
-            updatedBy: actorId,
-          },
+          id,
+          inc.index,
+          inc.delta,
+          loanId,
+          now,
+          actorId,
           session,
         );
       }
 
-      // ----- Step 6: LoanRequest → APPROVED -----
+      // ----- Step 6: recompute request status -----
+      // Re-read after increments
+      const freshRequest =
+        updatedRequest ?? (await this.loanRequestsRepo.findById(tenantId, id, session));
+      if (!freshRequest) throw new NotFoundError('LoanRequest', id);
+
+      const allFulfilled = freshRequest.items.every(
+        (i) => i.quantityFulfilled >= i.quantityRequested,
+      );
+
+      let newStatus: LoanRequestStatus;
+      if (allFulfilled) {
+        newStatus = 'FULFILLED' as LoanRequestStatus;
+      } else if (input.closeRemainder) {
+        newStatus = 'CLOSED' as LoanRequestStatus;
+      } else {
+        newStatus = 'PARTIALLY_FULFILLED' as LoanRequestStatus;
+      }
+
       await this.loanRequestsRepo.update(
         tenantId,
         id,
-        {
-          status: 'APPROVED' as LoanRequestStatus,
-          resultingLoanId: loanId,
-          updatedAt: now,
-          updatedBy: actorId,
-        },
+        { status: newStatus, updatedAt: now, updatedBy: actorId },
         session,
       );
 
@@ -548,13 +555,17 @@ export class LoansService {
         actor,
         request,
         {
-          action: 'LOAN_REQUEST_APPROVED',
+          action: 'LOAN_REQUEST_FULFILLED',
           target: {
             entityType: 'LoanRequest',
             entityId: id,
-            snapshot: { resultingLoanId: loanId, itemCount: loanRequest.items.length },
+            snapshot: {
+              loanId,
+              newRequestStatus: newStatus,
+              issuedItemCount: loanItems.length,
+            },
           },
-          description: `Loan request approved. Loan ${loanId} created, ${loanRequest.items.length} asset(s) handed over.`,
+          description: `Vydanie z žiadosti — Loan ${loanId} vytvorený, stav žiadosti: ${newStatus}.`,
         },
         session,
       );
@@ -573,7 +584,7 @@ export class LoansService {
               itemCount: loanItems.length,
             },
           },
-          description: `Loan ${loanId} created — ${loanItems.length} asset(s) picked up, due ${loanDoc.dueAt}.`,
+          description: `Loan ${loanId} vytvorený — ${loanItems.length} kus/ov odovzdaných, splatnosť ${loanDoc.dueAt ?? 'do odvolania'}.`,
         },
         session,
       );
@@ -581,49 +592,13 @@ export class LoansService {
       return insertedLoan;
     });
 
-    // Fire-and-forget: notify requester of approval
-    void this.notifyRequesterApproved(
-      String(loan.borrowerId),
-      loan.purpose,
-      loan.items.length,
-      loan.dueAt,
-      request.log,
-    );
-
     return loanToApiShape(loan);
-  }
-
-  // Helper: notify requester of approval
-  private async notifyRequesterApproved(
-    requesterId: string,
-    purpose: string,
-    itemCount: number,
-    dueAt: string | null,
-    logger: { warn: (msg: object, txt: string) => void },
-  ): Promise<void> {
-    if (!this.emailService?.isConfigured) return;
-    try {
-      const usersCol = this.getDb().collection('users');
-      const user = await usersCol.findOne({ _id: requesterId as never, deletedAt: null });
-      if (user?.['email']) {
-        await this.emailService.sendLoanApprovedEmail(user['email'] as string, {
-          requesterName: (user['displayName'] as string) || (user['email'] as string),
-          purpose,
-          itemCount,
-          dueAt,
-          frontendUrl: this.frontendUrl,
-        });
-      }
-    } catch (err) {
-      logger.warn({ err }, 'Failed to send loan approved email');
-    }
   }
 
   /**
    * Reject a loan request.
    *
-   * Caller must be ASSET_MANAGER or ADMIN (enforced in routes).
-   * All reserved assets are released back to AVAILABLE atomically.
+   * Only from PENDING. No reservation release (nothing was reserved — ADR-0026).
    */
   async rejectLoanRequest(
     id: string,
@@ -640,12 +615,9 @@ export class LoansService {
       if (!loanRequest) throw new NotFoundError('LoanRequest', id);
       if (loanRequest.status !== 'PENDING') {
         throw new BadRequestError(
-          `Cannot reject a loan request with status ${loanRequest.status}.`,
+          `Žiadosť nemožno zamietnuť — aktuálny stav je ${loanRequest.status}.`,
         );
       }
-
-      // Release reservations.
-      await this.releaseReservations(tenantId, loanRequest.items, actorId, now, session);
 
       await this.loanRequestsRepo.update(
         tenantId,
@@ -667,15 +639,15 @@ export class LoansService {
           target: {
             entityType: 'LoanRequest',
             entityId: id,
-            snapshot: { reason, itemCount: loanRequest.items.length },
+            snapshot: { reason },
           },
-          description: `Loan request rejected. Reason: ${reason}`,
+          description: `Žiadosť zamietnutá. Dôvod: ${reason}`,
         },
         session,
       );
     });
 
-    // Fire-and-forget: notify requester of rejection
+    // Fire-and-forget: notify requester
     if (this.emailService?.isConfigured) {
       void (async () => {
         try {
@@ -702,8 +674,8 @@ export class LoansService {
   /**
    * Cancel a loan request.
    *
-   * Only the original requester or an ADMIN can cancel.
-   * All reserved assets are released back to AVAILABLE atomically.
+   * Only requester or ADMIN. Only from PENDING.
+   * No reservation release (ADR-0026 — nothing was reserved).
    */
   async cancelLoanRequest(id: string, actor: WithId<User>, request: FastifyRequest): Promise<void> {
     const tenantId = String(actor.organisationId);
@@ -715,29 +687,20 @@ export class LoansService {
       if (!loanRequest) throw new NotFoundError('LoanRequest', id);
       if (loanRequest.status !== 'PENDING') {
         throw new BadRequestError(
-          `Cannot cancel a loan request with status ${loanRequest.status}.`,
+          `Žiadosť nemožno zrušiť — aktuálny stav je ${loanRequest.status}.`,
         );
       }
 
-      // Only requester or ADMIN can cancel.
       const isOwner = String(loanRequest.requesterId) === actorId;
       const isAdmin = actor.roles.includes('ADMIN');
       if (!isOwner && !isAdmin) {
-        throw new ForbiddenError(
-          'Only the original requester or an ADMIN can cancel this loan request.',
-        );
+        throw new ForbiddenError('Žiadosť môže zrušiť len jej autor alebo ADMIN.');
       }
-
-      await this.releaseReservations(tenantId, loanRequest.items, actorId, now, session);
 
       await this.loanRequestsRepo.update(
         tenantId,
         id,
-        {
-          status: 'CANCELLED' as LoanRequestStatus,
-          updatedAt: now,
-          updatedBy: actorId,
-        },
+        { status: 'CANCELLED' as LoanRequestStatus, updatedAt: now, updatedBy: actorId },
         session,
       );
 
@@ -749,9 +712,9 @@ export class LoansService {
           target: {
             entityType: 'LoanRequest',
             entityId: id,
-            snapshot: { cancelledBy: actorId, itemCount: loanRequest.items.length },
+            snapshot: { cancelledBy: actorId },
           },
-          description: `Loan request cancelled by ${actor.displayName}.`,
+          description: `Žiadosť zrušená používateľom ${actor.displayName}.`,
         },
         session,
       );
@@ -759,11 +722,8 @@ export class LoansService {
   }
 
   /**
-   * Create a direct loan without a prior request (ADR-0023 — quick loan, US-017).
-   *
-   * ASSET_MANAGER or ADMIN only (enforced in routes).
-   * Asset goes directly AVAILABLE → BORROWED without RESERVED intermediate.
-   * requestId = null on the resulting Loan.
+   * Create a direct loan without a prior request (ADR-0023 — quick loan).
+   * ASSET_MANAGER or ADMIN only. Asset goes directly AVAILABLE → BORROWED.
    */
   async createDirectLoan(
     input: CreateDirectLoanInput,
@@ -775,44 +735,23 @@ export class LoansService {
     const now = new Date().toISOString();
 
     const loan = await this.runInTransaction(async (session) => {
-      // ----- Step 1: validate borrower — must be active member of this tenant -----
-      const borrowerId = input.borrowerId;
-      const usersCol = this.getDb().collection('users');
-      const borrowerDoc = await usersCol.findOne(
-        { _id: new ObjectId(borrowerId) as never, deletedAt: null, isActive: true },
-        { session },
-      );
-      if (!borrowerDoc) {
-        throw new BadRequestError(`Borrower user '${borrowerId}' does not exist or is not active.`);
-      }
-      const membershipsCol = this.getDb().collection('memberships');
-      const membership = await membershipsCol.findOne(
-        { userId: borrowerId, organisationId: tenantId, status: 'ACTIVE', deletedAt: null },
-        { session },
-      );
-      const legacyOrgMatch = String(borrowerDoc['organisationId']) === tenantId;
-      if (!membership && !legacyOrgMatch) {
-        throw new BadRequestError(
-          `Borrower user '${borrowerId}' is not a member of this organisation.`,
-        );
-      }
+      await this.assertBeneficiaryIsActiveMember(tenantId, input.borrowerId, session);
 
-      // ----- Step 2: validate and snapshot every asset -----
       const loanItems: LoanItem[] = [];
 
       for (const item of input.items) {
         const asset = await this.assetsRepo.findById(tenantId, item.assetId, session);
         if (!asset) {
-          throw new BadRequestError(`Asset ${item.assetId} does not exist or is not accessible.`);
+          throw new BadRequestError(`Asset '${item.assetId}' neexistuje alebo nie je dostupný.`);
         }
         if (!asset.isLoanable) {
           throw new BadRequestError(
-            `Asset ${asset.inventoryNumber} (${asset.name}) is not loanable.`,
+            `Asset ${asset.inventoryNumber} (${asset.name}) nie je požičiavateľný.`,
           );
         }
         if (asset.status !== 'AVAILABLE') {
           throw new BadRequestError(
-            `Asset ${asset.inventoryNumber} (${asset.name}) is not available (current status: ${asset.status}).`,
+            `Asset ${asset.inventoryNumber} (${asset.name}) nie je dostupný (stav: ${asset.status}).`,
           );
         }
         loanItems.push({
@@ -825,11 +764,10 @@ export class LoansService {
         });
       }
 
-      // ----- Step 3: create Loan document (requestId = null) -----
       const loanDoc: Omit<Loan, '_id'> = {
         organisationId: tenantId,
         requestId: null,
-        borrowerId,
+        borrowerId: input.borrowerId,
         purpose: input.purpose,
         pickedUpAt: now,
         handedOverBy: actorId,
@@ -853,7 +791,6 @@ export class LoansService {
       const insertedLoan = await this.loansRepo.insert(loanDoc, session);
       const loanId = String(insertedLoan._id);
 
-      // ----- Step 4: assets AVAILABLE → BORROWED (no RESERVED step) -----
       for (const item of loanItems) {
         const updated = await this.assetsRepo.update(
           tenantId,
@@ -868,12 +805,11 @@ export class LoansService {
         );
         if (!updated) {
           throw new BadRequestError(
-            `Asset ${item.assetId} could not be borrowed — it may have just been modified. Please try again.`,
+            `Asset '${item.assetId}' sa nepodarilo rezervovať — bol práve zmenený. Skús znova.`,
           );
         }
       }
 
-      // ----- Step 5: audit log -----
       await this.auditLog.record(
         actor,
         request,
@@ -882,9 +818,13 @@ export class LoansService {
           target: {
             entityType: 'Loan',
             entityId: loanId,
-            snapshot: { borrowerId, dueAt: input.dueAt, itemCount: loanItems.length },
+            snapshot: {
+              borrowerId: input.borrowerId,
+              dueAt: input.dueAt,
+              itemCount: loanItems.length,
+            },
           },
-          description: `Direct loan created for ${loanItems.length} asset(s), due ${input.dueAt}. Handed over by ${actor.displayName}.`,
+          description: `Priama výpožička vytvorená pre ${loanItems.length} kus/ov, splatnosť ${input.dueAt ?? 'do odvolania'}.`,
         },
         session,
       );
@@ -897,16 +837,7 @@ export class LoansService {
 
   /**
    * Return a loan.
-   *
-   * Caller must be ASSET_MANAGER or ADMIN (enforced in routes).
-   *
-   * For each item:
-   *   - requiresService === true  → asset BORROWED → IN_SERVICE
-   *   - requiresService === false → asset BORROWED → AVAILABLE
-   *
-   * Loan terminal status:
-   *   - Any item with requiresService → DAMAGED
-   *   - All items fine              → RETURNED
+   * ASSET_MANAGER or ADMIN only.
    */
   async returnLoan(
     id: string,
@@ -922,41 +853,31 @@ export class LoansService {
       const loan = await this.loansRepo.findById(tenantId, id, session);
       if (!loan) throw new NotFoundError('Loan', id);
       if (loan.status !== 'ACTIVE') {
-        throw new BadRequestError(
-          `Cannot return a loan with status ${loan.status}. Only ACTIVE loans can be returned.`,
-        );
+        throw new BadRequestError(`Loan nemožno vrátiť — aktuálny stav je ${loan.status}.`);
       }
 
-      // Validate that returnInput.items covers all loan items.
       const returnItemMap = new Map(returnInput.items.map((i) => [i.assetId, i]));
       for (const loanItem of loan.items) {
         if (!returnItemMap.has(loanItem.assetId)) {
           throw new BadRequestError(
-            `Return input is missing item for asset ${loanItem.assetId} (${loanItem.snapshot.inventoryNumber}).`,
+            `Chýba vrátenie pre asset ${loanItem.assetId} (${loanItem.snapshot.inventoryNumber}).`,
           );
         }
       }
 
       let anyRequiresService = false;
-
-      // Update assets and build updated loan items.
       const updatedItems: LoanItem[] = [];
+
       for (const loanItem of loan.items) {
         const returnItemData = returnItemMap.get(loanItem.assetId)!;
         const requiresService = returnItemData.requiresService ?? false;
-
         if (requiresService) anyRequiresService = true;
 
         const newAssetStatus: AssetStatus = requiresService ? 'IN_SERVICE' : 'AVAILABLE';
         await this.assetsRepo.update(
           tenantId,
           loanItem.assetId,
-          {
-            status: newAssetStatus,
-            currentLoanId: null,
-            updatedAt: now,
-            updatedBy: actorId,
-          },
+          { status: newAssetStatus, currentLoanId: null, updatedAt: now, updatedBy: actorId },
           session,
         );
 
@@ -997,18 +918,12 @@ export class LoansService {
           target: {
             entityType: 'Loan',
             entityId: id,
-            snapshot: {
-              terminalStatus,
-              returnedAt: now,
-              itemsRequiringService: updatedItems.filter(
-                (i) => i.condition.atReturn?.requiresService,
-              ).length,
-            },
+            snapshot: { terminalStatus, returnedAt: now },
           },
           description:
             terminalStatus === 'DAMAGED'
-              ? `Loan returned with damage — ${updatedItems.filter((i) => i.condition.atReturn?.requiresService).length} asset(s) require service.`
-              : `Loan returned successfully — all ${loan.items.length} asset(s) in order.`,
+              ? `Loan vrátený s poškodením — ${updatedItems.filter((i) => i.condition.atReturn?.requiresService).length} kus/ov vyžaduje servis.`
+              : `Loan vrátený v poriadku — ${loan.items.length} kus/ov.`,
           severity: anyRequiresService ? 'WARNING' : 'INFO',
         },
         session,
@@ -1021,10 +936,7 @@ export class LoansService {
   }
 
   /**
-   * Mark a loan as lost.
-   *
-   * Caller must be ASSET_MANAGER or ADMIN (enforced in routes).
-   * All borrowed assets → LOST, currentLoanId cleared.
+   * Mark a loan as lost. ASSET_MANAGER or ADMIN only.
    */
   async markLoanLost(
     id: string,
@@ -1040,9 +952,7 @@ export class LoansService {
       const loan = await this.loansRepo.findById(tenantId, id, session);
       if (!loan) throw new NotFoundError('Loan', id);
       if (loan.status !== 'ACTIVE') {
-        throw new BadRequestError(
-          `Cannot mark a loan as lost if its status is ${loan.status}. Only ACTIVE loans can be lost.`,
-        );
+        throw new BadRequestError(`Loan nie je aktívny (stav: ${loan.status}).`);
       }
 
       for (const item of loan.items) {
@@ -1062,11 +972,7 @@ export class LoansService {
       await this.loansRepo.update(
         tenantId,
         id,
-        {
-          status: 'LOST' as LoanStatus,
-          updatedAt: now,
-          updatedBy: actorId,
-        },
+        { status: 'LOST' as LoanStatus, updatedAt: now, updatedBy: actorId },
         session,
       );
 
@@ -1080,7 +986,7 @@ export class LoansService {
             entityId: id,
             snapshot: { reason, lostItemCount: loan.items.length },
           },
-          description: `Loan marked as lost (${loan.items.length} asset(s)). Reason: ${reason}`,
+          description: `Loan označený ako stratený (${loan.items.length} kus/ov). Dôvod: ${reason}`,
           severity: 'WARNING',
         },
         session,
@@ -1092,31 +998,72 @@ export class LoansService {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  /**
-   * Release all RESERVED assets back to AVAILABLE.
-   * Used by both `rejectLoanRequest` and `cancelLoanRequest`.
-   */
-  private async releaseReservations(
+  private async assertBeneficiaryIsActiveMember(
     tenantId: string,
-    items: LoanRequest['items'],
-    actorId: string,
-    now: string,
-    session: ClientSession,
+    userId: string,
+    session?: ClientSession,
   ): Promise<void> {
-    for (const item of items) {
-      await this.assetsRepo.update(
-        tenantId,
-        item.assetId,
-        { status: 'AVAILABLE' as AssetStatus, updatedAt: now, updatedBy: actorId },
-        session,
-      );
+    const usersCol = this.getDb().collection('users');
+    const userDoc = await usersCol.findOne(
+      { _id: new ObjectId(userId) as never, deletedAt: null, isActive: true },
+      session ? { session } : undefined,
+    );
+    if (!userDoc) {
+      throw new BadRequestError(`Používateľ '${userId}' neexistuje alebo nie je aktívny.`);
+    }
+    const membershipsCol = this.getDb().collection('memberships');
+    const membership = await membershipsCol.findOne(
+      { userId, organisationId: tenantId, status: 'ACTIVE', deletedAt: null },
+      session ? { session } : undefined,
+    );
+    const legacyOrgMatch = String(userDoc['organisationId']) === tenantId;
+    if (!membership && !legacyOrgMatch) {
+      throw new BadRequestError(`Používateľ '${userId}' nie je členom tejto organizácie.`);
     }
   }
 
-  /**
-   * Run `work` inside a Mongo transaction. Commits on success, aborts on throw.
-   * Same pattern as AssetsService.runInTransaction.
-   */
+  private async notifyManagersNewRequest(
+    tenantId: string,
+    requestId: string,
+    requesterName: string,
+    purpose: string,
+    itemCount: number,
+    plannedFrom: string,
+    plannedTo: string | null,
+    logger: { warn: (msg: object, txt: string) => void },
+  ): Promise<void> {
+    if (!this.emailService?.isConfigured) return;
+    try {
+      const membershipsCol = this.getDb().collection('memberships');
+      const managers = await membershipsCol
+        .find({
+          organisationId: tenantId,
+          status: 'ACTIVE',
+          deletedAt: null,
+          roles: { $in: ['ASSET_MANAGER', 'ADMIN'] },
+        })
+        .toArray();
+
+      const usersCol = this.getDb().collection('users');
+      for (const m of managers) {
+        const user = await usersCol.findOne({ _id: m['userId'] as never, deletedAt: null });
+        if (user?.['email']) {
+          await this.emailService.sendLoanRequestPendingEmail(user['email'] as string, {
+            requesterName,
+            purpose,
+            itemCount,
+            plannedFrom,
+            plannedTo,
+            requestId,
+            frontendUrl: this.frontendUrl,
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to send loan request pending email');
+    }
+  }
+
   private async runInTransaction<T>(work: (session: ClientSession) => Promise<T>): Promise<T> {
     const session = this.mongoClient.startSession();
     try {
@@ -1142,17 +1089,16 @@ function hasManagerRole(actor: WithId<User>): boolean {
 function assertCanReadLoanRequest(doc: WithId<LoanRequest>, actor: WithId<User>): void {
   const actorId = String(actor._id);
   const isRequester = String(doc.requesterId) === actorId;
-  // ADR-0023: beneficiary can also read the request (someone applied on their behalf)
   const isBeneficiary = doc.beneficiaryId != null && String(doc.beneficiaryId) === actorId;
   if (!isRequester && !isBeneficiary && !hasManagerRole(actor)) {
-    throw new ForbiddenError('You do not have permission to view this loan request.');
+    throw new ForbiddenError('Nemáš oprávnenie zobraziť túto žiadosť.');
   }
 }
 
 function assertCanReadLoan(doc: WithId<Loan>, actor: WithId<User>): void {
   const isOwner = String(doc.borrowerId) === String(actor._id);
   if (!isOwner && !hasManagerRole(actor)) {
-    throw new ForbiddenError('You do not have permission to view this loan.');
+    throw new ForbiddenError('Nemáš oprávnenie zobraziť túto výpožičku.');
   }
 }
 
@@ -1160,29 +1106,14 @@ function assertCanReadLoan(doc: WithId<Loan>, actor: WithId<User>): void {
 // API shape helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Convert `_id` ObjectId to string and stringify nested ObjectId refs.
- */
 function loanRequestToApiShape(doc: WithId<LoanRequest>): Record<string, unknown> {
-  return {
-    ...doc,
-    _id: String(doc._id),
-  };
+  return { ...doc, _id: String(doc._id) };
 }
 
-/**
- * Convert Loan document to API shape + add computed `isOverdue` field.
- * OVERDUE is never persisted to DB — always computed on read.
- */
 function loanToApiShape(doc: WithId<Loan>): Record<string, unknown> {
-  // ADR-0025: open-ended výpožička (dueAt === null) nikdy nie je OVERDUE
   const isOverdue =
     doc.status === 'ACTIVE' && doc.dueAt != null && new Date().toISOString() > doc.dueAt;
-  return {
-    ...doc,
-    _id: String(doc._id),
-    isOverdue,
-  };
+  return { ...doc, _id: String(doc._id), isOverdue };
 }
 
 function paginatedResponse<T>(

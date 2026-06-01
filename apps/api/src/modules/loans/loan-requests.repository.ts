@@ -1,14 +1,14 @@
 /**
  * LoanRequestsRepository — thin wrapper around the `loan_requests` collection.
  *
- * Convention (same as AssetsRepository):
+ * ADR-0026: Katalógové žiadosti (kategória + množstvo) + oddelené vydávanie.
+ *
+ * Convention:
  *   - Methods return raw WithId<LoanRequest> documents.
  *   - No business logic — only Mongo primitives.
  *   - Every read/write method takes `organisationId` as first param and
  *     enforces tenant scoping via `requireTenantId` + `tenantFilter`.
  *   - `ClientSession?` optional param on writes for transactional use.
- *
- * Slice #5 K2 — initial implementation.
  */
 
 import { ObjectId } from 'mongodb';
@@ -45,16 +45,22 @@ export interface ListLoanRequestsResult {
  * Patch shape for `update`. Only fields that the service layer legitimately
  * changes post-creation are included.
  *
- * `organisationId` is immutable — not patchable.
- * `requesterId` / `items` / `plannedFrom` / `plannedTo` are not patchable
- * after creation in MVP (user must cancel and re-submit).
+ * `organisationId` / `requesterId` / `items` / `plannedFrom` / `plannedTo`
+ * are immutable after creation — not patchable.
  */
 export type LoanRequestPatch = Partial<
   Pick<
     LoanRequest,
-    'status' | 'approvers' | 'resultingLoanId' | 'rejectionReason' | 'updatedAt' | 'updatedBy'
+    'status' | 'approvers' | 'resultingLoanIds' | 'rejectionReason' | 'updatedAt' | 'updatedBy'
   >
->;
+> & {
+  /**
+   * Atomic increment for a specific item's quantityFulfilled.
+   * Handled via $inc in update — not a simple $set patch.
+   * Pass separately to `incrementItemFulfilled` instead of `update`.
+   */
+  _itemFulfilledIncrement?: never;
+};
 
 // ---------------------------------------------------------------------------
 // Repository
@@ -70,11 +76,10 @@ export class LoanRequestsRepository {
   /**
    * Create indexes. Idempotent — safe to call at every server startup.
    *
-   * Index rationale per ADR-0012:
-   *   - `organisationId_status_requesterId_createdAt` — primary list query:
-   *     scoped to tenant + filter by status and/or requester + default sort.
-   *   - `organisationId_items_assetId` — detect whether a given asset already
-   *     has a PENDING request (reservation conflict check in service layer).
+   * Index rationale per ADR-0026:
+   *   - `organisationId_status_requesterId_createdAt` — primary list query.
+   *   - `organisationId_items_categoryId` — find requests by category
+   *     (replaces old items.assetId index from ADR-0012).
    */
   async ensureIndexes(): Promise<void> {
     await Promise.all([
@@ -83,15 +88,14 @@ export class LoanRequestsRepository {
         { name: 'organisationId_status_requesterId_createdAt' },
       ),
       this.collection.createIndex(
-        { organisationId: 1, 'items.assetId': 1 },
-        { name: 'organisationId_items_assetId' },
+        { organisationId: 1, 'items.categoryId': 1 },
+        { name: 'organisationId_items_categoryId' },
       ),
     ]);
   }
 
   /**
    * List loan requests with optional filters and pagination.
-   * Soft-deleted requests are excluded by default (via tenantFilter).
    */
   async list({
     organisationId,
@@ -106,9 +110,8 @@ export class LoanRequestsRepository {
     const callerFilter: Record<string, unknown> = {};
     if (status !== undefined) callerFilter['status'] = status;
 
-    // ADR-0023: EMPLOYEE filter — sees requests where requester OR beneficiary
+    // ADR-0023: EMPLOYEE filter — sees requests where they are requester OR beneficiary
     if (requesterId !== undefined && beneficiaryId !== undefined && requesterId === beneficiaryId) {
-      // Self-view: both fields point to same user — use $or
       callerFilter['$or'] = [{ requesterId }, { beneficiaryId }];
     } else if (requesterId !== undefined) {
       callerFilter['requesterId'] = requesterId;
@@ -131,7 +134,6 @@ export class LoanRequestsRepository {
 
   /**
    * Find a single loan request by MongoDB `_id`.
-   * Returns null if not found, soft-deleted, or in a different tenant.
    */
   async findById(
     organisationId: string,
@@ -150,41 +152,7 @@ export class LoanRequestsRepository {
   }
 
   /**
-   * Find an existing PENDING request that contains a given asset id in its
-   * items array. Used by the service layer to detect reservation conflicts:
-   * if a PENDING request exists for this asset, the asset is already RESERVED
-   * and a new request must be rejected.
-   *
-   * Returns the conflicting request, or null if none exists.
-   *
-   * Pass `session` when called inside a transaction (asset reservation flow).
-   */
-  async findPendingByAssetId(
-    organisationId: string,
-    assetId: string,
-    session?: ClientSession,
-  ): Promise<WithId<LoanRequest> | null> {
-    const tenantId = requireTenantId(organisationId);
-
-    return this.collection.findOne(
-      tenantFilter<LoanRequest>(tenantId, {
-        status: 'PENDING' as LoanRequest['status'],
-        'items.assetId': assetId as unknown as LoanRequest['items'][number]['assetId'],
-      } as Filter<LoanRequest>),
-      session ? { session } : undefined,
-    );
-  }
-
-  /**
-   * Insert a new loan request document. Returns the inserted document.
-   *
-   * Caller is responsible for:
-   *   - Setting `organisationId` from the authenticated actor's tenant.
-   *   - Setting all audit fields (createdAt, updatedAt, createdBy, updatedBy).
-   *   - Validating against CreateLoanRequestSchema from shared-types.
-   *
-   * Pass `session` to make this part of a transaction (always recommended:
-   * insert + asset reservation should be atomic).
+   * Insert a new loan request document.
    */
   async insert(
     loanRequest: Omit<LoanRequest, '_id'>,
@@ -210,11 +178,7 @@ export class LoanRequestsRepository {
   }
 
   /**
-   * Apply a partial update to a loan request. Returns the updated document,
-   * or null if not found / soft-deleted / in a different tenant.
-   *
-   * Caller must include `updatedAt` and `updatedBy` in the patch.
-   * Pass `session` to make this part of a transaction.
+   * Apply a partial update to a loan request.
    */
   async update(
     organisationId: string,
@@ -230,6 +194,44 @@ export class LoanRequestsRepository {
         _id: new ObjectId(id) as unknown as LoanRequest['_id'],
       } as Filter<LoanRequest>),
       { $set: patch },
+      {
+        returnDocument: 'after',
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
+
+  /**
+   * Atomically increment quantityFulfilled on a specific item (by array index)
+   * and push a new loanId to resultingLoanIds.
+   *
+   * Used by the fulfil flow — each partial fulfilment adds to the running total.
+   * The $inc ensures concurrent fulfilments don't overwrite each other.
+   */
+  async incrementItemFulfilled(
+    organisationId: string,
+    id: string,
+    itemIndex: number,
+    quantityDelta: number,
+    loanId: string,
+    updatedAt: string,
+    updatedBy: string,
+    session?: ClientSession,
+  ): Promise<WithId<LoanRequest> | null> {
+    const tenantId = requireTenantId(organisationId);
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      tenantFilter<LoanRequest>(tenantId, {
+        _id: new ObjectId(id) as unknown as LoanRequest['_id'],
+      } as Filter<LoanRequest>),
+      {
+        $inc: { [`items.${itemIndex}.quantityFulfilled`]: quantityDelta },
+        $push: { resultingLoanIds: loanId as unknown as LoanRequest['resultingLoanIds'][number] },
+        $set: { updatedAt, updatedBy },
+      },
       {
         returnDocument: 'after',
         ...(session ? { session } : {}),

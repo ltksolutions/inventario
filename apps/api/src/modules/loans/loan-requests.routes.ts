@@ -1,15 +1,16 @@
 /**
  * Loan Requests routes — HTTP endpoints for loan request management.
  *
- * RBAC matrix:
- *   - GET    /v1/loan-requests        EMPLOYEE+ (service limits EMPLOYEE to own requests)
- *   - GET    /v1/loan-requests/:id    EMPLOYEE+ (service checks ownership for EMPLOYEE)
- *   - POST   /v1/loan-requests        EMPLOYEE+
- *   - POST   /v1/loan-requests/:id/approve  ASSET_MANAGER, ADMIN
- *   - POST   /v1/loan-requests/:id/reject   ASSET_MANAGER, ADMIN
- *   - DELETE /v1/loan-requests/:id    EMPLOYEE+ (service checks ownership — only requester or ADMIN)
+ * ADR-0026: Katalógové žiadosti (kategória + množstvo) + oddelené vydávanie.
  *
- * Slice #5 K4.
+ * RBAC matrix:
+ *   GET    /v1/loan-requests               EMPLOYEE+
+ *   GET    /v1/loan-requests/:id           EMPLOYEE+ (service checks ownership)
+ *   POST   /v1/loan-requests               EMPLOYEE+
+ *   POST   /v1/loan-requests/:id/approve   ASSET_MANAGER, ADMIN
+ *   POST   /v1/loan-requests/:id/fulfil    ASSET_MANAGER, ADMIN  ← NEW (ADR-0026)
+ *   POST   /v1/loan-requests/:id/reject    ASSET_MANAGER, ADMIN
+ *   DELETE /v1/loan-requests/:id           EMPLOYEE+ (service checks ownership)
  */
 
 import { LoanRequestStatus } from '@inventario/shared-types';
@@ -56,7 +57,6 @@ const ListLoanRequestsQuerySchema = z.object({
     .enum(Object.values(LoanRequestStatus) as [string, ...string[]])
     .optional()
     .transform((v) => v as LoanRequestStatus | undefined),
-  /** Filter by requesterId — ignored for EMPLOYEE (service always forces self). */
   requesterId: z
     .string()
     .regex(/^[a-f\d]{24}$/i)
@@ -64,32 +64,28 @@ const ListLoanRequestsQuerySchema = z.object({
 });
 
 /**
- * POST /v1/loan-requests body.
- *
- * Note: `organisationId`, `status`, `approvers`, and audit fields are
- * server-provided. Only the user-supplied intent fields are in the body.
+ * POST /v1/loan-requests — katalógová žiadosť (ADR-0026).
+ * Žiadateľ zadáva kategóriu + množstvo, NIE konkrétne assetId.
  */
 const CreateLoanRequestBodySchema = z
   .object({
     purpose: z.string().min(3, 'Účel je povinný (min 3 znaky).').max(500),
     plannedFrom: z.string().datetime({ offset: true }),
-    /**
-     * Voliteľný termín do. Null / chýbajúci = výpožička bez termínu ("do odvolania", ADR-0025).
-     */
+    /** Null / chýbajúci = výpožička bez termínu ("do odvolania", ADR-0025). */
     plannedTo: z.string().datetime({ offset: true }).nullable().optional(),
+    /** Katalógové položky — kategória + množstvo. */
     items: z
       .array(
         z.object({
-          assetId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát assetId.'),
+          categoryId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát categoryId.'),
+          quantityRequested: z.number().int().min(1, 'Množstvo musí byť aspoň 1.'),
+          note: z.string().max(1000).nullable().optional(),
         }),
       )
       .min(1, 'Žiadosť musí obsahovať aspoň jednu položku.')
       .max(50, 'Žiadosť môže obsahovať najviac 50 položiek.'),
     idempotencyKey: z.string().max(100).optional(),
-    /**
-     * Voliteľný beneficiár — pre koho je výpožička určená (ADR-0023).
-     * Ak chýba, server nastaví na requesterId (žiadosť pre seba).
-     */
+    /** Voliteľný beneficiár (ADR-0023). Ak chýba, server nastaví na requesterId. */
     beneficiaryId: z
       .string()
       .regex(/^[a-f\d]{24}$/i, 'Neplatný formát beneficiaryId.')
@@ -99,6 +95,35 @@ const CreateLoanRequestBodySchema = z
     message: 'Dátum „od" musí byť pred dátumom „do".',
     path: ['plannedTo'],
   });
+
+/**
+ * POST /v1/loan-requests/:id/fulfil — vydanie z katalógovej žiadosti (ADR-0026).
+ * Správca mapuje položky žiadosti na konkrétny majetok (SERIALIZED) alebo BULK množstvo.
+ */
+const FulfilLoanRequestBodySchema = z.object({
+  items: z
+    .array(
+      z.union([
+        z.object({
+          requestItemIndex: z.number().int().nonnegative(),
+          type: z.literal('SERIALIZED'),
+          assetIds: z.array(z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát assetId.')).min(1),
+        }),
+        z.object({
+          requestItemIndex: z.number().int().nonnegative(),
+          type: z.literal('BULK'),
+          bulkItemId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát bulkItemId.'),
+          quantity: z.number().int().min(1),
+        }),
+      ]),
+    )
+    .min(1, 'Vydanie musí obsahovať aspoň jednu položku.'),
+  /** Záväzný termín vrátenia pre vzniknutý Loan (null = do odvolania, ADR-0025). */
+  dueAt: z.string().datetime({ offset: true }).nullable().default(null),
+  /** Ak true, žiadosť sa uzavrie aj keď nebolo vydané celé množstvo. */
+  closeRemainder: z.boolean().default(false),
+  notes: z.string().max(2000).nullable().default(null),
+});
 
 const RejectBodySchema = z.object({
   reason: z.string().min(5, 'Dôvod zamietnutia musí mať aspoň 5 znakov.').max(1000),
@@ -128,7 +153,6 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
 
   await loanRequestsRepo.ensureIndexes();
 
-  // Expose service on fastify instance so loans.routes.ts can reuse it.
   fastify.decorate('loansService', service);
 
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
@@ -143,10 +167,8 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Loan Requests'],
         summary: 'List loan requests',
         description:
-          'Returns a paginated list of loan requests. ' +
-          'EMPLOYEE sees only their own requests. ' +
-          'ASSET_MANAGER and ADMIN see all requests in the tenant, ' +
-          'optionally filtered by `status` or `requesterId`.',
+          'Vráti stránkovaný zoznam žiadostí. EMPLOYEE vidí len vlastné. ' +
+          'ASSET_MANAGER a ADMIN vidia všetky v rámci tenanta.',
         security: [{ bearerAuth: [] }],
         querystring: ListLoanRequestsQuerySchema,
         response: { 200: PaginatedResponseSchema },
@@ -169,9 +191,6 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Loan Requests'],
         summary: 'Get a loan request by ID',
-        description:
-          'Returns a single loan request. ' +
-          'Accessible to the original requester or any ASSET_MANAGER / ADMIN.',
         security: [{ bearerAuth: [] }],
         params: IdParamsSchema,
         response: { 200: SingleResponseSchema },
@@ -189,22 +208,18 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
       schema: {
         tags: ['Loan Requests'],
-        summary: 'Create a loan request',
+        summary: 'Create a loan request (katalógová žiadosť, ADR-0026)',
         description:
-          'Creates a new loan request. All requested assets must be AVAILABLE. ' +
-          'Assets are atomically moved to RESERVED status. ' +
-          'Any EMPLOYEE can submit a request.',
+          'Vytvorí novú katalógovú žiadosť (kategória + množstvo). ' +
+          'Žiadosť nerezervuje majetok — správca vydá pri fulfil. ' +
+          'Každý EMPLOYEE môže podať žiadosť.',
         security: [{ bearerAuth: [] }],
         body: CreateLoanRequestBodySchema,
         response: { 201: SingleResponseSchema },
       },
     },
     async (request, reply) => {
-      const created = await service.createLoanRequest(
-        request.body as Parameters<typeof service.createLoanRequest>[0],
-        request.currentUser,
-        request,
-      );
+      const created = await service.createLoanRequest(request.body, request.currentUser, request);
       return reply.status(201).send(created);
     },
   );
@@ -218,10 +233,9 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Loan Requests'],
         summary: 'Approve a loan request',
         description:
-          'Approves a PENDING loan request. ' +
-          'In MVP, approval = immediate pickup: all assets move RESERVED → BORROWED ' +
-          'and a Loan document is created with status ACTIVE. ' +
-          'Requires ASSET_MANAGER or ADMIN role.',
+          'Schváli PENDING žiadosť (stav → APPROVED). ' +
+          'ADR-0026: schválenie UŽ NEVYTVÁRA Loan — to sa deje pri fulfil. ' +
+          'Vyžaduje ASSET_MANAGER alebo ADMIN.',
         security: [{ bearerAuth: [] }],
         params: IdParamsSchema,
         response: { 200: SingleResponseSchema },
@@ -229,6 +243,36 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       return service.approveLoanRequest(request.params.id, request.currentUser, request);
+    },
+  );
+
+  // --- POST /v1/loan-requests/:id/fulfil -----------------------------------
+  app.post(
+    '/v1/loan-requests/:id/fulfil',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Loan Requests'],
+        summary: 'Fulfil a loan request (vydanie, ADR-0026)',
+        description:
+          'Vydá majetok z APPROVED / PARTIALLY_FULFILLED žiadosti. ' +
+          'Správca mapuje položky žiadosti na konkrétne kusy (SERIALIZED) alebo BULK množstvo. ' +
+          'Vznikne nový Loan. Žiadosť prejde do PARTIALLY_FULFILLED / FULFILLED / CLOSED. ' +
+          'Vyžaduje ASSET_MANAGER alebo ADMIN.',
+        security: [{ bearerAuth: [] }],
+        params: IdParamsSchema,
+        body: FulfilLoanRequestBodySchema,
+        response: { 201: SingleResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      const loan = await service.fulfilLoanRequest(
+        request.params.id,
+        request.body,
+        request.currentUser,
+        request,
+      );
+      return reply.status(201).send(loan);
     },
   );
 
@@ -241,9 +285,8 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Loan Requests'],
         summary: 'Reject a loan request',
         description:
-          'Rejects a PENDING loan request. All reserved assets are released back ' +
-          'to AVAILABLE. The `reason` field is required. ' +
-          'Requires ASSET_MANAGER or ADMIN role.',
+          'Zamietne PENDING žiadosť. ADR-0026: žiadna rezervácia — nič sa neuvoľňuje. ' +
+          'Vyžaduje ASSET_MANAGER alebo ADMIN.',
         security: [{ bearerAuth: [] }],
         params: IdParamsSchema,
         body: RejectBodySchema,
@@ -270,8 +313,8 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Loan Requests'],
         summary: 'Cancel a loan request',
         description:
-          'Cancels a PENDING loan request. All reserved assets are released back ' +
-          'to AVAILABLE. Only the original requester or an ADMIN can cancel.',
+          'Zruší PENDING žiadosť. ADR-0026: nič sa neuvoľňuje (nebola rezervácia). ' +
+          'Môže len autor žiadosti alebo ADMIN.',
         security: [{ bearerAuth: [] }],
         params: IdParamsSchema,
         response: { 204: z.null() },

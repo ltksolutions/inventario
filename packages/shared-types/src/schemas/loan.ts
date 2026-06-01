@@ -12,36 +12,49 @@ import {
 } from './common.js';
 
 // ─────────────────────────────────────────────────────────────────────
-// Loan Request — žiadosť o zápožičku (PRED schválením)
+// Loan Request — katalógová žiadosť o zápožičku (ADR-0026)
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * Položka v žiadosti — referencia na konkrétny asset.
+ * Položka v katalógovej žiadosti — kategória + požadované množstvo (ADR-0026).
+ *
+ * Žiadateľ uvažuje v kategóriách, nie v inventárnych číslach.
+ * Konkrétny majetok priraďuje správca pri vydaní (POST /v1/loan-requests/:id/fulfil).
  */
 export const LoanRequestItemSchema = z.object({
-  /** ID požadovaného assetu. */
-  assetId: ObjectIdSchema,
+  /** ID kategórie — čo žiadateľ chce. */
+  categoryId: ObjectIdSchema,
 
-  /** Krátky popis pre čas, keď je už request, ale ešte nie schválený. */
-  snapshot: z.object({
-    inventoryNumber: z.string(),
+  /**
+   * Snímka kategórie v čase žiadosti — stabilné zobrazenie aj po prípadnej zmene názvu.
+   */
+  categorySnapshot: z.object({
     name: z.string(),
+    slug: z.string(),
   }),
 
-  /** Stav schválenia tejto konkrétnej položky (pri partial approval). */
-  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'SUBSTITUTED']).default('PENDING'),
+  /** Požadované množstvo (pevné číslo ≥ 1). */
+  quantityRequested: z.number().int().min(1),
 
-  /** Ak SUBSTITUTED, ID navrhnutej náhrady. */
-  substitutedWithAssetId: ObjectIdSchema.nullable().default(null),
+  /**
+   * Vydané množstvo — súčet naprieč všetkými Loan-mi z tejto žiadosti.
+   * Ak quantityFulfilled >= quantityRequested → položka je plne pokrytá.
+   * Inkrementuje service pri každom vydaní (fulfil), nikdy neklesá.
+   */
+  quantityFulfilled: z.number().int().nonnegative().default(0),
 
-  /** Poznámka schvaľovateľa (napr. dôvod zamietnutia). */
-  approverNote: z.string().max(1000).nullable().default(null),
+  /** Voliteľná per-item poznámka žiadateľa (napr. „len ak je skladom"). */
+  note: z.string().max(1000).nullable().default(null),
 });
 
 export type LoanRequestItem = z.infer<typeof LoanRequestItemSchema>;
 
 /**
- * Žiadosť o zápožičku — vytvára používateľ pred prevzatím.
+ * Žiadosť o zápožičku — katalógový dopyt (ADR-0026).
+ *
+ * Žiadosť nedrží zásobu. Správca je jediný gatekeeper:
+ * pri vydaní mapuje kategória+množstvo → konkrétne kusy / BULK a vydá.
+ * 1 žiadosť → N Loanov postupne (resultingLoanIds[]).
  */
 export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
   .merge(OrganisationScopedSchema)
@@ -60,16 +73,18 @@ export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Účel — krátky text, prečo si zápožičku berie. */
     purpose: z.string().min(3, 'Účel je povinný.').max(500),
 
-    /** Plánovaný termín od. */
+    /**
+     * Plánovaný termín od (želaný — záväzný dueAt sa nastaví až na Loan pri vydaní).
+     */
     plannedFrom: TimestampSchema,
 
     /**
      * Plánovaný termín do. Null = výpožička bez termínu ("do odvolania", ADR-0025).
-     * Pri žiadosti bez termínu sa OVERDUE nikdy nepočíta.
+     * Záväzný termín vrátenia (dueAt) sa nastaví na Loan pri vydaní, nie tu.
      */
     plannedTo: TimestampSchema.nullable().default(null),
 
-    /** Položky v žiadosti (môžu byť rôzni schvaľovatelia podľa kategórie). */
+    /** Katalógové položky žiadosti (kategória + množstvo). */
     items: z.array(LoanRequestItemSchema).min(1, 'Žiadosť musí mať aspoň jednu položku.'),
 
     /** Celkový stav žiadosti. */
@@ -77,24 +92,27 @@ export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
       Object.values(LoanRequestStatus) as [string, ...string[]],
     ) as z.ZodType<LoanRequestStatus>,
 
-    /** Zoznam schvaľovateľov (môže byť viacero pri hromadných žiadostiach). */
+    /** Zoznam schvaľovateľov (forward-compat pre ADR-0012 Slice #5b multi-approver routing). */
     approvers: z.array(
       z.object({
         userId: ObjectIdSchema,
-        categoryScope: z.array(ObjectIdSchema), // Aké kategórie tento schvaľovateľ schvaľuje
+        categoryScope: z.array(ObjectIdSchema),
         decidedAt: TimestampSchema.nullable().default(null),
         decision: z.enum(['APPROVED', 'REJECTED']).nullable().default(null),
         note: z.string().max(1000).nullable().default(null),
       }),
     ),
 
-    /** Ak je APPROVED, ID vytvoreného Loan dokumentu. */
-    resultingLoanId: ObjectIdSchema.nullable().default(null),
+    /**
+     * ID Loan-ov vytvorených vydaním z tejto žiadosti (ADR-0026).
+     * 1 žiadosť → N Loanov postupne — každé vydanie pripíše nové Loan._id.
+     */
+    resultingLoanIds: z.array(ObjectIdSchema).default([]),
 
     /** Ak je REJECTED alebo CANCELLED, dôvod. */
     rejectionReason: z.string().max(1000).nullable().default(null),
 
-    /** Hromadná žiadosť pre tím — voliteľná referencia na team. */
+    /** Hromadná žiadosť pre tím — voliteľná referencia (forward-compat, vždy null v MVP). */
     teamId: ObjectIdSchema.nullable().default(null),
 
     /** Hash na idempotenciu — ten istý hash = duplicitná žiadosť, vrátime existujúcu. */
@@ -114,7 +132,7 @@ export const CreateLoanRequestSchema = LoanRequestSchema.omit({
   deletedBy: true,
   status: true,
   approvers: true,
-  resultingLoanId: true,
+  resultingLoanIds: true,
   rejectionReason: true,
   beneficiaryId: true, // Server-set: defaults to requesterId if omitted
 }).extend({
@@ -125,12 +143,76 @@ export const CreateLoanRequestSchema = LoanRequestSchema.omit({
    * Ak chýba, server nastaví na requesterId (žiadosť pre seba).
    */
   beneficiaryId: ObjectIdSchema.optional(),
+  /**
+   * Položky — žiadateľ zadáva kategóriu + množstvo (nie konkrétne assetId).
+   * quantityFulfilled sa vždy nastaví na 0 (server-side).
+   */
+  items: z
+    .array(
+      z.object({
+        categoryId: ObjectIdSchema,
+        quantityRequested: z.number().int().min(1, 'Množstvo musí byť aspoň 1.'),
+        note: z.string().max(1000).nullable().optional(),
+      }),
+    )
+    .min(1, 'Žiadosť musí mať aspoň jednu položku.')
+    .max(50),
 });
 
 export type CreateLoanRequestInput = z.infer<typeof CreateLoanRequestSchema>;
 
+/**
+ * Vydanie z katalógovej žiadosti — správca mapuje položky na konkrétny majetok (ADR-0026).
+ *
+ * Každé volanie POST /v1/loan-requests/:id/fulfil vytvorí samostatný Loan.
+ * Vydanie môže byť čiastočné (quantityFulfilled < quantityRequested).
+ */
+export const FulfilLoanRequestSchema = z.object({
+  /**
+   * Vydávané položky — mapovanie requestItemId na konkrétny majetok.
+   * SERIALIZED: assetIds[] (inventárne kusy z danej kategórie).
+   * BULK: bulkItemId + quantity (množstevná položka z danej kategórie).
+   * Každá vydávaná položka žiadosti môže byť SERIALIZED alebo BULK, nie oboje.
+   */
+  items: z
+    .array(
+      z.union([
+        z.object({
+          requestItemIndex: z.number().int().nonnegative(),
+          type: z.literal('SERIALIZED'),
+          assetIds: z.array(ObjectIdSchema).min(1),
+        }),
+        z.object({
+          requestItemIndex: z.number().int().nonnegative(),
+          type: z.literal('BULK'),
+          bulkItemId: ObjectIdSchema,
+          quantity: z.number().int().min(1),
+        }),
+      ]),
+    )
+    .min(1, 'Vydanie musí obsahovať aspoň jednu položku.'),
+
+  /**
+   * Záväzný termín vrátenia pre vzniknutý Loan (ADR-0025).
+   * Null = výpožička bez termínu ("do odvolania").
+   */
+  dueAt: TimestampSchema.nullable().default(null),
+
+  /**
+   * Ak true, žiadosť sa po tomto vydaní uzavrie (→ CLOSED),
+   * aj keď nebolo vydané celé žiadané množstvo.
+   * Ak false, žiadosť ostáva PARTIALLY_FULFILLED (čaká na ďalšie vydanie).
+   */
+  closeRemainder: z.boolean().default(false),
+
+  /** Voliteľné poznámky k tomuto vydaniu. */
+  notes: z.string().max(2000).nullable().default(null),
+});
+
+export type FulfilLoanRequestInput = z.infer<typeof FulfilLoanRequestSchema>;
+
 // ─────────────────────────────────────────────────────────────────────
-// Loan — aktívna zápožička (PO schválení a prevzatí)
+// Loan — aktívna zápožička (PO vydaní)
 // ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -183,7 +265,7 @@ export const LoanSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
   .merge(OrganisationScopedSchema)
   .extend({
     /**
-     * Referencia na žiadosť, z ktorej zápožička vznikla.
+     * Referencia na katalógovú žiadosť, z ktorej zápožička vznikla (ADR-0026).
      * Null pri priamej výpožičke (direct loan) bez predchádzajúcej žiadosti (ADR-0023).
      */
     requestId: ObjectIdSchema.nullable().default(null),
@@ -191,7 +273,7 @@ export const LoanSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Vypožičiavajúca osoba. */
     borrowerId: ObjectIdSchema,
 
-    /** Účel (skopírovaný z LoanRequest pri vzniku). */
+    /** Účel (skopírovaný z LoanRequest pri vydaní). */
     purpose: z.string().min(3).max(500),
 
     /** Reálny dátum prevzatia. */
