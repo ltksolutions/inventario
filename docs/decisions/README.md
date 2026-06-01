@@ -48,4 +48,4 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0022 | [Preberacie protokoly — model, PDF generovanie a podpisy](0022-loan-protocol-pdf.md)                             | Proposed                                                  | 2026-05-31 |
 | 0023 | [Žiadosť v mene inej osoby + priama výpožička](0023-loan-beneficiary-and-direct-loan.md)                         | ✅ Accepted                                               | 2026-05-31 |
 | 0024 | [Odstránenie role TEAM_MANAGER](0024-remove-team-manager-role.md)                                                | ✅ Accepted                                               | 2026-05-31 |
-| 0025 | [Výpožičky bez termínu (open-ended) + dotiahnutie formulára žiadosti](0025-open-ended-loans-and-request-form.md) | Proposed                                                  | 2026-06-01 |
+| 0025 | [Výpožičky bez termínu (open-ended) + dotiahnutie formulára žiadosti](0025-open-ended-loans-and-request-form.md) | ✅ Accepted                                               | 2026-06-01 |

@@ -48,8 +48,8 @@ prepínač skrýval najčastejší tok (správca prideľuje inému) a pridal UI 
 dashboard aktívnych open-ended výpožičiek, vetvenie „extend loan“ pre open-ended.
 
 **Po deployi overiť:** segment doba určitá/neurčitá, beneficiary picker, open-ended výpožička
-sa zobrazí ako „do odvolania“ bez „Po termíne“ badge. **ADR-0025 → Accepted** po overení.
-ADR: `docs/decisions/0025-open-ended-loans-and-request-form.md`.
+sa zobrazí ako „do odvolania“ bez „Po termíne“ badge.
+ADR: `docs/decisions/0025-open-ended-loans-and-request-form.md` (Accepted).
 
 ---
 
@@ -200,14 +200,14 @@ Fázovanie a sub-tasky (K1–K8) v ADR. **Čaká na rozhodnutie:** spustiť pred
 
 ### 📊 Globálny stav
 
-| Oblasť            | Status                                                       |
-| ----------------- | ------------------------------------------------------------ |
-| **Backend testy** | ✅ ~680 (43 test files)                                      |
-| **Frontend**      | ✅ Slice #5a: StockPanel, prehľad skladu, BULK badge/filter  |
-| **Production**    | ✅ LIVE — app.inventario.estate                              |
-| **CI**            | ✅ Zelené                                                    |
-| **ADR-čka**       | ✅ 0001–0025 (0021 QR, 0022 PDF, 0025 open-ended — Proposed) |
-| **openapi.json**  | ✅ Aktuálne (69 endpointov)                                  |
+| Oblasť            | Status                                                      |
+| ----------------- | ----------------------------------------------------------- |
+| **Backend testy** | ✅ ~680 (43 test files)                                     |
+| **Frontend**      | ✅ Slice #5a: StockPanel, prehľad skladu, BULK badge/filter |
+| **Production**    | ✅ LIVE — app.inventario.estate                             |
+| **CI**            | ✅ Zelené                                                   |
+| **ADR-čka**       | ✅ 0001–0025 (0021 QR, 0022 PDF — Proposed)                 |
+| **openapi.json**  | ✅ Aktuálne (69 endpointov)                                 |
 
 ---
 
