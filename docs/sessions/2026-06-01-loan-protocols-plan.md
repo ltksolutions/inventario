@@ -201,3 +201,18 @@ Možné zlúčiť B+C ak K2 ide hladko. K2 sa NEZLUČUJE s ničím — je to zá
 zo snapshotu). Prehliadač aj budúca mobilná app otvoria ten istý endpoint a natívny tlačový
 dialóg vytlačí na správnu veľkosť papiera. Žiadne UI riešenie tlače netreba — je to vlastnosť
 samotného PDF.
+
+---
+
+## Praktickosť pre dennú prevádzku (vedúci princíp)
+
+Protokol nie je „číslo navyše" — je to dokument, ktorý správca reálne podpíše a odovzdá
+pri pulte. Pri K5/K6 (routes + podpis) držať v hlave:
+
+- **Minimum klikov.** Protokol vzniká automaticky pri fulfil/return — používateľ ho nemusí
+  zakladať ručne. Stiahnuť/vytlačiť = jeden klik z detailu zápožičky.
+- **Podpis na mieste.** CLICK_TO_SIGN má byť jednoduchý — dve strany kliknu, hotovo. Žiadny
+  zložitý flow. (Biometria / eIDAS = Fáza 2, len ak reálny tenant vyzve.)
+- **Vytlač a podpis perom je tiež validný.** Nie každý chce klikať — PDF s podpisovými
+  riadkami sa dá vytlačiť a podpísať rukou. Render musí vyzerať dobre aj na papieri.
+- **Zrozumiteľný jazyk.** Slovenský, ľudský — „Odovzdávajúci", „Preberajúci", nie technický žargón.
