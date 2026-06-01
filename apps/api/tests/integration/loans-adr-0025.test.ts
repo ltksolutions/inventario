@@ -17,6 +17,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
 import {
   insertTestAsset,
+  insertTestCategory,
   insertTestLoan,
   insertTestMembership,
   provisionUser,
@@ -64,7 +65,7 @@ describe('ADR-0025 — open-ended loans + members endpoint', () => {
 
   describe('POST /v1/loan-requests bez termínu (do odvolania)', () => {
     it('vytvori request bez plannedTo → 201 (omitted)', async () => {
-      const asset = await insertTestAsset(app, { status: 'AVAILABLE' });
+      const category = await insertTestCategory(app);
 
       const res = await app.inject({
         method: 'POST',
@@ -73,8 +74,8 @@ describe('ADR-0025 — open-ended loans + members endpoint', () => {
         payload: {
           purpose: 'Trvalé pridelenie notebooku',
           plannedFrom: new Date().toISOString(),
-          // plannedTo vynechané — open-ended
-          items: [{ assetId: asset._id }],
+          // plannedTo vynehané — open-ended
+          items: [{ categoryId: category._id, quantityRequested: 1 }],
         },
       });
 
@@ -84,7 +85,7 @@ describe('ADR-0025 — open-ended loans + members endpoint', () => {
     });
 
     it('vytvori request s plannedTo: null → 201', async () => {
-      const asset = await insertTestAsset(app, { status: 'AVAILABLE' });
+      const category = await insertTestCategory(app);
 
       const res = await app.inject({
         method: 'POST',
@@ -94,7 +95,7 @@ describe('ADR-0025 — open-ended loans + members endpoint', () => {
           purpose: 'Trvalé pridelenie telefónu',
           plannedFrom: new Date().toISOString(),
           plannedTo: null,
-          items: [{ assetId: asset._id }],
+          items: [{ categoryId: category._id, quantityRequested: 1 }],
         },
       });
 
@@ -103,7 +104,7 @@ describe('ADR-0025 — open-ended loans + members endpoint', () => {
     });
 
     it('zamietne request kde plannedFrom > plannedTo → 400', async () => {
-      const asset = await insertTestAsset(app, { status: 'AVAILABLE' });
+      const category = await insertTestCategory(app);
       const now = new Date();
       const yesterday = new Date(now.getTime() - 86400000);
 
@@ -115,7 +116,7 @@ describe('ADR-0025 — open-ended loans + members endpoint', () => {
           purpose: 'Zlý termín',
           plannedFrom: now.toISOString(),
           plannedTo: yesterday.toISOString(),
-          items: [{ assetId: asset._id }],
+          items: [{ categoryId: category._id, quantityRequested: 1 }],
         },
       });
 

@@ -124,7 +124,7 @@ function PendingRequestsList({
         <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
           <tr>
             <th scope="col" className="px-4 py-3">
-              Majetok
+              Položky
             </th>
             <th scope="col" className="px-4 py-3">
               Účel
@@ -164,10 +164,15 @@ function PendingRequestRow({ request }: { request: LoanRequestSummary }): JSX.El
       <tr className="hover:bg-surface-subtle">
         <td className="px-4 py-3">
           <div className="flex flex-col gap-0.5">
-            {request.items.map((item) => (
-              <span key={item.assetId} className="text-sm font-medium text-text-primary">
-                {item.snapshot.inventoryNumber}
-                <span className="ml-1.5 font-normal text-text-secondary">{item.snapshot.name}</span>
+            {request.items.map((item, idx) => (
+              <span
+                key={`${item.categoryId}-${idx}`}
+                className="text-sm font-medium text-text-primary"
+              >
+                {item.quantityRequested}× {item.categorySnapshot.name}
+                {item.note ? (
+                  <span className="ml-1.5 font-normal text-text-muted">({item.note})</span>
+                ) : null}
               </span>
             ))}
           </div>

@@ -814,53 +814,78 @@ export function validCreateAssetConditionBody(
 // Loan Request fixtures
 // ---------------------------------------------------------------------------
 
+/**
+ * ADR-0026: Katalógová položka žiadosti (kategória + množstvo).
+ */
+export interface InsertTestLoanRequestItem {
+  categoryId: string;
+  categoryName?: string;
+  categorySlug?: string;
+  quantityRequested: number;
+  quantityFulfilled?: number;
+  note?: string | null;
+}
+
 export interface InsertTestLoanRequestOptions {
   organisationId?: string;
   requesterId?: string;
-  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
-  /** Array of assetIds to include. Defaults to one test asset created inline. */
-  assetIds?: string[];
+  beneficiaryId?: string;
+  status?:
+    | 'PENDING'
+    | 'APPROVED'
+    | 'PARTIALLY_FULFILLED'
+    | 'FULFILLED'
+    | 'CLOSED'
+    | 'REJECTED'
+    | 'CANCELLED';
+  /** Katalógové položky. Defaults na jednu položku so sentinelovým categoryId. */
+  items?: InsertTestLoanRequestItem[];
   plannedFrom?: string;
-  plannedTo?: string;
+  plannedTo?: string | null;
   purpose?: string;
-  resultingLoanId?: string | null;
+  resultingLoanIds?: string[];
   rejectionReason?: string | null;
 }
 
 /**
- * Insert a loan request directly into the `loan_requests` collection.
- * Useful for tests that need an existing request to operate on.
+ * Insert a loan request directly into the `loan_requests` collection (ADR-0026).
+ * Katalógová žiadosť — položky sú kategória+množstvo, nie assetId.
  */
 export async function insertTestLoanRequest(
   app: FastifyInstance,
   options: InsertTestLoanRequestOptions = {},
-): Promise<{ _id: string; status: string; items: Array<{ assetId: string }> }> {
+): Promise<{ _id: string; status: string }> {
   const now = new Date().toISOString();
   const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
   const requesterId = options.requesterId ?? 'test-requester-000000000000';
 
-  // Default to one sentinel asset if no ids given.
-  const assetIds = options.assetIds ?? ['000000000000000000000099'];
+  const rawItems = options.items ?? [
+    { categoryId: '000000000000000000000001', quantityRequested: 1 },
+  ];
 
-  const items = assetIds.map((assetId) => ({
-    assetId,
-    snapshot: { inventoryNumber: `TEST-${assetId.slice(-4)}`, name: 'Test Asset' },
-    status: 'PENDING' as const,
-    substitutedWithAssetId: null,
-    approverNote: null,
+  const items = rawItems.map((it) => ({
+    categoryId: it.categoryId,
+    categorySnapshot: {
+      name: it.categoryName ?? 'Test Category',
+      slug: it.categorySlug ?? 'test-category',
+    },
+    quantityRequested: it.quantityRequested,
+    quantityFulfilled: it.quantityFulfilled ?? 0,
+    note: it.note ?? null,
   }));
 
   const doc = {
     organisationId,
     requesterId,
+    beneficiaryId: options.beneficiaryId ?? requesterId,
     purpose: options.purpose ?? 'Test purpose',
     plannedFrom: options.plannedFrom ?? now,
-    plannedTo: options.plannedTo ?? future,
+    plannedTo: options.plannedTo !== undefined ? options.plannedTo : future,
     items,
     status: options.status ?? 'PENDING',
     approvers: [],
-    resultingLoanId: options.resultingLoanId ?? null,
+    resultingLoanIds: options.resultingLoanIds ?? [],
     rejectionReason: options.rejectionReason ?? null,
     teamId: null,
     idempotencyKey: null,
@@ -873,11 +898,7 @@ export async function insertTestLoanRequest(
   };
 
   const result = await app.mongo.db.collection('loan_requests').insertOne(doc);
-  return {
-    _id: String(result.insertedId),
-    status: doc.status,
-    items: items.map((i) => ({ assetId: i.assetId })),
-  };
+  return { _id: String(result.insertedId), status: doc.status };
 }
 
 // ---------------------------------------------------------------------------

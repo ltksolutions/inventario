@@ -8,6 +8,8 @@ import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
 import {
   UserRole,
   insertTestAsset,
+  insertTestCategory,
+  insertTestMembership,
   provisionUser,
   seedTestTenant,
 } from '../helpers/test-fixtures.js';
@@ -25,7 +27,7 @@ function futureDate(daysFromNow = 7): string {
 async function createLoanRequestViaApi(
   app: FastifyInstance,
   token: string,
-  assetId: string,
+  categoryId: string,
   extra: Record<string, unknown> = {},
 ) {
   return app.inject({
@@ -35,8 +37,7 @@ async function createLoanRequestViaApi(
     payload: {
       purpose: 'Test účel',
       plannedFrom: new Date().toISOString(),
-      plannedTo: futureDate(),
-      items: [{ assetId }],
+      items: [{ categoryId, quantityRequested: 1 }],
       ...extra,
     },
   });
@@ -84,9 +85,10 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         oid: 'beneficiary-1',
         role: UserRole.EMPLOYEE,
       });
-      const asset = await insertTestAsset(app);
+      await insertTestMembership(app, { userId: String(beneficiary._id) });
+      const category = await insertTestCategory(app);
 
-      const res = await createLoanRequestViaApi(app, requesterToken, asset._id, {
+      const res = await createLoanRequestViaApi(app, requesterToken, category._id, {
         beneficiaryId: String(beneficiary._id),
       });
 
@@ -99,9 +101,9 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         oid: 'requester-self',
         role: UserRole.EMPLOYEE,
       });
-      const asset = await insertTestAsset(app);
+      const category = await insertTestCategory(app);
 
-      const res = await createLoanRequestViaApi(app, token, asset._id);
+      const res = await createLoanRequestViaApi(app, token, category._id);
 
       expect(res.statusCode).toBe(201);
       const body = res.json<{ requesterId: string; beneficiaryId: string }>();
@@ -109,7 +111,7 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
       expect(body.requesterId).toBe(String(user._id));
     });
 
-    it('approve sets borrowerId = beneficiaryId (not requesterId)', async () => {
+    it('approve sets borrowerId = beneficiaryId on resulting Loan (after fulfil)', async () => {
       const { token: requesterToken } = await provisionUser(app, {
         oid: 'requester-approve',
         role: UserRole.EMPLOYEE,
@@ -118,21 +120,38 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         oid: 'beneficiary-approve',
         role: UserRole.EMPLOYEE,
       });
+      await insertTestMembership(app, { userId: String(beneficiary._id) });
       const { token: managerToken } = await provisionUser(app, {
         oid: 'manager-approve',
         role: UserRole.ASSET_MANAGER,
       });
-      const asset = await insertTestAsset(app);
+      const category = await insertTestCategory(app);
+      const asset = await insertTestAsset(app, { status: 'AVAILABLE', categoryId: category._id });
 
-      const reqRes = await createLoanRequestViaApi(app, requesterToken, asset._id, {
+      const reqRes = await createLoanRequestViaApi(app, requesterToken, category._id, {
         beneficiaryId: String(beneficiary._id),
       });
       expect(reqRes.statusCode).toBe(201);
       const requestId = reqRes.json<{ _id: string }>()._id;
 
+      // ADR-0026: approve len zmena stavu, vydanie cez fulfil
       const approveRes = await approveLoanRequest(app, managerToken, requestId);
       expect(approveRes.statusCode).toBe(200);
-      expect(approveRes.json<{ borrowerId: string }>().borrowerId).toBe(String(beneficiary._id));
+      expect(approveRes.json<{ status: string }>().status).toBe('APPROVED');
+
+      // Vydaj cez fulfil
+      const fulfilRes = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [{ requestItemIndex: 0, type: 'SERIALIZED', assetIds: [asset._id] }],
+          dueAt: futureDate(),
+        },
+      });
+      expect(fulfilRes.statusCode).toBe(201);
+      // borrowerId = beneficiaryId
+      expect(fulfilRes.json<{ borrowerId: string }>().borrowerId).toBe(String(beneficiary._id));
     });
 
     it('rejects beneficiaryId that is not a member of this tenant (cross-tenant)', async () => {
@@ -146,15 +165,13 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         role: UserRole.EMPLOYEE,
         organisationId: otherTenant._id,
       });
-      const asset = await insertTestAsset(app);
+      const category = await insertTestCategory(app);
 
-      const res = await createLoanRequestViaApi(app, token, asset._id, {
+      const res = await createLoanRequestViaApi(app, token, category._id, {
         beneficiaryId: String(outsider._id),
       });
 
       expect(res.statusCode).toBe(400);
-      // User exists but has no membership in default tenant
-      expect(res.json<{ message: string }>().message).toMatch(/does not exist|not a member/i);
     });
 
     it('EMPLOYEE sees requests where they are beneficiary (not just requester)', async () => {
@@ -166,9 +183,10 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         oid: 'beneficiary-list',
         role: UserRole.EMPLOYEE,
       });
-      const asset = await insertTestAsset(app);
+      await insertTestMembership(app, { userId: String(beneficiary._id) });
+      const category = await insertTestCategory(app);
 
-      const reqRes = await createLoanRequestViaApi(app, requesterToken, asset._id, {
+      const reqRes = await createLoanRequestViaApi(app, requesterToken, category._id, {
         beneficiaryId: String(beneficiary._id),
       });
       expect(reqRes.statusCode).toBe(201);
@@ -192,9 +210,9 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         oid: 'unrelated-user',
         role: UserRole.EMPLOYEE,
       });
-      const asset = await insertTestAsset(app);
+      const category = await insertTestCategory(app);
 
-      await createLoanRequestViaApi(app, otherToken, asset._id);
+      await createLoanRequestViaApi(app, otherToken, category._id);
 
       const listRes = await app.inject({
         method: 'GET',
@@ -336,7 +354,9 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json<{ message: string }>().message).toMatch(/does not exist|not a member/i);
+      expect(res.json<{ message: string }>().message).toMatch(
+        /nie je členom|does not exist|not a member/i,
+      );
     });
 
     it('rejects asset that is not AVAILABLE (already BORROWED)', async () => {
@@ -362,7 +382,7 @@ describe('ADR-0023 — beneficiary model + direct loan', () => {
         },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json<{ message: string }>().message).toMatch(/not available/i);
+      expect(res.json<{ message: string }>().message).toMatch(/nie je dostupný|not available/i);
     });
   });
 });

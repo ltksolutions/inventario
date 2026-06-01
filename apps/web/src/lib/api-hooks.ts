@@ -1013,11 +1013,24 @@ export function useCanDeleteTaxonomy(): boolean {
 // Loans — types, hooks, mutations
 // ---------------------------------------------------------------------------
 
+/** ADR-0026: katalógová položka žiadosti — kategória + množstvo. */
 export interface LoanRequestItem {
-  assetId: string;
-  snapshot: { inventoryNumber: string; name: string };
-  status: string;
+  categoryId: string;
+  categorySnapshot: { name: string; slug: string };
+  quantityRequested: number;
+  quantityFulfilled: number;
+  note: string | null;
 }
+
+/** ADR-0026: 7-stavový FSM žiadosti. */
+export type LoanRequestStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'PARTIALLY_FULFILLED'
+  | 'FULFILLED'
+  | 'CLOSED'
+  | 'REJECTED'
+  | 'CANCELLED';
 
 export interface LoanRequestSummary {
   _id: string;
@@ -1028,9 +1041,10 @@ export interface LoanRequestSummary {
   plannedFrom: string;
   /** Null = výpožička bez termínu ("do odvolania", ADR-0025). */
   plannedTo: string | null;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  status: LoanRequestStatus;
   items: LoanRequestItem[];
-  resultingLoanId: string | null;
+  /** ADR-0026: 1 žiadosť → N Loanov postupne. */
+  resultingLoanIds: string[];
   rejectionReason: string | null;
   createdAt: string;
   updatedAt: string;
@@ -1059,14 +1073,29 @@ export interface LoanSummary {
   [key: string]: unknown;
 }
 
+/** ADR-0026: katalógová žiadosť — kategória + množstvo, žiadne assetId. */
 export interface CreateLoanRequestInput {
   purpose: string;
   plannedFrom: string;
   /** Null / vynechané = výpožička bez termínu ("do odvolania", ADR-0025). */
   plannedTo?: string | null;
-  items: Array<{ assetId: string }>;
+  items: Array<{ categoryId: string; quantityRequested: number; note?: string | null }>;
   /** Voliteľný beneficiár (ADR-0023). Ak chýba, server nastaví na requesterId. */
   beneficiaryId?: string;
+}
+
+/** ADR-0026: vydanie z žiadosti — mapovanie položiek na konkrétny majetok. */
+export type FulfilLoanRequestItem =
+  | { requestItemIndex: number; type: 'SERIALIZED'; assetIds: string[] }
+  | { requestItemIndex: number; type: 'BULK'; bulkItemId: string; quantity: number };
+
+export interface FulfilLoanRequestInput {
+  items: FulfilLoanRequestItem[];
+  /** Záväzný termín vrátenia pre vzniknutý Loan (null = do odvolania). */
+  dueAt?: string | null;
+  /** Ak true, žiadosť sa uzavrie aj keď nebolo vydané celé množstvo. */
+  closeRemainder?: boolean;
+  notes?: string | null;
 }
 
 interface LoanRequestsListOptions {
@@ -1205,10 +1234,14 @@ export function useCreateLoanRequest(): UseMutationResult<
   });
 }
 
-/** POST /v1/loan-requests/:id/approve */
-export function useApproveLoanRequest(): UseMutationResult<LoanSummary, Error, { id: string }> {
+/** POST /v1/loan-requests/:id/approve — ADR-0026: len zmena stavu PENDING→APPROVED, nevytvára Loan */
+export function useApproveLoanRequest(): UseMutationResult<
+  LoanRequestSummary,
+  Error,
+  { id: string }
+> {
   const queryClient = useQueryClient();
-  return useMutation<LoanSummary, Error, { id: string }>({
+  return useMutation<LoanRequestSummary, Error, { id: string }>({
     mutationFn: async ({ id }) => {
       const { data, error } = await apiClient.POST('/v1/loan-requests/{id}/approve', {
         params: { path: { id } },
@@ -1219,11 +1252,42 @@ export function useApproveLoanRequest(): UseMutationResult<LoanSummary, Error, {
           typeof e.message === 'string' ? e.message : 'Failed to approve loan request',
         );
       }
+      return data as unknown as LoanRequestSummary;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['loans'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/** POST /v1/loan-requests/:id/fulfil — ADR-0026: vydanie, vznik Loan-u + prepočet stavu žiadosti */
+export function useFulfilLoanRequest(): UseMutationResult<
+  LoanSummary,
+  Error,
+  { id: string; input: FulfilLoanRequestInput }
+> {
+  const queryClient = useQueryClient();
+  const genericPostFulfil = apiClient.POST as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+  return useMutation<LoanSummary, Error, { id: string; input: FulfilLoanRequestInput }>({
+    mutationFn: async ({ id, input }) => {
+      const { data, error } = await genericPostFulfil(`/v1/loan-requests/${id}/fulfil`, {
+        body: input,
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Vydanie zžiadosti zlyhalo');
+      }
       return data as unknown as LoanSummary;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['loans'] });
+      void queryClient.invalidateQueries({ queryKey: ['my-loans'] });
       void queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });

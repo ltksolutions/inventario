@@ -12,6 +12,10 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Autori**        | Ján Letko, Claude Opus 4.8 (LTK Solutions)                                                                                                                                                                                                                                                                                             |
 | **Súvisiace ADR** | [0012 Loans state machine](0012-loans-state-machine.md) (toto ADR upravuje jeho model — beneficiary + quick loan, ktorý #5 odložil ako US-017), [0022 Preberacie protokoly PDF](0022-loan-protocol-pdf.md), [0010 Multi-tenant white-label](0010-multi-tenant-white-label.md), [0005 Mongo native driver](0005-mongo-native-driver.md) |
 
+> **Pozn. (2026-06-01):** [ADR-0026](0026-catalog-requests-and-fulfilment.md) nemení
+> `beneficiaryId` ani priaču výpožičku — oba mechánizmy ostávajú bez zmeny.
+> Pri katálogovéj žiadosti je `borrowerId` výsledného Loan-u = `beneficiaryId` žiadosti.
+
 ## Kontext
 
 ADR-0012 postavil model zápožičiek na predpoklade, že **žiadateľ = vypožičiavajúci**:

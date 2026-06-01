@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (ADR-0026 katalógové žiadosti + oddelené vydávanie — ✅ Accepted, implementácia NASLEDUJE; ADR-0025 open-ended — ✅ implementované; ADR-0024 TEAM_MANAGER — ✅; ADR-0023 beneficiary + priamy loan — ✅) |
-| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 prepis loans modelu pred pilotom                                                                                                                                                      |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                                                                       |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                                                                          |
+| Atribút                   | Hodnota                                                                                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-01 (ADR-0026 katalógové žiadosti — ✅ implementované K1–K7, 690 testov; ADR-0025 open-ended — ✅; ADR-0024 TEAM_MANAGER — ✅; ADR-0023 beneficiary — ✅) |
+| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                                                                       |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                    |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                       |
 
 ---
 
@@ -50,7 +50,10 @@ riziková migrácia FSM. Robíme načisto.
 **Prepísať cross-linky** v ADR-0012/0020/0023/0025 (tento ADR mení ich predpoklady) — súčasť K7.
 
 ADR: `docs/decisions/0026-catalog-requests-and-fulfilment.md` (Accepted).
-Session: `docs/sessions/2026-06-01-adr-0026-catalog-requests.md`.
+
+**✅ IMPLEMENTOVANÉ** — K1–K7 hotové, 690 testov zelených. Session: `docs/sessions/2026-06-01-adr-0026-implementation.md`.
+
+**Zostatok:** OpenAPI regen po deployi, smoke test formulára.
 
 ---
 

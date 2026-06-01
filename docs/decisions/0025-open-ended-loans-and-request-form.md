@@ -12,6 +12,10 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Autori**        | Ján Letko, Claude Opus 4.8 (LTK Solutions)                                                                                                                                                                                                                                                                                                                                       |
 | **Súvisiace ADR** | [0012 Loans state machine](0012-loans-state-machine.md) (upravuje invariant „loan má vždy termín"), [0023 Beneficiary + priama výpožička](0023-loan-beneficiary-and-direct-loan.md) (dotvára frontend pre beneficiary), [0018 SelectField](0018-select-field-component.md) (komponent pre beneficiary picker), [0010 Multi-tenant white-label](0010-multi-tenant-white-label.md) |
 
+> **Pozn. (2026-06-01):** [ADR-0026](0026-catalog-requests-and-fulfilment.md) prebera
+> `plannedTo` (nullable) z tohto ADR ako zelane terminy na ziadosti. Zavazny `dueAt` (nullable)
+> sa nastavuje az na vyslednom Loan-e pri vydavani cez `fulfil`, nie na ziadosti.
+
 ## Kontext
 
 Pri prvom reálnom prechode formulárom **„Nová žiadosť o výpožičku"** (`/loans/request`,

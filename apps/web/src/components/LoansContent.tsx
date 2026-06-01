@@ -3,13 +3,14 @@
 
 'use client';
 
-import { AlertCircle, CheckCircle, Plus, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, PackageCheck, Plus, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import type { LoanRequestSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
+import { FulfilLoanRequestModal } from '@/components/FulfilLoanRequestModal';
 import {
   useApproveLoanRequest,
   useCancelLoanRequest,
@@ -32,7 +33,16 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
     label: 'Čaká na schválenie',
     className: 'bg-amber-50 text-amber-700 ring-amber-600/20',
   },
-  APPROVED: { label: 'Schválená', className: 'bg-green-50 text-green-700 ring-green-600/20' },
+  APPROVED: { label: 'Schválená', className: 'bg-blue-50 text-blue-700 ring-blue-600/20' },
+  PARTIALLY_FULFILLED: {
+    label: 'Čiastočne vydaná',
+    className: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+  },
+  FULFILLED: { label: 'Vybavená', className: 'bg-green-50 text-green-700 ring-green-600/20' },
+  CLOSED: {
+    label: 'Uzavretá',
+    className: 'bg-surface-subtle text-text-muted ring-border-subtle',
+  },
   REJECTED: { label: 'Zamietnutá', className: 'bg-red-50 text-red-700 ring-red-600/20' },
   CANCELLED: {
     label: 'Zrušená',
@@ -82,7 +92,18 @@ export function LoansContent(): JSX.Element {
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {(['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'] as const).map((s) => (
+        {(
+          [
+            '',
+            'PENDING',
+            'APPROVED',
+            'PARTIALLY_FULFILLED',
+            'FULFILLED',
+            'CLOSED',
+            'REJECTED',
+            'CANCELLED',
+          ] as const
+        ).map((s) => (
           <button
             key={s}
             type="button"
@@ -135,7 +156,7 @@ function RequestsTable({
         <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
           <tr>
             <th scope="col" className="px-4 py-3">
-              Majetok
+              Položky
             </th>
             <th scope="col" className="px-4 py-3">
               Účel
@@ -186,6 +207,7 @@ function RequestRow({
 
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [fulfilOpen, setFulfilOpen] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
 
   const statusConfig = STATUS_CONFIG[request.status] ?? {
@@ -194,6 +216,9 @@ function RequestRow({
   };
   const isOwner = request.requesterId === currentUserId;
   const isPending = request.status === 'PENDING';
+  // ADR-0026: vydávať možno z APPROVED alebo PARTIALLY_FULFILLED
+  const canFulfil =
+    canManage && (request.status === 'APPROVED' || request.status === 'PARTIALLY_FULFILLED');
 
   function handleApprove(): void {
     setRowError(null);
@@ -225,12 +250,25 @@ function RequestRow({
       <tr className="hover:bg-surface-subtle">
         <td className="px-4 py-3">
           <div className="flex flex-col gap-0.5">
-            {request.items.map((item) => (
-              <span key={item.assetId} className="text-sm font-medium text-text-primary">
-                {item.snapshot.inventoryNumber}
-                <span className="ml-1.5 font-normal text-text-secondary">{item.snapshot.name}</span>
-              </span>
-            ))}
+            {request.items.map((item, idx) => {
+              const fulfilled = item.quantityFulfilled ?? 0;
+              return (
+                <span
+                  key={`${item.categoryId}-${idx}`}
+                  className="text-sm font-medium text-text-primary"
+                >
+                  {item.quantityRequested}× {item.categorySnapshot.name}
+                  {fulfilled > 0 ? (
+                    <span className="ml-1.5 font-normal text-text-muted">
+                      (vydané {fulfilled}/{item.quantityRequested})
+                    </span>
+                  ) : null}
+                  {item.note ? (
+                    <span className="ml-1.5 font-normal text-text-muted">· {item.note}</span>
+                  ) : null}
+                </span>
+              );
+            })}
           </div>
         </td>
         <td className="px-4 py-3 text-text-secondary">{request.purpose}</td>
@@ -277,7 +315,18 @@ function RequestRow({
                 </button>
               </>
             )}
-            {isPending && (isOwner || canManage) && !canManage && (
+            {canFulfil && (
+              <button
+                type="button"
+                onClick={() => setFulfilOpen(true)}
+                aria-label="Vydať majetok"
+                className="inline-flex items-center gap-1 rounded-lg border border-brand-primary bg-brand-primary/10 px-2.5 py-1.5 text-xs font-medium text-brand-primary hover:bg-brand-primary/20"
+              >
+                <PackageCheck aria-hidden="true" className="h-3.5 w-3.5" />
+                Vydať
+              </button>
+            )}
+            {isPending && isOwner && !canManage && (
               <button
                 type="button"
                 onClick={handleCancel}
@@ -290,6 +339,11 @@ function RequestRow({
           </div>
         </td>
       </tr>
+
+      {/* Fulfil modal — ADR-0026 vydanie */}
+      {fulfilOpen && (
+        <FulfilLoanRequestModal request={request} onClose={() => setFulfilOpen(false)} />
+      )}
 
       {/* Reject reason inline form */}
       {rejectOpen && (

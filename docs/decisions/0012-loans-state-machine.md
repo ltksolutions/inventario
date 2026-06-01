@@ -12,6 +12,13 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Autori**        | Ján Letko, Claude Opus 4.7 (LTK Solutions)                                                                                                                                                                                                                                                                                                             |
 | **Súvisiace ADR** | [0010 Multi-tenant white-label](0010-multi-tenant-white-label.md), [0005 Mongo native driver](0005-mongo-native-driver.md), [0004 Entra ID](0004-auth-entra-id.md), [0020 Sklad & množstevné položky](0020-stock-and-bulk-items.md) (rozširuje o množstvo), [Functional spec §4.2 Modul vypožičiavania](../functional-spec.md#42-modul-vypožičiavania) |
 
+> **Pozn. (2026-06-01):** [ADR-0026](0026-catalog-requests-and-fulfilment.md) **prepisuje jadro
+> tohto ADR** — `LoanRequest` FSM nahradený 7-stavovým katalógovým modelom
+> (PENDING→APPROVED→PARTIALLY_FULFILLED→FULFILLED/CLOSED), `LoanRequestItem` zmenený
+> z `assetId`-based na `categoryId+quantity`. Approve už nevytvára Loan — vydanie
+> prebieha cez `POST /v1/loan-requests/:id/fulfil`. Tento dokument je historický záznam
+> pôvodného návrhu; pre aktuálny model čítaj ADR-0026.
+
 > **Pozn. (2026-05-30):** [ADR-0020](0020-stock-and-bulk-items.md) rozširuje tento
 > dokument o množstevné (BULK) položky — `LoanRequestItem` dostáva `quantity`,
 > `LoanItem` má množstevný variant pre BULK a Loan FSM pribúda stav

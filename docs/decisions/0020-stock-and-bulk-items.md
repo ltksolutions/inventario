@@ -12,6 +12,10 @@ SPDX-License-Identifier: CC-BY-4.0
 | **Autori**        | Ján Letko, Claude Opus 4.8 (LTK Solutions)                                                                                                                              |
 | **Súvisiace ADR** | [0012 Loans state machine](0012-loans-state-machine.md), [0010 Multi-tenant](0010-multi-tenant-white-label.md), [0005 Mongo native driver](0005-mongo-native-driver.md) |
 
+> **Pozn. (2026-06-01):** [ADR-0026](0026-catalog-requests-and-fulfilment.md) integruje BULK
+> vydávanie do toku vybavovania katalógovej žiadosti — `POST /v1/loan-requests/:id/fulfil`
+> mapuje položky žiadosti na BULK+množstvo (LOAN_OUT pohyb) alebo SERIALIZED kusy.
+
 ## Kontext
 
 Súčasný dátový model je **striktne serializovaný**: každý fyzický kus má
