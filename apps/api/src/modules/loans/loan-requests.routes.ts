@@ -69,28 +69,36 @@ const ListLoanRequestsQuerySchema = z.object({
  * Note: `organisationId`, `status`, `approvers`, and audit fields are
  * server-provided. Only the user-supplied intent fields are in the body.
  */
-const CreateLoanRequestBodySchema = z.object({
-  purpose: z.string().min(3, 'Účel je povinný (min 3 znaky).').max(500),
-  plannedFrom: z.string().datetime({ offset: true }),
-  plannedTo: z.string().datetime({ offset: true }),
-  items: z
-    .array(
-      z.object({
-        assetId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát assetId.'),
-      }),
-    )
-    .min(1, 'Žiadosť musí obsahovať aspoň jednu položku.')
-    .max(50, 'Žiadosť môže obsahovať najviac 50 položiek.'),
-  idempotencyKey: z.string().max(100).optional(),
-  /**
-   * Voliteľný beneficiár — pre koho je výpožička určená (ADR-0023).
-   * Ak chýba, server nastaví na requesterId (žiadosť pre seba).
-   */
-  beneficiaryId: z
-    .string()
-    .regex(/^[a-f\d]{24}$/i, 'Neplatný formát beneficiaryId.')
-    .optional(),
-});
+const CreateLoanRequestBodySchema = z
+  .object({
+    purpose: z.string().min(3, 'Účel je povinný (min 3 znaky).').max(500),
+    plannedFrom: z.string().datetime({ offset: true }),
+    /**
+     * Voliteľný termín do. Null / chýbajúci = výpožička bez termínu ("do odvolania", ADR-0025).
+     */
+    plannedTo: z.string().datetime({ offset: true }).nullable().optional(),
+    items: z
+      .array(
+        z.object({
+          assetId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát assetId.'),
+        }),
+      )
+      .min(1, 'Žiadosť musí obsahovať aspoň jednu položku.')
+      .max(50, 'Žiadosť môže obsahovať najviac 50 položiek.'),
+    idempotencyKey: z.string().max(100).optional(),
+    /**
+     * Voliteľný beneficiár — pre koho je výpožička určená (ADR-0023).
+     * Ak chýba, server nastaví na requesterId (žiadosť pre seba).
+     */
+    beneficiaryId: z
+      .string()
+      .regex(/^[a-f\d]{24}$/i, 'Neplatný formát beneficiaryId.')
+      .optional(),
+  })
+  .refine((d) => d.plannedTo == null || d.plannedFrom <= d.plannedTo, {
+    message: 'Dátum „od" musí byť pred dátumom „do".',
+    path: ['plannedTo'],
+  });
 
 const RejectBodySchema = z.object({
   reason: z.string().min(5, 'Dôvod zamietnutia musí mať aspoň 5 znakov.').max(1000),

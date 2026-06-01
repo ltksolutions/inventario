@@ -4,6 +4,7 @@
 /**
  * Memberships routes — K15 (Slice #9d).
  *
+ * GET    /v1/members                  — EMPLOYEE+; picker-safe zoznam členov org
  * GET    /v1/memberships/:id           — ADMIN alebo vlastná membership
  * PATCH  /v1/memberships/:id           — ADMIN only; roles/status/notifications
  * DELETE /v1/memberships/:id           — ADMIN only; soft-delete + cache invalidation
@@ -81,6 +82,77 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   const repo = new MembershipsRepository(fastify.mongo.db);
   const service = new MembershipsService(repo);
   await repo.ensureIndexes();
+
+  // =========================================================================
+  // GET /v1/members — picker-safe zoznam aktívnych členov org (EMPLOYEE+)
+  // ADR-0025: beneficiary picker potrebuje zoznam dostupných používateľov.
+  // Vracia len _id, displayName, firstName, lastName — bez citlivých polí.
+  // =========================================================================
+
+  fastify.get('/v1/members', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+    await fastify
+      .requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as UserRole[])
+      .call(fastify, request, reply);
+
+    const { ObjectId: ObjId } = await import('mongodb');
+    const limit = Math.min(Number((request.query as Record<string, unknown>)['limit'] ?? 200), 500);
+    const skip = Number((request.query as Record<string, unknown>)['skip'] ?? 0);
+
+    // Nájdi aktívne memberships v tejto org, zoradené podľa userId
+    const memberships = await fastify.mongo.db
+      .collection('memberships')
+      .find({ organisationId: request.organisationId, status: 'ACTIVE', deletedAt: null })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    const total = await fastify.mongo.db
+      .collection('memberships')
+      .countDocuments({
+        organisationId: request.organisationId,
+        status: 'ACTIVE',
+        deletedAt: null,
+      });
+
+    // Batch lookup userov — len picker-safe polia
+    const userIds = memberships
+      .map((m) => m['userId'] as string)
+      .filter((id) => /^[a-f0-9]{24}$/i.test(id));
+
+    const users = userIds.length
+      ? await fastify.mongo.db
+          .collection('users')
+          .find({ _id: { $in: userIds.map((id) => new ObjId(id)) } as never })
+          .project({ _id: 1, displayName: 1, firstName: 1, lastName: 1, isActive: 1 })
+          .toArray()
+      : [];
+
+    const userMap = new Map(users.map((u) => [String(u['_id']), u]));
+
+    const data = memberships
+      .map((m) => {
+        const user = userMap.get(m['userId'] as string);
+        if (!user) return null;
+        return {
+          _id: String(user['_id']),
+          displayName:
+            (user['displayName'] as string) || `${user['firstName']} ${user['lastName']}`.trim(),
+          firstName: user['firstName'] as string,
+          lastName: user['lastName'] as string,
+          isActive: user['isActive'] as boolean,
+          membershipId: String(m['_id']),
+          roles: m['roles'],
+        };
+      })
+      .filter(Boolean);
+
+    return reply.send({
+      data,
+      pagination: { total, limit, skip, hasMore: skip + memberships.length < total },
+    });
+  });
 
   // =========================================================================
   // GET /v1/memberships — list členov org (ADMIN only, K19)

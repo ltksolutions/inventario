@@ -890,8 +890,8 @@ export interface InsertTestLoanOptions {
   borrowerId?: string;
   assetIds?: string[];
   status?: 'ACTIVE' | 'RETURNED' | 'DAMAGED' | 'LOST';
-  /** dueAt ISO string. Defaults to 7 days from now (not overdue). */
-  dueAt?: string;
+  /** dueAt ISO string. Null = open-ended (ADR-0025). Defaults to 7 days from now. */
+  dueAt?: string | null;
 }
 
 /**
@@ -923,7 +923,7 @@ export async function insertTestLoan(
     purpose: 'Test purpose',
     pickedUpAt: now,
     handedOverBy: 'test-manager-00000000000',
-    dueAt: options.dueAt ?? future,
+    dueAt: options.dueAt !== undefined ? options.dueAt : future,
     returnedAt: null,
     returnedTo: null,
     items,
@@ -1045,6 +1045,44 @@ export async function insertTestUser(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Insert membership record pre existujúceho užívateľa.
+ * Používa sa v testoch kde GET /v1/members potrebuje memberships kolekciu.
+ */
+export async function insertTestMembership(
+  app: FastifyInstance,
+  options: {
+    userId: string;
+    organisationId?: string;
+    roles?: UserRole[];
+    status?: 'ACTIVE' | 'SUSPENDED';
+  },
+): Promise<{ _id: string }> {
+  const now = new Date().toISOString();
+  const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
+  const doc = {
+    userId: options.userId,
+    organisationId,
+    roles: options.roles ?? [UserRole.EMPLOYEE],
+    status: options.status ?? 'ACTIVE',
+    isDefault: false,
+    mustChangePassword: false,
+    notifications: { email: true, push: false },
+    organizationalUnit: null,
+    teams: [],
+    lastAccessedAt: null,
+    acceptedAt: now,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'test-setup',
+    updatedBy: 'test-setup',
+    deletedAt: null,
+    deletedBy: null,
+  };
+  const result = await app.mongo.db.collection('memberships').insertOne(doc);
+  return { _id: String(result.insertedId) };
+}
 
 /**
  * Generate `length` random lowercase hex characters. Used to fabricate

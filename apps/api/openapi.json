@@ -3670,7 +3670,8 @@
                   },
                   "plannedTo": {
                     "type": "string",
-                    "format": "date-time"
+                    "format": "date-time",
+                    "nullable": true
                   },
                   "items": {
                     "type": "array",
@@ -3702,7 +3703,6 @@
                 "required": [
                   "purpose",
                   "plannedFrom",
-                  "plannedTo",
                   "items"
                 ],
                 "additionalProperties": false
@@ -4177,7 +4177,9 @@
                   "dueAt": {
                     "type": "string",
                     "format": "date-time",
-                    "description": "ISO 8601 timestamp v UTC"
+                    "description": "ISO 8601 timestamp v UTC",
+                    "nullable": true,
+                    "default": null
                   },
                   "notes": {
                     "type": "string",
@@ -4189,8 +4191,7 @@
                 "required": [
                   "borrowerId",
                   "items",
-                  "purpose",
-                  "dueAt"
+                  "purpose"
                 ],
                 "additionalProperties": false
               }
@@ -4505,6 +4506,15 @@
     },
     "/v1/auth/accept-invitation": {
       "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/v1/members": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"

@@ -7,12 +7,49 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-05-31 (ADR-0024 odstránenie TEAM_MANAGER — ✅ implementované; ADR-0023 beneficiary + priamy loan — ✅ implementované; ADR-0022 protokoly PDF — Proposed) |
-| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                                     |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                 |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                    |
+| Atribút                   | Hodnota                                                                                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-01 (ADR-0025 open-ended výpožičky + dotiahnutie formulára žiadosti — ✅ implementované; ADR-0024 TEAM_MANAGER — ✅; ADR-0023 beneficiary + priamy loan — ✅; ADR-0022 protokoly PDF — Proposed) |
+| **Aktuálna fáza**         | Production LIVE ✅ — Slice #5a kompletný, pilot nasleduje                                                                                                                                               |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                                                           |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                                                              |
+
+---
+
+### ADR-0025 — Open-ended výpožičky + dotiahnutie formulára žiadosti ✅ IMPLEMENTOVANÉ
+
+Spustené produkčným smoke testom formulára `/loans/request`: pole „Do“ bolo vždy povinné
+(nedávalo zmysel pri trvalom pridelení notebooku), a beneficiary pole z ADR-0023 vo
+formulári úuplne chýbalo.
+
+Vykonané zmeny:
+
+- `schemas/loan.ts` — `plannedTo`, `dueAt`, `CreateDirectLoanSchema.dueAt` → `.nullable().default(null)`
+- `loans.service.ts` — OVERDUE guard `dueAt != null` (open-ended nikdy nie je po termíne);
+  email notify signatúry `string | null`
+- `loan-requests.routes.ts` — `plannedTo` nullable+optional + `.refine()` `plannedFrom <= plannedTo`
+  len keď termín existuje
+- `plugins/email.ts` — `dueAt`/`plannedTo` nullable; `formatDateSk(null)` → „bez termínu“
+- **`GET /v1/members`** (nový, `memberships.routes.ts`) — EMPLOYEE+ picker-safe zoznam členov
+  (`_id`, `displayName`...), bez citlivých polí; `GET /v1/users` je ADMIN-only, takže picker
+  potreboval vlastný zdroj
+- `LoanRequestContent.tsx` — segment „Na dobu určitú / Do odvolania“ + beneficiary `SelectField`
+  (default = ja, `useMembers` hook)
+- `LoansContent.tsx` + `MyLoansContent.tsx` — `formatDate(null)` → „do odvolania“
+- `api-hooks.ts` — `useMembers` + `MemberPickerItem`; null-aware typy `plannedTo`/`dueAt`
+- `tests/integration/loans-adr-0025.test.ts` — 13 testov (open-ended request/loan, OVERDUE guard,
+  members endpoint)
+- `openapi.json` + `api-types.ts` regenerované
+
+**Beneficiary picker — rozhodnutie:** vždy viditený `SelectField` (default = ja), NIE prepínač —
+prepínač skrýval najčastejší tok (správca prideľuje inému) a pridal UI stav bez dátového prínosu.
+
+**Odložené (Fáza 2, po pilote):** `Category.allowOpenEnded` (ktoré kategórie smú „do odvolania“),
+dashboard aktívnych open-ended výpožičiek, vetvenie „extend loan“ pre open-ended.
+
+**Po deployi overiť:** segment doba určitá/neurčitá, beneficiary picker, open-ended výpožička
+sa zobrazí ako „do odvolania“ bez „Po termíne“ badge. **ADR-0025 → Accepted** po overení.
+ADR: `docs/decisions/0025-open-ended-loans-and-request-form.md`.
 
 ---
 
@@ -163,14 +200,14 @@ Fázovanie a sub-tasky (K1–K8) v ADR. **Čaká na rozhodnutie:** spustiť pred
 
 ### 📊 Globálny stav
 
-| Oblasť            | Status                                                      |
-| ----------------- | ----------------------------------------------------------- |
-| **Backend testy** | ✅ ~651 (42 test files)                                     |
-| **Frontend**      | ✅ Slice #5a: StockPanel, prehľad skladu, BULK badge/filter |
-| **Production**    | ✅ LIVE — app.inventario.estate                             |
-| **CI**            | ✅ Zelené                                                   |
-| **ADR-čka**       | ✅ 0001–0021 (0021 QR — Proposed)                           |
-| **openapi.json**  | ✅ Aktuálne (67 endpointov)                                 |
+| Oblasť            | Status                                                       |
+| ----------------- | ------------------------------------------------------------ |
+| **Backend testy** | ✅ ~680 (43 test files)                                      |
+| **Frontend**      | ✅ Slice #5a: StockPanel, prehľad skladu, BULK badge/filter  |
+| **Production**    | ✅ LIVE — app.inventario.estate                              |
+| **CI**            | ✅ Zelené                                                    |
+| **ADR-čka**       | ✅ 0001–0025 (0021 QR, 0022 PDF, 0025 open-ended — Proposed) |
+| **openapi.json**  | ✅ Aktuálne (69 endpointov)                                  |
 
 ---
 
@@ -271,7 +308,7 @@ DPIA, Security Whitepaper, Data Retention Schedule, IS Policy.
 ## 🏗️ Backend status
 
 ```
-Celkové testy:                667
+Celkové testy:                680
 ├── Slice #1–#3:              ~310
 ├── Slice #4–#6b:             ~169
 ├── Slice #6c:                  21
@@ -281,10 +318,11 @@ Celkové testy:                667
 ├── Dynamic Combobox K7:        35
 ├── Organisations CRUD:         56
 ├── Slice #5a (Sklad):          18
-└── ADR-0023 (loans bndf):      ~16
+├── ADR-0023 (loans bndf):      ~16
+└── ADR-0025 (open-ended):       13
 
-Test files:   ~42
-Duration:     ~90s
+Test files:   ~43
+Duration:     ~95s
 ```
 
 ---
@@ -301,19 +339,20 @@ Duration:     ~90s
 
 ## 📂 Kde nájdeš čo
 
-| Typ                            | Lokácia                                                 |
-| ------------------------------ | ------------------------------------------------------- |
-| **Aktuálny stav**              | `docs/sessions/NEXT.md` (TY SI TU)                      |
-| **Session 2026-05-31 (večer)** | `docs/sessions/2026-05-31-adr-0024-0023-loans.md`       |
-| **Session 2026-05-31 (QR)**    | `docs/sessions/2026-05-31-qr-publictoken-revizia.md`    |
-| **Session 2026-05-30**         | `docs/sessions/2026-05-30-billing-and-tenant-detail.md` |
-| **Session 2026-05-29 (večer)** | `docs/sessions/2026-05-29-ux-polish-selectfield.md`     |
-| **Session 2026-05-29 (deň)**   | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md`   |
-| **ADR-čka**                    | `docs/decisions/0001..0020-*.md`                        |
-| **Slice milestones**           | `docs/milestones/slice-*.md`                            |
+| Typ                               | Lokácia                                                 |
+| --------------------------------- | ------------------------------------------------------- |
+| **Aktuálny stav**                 | `docs/sessions/NEXT.md` (TY SI TU)                      |
+| **Session 2026-06-01 (ADR-0025)** | `docs/sessions/2026-06-01-adr-0025-open-ended-loans.md` |
+| **Session 2026-05-31 (večer)**    | `docs/sessions/2026-05-31-adr-0024-0023-loans.md`       |
+| **Session 2026-05-31 (QR)**       | `docs/sessions/2026-05-31-qr-publictoken-revizia.md`    |
+| **Session 2026-05-30**            | `docs/sessions/2026-05-30-billing-and-tenant-detail.md` |
+| **Session 2026-05-29 (večer)**    | `docs/sessions/2026-05-29-ux-polish-selectfield.md`     |
+| **Session 2026-05-29 (deň)**      | `docs/sessions/2026-05-29-tenants-admin-and-fixes.md`   |
+| **ADR-čka**                       | `docs/decisions/0001..0020-*.md`                        |
+| **Slice milestones**              | `docs/milestones/slice-*.md`                            |
 
 ---
 
-**Last updated:** 2026-05-31 (ADR-0024 + ADR-0023 implementované — loans beneficiary + priamy loan)
-**Tests:** 667 ✅ | **CI:** zelené ✅ | **OpenAPI:** 68 endpointov ✅
+**Last updated:** 2026-06-01 (ADR-0025 open-ended výpožičky + beneficiary formulár implementované)
+**Tests:** 680 ✅ | **CI:** zelené ✅ | **OpenAPI:** 69 endpointov ✅
 **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

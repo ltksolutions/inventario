@@ -394,7 +394,7 @@ export class LoansService {
     purpose: string,
     itemCount: number,
     plannedFrom: string,
-    plannedTo: string,
+    plannedTo: string | null,
     logger: { warn: (msg: object, txt: string) => void },
   ): Promise<void> {
     if (!this.emailService?.isConfigured) return;
@@ -598,7 +598,7 @@ export class LoansService {
     requesterId: string,
     purpose: string,
     itemCount: number,
-    dueAt: string,
+    dueAt: string | null,
     logger: { warn: (msg: object, txt: string) => void },
   ): Promise<void> {
     if (!this.emailService?.isConfigured) return;
@@ -1175,7 +1175,9 @@ function loanRequestToApiShape(doc: WithId<LoanRequest>): Record<string, unknown
  * OVERDUE is never persisted to DB — always computed on read.
  */
 function loanToApiShape(doc: WithId<Loan>): Record<string, unknown> {
-  const isOverdue = doc.status === 'ACTIVE' && new Date().toISOString() > doc.dueAt;
+  // ADR-0025: open-ended výpožička (dueAt === null) nikdy nie je OVERDUE
+  const isOverdue =
+    doc.status === 'ACTIVE' && doc.dueAt != null && new Date().toISOString() > doc.dueAt;
   return {
     ...doc,
     _id: String(doc._id),

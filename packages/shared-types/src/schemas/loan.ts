@@ -63,8 +63,11 @@ export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Plánovaný termín od. */
     plannedFrom: TimestampSchema,
 
-    /** Plánovaný termín do. */
-    plannedTo: TimestampSchema,
+    /**
+     * Plánovaný termín do. Null = výpožička bez termínu ("do odvolania", ADR-0025).
+     * Pri žiadosti bez termínu sa OVERDUE nikdy nepočíta.
+     */
+    plannedTo: TimestampSchema.nullable().default(null),
 
     /** Položky v žiadosti (môžu byť rôzni schvaľovatelia podľa kategórie). */
     items: z.array(LoanRequestItemSchema).min(1, 'Žiadosť musí mať aspoň jednu položku.'),
@@ -197,8 +200,11 @@ export const LoanSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Osoba, ktorá majetok odovzdala (správca skladu). */
     handedOverBy: ObjectIdSchema,
 
-    /** Dohodnutý termín vrátenia. */
-    dueAt: TimestampSchema,
+    /**
+     * Dohodnutý termín vrátenia. Null = výpožička bez termínu ("do odvolania", ADR-0025).
+     * Ak null, isOverdue === false vždy (trvalé pridelenie nie je nikdy po termíne).
+     */
+    dueAt: TimestampSchema.nullable().default(null),
 
     /** Reálny dátum vrátenia (null kým aktívne). */
     returnedAt: TimestampSchema.nullable().default(null),
@@ -269,8 +275,8 @@ export const CreateDirectLoanSchema = z.object({
     .max(50),
   /** Účel výpožičky. */
   purpose: z.string().min(3, 'Účel je povinný.').max(500),
-  /** Dohodnutý termín vrátenia. */
-  dueAt: TimestampSchema,
+  /** Dohodnutý termín vrátenia. Null = výpožička bez termínu ("do odvolania", ADR-0025). */
+  dueAt: TimestampSchema.nullable().default(null),
   /** Voľné poznámky. */
   notes: z.string().max(2000).nullable().default(null),
 });

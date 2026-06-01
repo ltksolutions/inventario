@@ -1023,9 +1023,11 @@ export interface LoanRequestSummary {
   _id: string;
   organisationId: string;
   requesterId: string;
+  beneficiaryId: string | null;
   purpose: string;
   plannedFrom: string;
-  plannedTo: string;
+  /** Null = výpožička bez termínu ("do odvolania", ADR-0025). */
+  plannedTo: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   items: LoanRequestItem[];
   resultingLoanId: string | null;
@@ -1043,11 +1045,12 @@ export interface LoanItemSummary {
 export interface LoanSummary {
   _id: string;
   organisationId: string;
-  requestId: string;
+  requestId: string | null;
   borrowerId: string;
   purpose: string;
   pickedUpAt: string;
-  dueAt: string;
+  /** Null = výpožička bez termínu ("do odvolania", ADR-0025). */
+  dueAt: string | null;
   returnedAt: string | null;
   status: 'ACTIVE' | 'RETURNED' | 'DAMAGED' | 'LOST';
   isOverdue: boolean;
@@ -1059,8 +1062,11 @@ export interface LoanSummary {
 export interface CreateLoanRequestInput {
   purpose: string;
   plannedFrom: string;
-  plannedTo: string;
+  /** Null / vynechané = výpožička bez termínu ("do odvolania", ADR-0025). */
+  plannedTo?: string | null;
   items: Array<{ assetId: string }>;
+  /** Voliteľný beneficiár (ADR-0023). Ak chýba, server nastaví na requesterId. */
+  beneficiaryId?: string;
 }
 
 interface LoanRequestsListOptions {
@@ -1277,6 +1283,48 @@ export function useCanManageLoans(): boolean {
   const { user } = useAuth();
   const roles = user?.roles ?? [];
   return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+}
+
+// ---------------------------------------------------------------------------
+// Members — picker-safe zoznam členov org (ADR-0025, beneficiary picker)
+// ---------------------------------------------------------------------------
+
+export interface MemberPickerItem {
+  _id: string;
+  displayName: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+  membershipId: string;
+  roles: string[];
+}
+
+/**
+ * GET /v1/members — EMPLOYEE+ endpoint, picker-safe polia.
+ * Používa sa pre beneficiary SelectField v loan request formulári (ADR-0025).
+ */
+export function useMembers(): UseQueryResult<ListResponse<MemberPickerItem>, Error> {
+  const { isAuthenticated } = useAuth();
+  const genericGet2 = apiClient.GET as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useQuery<ListResponse<MemberPickerItem>, Error>({
+    queryKey: ['members'],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const { data, error } = await genericGet2('/v1/members', {
+        params: { query: { limit: 200 } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load members');
+      }
+      if (!data) throw new Error('Empty response from /v1/members');
+      return data as unknown as ListResponse<MemberPickerItem>;
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------

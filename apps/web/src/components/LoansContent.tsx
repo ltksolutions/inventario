@@ -40,7 +40,8 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
 };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | null): string {
+  if (iso == null) return 'do odvolania';
   return new Date(iso).toLocaleDateString('sk-SK', {
     day: '2-digit',
     month: '2-digit',
@@ -234,7 +235,9 @@ function RequestRow({
         </td>
         <td className="px-4 py-3 text-text-secondary">{request.purpose}</td>
         <td className="px-4 py-3 text-xs text-text-secondary">
-          {formatDate(request.plannedFrom)} – {formatDate(request.plannedTo)}
+          {request.plannedTo == null
+            ? `od ${formatDate(request.plannedFrom)} · do odvolania`
+            : `${formatDate(request.plannedFrom)} – ${formatDate(request.plannedTo)}`}
         </td>
         <td className="px-4 py-3">
           <span

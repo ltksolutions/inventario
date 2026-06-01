@@ -10,31 +10,33 @@ import { useCallback, useState } from 'react';
 import type { AssetSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
-import { useAssets, useCreateLoanRequest } from '@/lib/api-hooks';
+import { SelectField } from '@/components/SelectField';
+import { useAssets, useCreateLoanRequest, useMe, useMembers } from '@/lib/api-hooks';
 
 /**
  * /loans/request — new loan request form.
  *
+ * ADR-0025 changes vs. original:
+ *   - Segment „Na dobu určitú / Do odvolania" — plannedTo je nullable.
+ *   - Pole „Pre koho" (beneficiary SelectField) — predvyplnené na self.
+ *
  * Flow:
  *   1. User searches / browses available assets and adds them to
  *      the request basket (multi-item per ADR-0012).
- *   2. User fills in purpose + plannedFrom + plannedTo.
- *   3. Submit → POST /v1/loan-requests → redirect to /my-loans on
- *      success.
+ *   2. User fills in purpose + duration type + plannedFrom + (opt.) plannedTo
+ *      + beneficiary.
+ *   3. Submit → POST /v1/loan-requests → redirect to /my-loans on success.
  *
  * MVP scope:
  *   - AVAILABLE assets only (server enforces; client pre-filters too)
  *   - Free-text search on inventoryNumber / name
  *   - Date pickers via HTML5 <input type="date"> (no third-party lib)
  *   - At most 50 items (server enforces; client shows warning at 49)
- *
- * Out of scope (Slice #5b):
- *   - QR scan to add asset
- *   - Asset availability calendar overlay
- *   - Loan duration validation against Category.maxLoanDays
  */
 
 const MAX_ITEMS = 50;
+
+type DurationType = 'fixed' | 'open';
 
 function toDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -49,6 +51,8 @@ function toISOFromDateInput(dateStr: string, endOfDay = false): string {
 export function LoanRequestContent(): JSX.Element {
   const router = useRouter();
   const createRequest = useCreateLoanRequest();
+  const meQuery = useMe();
+  const membersQuery = useMembers();
 
   // --- Asset browser state ---
   const [search, setSearch] = useState('');
@@ -87,16 +91,39 @@ export function LoanRequestContent(): JSX.Element {
   const tomorrow = toDateInputValue(new Date(Date.now() + 86400000));
 
   const [purpose, setPurpose] = useState('');
+  // ADR-0025: segment „Na dobu určitú / Do odvolania"
+  const [durationType, setDurationType] = useState<DurationType>('fixed');
   const [plannedFrom, setPlannedFrom] = useState(tomorrow);
   const [plannedTo, setPlannedTo] = useState(toDateInputValue(new Date(Date.now() + 7 * 86400000)));
+  // ADR-0025: beneficiary picker — default = self (predvyplníme po načítaní me)
+  const selfId = meQuery.data?._id ?? '';
+  const [beneficiaryId, setBeneficiaryId] = useState('');
+
+  // Sync default beneficiary keď sa me načíta (len ak user ešte nemenil)
+  const selfDisplayName = meQuery.data?.displayName ?? '';
+
+  // Zostavenie options pre beneficiary SelectField
+  const memberOptions = (membersQuery.data?.data ?? []).map((m) => ({
+    value: m._id,
+    label: m._id === selfId ? `${m.displayName} (ja)` : m.displayName,
+  }));
+  // Ak members ešte nie sú načítané, zobraz aspoň seba
+  const beneficiaryOptions =
+    memberOptions.length > 0
+      ? memberOptions
+      : selfId
+        ? [{ value: selfId, label: `${selfDisplayName} (ja)` }]
+        : [];
+
+  const effectiveBeneficiaryId = beneficiaryId || selfId;
+
   const [formError, setFormError] = useState<string | null>(null);
 
   const canSubmit =
     basket.length > 0 &&
     purpose.trim().length >= 3 &&
     plannedFrom &&
-    plannedTo &&
-    plannedFrom <= plannedTo &&
+    (durationType === 'open' || (plannedTo && plannedFrom <= plannedTo)) &&
     !createRequest.isPending;
 
   function handleSubmit(): void {
@@ -110,21 +137,31 @@ export function LoanRequestContent(): JSX.Element {
       setFormError('Účel musí mať aspoň 3 znaky.');
       return;
     }
-    if (!plannedFrom || !plannedTo) {
-      setFormError('Vyplňte dátum od a do.');
+    if (!plannedFrom) {
+      setFormError('Vyplňte dátum od.');
       return;
     }
-    if (plannedFrom > plannedTo) {
-      setFormError('Dátum od musí byť pred dátumom do.');
-      return;
+    if (durationType === 'fixed') {
+      if (!plannedTo) {
+        setFormError('Vyplňte dátum do.');
+        return;
+      }
+      if (plannedFrom > plannedTo) {
+        setFormError('Dátum od musí byť pred dátumom do.');
+        return;
+      }
     }
 
     createRequest.mutate(
       {
         purpose: purpose.trim(),
         plannedFrom: toISOFromDateInput(plannedFrom),
-        plannedTo: toISOFromDateInput(plannedTo, true),
+        plannedTo: durationType === 'fixed' ? toISOFromDateInput(plannedTo, true) : null,
         items: basket.map((a) => ({ assetId: a._id })),
+        // Posiela beneficiaryId len ak sa líši od self (server by ho aj tak default-oval)
+        ...(effectiveBeneficiaryId && effectiveBeneficiaryId !== selfId
+          ? { beneficiaryId: effectiveBeneficiaryId }
+          : {}),
       },
       {
         onSuccess: () => {
@@ -258,6 +295,17 @@ export function LoanRequestContent(): JSX.Element {
             )}
           </div>
 
+          {/* Beneficiary — ADR-0025: vždy viditeľný, default = ja */}
+          <div>
+            <SelectField
+              label="Pre koho — predvolene vy"
+              value={effectiveBeneficiaryId}
+              onChange={setBeneficiaryId}
+              options={beneficiaryOptions}
+              className="w-full"
+            />
+          </div>
+
           {/* Purpose */}
           <div>
             <label htmlFor="purpose" className="mb-1.5 block text-sm font-medium text-text-primary">
@@ -277,8 +325,43 @@ export function LoanRequestContent(): JSX.Element {
             />
           </div>
 
+          {/* Duration type segment — ADR-0025 */}
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-text-primary">Trvanie</p>
+            <div
+              role="group"
+              aria-label="Trvanie výpožičky"
+              className="flex rounded-lg border border-border-default bg-surface-subtle overflow-hidden"
+            >
+              <button
+                type="button"
+                onClick={() => setDurationType('fixed')}
+                aria-pressed={durationType === 'fixed'}
+                className={`flex-1 px-3 py-2 text-sm font-medium transition ${
+                  durationType === 'fixed'
+                    ? 'bg-brand-primary text-white'
+                    : 'text-text-secondary hover:bg-surface-card'
+                }`}
+              >
+                Na dobu určitú
+              </button>
+              <button
+                type="button"
+                onClick={() => setDurationType('open')}
+                aria-pressed={durationType === 'open'}
+                className={`flex-1 px-3 py-2 text-sm font-medium transition ${
+                  durationType === 'open'
+                    ? 'bg-brand-primary text-white'
+                    : 'text-text-secondary hover:bg-surface-card'
+                }`}
+              >
+                Do odvolania
+              </button>
+            </div>
+          </div>
+
           {/* Dates */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid gap-3 ${durationType === 'fixed' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div>
               <label
                 htmlFor="planned-from"
@@ -298,25 +381,28 @@ export function LoanRequestContent(): JSX.Element {
                 className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
               />
             </div>
-            <div>
-              <label
-                htmlFor="planned-to"
-                className="mb-1.5 block text-sm font-medium text-text-primary"
-              >
-                Do{' '}
-                <span aria-hidden="true" className="text-danger-fg">
-                  *
-                </span>
-              </label>
-              <input
-                id="planned-to"
-                type="date"
-                value={plannedTo}
-                min={plannedFrom || today}
-                onChange={(e) => setPlannedTo(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-              />
-            </div>
+
+            {durationType === 'fixed' && (
+              <div>
+                <label
+                  htmlFor="planned-to"
+                  className="mb-1.5 block text-sm font-medium text-text-primary"
+                >
+                  Do{' '}
+                  <span aria-hidden="true" className="text-danger-fg">
+                    *
+                  </span>
+                </label>
+                <input
+                  id="planned-to"
+                  type="date"
+                  value={plannedTo}
+                  min={plannedFrom || today}
+                  onChange={(e) => setPlannedTo(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                />
+              </div>
+            )}
           </div>
 
           {/* Error + success */}

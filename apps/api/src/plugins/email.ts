@@ -81,7 +81,7 @@ export interface EmailService {
       requesterName: string;
       purpose: string;
       itemCount: number;
-      dueAt: string;
+      dueAt: string | null;
       frontendUrl: string;
     },
   ): Promise<void>;
@@ -109,7 +109,7 @@ export interface EmailService {
       purpose: string;
       itemCount: number;
       plannedFrom: string;
-      plannedTo: string;
+      plannedTo: string | null;
       requestId: string;
       frontendUrl: string;
     },
@@ -361,7 +361,8 @@ function verificationEmailHtml(url: string): string {
 // Loan email templates
 // ---------------------------------------------------------------------------
 
-function formatDateSk(iso: string): string {
+function formatDateSk(iso: string | null): string {
+  if (iso == null) return 'bez termínu';
   return new Date(iso).toLocaleDateString('sk-SK', {
     day: 'numeric',
     month: 'long',
@@ -373,7 +374,7 @@ function loanApprovedEmailHtml(opts: {
   requesterName: string;
   purpose: string;
   itemCount: number;
-  dueAt: string;
+  dueAt: string | null;
   frontendUrl: string;
 }): string {
   const { requesterName, purpose, itemCount, dueAt, frontendUrl } = opts;
@@ -442,7 +443,7 @@ function loanRequestPendingEmailHtml(opts: {
   purpose: string;
   itemCount: number;
   plannedFrom: string;
-  plannedTo: string;
+  plannedTo: string | null;
   requestId: string;
   frontendUrl: string;
 }): string {

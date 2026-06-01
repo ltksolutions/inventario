@@ -38,7 +38,8 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   LOST: { label: 'Stratená', className: 'bg-red-50 text-red-700 ring-red-600/20' },
 };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | null): string {
+  if (iso == null) return 'do odvolania';
   return new Date(iso).toLocaleDateString('sk-SK', {
     day: '2-digit',
     month: '2-digit',
@@ -173,9 +174,9 @@ function PendingRequestRow({ request }: { request: LoanRequestSummary }): JSX.El
         </td>
         <td className="px-4 py-3 text-text-secondary">{request.purpose}</td>
         <td className="px-4 py-3 text-xs text-text-secondary">
-          {formatDate(request.plannedFrom)}
-          {' – '}
-          {formatDate(request.plannedTo)}
+          {request.plannedTo == null
+            ? `od ${formatDate(request.plannedFrom)} · do odvolania`
+            : `${formatDate(request.plannedFrom)} – ${formatDate(request.plannedTo)}`}
         </td>
         <td className="px-4 py-3 text-right">
           <button
