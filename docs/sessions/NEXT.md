@@ -7,94 +7,51 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                            |
-| ------------------------- | ---------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (ADR-0021 K1-K3 done — publicToken, inventoryNumberFormat, QR endpoint) |
-| **Aktuálna fáza**         | Production LIVE — ADR-0021 K4 (verejny lookup) je next                             |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                      |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                         |
+| Atribút                   | Hodnota                                                 |
+| ------------------------- | ------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-01 (ADR-0021 K1-K7 DONE — QR kódy kompletné)    |
+| **Aktuálna fáza**         | Production LIVE — smoke test + pilot onboarding je next |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`           |
+| **GitHub**                | https://github.com/ltksolutions/inventario              |
 
 ---
 
-## 🔥 Teraz: ADR-0021 QR kody — K4 je next
+## ADR-0021 — QR kódy majetku ✅ KOMPLETNE
 
-**K1 ✅ schemy** — publicToken, PublicAssetViewSchema, InventoryNumberFormatSchema, appBaseUrl, foundContactInfo, publicAssetLookup  
-**K2 ✅ publicToken generácia + tenant-level inventoryNumberFormat** — repository, service, migrácia, testy  
-**K3 ✅ QR render endpoint** — `GET /v1/assets/:id/qr?format=svg|png`, qrcode npm, cache immutable
+K1 schémy · K2 publicToken + inventoryNumberFormat · K3 QR endpoint · K4 verejný scan ·
+K5 frontend (scan page, QR na detaile, foundContactInfo settings) · K6 whitelist test · K7 openapi regen
 
-### K4 — verejny `GET /v1/public/scan/:token` endpoint (NEXT)
-
-Nový plugin `public-assets.routes.ts`:
-
-- Bez auth, rate-limited 30/min/IP (fastify rate-limit)
-- Logika: `repo.findByPublicToken(token)` → loadOrg → ak `publicAssetLookup=false` → 404
-- Response: `PublicAssetView` mapper — **pole po poli, NIE spread** (whitelist je bezp. invariant)
-- Pola: `organisationName`, `organisationLogoUrl`, `inventoryNumber`, `name`, `foundContact`
-- HTTP 200 pre found+enabled, 404 pre not-found ALEBO disabled (nerozlišovať — privacy)
-
-### K5 — frontend
-
-- `/scan/[publicToken]` route (Next.js)
-- Redirect logika: prihlásený → `/assets/:id`, nie → login page alebo verejná stránka
-- QR zobrazenie na detaile assetu (`/assets/[id]`)
-- Settings: org `foundContactInfo` formulár s GDPR hint textom
-
-### K6 — whitelist test (kriticke!)
-
-```ts
-expect(Object.keys(PublicAssetViewSchema.shape).sort()).toEqual(
-  [
-    'foundContact',
-    'inventoryNumber',
-    'name',
-    'organisationLogoUrl',
-    'organisationName',
-  ].sort(),
-);
-```
-
-### K7 — regen artefaktov
-
-```
-pnpm --filter @inventario/api openapi:export:offline
-pnpm test
-```
-
-Commit: `chore(api): refresh openapi.json (ADR-0021)`
+Session doc: `docs/sessions/2026-06-01-adr-0021-qr-k1-k3.md`
 
 ---
 
-## ADR-0026 — Katalogove žiadosti + oddelene vydávanie ✅ IMPLEMENTOVANE
+## 🔥 Najbližšie kroky
 
-K1–K7 hotove, 690 testov zelených. Session: `docs/sessions/2026-06-01-adr-0026-implementation.md`.
+### 1. Smoke test po deployi
 
----
+- [ ] `/scan/[publicToken]` — verejná stránka funguje po naskenovaní QR
+- [ ] `GET /v1/assets/:id/qr` — QR sa zobrazí na detaile assetu
+- [ ] `/settings/organisation` — foundContactInfo sa uloží a zobrazí na scan stránke
+- [ ] ADR-0026 formulár žiadosti (kategória + množstvo) + vydávanie
 
-## ADR-0025 / ADR-0024 / ADR-0023 ✅ IMPLEMENTOVANE
+### 2. Pilot tenant onboarding
 
----
+SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom.
+**Pred onboardingom:** nastaviť `inventoryNumberFormat` + `appBaseUrl` + `foundContactInfo` na org.
 
-## ADR-0022 — Preberacie protokoly (on-demand PDF) ✅ ACCEPTED
+### 3. email_unique index — overiť na prod Atlas
 
-Revidovane: PDF sa neuklada — LoanProtocol zaznam (cislo, snapshoty, podpisy) zostava, PDF
-sa generuje cisto on-demand pri stiahnutí. K1-K8 cakaju na implementaciu (P2 backlog).
+- [ ] Skontrolovať že `email_unique` / `email_1` index bol dropnutý migráciou 2026-05-29c
 
 ---
 
 ## Planované (neskôr)
 
-### Smoke test po deployi
+### ADR-0022 — Preberacie protokoly (on-demand PDF) — P2
 
-- [ ] `/settings/organisation` — formular + ulozenie billing funguje
-- [ ] ADR-0026 formular žiadosti (kategória+množstvo) + vydávanie
+K1-K8 čakajú. Session doc a plán v TODO.md položka #7.
 
-### Pilot tenant onboarding
-
-SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom.
-
-### email_unique index — overiť na prod Atlas
-
-- [ ] Skontrolovať že `email_unique` / `email_1` index bol dropnutý migráciou 2026-05-29c
+### ADR-0026 ✅ / ADR-0025 ✅ / ADR-0024 ✅ / ADR-0023 ✅
 
 ---
 
@@ -108,17 +65,5 @@ SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom
 
 ---
 
-## 📂 Kde nájdeš čo
-
-| Typ                               | Lokácia                                               |
-| --------------------------------- | ----------------------------------------------------- |
-| **Aktuálny stav**                 | `docs/sessions/NEXT.md` (TY SI TU)                    |
-| **Session 2026-06-01 (K1-K3)**    | `docs/sessions/2026-06-01-adr-0021-qr-k1-k3.md`       |
-| **Session 2026-06-01 (ADR-0026)** | `docs/sessions/2026-06-01-adr-0026-implementation.md` |
-| **ADR-čka**                       | `docs/decisions/0001..0026-*.md`                      |
-| **Slice milestones**              | `docs/milestones/slice-*.md`                          |
-
----
-
-**Last updated:** 2026-06-01 (ADR-0021 K1-K3 done, K4 je next)  
-**Tests:** 690+ ✅ | **CI:** zelene ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
+**Last updated:** 2026-06-01 (ADR-0021 DONE)
+**Tests:** zelené ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

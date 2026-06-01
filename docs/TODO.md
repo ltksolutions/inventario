@@ -23,20 +23,18 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 🔴 P0 — pred / krátko po SFZ pilote
 
-### 1. ADR-0021 — QR kódy majetku
+### 1. ADR-0021 — QR kódy majetku ✅ DONE (2026-06-01)
 
-- **Stav:** ADR ✅ Accepted, K1-K3 ✅ DONE (2026-06-01)
-- **Model:** Sonnet
-- **ADR:** [`docs/decisions/0021-asset-qr-codes.md`](./decisions/0021-asset-qr-codes.md)
+- **Stav:** K1-K7 kompletné
 - **Session:** [`docs/sessions/2026-06-01-adr-0021-qr-k1-k3.md`](./sessions/2026-06-01-adr-0021-qr-k1-k3.md)
-- **Rozsah:**
+- **Čo bolo implementované:**
   - [x] `publicToken` na `AssetSchema` + generovanie pri POST (K1+K2)
-  - [x] `inventoryNumberFormat` per tenant — prefix, padding, includeYear, resetYearly (K2)
+  - [x] `inventoryNumberFormat` per tenant (K2)
   - [x] on-demand QR render `GET /v1/assets/:id/qr?format=svg|png` (K3)
-  - [ ] verejný `GET /v1/public/scan/:token` — opt-in, `PublicAssetView` whitelist, rate-limited (K4)
-  - [ ] frontend: `/scan/[token]` route + QR na detaile + Settings foundContactInfo (K5)
-  - [ ] whitelist test pre `PublicAssetViewSchema` (K6)
-  - [ ] openapi regen (K7)
+  - [x] verejný `GET /v1/public/scan/:token` — opt-in, `PublicAssetView` whitelist, rate-limited (K4)
+  - [x] frontend: `/scan/[token]` route + QR na detaile + Settings foundContactInfo (K5)
+  - [x] whitelist test pre `PublicAssetViewSchema` (K6)
+  - [x] openapi regen (K7)
 
 ### 2. email_unique index — overiť/dotiahnuť na prod Atlas
 
