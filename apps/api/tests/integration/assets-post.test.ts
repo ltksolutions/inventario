@@ -1,5 +1,9 @@
 /**
  * Integration tests for POST /v1/assets — Slice #6c K17 (cookie auth).
+ *
+ * ADR-0021 K2: `inventoryNumberPrefix` bol odstránený z POST body.
+ * Server číta prefix z `Organisation.inventoryNumberFormat`.
+ * Test tenant má vždy prefix 'TEST' (nastavený v resolveTestTenantId).
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -45,27 +49,32 @@ describe('POST /v1/assets', () => {
     validCreateAssetBody({ categoryId: fkCategoryId, locationId: fkLocationId, ...overrides });
 
   describe('happy path', () => {
-    it('creates an asset with auto-generated inventoryNumber', async () => {
+    it('creates an asset with auto-generated inventoryNumber from org config', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({ name: 'My laptop', inventoryNumberPrefix: 'LT' }),
+        payload: bodyWithFk({ name: 'My laptop' }),
       });
       expect(res.statusCode).toBe(201);
       const body = res.json<{
         _id: string;
         inventoryNumber: string;
+        publicToken: string;
         name: string;
         status: string;
         createdBy: string;
       }>();
       expect(body._id).toMatch(/^[a-f0-9]{24}$/);
       const year = new Date().getFullYear();
-      expect(body.inventoryNumber).toBe(`LT-${year}-001`);
+      // Prefix 'TEST' z org.inventoryNumberFormat, padding 4, includeYear=true
+      expect(body.inventoryNumber).toBe(`TEST-${year}-0001`);
       expect(body.name).toBe('My laptop');
       expect(body.status).toBe('AVAILABLE');
       expect(body.createdBy).toMatch(/^[a-f0-9]{24}$/);
+      // ADR-0021: publicToken musí byť prítomný a mať min 16 znakov
+      expect(typeof body.publicToken).toBe('string');
+      expect(body.publicToken.length).toBeGreaterThanOrEqual(16);
     });
 
     it('increments the inventory sequence across successive creates', async () => {
@@ -74,28 +83,39 @@ describe('POST /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'SEQ' }),
+        payload: bodyWithFk(),
       });
       expect(first.statusCode).toBe(201);
-      expect(first.json<{ inventoryNumber: string }>().inventoryNumber).toBe(`SEQ-${year}-001`);
+      expect(first.json<{ inventoryNumber: string }>().inventoryNumber).toBe(`TEST-${year}-0001`);
 
       const second = await app.inject({
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'SEQ' }),
+        payload: bodyWithFk(),
       });
       expect(second.statusCode).toBe(201);
-      expect(second.json<{ inventoryNumber: string }>().inventoryNumber).toBe(`SEQ-${year}-002`);
+      expect(second.json<{ inventoryNumber: string }>().inventoryNumber).toBe(`TEST-${year}-0002`);
+    });
 
-      const third = await app.inject({
+    it('each asset gets a unique publicToken', async () => {
+      const first = await app.inject({
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'OTHER' }),
+        payload: bodyWithFk(),
       });
-      expect(third.statusCode).toBe(201);
-      expect(third.json<{ inventoryNumber: string }>().inventoryNumber).toBe(`OTHER-${year}-001`);
+      const second = await app.inject({
+        method: 'POST',
+        url: '/v1/assets',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: bodyWithFk(),
+      });
+      expect(first.statusCode).toBe(201);
+      expect(second.statusCode).toBe(201);
+      const token1 = first.json<{ publicToken: string }>().publicToken;
+      const token2 = second.json<{ publicToken: string }>().publicToken;
+      expect(token1).not.toBe(token2);
     });
 
     it('persists the asset so GET retrieves it', async () => {
@@ -103,7 +123,7 @@ describe('POST /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({ name: 'Persisted asset', inventoryNumberPrefix: 'PERS' }),
+        payload: bodyWithFk({ name: 'Persisted asset' }),
       });
       expect(create.statusCode).toBe(201);
       const id = create.json<{ _id: string }>()._id;
@@ -116,7 +136,7 @@ describe('POST /v1/assets', () => {
       expect(get.statusCode).toBe(200);
       const body = get.json<{ name: string; inventoryNumber: string }>();
       expect(body.name).toBe('Persisted asset');
-      expect(body.inventoryNumber).toBe(`PERS-${new Date().getFullYear()}-001`);
+      expect(body.inventoryNumber).toBe(`TEST-${new Date().getFullYear()}-0001`);
     });
   });
 
@@ -139,26 +159,6 @@ describe('POST /v1/assets', () => {
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateAssetBody({ name: '' }),
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('rejects inventoryNumberPrefix with lowercase letters', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/v1/assets',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: validCreateAssetBody({ inventoryNumberPrefix: 'lt' }),
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('rejects inventoryNumberPrefix longer than 5 chars', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/v1/assets',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: validCreateAssetBody({ inventoryNumberPrefix: 'LONGPREFIX' }),
       });
       expect(res.statusCode).toBe(400);
     });
@@ -192,10 +192,7 @@ describe('POST /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({
-          categoryId: '0123456789abcdef01234567',
-          inventoryNumberPrefix: 'FKA',
-        }),
+        payload: bodyWithFk({ categoryId: '0123456789abcdef01234567' }),
       });
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toMatch(/category.*does not exist/i);
@@ -206,10 +203,7 @@ describe('POST /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({
-          locationId: '0123456789abcdef01234567',
-          inventoryNumberPrefix: 'FKB',
-        }),
+        payload: bodyWithFk({ locationId: '0123456789abcdef01234567' }),
       });
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toMatch(/location.*does not exist/i);
@@ -227,7 +221,7 @@ describe('POST /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'FKC' }),
+        payload: bodyWithFk(),
       });
       expect(res.statusCode).toBe(400);
     });

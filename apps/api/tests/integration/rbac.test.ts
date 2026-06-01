@@ -95,7 +95,7 @@ describe('RBAC on /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${token}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'AM' }),
+        payload: bodyWithFk(),
       });
       expect(res.statusCode).toBe(201);
     });
@@ -154,7 +154,7 @@ describe('RBAC on /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${token}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'EMP' }),
+        payload: bodyWithFk(),
       });
       expect(res.statusCode).toBe(403);
     });
@@ -199,7 +199,7 @@ describe('RBAC on /v1/assets', () => {
         method: 'POST',
         url: '/v1/assets',
         headers: { cookie: `inv_access=${token}` },
-        payload: bodyWithFk({ inventoryNumberPrefix: 'EXT' }),
+        payload: bodyWithFk(),
       });
       expect(res.statusCode).toBe(403);
     });

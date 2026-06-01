@@ -12,6 +12,7 @@ import {
   IcDphSchema,
   IcoSchema,
   ObjectIdSchema,
+  PhoneSchema,
   SoftDeleteSchema,
 } from './common.js';
 
@@ -133,6 +134,65 @@ export const OrganisationBillingSchema = z
 
 export type OrganisationBilling = z.infer<typeof OrganisationBillingSchema>;
 
+/**
+ * Konfigurácia formátu inventárneho čísla — per tenant (ADR-0021 rozhodnutie 7).
+ *
+ * Server generátor (`assets.service.ts`) z tohto zloží `inventoryNumber`:
+ *   includeYear=true:  `{prefix}-{YYYY}-{seq.padStart(padding)}`  napr. "SFZ-2026-0042"
+ *   includeYear=false: `{prefix}-{seq.padStart(padding)}`         napr. "SFZ-0042"
+ *
+ * `prefix` je **jediný zdroj prefixu** — nie je per-request override (rozhodnuté
+ * 2026-06-01: solo nasadenie per tenant, jeden kód stačí). `resetYearly` určuje,
+ * či sa poradie počíta v rámci roka (true) alebo globálne za celý tenant (false).
+ *
+ * Pozn.: `padding` má strop 8, aby config nemohol vyrobiť číslo, ktoré regex
+ * `inventoryNumber` (\d{3,8}) odmietne.
+ */
+export const InventoryNumberFormatSchema = z
+  .object({
+    /** Prefix čísla — 1–5 veľkých ASCII písmen (napr. "SFZ", "LT", "MOB"). */
+    prefix: z
+      .string()
+      .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "SFZ").'),
+
+    /** Počet cifier poradia (zero-padded). 3–8 — strop viazaný na regex `inventoryNumber`. */
+    padding: z.number().int().min(1).max(8).default(4),
+
+    /** Či je rok zaradenia súčasťou čísla (PREFIX-ROK-PORADIE vs PREFIX-PORADIE). */
+    includeYear: z.boolean().default(true),
+
+    /** Či sa poradie resetuje každý rok (zmysel len pri includeYear=true). */
+    resetYearly: z.boolean().default(true),
+  })
+  .strict();
+
+export type InventoryNumberFormat = z.infer<typeof InventoryNumberFormatSchema>;
+
+/**
+ * Kontakt zobrazený vo verejnom „lost & found" pohľade po sken QR (ADR-0021).
+ *
+ * ⚠️ GDPR: tento kontakt je **verejne viditeľný** komukoľvek, kto naskenuje QR
+ * majetku (ak má tenant zapnutý `publicAssetLookup`). Preto **silne odporúčame
+ * funkčný / organizačný kontakt** (napr. `najdene@organizacia.sk`, recepcia,
+ * správca majetku ako rola) — NIE osobný telefón/email konkrétnej osoby.
+ * Tenant je prevádzkovateľ a zodpovedá za to, čo sem vloží; schéma to
+ * nevynucuje tvrdo, len navedie cez UI hint.
+ */
+export const FoundContactInfoSchema = z
+  .object({
+    /** E-mail na nahlásenie nálezu. Odporúčaný organizačný (napr. najdene@…), nie osobný. */
+    email: EmailSchema.nullable().default(null),
+
+    /** Telefón na nahlásenie nálezu. Odporúčaná recepcia/správca, nie osobné číslo. */
+    phone: PhoneSchema.nullable().default(null),
+
+    /** Vlastný text pre nálezcu (napr. „Vráťte prosím na recepcii, ďakujeme"). */
+    message: z.string().max(500).nullable().default(null),
+  })
+  .strict();
+
+export type FoundContactInfo = z.infer<typeof FoundContactInfoSchema>;
+
 export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).extend({
   /**
    * Tenant display name. Free-form, shown in UI alongside the wordmark.
@@ -198,6 +258,50 @@ export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).ext
    * onboarding settle on what tenants need to configure.
    */
   settings: z.record(z.string(), z.unknown()).default({}),
+
+  // -----------------------------------------------------------------
+  // QR kódy + verejný lost & found + inventárne číslovanie (ADR-0021)
+  // -----------------------------------------------------------------
+
+  /**
+   * Základ URL tenant aplikácie pre QR kódy a `/scan/` odkazy (ADR-0021 rozhodnutie 6).
+   *
+   * QR kód zakóduje `${appBaseUrl}/scan/${asset.publicToken}`. Doména sa beré
+   * VÝLUČNE odtiaľto — NIKDY z `Host`/`X-Forwarded-Host` hlavičky (proxy/preview
+   * závislé a atacker-controlled). Kritické pre forky (ADR-0010): self-hosted
+   * fork má vlastnú doménu, inak by tlačil štítky s cudzou (pôvodnou) doménou.
+   *
+   * Povinné pri onboardingu tenanta (väzba na `customDomain`). Null = QR/scan
+   * funkcie ešte nie sú použiteľné (render endpoint vráti chybu).
+   */
+  appBaseUrl: z
+    .string()
+    .url('appBaseUrl musí byť platná URL (napr. https://inventario.sfz.sk).')
+    .nullable()
+    .default(null),
+
+  /**
+   * Opt-in pre verejný „lost & found" lookup (ADR-0021 rozhodnutie 4).
+   * Default `false` — ak vypnuté, `/scan/:token` bez auth ide na login a
+   * `GET /public/scan/:token` vracia 404 (nepotvrdzuje existenciu). Tenant
+   * zapne podľa vlastného rizikového profilu.
+   */
+  publicAssetLookup: z.boolean().default(false),
+
+  /**
+   * Kontakt zobrazený vo verejnom found-it pohľade. Null = bez kontaktu
+   * (zobrazí sa len „patrí organizácii X"). Viď `FoundContactInfoSchema`
+   * (GDPR poznámka: odporúčaný organizačný kontakt).
+   */
+  foundContactInfo: FoundContactInfoSchema.nullable().default(null),
+
+  /**
+   * Konfigurácia formátu inventárneho čísla (ADR-0021 rozhodnutie 7). Null =
+   * použi default `{ prefix: ?, padding: 4, includeYear: true, resetYearly: true }`
+   * — prefix však nemá rozumný globálny default, takže onboarding tenanta ho
+   * vyžaduje. Viď `InventoryNumberFormatSchema`.
+   */
+  inventoryNumberFormat: InventoryNumberFormatSchema.nullable().default(null),
 
   // -----------------------------------------------------------------
   // Auth + member policy (ADR-0013)

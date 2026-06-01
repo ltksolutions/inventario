@@ -164,6 +164,11 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
               }
             : null,
           settings: {},
+          // ADR-0021: QR polia — tenant nakonfiguruje po onboardingu
+          appBaseUrl: null,
+          publicAssetLookup: false,
+          foundContactInfo: null,
+          inventoryNumberFormat: null,
           allowedAuthProviders: [
             AuthProvider.GOOGLE,
             AuthProvider.APPLE,

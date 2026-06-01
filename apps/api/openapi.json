@@ -1498,7 +1498,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Returns a paginated list of assets, sorted by creation date (newest first). Soft-deleted assets are excluded. Requires authentication.",
+        "description": "Paginated list of assets (newest first). Soft-deleted excluded.",
         "parameters": [
           {
             "schema": {
@@ -1587,7 +1587,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Creates a new asset. The server generates `inventoryNumber` from `inventoryNumberPrefix` + current year + auto-increment sequence (e.g. prefix \"LT\" → \"LT-2026-001\"). Requires ASSET_MANAGER or ADMIN role.",
+        "description": "Server generuje `inventoryNumber` z `Organisation.inventoryNumberFormat` (prefix, padding, includeYear, resetYearly) a `publicToken` cez CSPRNG. Tenant musí mať nastavený `inventoryNumberFormat` — inak 400. Vyžaduje ASSET_MANAGER alebo ADMIN.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1595,11 +1595,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "inventoryNumberPrefix": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{1,5}$",
-                    "description": "Prefix inventárneho čísla; server pripojí rok a poradie"
-                  },
                   "serialNumber": {
                     "type": "string",
                     "maxLength": 200,
@@ -1698,7 +1693,6 @@
                   }
                 },
                 "required": [
-                  "inventoryNumberPrefix",
                   "name",
                   "type",
                   "categoryId",
@@ -1707,11 +1701,11 @@
                   "acquiredAt"
                 ],
                 "additionalProperties": false,
-                "description": "Telo pre vytvorenie assetu; inventoryNumber sa generuje serverom"
+                "description": "Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server"
               }
             }
           },
-          "description": "Telo pre vytvorenie assetu; inventoryNumber sa generuje serverom"
+          "description": "Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server"
         },
         "security": [
           {
@@ -1739,7 +1733,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Returns one asset by its MongoDB `_id`. 404 if not found or soft-deleted.",
+        "description": "404 if not found or soft-deleted.",
         "parameters": [
           {
             "schema": {
@@ -1775,7 +1769,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Partial update — only provided fields are changed. Cannot modify `inventoryNumber` (immutable post-creation). Records an audit event with a per-field diff. Requires ASSET_MANAGER or ADMIN role.",
+        "description": "Partial update. `inventoryNumber` a `publicToken` sú nemenné.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1947,7 +1941,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Marks an asset as deleted (sets `deletedAt`/`deletedBy`). The record remains in the database for audit/recovery. Cannot delete an asset currently on loan — return the loan first. Requires ADMIN role.",
+        "description": "Nastaví deletedAt/deletedBy. Vyžaduje ADMIN.",
         "parameters": [
           {
             "schema": {

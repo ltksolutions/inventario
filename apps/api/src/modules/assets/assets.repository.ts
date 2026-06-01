@@ -23,6 +23,12 @@
  *   - The unchanged primary keys (`_id` lookups) still get a tenant
  *     filter on top, so even a leaked id cannot read a different
  *     tenant's document.
+ *
+ * ADR-0021 additions:
+ *   - `publicToken` unique index (partial, excludes null — pre-migration assets).
+ *   - `findByPublicToken` — cross-tenant lookup for verejný /public/scan endpoint.
+ *   - `findHighestInventorySequence` refactored: `yearOrNull` parameter
+ *     supports resetYearly=false (global sequence across all years).
  */
 
 import { ObjectId } from 'mongodb';
@@ -74,23 +80,28 @@ export class AssetsRepository {
    * Index rationale:
    *   - `organisationId_inventoryNumber_unique` — schema-level dedup;
    *     uniqueness is per-tenant (composite key) so two tenants can
-   *     each have e.g. "LT-2026-001" without colliding. The
-   *     auto-increment generator inside transactions is the primary
-   *     defense, but the unique index is a hard floor.
+   *     each have e.g. "LT-2026-001" without colliding.
+   *   - `publicToken_unique_partial` — globálne unikátny token pre QR/scan
+   *     (ADR-0021). Partial filter vylúči null (assety pred migráciou) —
+   *     sparse by indexoval explicit null a zkolizoval by.
    *   - `organisationId_categoryId`, `organisationId_locationId`,
-   *     `organisationId_status` — composite filters: every list query
-   *     is scoped to a tenant AND filtered by one of these fields, so
-   *     leading with `organisationId` makes the index usable for both.
-   *   - `organisationId_createdAt_desc` — default sort for the list
-   *     endpoint, scoped per-tenant.
-   *   - `deletedAt` — soft-delete filter is applied to every list
-   *     query.
+   *     `organisationId_status` — composite filters pre list queries.
+   *   - `organisationId_createdAt_desc` — default sort pre list endpoint.
+   *   - `deletedAt` — soft-delete filter na každom list query.
    */
   async ensureIndexes(): Promise<void> {
     await Promise.all([
       this.collection.createIndex(
         { organisationId: 1, inventoryNumber: 1 },
         { unique: true, name: 'organisationId_inventoryNumber_unique' },
+      ),
+      this.collection.createIndex(
+        { publicToken: 1 },
+        {
+          unique: true,
+          partialFilterExpression: { publicToken: { $type: 'string' } },
+          name: 'publicToken_unique_partial',
+        },
       ),
       this.collection.createIndex(
         { organisationId: 1, categoryId: 1 },
@@ -114,10 +125,6 @@ export class AssetsRepository {
 
   /**
    * List assets matching the given filter, with pagination. Tenant-scoped.
-   *
-   * Returns items + total count. Total is computed via `countDocuments`
-   * which is fast on small collections; for large collections we'd
-   * switch to cursor-based pagination (using last `_id` as cursor).
    */
   async list({
     organisationId,
@@ -138,11 +145,8 @@ export class AssetsRepository {
   }
 
   /**
-   * Find a single asset by its MongoDB `_id` (24-char hex string).
-   * Returns `null` if not found, soft-deleted, or in a different tenant.
-   *
-   * Throws nothing for invalid id format — caller should validate before
-   * calling (Zod handles this on route params).
+   * Find a single asset by its MongoDB `_id`. Returns null if not found,
+   * soft-deleted, or in a different tenant.
    */
   async findById(
     organisationId: string,
@@ -161,33 +165,44 @@ export class AssetsRepository {
   }
 
   /**
+   * Find an asset by its public token. Cross-tenant lookup — token je
+   * globálne unikátny (CSPRNG), nie tenant-scoped. Vráti null ak
+   * neexistuje alebo je soft-deleted. Používa ho verejný
+   * GET /public/scan/:token endpoint (ADR-0021).
+   */
+  async findByPublicToken(
+    publicToken: string,
+    session?: ClientSession,
+  ): Promise<WithId<Asset> | null> {
+    return this.collection.findOne(
+      { publicToken, deletedAt: null } as Filter<Asset>,
+      session ? { session } : undefined,
+    );
+  }
+
+  /**
    * Find the highest existing inventory sequence number for a
-   * (tenant, prefix, year) tuple. Returns 0 if no asset matches yet.
+   * (tenant, prefix, year?) tuple. Returns 0 if no asset matches yet.
    *
-   * Used by `AssetsService.create` inside a transaction to determine
-   * the next sequence number for new assets. Tenant-scoped: each tenant
-   * keeps its own independent sequence — tenant A's "LT-2026-001" and
-   * tenant B's "LT-2026-001" do not collide.
+   * ADR-0021 refactor: parameter `yearOrNull` nahrádza pôvodný `year`:
+   *   - yearOrNull = number  → includeYear=true: hľadá "PREFIX-YYYY-NNN"
+   *   - yearOrNull = null    → includeYear=false: hľadá "PREFIX-NNN" (globálna sekvencia)
    *
-   * Format reminder: `${prefix}-${year}-${seq}` where seq is 3-6 digits.
-   *
-   * NOTE: This intentionally scans ALL documents matching the prefix
-   * +year regex within the tenant (not just non-deleted), because a
-   * deleted asset's number must not be reused — that would create
-   * inventory-number ambiguity in the audit history. The unique index
-   * enforces this at DB level too.
+   * Prehľadáva aj soft-deleted assety — zmazané číslo sa nesmie znova použiť.
    */
   async findHighestInventorySequence(
     organisationId: string,
     prefix: string,
-    year: number,
+    yearOrNull: number | null,
     session?: ClientSession,
   ): Promise<number> {
     const tenantId = requireTenantId(organisationId);
-    // Match e.g. "LT-2026-001" through "LT-2026-999999". The schema
-    // regex already validated the prefix shape (1-5 uppercase letters),
-    // so we can interpolate directly without further escaping.
-    const pattern = new RegExp(`^${prefix}-${year}-(\\d{3,6})$`);
+
+    const seqGroup = String.raw`\d{3,8}`;
+    const pattern =
+      yearOrNull !== null
+        ? new RegExp(`^${prefix}-${yearOrNull}-(${seqGroup})$`)
+        : new RegExp(`^${prefix}-(${seqGroup})$`);
 
     const doc = await this.collection.findOne(
       tenantFilter<Asset>(tenantId, { inventoryNumber: { $regex: pattern } } as Filter<Asset>, {
@@ -210,19 +225,6 @@ export class AssetsRepository {
 
   /**
    * Insert a new asset. Returns the inserted document.
-   *
-   * Caller is responsible for:
-   *   - Providing all fields including `organisationId` and
-   *     `inventoryNumber` (the service sets both before calling).
-   *   - Setting audit fields (`createdAt`, `updatedAt`, `createdBy`,
-   *     `updatedBy`)
-   *   - Validating against `CreateAssetSchema` from shared-types
-   *
-   * Pass a `session` to make this part of a transaction.
-   *
-   * No tenantId parameter here: the document being inserted already
-   * carries `organisationId`, and the service has set it from the
-   * authenticated actor's tenant. The driver writes what we give it.
    */
   async insert(asset: Omit<Asset, '_id'>, session?: ClientSession): Promise<WithId<Asset>> {
     const result = await this.collection.insertOne(
@@ -230,10 +232,6 @@ export class AssetsRepository {
       session ? { session } : undefined,
     );
 
-    // Re-fetch within the same session so we observe our own write
-    // (read-after-write inside a transaction is consistent by
-    // definition, but outside a transaction we still want the
-    // canonical document).
     const inserted = await this.collection.findOne(
       { _id: result.insertedId } as Filter<Asset>,
       session ? { session } : undefined,
@@ -250,11 +248,7 @@ export class AssetsRepository {
 
   /**
    * Apply a partial update to an asset. Returns the updated document,
-   * or `null` if the asset does not exist, was already soft-deleted, or
-   * belongs to a different tenant.
-   *
-   * Caller is responsible for setting `updatedAt` / `updatedBy` in the
-   * patch. Pass a `session` to make this part of a transaction.
+   * or null if not found, soft-deleted, or in a different tenant.
    */
   async update(
     organisationId: string,
@@ -281,12 +275,7 @@ export class AssetsRepository {
 
   /**
    * Soft-delete an asset by setting `deletedAt` and `deletedBy`.
-   *
-   * Returns the document AS IT WAS AT DELETE TIME (i.e. with deletedAt
-   * now populated). Returns `null` if not found, already deleted, or in
-   * a different tenant.
-   *
-   * Pass a `session` to make this part of a transaction.
+   * Returns the document at delete time, or null if not found / already deleted.
    */
   async softDelete(
     organisationId: string,
@@ -321,16 +310,7 @@ export class AssetsRepository {
   }
 
   /**
-   * Count non-deleted assets within the given tenant that reference a
-   * particular category id. Used by CategoriesService.delete to refuse
-   * a delete that would orphan referencing assets (slice #3 K9 FK
-   * protection).
-   *
-   * Soft-deleted assets are excluded because a deleted asset is no
-   * longer a real reference — if you delete an asset, the category it
-   * pointed at becomes safe to delete.
-   *
-   * Pass `session` to make this part of a transaction.
+   * Count non-deleted assets referencing a category. Used by FK protection.
    */
   async countByCategory(
     organisationId: string,
@@ -345,10 +325,7 @@ export class AssetsRepository {
   }
 
   /**
-   * Count non-deleted assets within the given tenant that reference a
-   * particular location id. Used by LocationsService.delete to refuse a
-   * delete that would orphan referencing assets (slice #3 K9 FK
-   * protection).
+   * Count non-deleted assets referencing a location. Used by FK protection.
    */
   async countByLocation(
     organisationId: string,

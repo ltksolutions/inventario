@@ -110,6 +110,17 @@ export async function resolveTestTenantId(app: FastifyInstance): Promise<string>
     allowedAuthProviders: ['GOOGLE', 'APPLE', 'MICROSOFT', 'EMAIL'],
     memberJoinPolicy: 'INVITE_ONLY',
     autoJoinDomains: [],
+    // ADR-0021: inventoryNumberFormat vyžadovaný pre POST /v1/assets.
+    // Test tenant má vždy nastavený default formát.
+    appBaseUrl: 'https://app.inventario.test',
+    publicAssetLookup: false,
+    foundContactInfo: null,
+    inventoryNumberFormat: {
+      prefix: 'TEST',
+      padding: 4,
+      includeYear: true,
+      resetYearly: true,
+    },
     createdAt: now,
     updatedAt: now,
     createdBy: 'SYSTEM' as const,
@@ -137,6 +148,12 @@ export async function seedTestTenant(
     displayName?: string;
     entraTenantId?: string | null;
     status?: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+    inventoryNumberFormat?: {
+      prefix: string;
+      padding: number;
+      includeYear: boolean;
+      resetYearly: boolean;
+    } | null;
   },
 ): Promise<{ _id: string; slug: string }> {
   const now = new Date().toISOString();
@@ -154,6 +171,19 @@ export async function seedTestTenant(
     primaryContactEmail: null,
     brandKit: null,
     settings: {},
+    appBaseUrl: 'https://app.inventario.test',
+    publicAssetLookup: false,
+    foundContactInfo: null,
+    // ADR-0021: default inventoryNumberFormat pre test tenantov
+    inventoryNumberFormat:
+      options.inventoryNumberFormat !== undefined
+        ? options.inventoryNumberFormat
+        : {
+            prefix: options.slug.slice(0, 4).toUpperCase().replace(/-/g, 'X'),
+            padding: 4,
+            includeYear: true,
+            resetYearly: true,
+          },
     createdAt: now,
     updatedAt: now,
     createdBy: 'SYSTEM' as const,
@@ -367,6 +397,9 @@ export async function insertTestAsset(
   const doc = {
     organisationId,
     inventoryNumber: defaultInventoryNumber,
+    // ADR-0021: publicToken vyžadovaný schémou. Fixture generuje deterministický
+    // token z counter-u (nie CSPRNG) — stačí pre testy, unique v rámci procesu.
+    publicToken: `TEST${String(++testAssetCounter).padStart(28, '0')}`,
     serialNumber: null,
     name: options.name ?? 'Test Asset',
     description: null,
@@ -411,19 +444,17 @@ export async function insertTestAsset(
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a minimal valid request body for `POST /v1/assets`. Tests that
- * need only the happy path use this directly; tests verifying validation
- * errors override one field to introduce the error.
+ * Returns a minimal valid request body pre `POST /v1/assets` (ADR-0021 K2).
  *
- * Note: this object matches what the API EXPECTS (with `inventoryNumberPrefix`,
- * not `inventoryNumber`). The service generates the full inventory number
- * server-side.
+ * `inventoryNumberPrefix` bol ODSTRANÉNÝ — server číta prefix z
+ * `Organisation.inventoryNumberFormat`. Body už prefix neobsahuje.
+ * Test tenant (resolveTestTenantId) má vždy nastavený inventoryNumberFormat
+ * s prefixom 'TEST', takže POST testy fungujú bez ďalej konfigurácie.
  */
 export function validCreateAssetBody(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    inventoryNumberPrefix: 'TEST',
     name: 'Integration test asset',
     type: 'IT',
     categoryId: '000000000000000000000001',

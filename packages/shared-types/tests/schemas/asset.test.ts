@@ -20,6 +20,7 @@ const validAssetInput = {
   deletedAt: null,
   deletedBy: null,
   inventoryNumber: 'LT-2024-008',
+  publicToken: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   serialNumber: 'PN-ABC123',
   name: 'Lenovo ThinkPad X1 Carbon Gen 11',
   description: null,

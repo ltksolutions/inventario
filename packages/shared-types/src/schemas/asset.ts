@@ -25,14 +25,39 @@ import {
 export const AssetSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
   .merge(OrganisationScopedSchema)
   .extend({
-    /** Inventárne číslo — unique, používateľsky čitateľné (napr. "LT-2024-008"). */
+    /**
+     * Inventárne číslo — unique, používateľsky čitateľné (napr. "LT-2024-008").
+     *
+     * Formát je konfigurovateľný per tenant cez `Organisation.inventoryNumberFormat`
+     * (ADR-0021 rozhodnutie 7). Regex pripúšťa dva tvary podľa `includeYear`:
+     *   - s rokom:  PREFIX-ROK-PORADIE   (napr. "LT-2026-0042")
+     *   - bez roku: PREFIX-PORADIE       (napr. "LT-0042")
+     * Poradie je 3–8 cifier (zodpovedá `padding` max 8 v configu). Server je
+     * jediný generátor čísel (transakčne); regex je len záchranná sieť proti
+     * pokazeným/ručne zadaným hodnotám.
+     */
     inventoryNumber: z
       .string()
       .regex(
-        /^[A-Z]{1,5}-\d{4}-\d{3,6}$/,
-        'Inventárne číslo musí mať formát PREFIX-ROK-PORADIE (napr. "LT-2024-008").',
+        /^[A-Z]{1,5}-(\d{4}-)?\d{3,8}$/,
+        'Inventárne číslo musí mať formát PREFIX-ROK-PORADIE (napr. "LT-2026-0042") alebo PREFIX-PORADIE (napr. "LT-0042").',
       )
       .describe('Inventárne číslo (unique)'),
+
+    /**
+     * Verejný, neuhádnuteľný handle pre QR kód a verejný „lost & found" lookup
+     * (ADR-0021). Generuje server CSPRNG-om pri vytvorení položky (POST), VŽDY —
+     * nezávisle od toho, či má tenant zapnutý `publicAssetLookup`. Nemenný,
+     * globálne unikátny (unique index). NIE je odvoditeľný z `inventoryNumber`
+     * ani `_id`, takže verejný povrch nie je enumerovateľný.
+     *
+     * Server-set: `CreateAssetSchema` ho vylučuje zo vstupu (ako `organisationId`).
+     */
+    publicToken: z
+      .string()
+      .min(16)
+      .max(64)
+      .describe('Verejný neuhádnuteľný handle pre QR / lost & found (server-generated)'),
 
     /** Sériové číslo od výrobcu (ak existuje). */
     serialNumber: z.string().max(200).nullable().default(null),
@@ -139,6 +164,7 @@ export type Asset = z.infer<typeof AssetSchema>;
 export const CreateAssetSchema = AssetSchema.omit({
   _id: true,
   organisationId: true, // Server-provided from authenticated context
+  publicToken: true, // Server-generated (CSPRNG) at POST — ADR-0021
   createdAt: true,
   updatedAt: true,
   createdBy: true,
@@ -161,6 +187,7 @@ export const UpdateAssetSchema = AssetSchema.omit({
   _id: true,
   organisationId: true, // Tenant scope is immutable
   inventoryNumber: true, // Inventárne číslo sa nemení (alebo cez special flow)
+  publicToken: true, // Nemenný handle — generovaný raz pri POST (ADR-0021)
   trackingMode: true, // Režim je nemenný po vytvorení — prepnutie SERIALIZED↔BULK by zneplatilo množstvo/históriu (ADR-0020)
   quantityOnHand: true, // Mení sa len cez StockMovement pohyby, nie priamym PATCH-om
   createdAt: true,
@@ -172,6 +199,64 @@ export const UpdateAssetSchema = AssetSchema.omit({
 }).partial();
 
 export type UpdateAssetInput = z.infer<typeof UpdateAssetSchema>;
+
+// ──────────────────────────────────────────────────────────
+// PublicAssetView — verejný „lost & found" pohľad (ADR-0021 rozhodnutie 4)
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Verejný pohľad na asset pre nez-prihláseného nálezcu (po sken QR →
+ * `GET /public/scan/:publicToken`), keď má tenant zapnutý `publicAssetLookup`.
+ *
+ * KRITICKÝ INVARIANT (ADR-0021): táto schéma sa konštruuje **explicitne, pole
+ * po poli** — NIKDY cez `Pick`/`Omit`/spread z `AssetSchema`. Dôvod: keby sa
+ * odvodila z plného Asset DTO, každé budúce nové pole na assete by ticho
+ * pretečlo do verejného výstupu (únik dát). Whitelist je tu jediný zdroj pravdy
+ * o tom, čo vidno verejne. Pokryté snapshot testom (K6), ktorý stráži presný
+ * zoznam kľúčov.
+ *
+ * Čo sem PATRÍ (maximum): identita organizácie + kontakt na vrátenie + voliteľne
+ * `inventoryNumber` na potvrdenie nálezu.
+ * Čo sem NIKDY nepatrí: hodnota, lokalita, história, kategória, interné
+ * poznámky, údaje o zápožičkách, status, specs, tagy, _id, organisationId.
+ */
+export const PublicAssetViewSchema = z
+  .object({
+    /** Názov organizácie, ktorej majetok patrí (z `Organisation.displayName`). */
+    organisationName: z.string(),
+
+    /** Logo organizácie pre verejný pohľad (z `Organisation.brandKit.logoUrl`). Null = bez loga. */
+    organisationLogoUrl: z.string().url().nullable(),
+
+    /**
+     * Inventárne číslo — na potvrdenie, že nálezca drží správnu položku.
+     * Nie je citlivé (je beztak vytlačené na štítku popri QR).
+     */
+    inventoryNumber: z.string(),
+
+    /**
+     * Názov položky — ľudský identifikátor pre nálezcu („Lenovo ThinkPad").
+     * Bez technických detailov, hodnoty či lokality.
+     */
+    name: z.string(),
+
+    /**
+     * Kontakt na vrátenie (z `Organisation.foundContactInfo`). Null ak tenant
+     * nevyplnil. Odporúčaný organizačný, nie osobný kontakt (viď organisation.ts).
+     */
+    foundContact: z
+      .object({
+        email: z.string().nullable(),
+        phone: z.string().nullable(),
+        message: z.string().nullable(),
+      })
+      .nullable(),
+  })
+  .strict();
+
+export type PublicAssetView = z.infer<typeof PublicAssetViewSchema>;
+
+// ──────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
 // Špecializované `specs` schémy pre rôzne kategórie majetku

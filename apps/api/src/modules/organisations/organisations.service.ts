@@ -229,6 +229,11 @@ export class OrganisationsService {
       // DPA: not accepted during JIT provisioning
       dpaAcceptedAt: null,
       dpaAcceptedBy: null,
+      // ADR-0021: QR + inventoryNumberFormat — tenant nakonfiguruje cez Settings po onboardingu
+      appBaseUrl: null,
+      publicAssetLookup: false,
+      foundContactInfo: null,
+      inventoryNumberFormat: null,
       createdAt: now,
       updatedAt: now,
       createdBy: 'SYSTEM',

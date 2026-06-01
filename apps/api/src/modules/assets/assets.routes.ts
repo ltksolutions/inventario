@@ -1,23 +1,19 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Assets routes — HTTP endpoints for asset management.
  *
- * Slice #1: `GET /v1/assets` (public).
- * Slice #2: `GET /v1/assets` (authenticated).
- * Slice #2b: full CRUD with RBAC + audit logging + transactions.
- *
  * RBAC matrix:
- *   - GET    /v1/assets       any authenticated user
- *   - GET    /v1/assets/:id   any authenticated user
+ *   - GET    /v1/assets       EMPLOYEE+
+ *   - GET    /v1/assets/:id   EMPLOYEE+
  *   - POST   /v1/assets       ASSET_MANAGER + ADMIN
  *   - PATCH  /v1/assets/:id   ASSET_MANAGER + ADMIN
  *   - DELETE /v1/assets/:id   ADMIN only
  *
- * Note on body schemas:
- *   The HTTP body for POST does NOT include `inventoryNumber` — the server
- *   generates it from `inventoryNumberPrefix` + current year + auto-increment
- *   sequence. The shared-types `CreateAssetSchema` requires the full
- *   `inventoryNumber`, so we define an API-level body schema here that
- *   transforms input → service input.
+ * ADR-0021 (K2): `inventoryNumberPrefix` bol ODSTRÁNENÝ z POST body.
+ * Server číta prefix (a celý formát) z `Organisation.inventoryNumberFormat`.
+ * Ak tenant nemá formát nastavený, POST vráti 400 s jasnou správou.
  */
 
 import { UpdateAssetSchema } from '@inventario/shared-types';
@@ -25,6 +21,7 @@ import { z } from 'zod';
 
 import { CategoriesRepository } from '../categories/categories.repository.js';
 import { LocationsRepository } from '../locations/locations.repository.js';
+import { OrganisationsRepository } from '../organisations/organisations.repository.js';
 
 import { AssetsRepository } from './assets.repository.js';
 import { AssetsService } from './assets.service.js';
@@ -41,32 +38,19 @@ const ListAssetsQuerySchema = z.object({
   skip: z.coerce.number().int().min(0).default(0),
 });
 
-/**
- * Path parameter for routes that take an asset ID.
- * Format: 24-char hex (MongoDB ObjectId).
- */
 const AssetIdParamsSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát ID (očakáva sa 24 hex znakov).'),
 });
 
 /**
- * Body schema for POST /v1/assets.
+ * Body schema pre POST /v1/assets (ADR-0021 K2).
  *
- * Differs from `CreateAssetSchema` (shared-types) in two ways:
- *   1. `inventoryNumber` is omitted — server generates it.
- *   2. `inventoryNumberPrefix` is added — 1-5 uppercase letters, the
- *      prefix portion of the generated number (e.g. "LT" → "LT-2026-001").
- *
- * The schema matches the regex used by `Asset.inventoryNumber` for the
- * prefix portion, ensuring we never generate an inventoryNumber that
- * would fail schema validation on read.
+ * `inventoryNumberPrefix` bol ODSTRÁNENÝ — server číta prefix z
+ * `Organisation.inventoryNumberFormat`. Klient neposiela prefix.
+ * `inventoryNumber` sa generuje serverom (nie je v body).
  */
 const ApiCreateAssetBodySchema = z
   .object({
-    inventoryNumberPrefix: z
-      .string()
-      .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1-5 veľkých písmen (napr. "LT").')
-      .describe('Prefix inventárneho čísla; server pripojí rok a poradie'),
     serialNumber: z.string().max(200).nullable().default(null),
     name: z.string().min(1).max(300).trim(),
     description: z.string().max(2000).nullable().default(null),
@@ -86,7 +70,7 @@ const ApiCreateAssetBodySchema = z
     isLoanable: z.boolean().default(true),
     requiresApproval: z.boolean().default(true),
   })
-  .describe('Telo pre vytvorenie assetu; inventoryNumber sa generuje serverom');
+  .describe('Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server');
 
 const AssetResponseSchema = z.record(z.string(), z.unknown());
 
@@ -107,28 +91,21 @@ const ListAssetsResponseSchema = z.object({
 const assetsRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
-  // Wire up dependencies.
   const repo = new AssetsRepository(fastify.mongo.db);
-  // FK validation in the service needs to look up categories + locations,
-  // so we instantiate read-only repository handles here. These repos are
-  // also constructed independently inside categories.routes.ts and
-  // locations.routes.ts — each module manages its own indexes — so
-  // having an extra constructor call here just for cross-module reads is
-  // a deliberate lightweight choice over a shared singleton.
   const categoriesRepo = new CategoriesRepository(fastify.mongo.db);
   const locationsRepo = new LocationsRepository(fastify.mongo.db);
+  const orgsRepo = new OrganisationsRepository(fastify.mongo.db);
   const service = new AssetsService(
     repo,
     fastify.auditLog,
     fastify.mongo.client,
     categoriesRepo,
     locationsRepo,
+    orgsRepo,
   );
 
-  // Ensure indexes exist at startup. Idempotent.
   await repo.ensureIndexes();
 
-  // RBAC role lists — defined once for readability and easy auditing.
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
   const canDelete = fastify.requireRole(['ADMIN']);
@@ -141,14 +118,10 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Assets'],
         summary: 'List assets',
-        description:
-          'Returns a paginated list of assets, sorted by creation date (newest first). ' +
-          'Soft-deleted assets are excluded. Requires authentication.',
+        description: 'Paginated list of assets (newest first). Soft-deleted excluded.',
         security: [{ bearerAuth: [] }],
         querystring: ListAssetsQuerySchema,
-        response: {
-          200: ListAssetsResponseSchema,
-        },
+        response: { 200: ListAssetsResponseSchema },
       },
     },
     async (request) => {
@@ -165,12 +138,10 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Assets'],
         summary: 'Get a single asset by ID',
-        description: 'Returns one asset by its MongoDB `_id`. 404 if not found or soft-deleted.',
+        description: '404 if not found or soft-deleted.',
         security: [{ bearerAuth: [] }],
         params: AssetIdParamsSchema,
-        response: {
-          200: AssetResponseSchema,
-        },
+        response: { 200: AssetResponseSchema },
       },
     },
     async (request) => {
@@ -187,25 +158,19 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Assets'],
         summary: 'Create a new asset',
         description:
-          'Creates a new asset. The server generates `inventoryNumber` from ' +
-          '`inventoryNumberPrefix` + current year + auto-increment sequence ' +
-          '(e.g. prefix "LT" → "LT-2026-001"). Requires ASSET_MANAGER or ADMIN role.',
+          'Server generuje `inventoryNumber` z `Organisation.inventoryNumberFormat` (prefix, ' +
+          'padding, includeYear, resetYearly) a `publicToken` cez CSPRNG. ' +
+          'Tenant musí mať nastavený `inventoryNumberFormat` — inak 400. ' +
+          'Vyžaduje ASSET_MANAGER alebo ADMIN.',
         security: [{ bearerAuth: [] }],
         body: ApiCreateAssetBodySchema,
-        response: {
-          201: AssetResponseSchema,
-        },
+        response: { 201: AssetResponseSchema },
       },
     },
     async (request, reply) => {
-      // The body has already been validated by Zod via the schema above.
-      // The cast to `CreateAssetServiceInput` is safe because the body
-      // schema is a superset of the service input shape (minus status,
-      // which defaults inside the service when constructing the document).
-      const body = request.body;
       const created = await service.create(
         {
-          ...body,
+          ...request.body,
           status: 'AVAILABLE',
         } as unknown as Parameters<typeof service.create>[0],
         request.currentUser,
@@ -223,16 +188,11 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Assets'],
         summary: 'Update an existing asset',
-        description:
-          'Partial update — only provided fields are changed. Cannot modify ' +
-          '`inventoryNumber` (immutable post-creation). Records an audit event ' +
-          'with a per-field diff. Requires ASSET_MANAGER or ADMIN role.',
+        description: 'Partial update. `inventoryNumber` a `publicToken` sú nemenné.',
         security: [{ bearerAuth: [] }],
         params: AssetIdParamsSchema,
         body: UpdateAssetSchema,
-        response: {
-          200: AssetResponseSchema,
-        },
+        response: { 200: AssetResponseSchema },
       },
     },
     async (request) => {
@@ -248,15 +208,10 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Assets'],
         summary: 'Soft-delete an asset',
-        description:
-          'Marks an asset as deleted (sets `deletedAt`/`deletedBy`). The record ' +
-          'remains in the database for audit/recovery. Cannot delete an asset ' +
-          'currently on loan — return the loan first. Requires ADMIN role.',
+        description: 'Nastaví deletedAt/deletedBy. Vyžaduje ADMIN.',
         security: [{ bearerAuth: [] }],
         params: AssetIdParamsSchema,
-        response: {
-          204: z.null(),
-        },
+        response: { 204: z.null() },
       },
     },
     async (request, reply) => {

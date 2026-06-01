@@ -1,45 +1,29 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Assets service — business logic for asset management.
  *
  * Responsibilities:
- *   - Generate `inventoryNumber` server-side (auto-increment per
- *     tenant + prefix + year)
+ *   - Generate `inventoryNumber` server-side (tenant-level config —
+ *     prefix, padding, includeYear, resetYearly z Organisation.inventoryNumberFormat)
+ *   - Generate `publicToken` (CSPRNG via crypto.randomBytes + base32,
+ *     ADR-0021) atomicky v tej istej transakcii ako inventoryNumber
  *   - Set tenant scope (`organisationId`) and audit fields
- *     (`createdAt`, `updatedAt`, `createdBy`, `updatedBy`)
  *   - Compute diffs for audit log on update
  *   - Wrap state-changing ops in transactions (asset + audit atomic)
  *
- * Phase C Blok 2 changes:
- *   Every repository call now takes `organisationId` as the first
- *   argument. The service threads it through from `actor.organisationId`
- *   so the repository can enforce tenant scoping in filters and unique
- *   indexes. Cross-tenant reads are not possible: a service method
- *   called with actor from tenant A trying to look up an id that
- *   belongs to tenant B will return `null` (treated as not-found by
- *   the caller).
- *
- * Transaction strategy:
- *   Every state-changing op (create/update/delete) opens a Mongo
- *   session, does the asset write and the audit log write under the
- *   same session, then commits. If either fails, the transaction
- *   aborts and BOTH writes are rolled back. No orphan audit records,
- *   no missing audit records.
- *
- *   This requires a replica set (Flex tier or higher). On a single-
- *   node M0 cluster, `client.startSession()` works but
- *   `session.startTransaction()` fails with "Transaction numbers are
- *   only allowed on a replica set member".
- *
- * Why server-generated inventoryNumber:
- *   Clients sending sequence numbers directly would race on concurrent
- *   inserts and create duplicates. Generating inside the transaction
- *   that does the insert ensures consistency: if another insert
- *   finishes between our find-max and our insert, the unique index
- *   aborts our transaction and the driver retries with the updated
- *   max. The unique index is composite per tenant, so concurrent
- *   inserts in different tenants do not contend on each other.
+ * ADR-0021 zmeny:
+ *   - `CreateAssetServiceInput` už NEOBSAHUJE `inventoryNumberPrefix`.
+ *     Prefix (aj formát) sa číta z `Organisation.inventoryNumberFormat`.
+ *   - `publicToken` sa generuje VŽDY pri POST, nezávisle od toho, či
+ *     má tenant zapnutý `publicAssetLookup`.
+ *   - `AssetsService` dostane `OrganisationsRepository` cez konštruktor.
  */
 
+import { randomBytes } from 'node:crypto';
+
+import { base32Encode } from '../../lib/base32.js';
 import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 
 import { computeShallowDiff } from './assets-diff.js';
@@ -48,6 +32,7 @@ import type { AssetsRepository, AssetUpdatePatch } from './assets.repository.js'
 import type { AuditLogService } from '../audit/audit.service.js';
 import type { CategoriesRepository } from '../categories/categories.repository.js';
 import type { LocationsRepository } from '../locations/locations.repository.js';
+import type { OrganisationsRepository } from '../organisations/organisations.repository.js';
 import type { Asset, CreateAssetInput, UpdateAssetInput, User } from '@inventario/shared-types';
 import type { FastifyRequest } from 'fastify';
 import type { ClientSession, MongoClient, WithId } from 'mongodb';
@@ -66,31 +51,20 @@ export interface ListAssetsResponse {
   };
 }
 
-/**
- * Service-layer parameters for the `list` endpoint. Tenant scope is
- * inferred from the actor and threaded through; callers pass
- * pagination/filter knobs only.
- */
 export interface ListAssetsServiceParams {
   limit?: number;
   skip?: number;
 }
 
 /**
- * Service-layer input for creating an asset.
+ * Service-layer input pre vytvorenie assetu (ADR-0021 refactor).
  *
- * Differs from `CreateAssetInput` (shared-types) in one key way:
- *   - Schema's `inventoryNumber` is replaced by
- *     `inventoryNumberPrefix`. The service computes the full number
- *     from prefix + current year + tenant-scoped sequence.
- *
- * The routes layer is responsible for transforming the HTTP body into
- * this shape (stripping `inventoryNumber` if present, requiring
- * `inventoryNumberPrefix`).
+ * `inventoryNumberPrefix` bol ODSTRÁNENÝ — prefix (a celý formát) sa
+ * číta z `Organisation.inventoryNumberFormat`. Kalkulovaný tenantom,
+ * nie per-request. Ak tenant nemá `inventoryNumberFormat` nastavený,
+ * `create()` vyhodí BadRequestError s jasnou správou.
  */
-export type CreateAssetServiceInput = Omit<CreateAssetInput, 'inventoryNumber'> & {
-  inventoryNumberPrefix: string;
-};
+export type CreateAssetServiceInput = Omit<CreateAssetInput, 'inventoryNumber'>;
 
 // ---------------------------------------------------------------------------
 // Service
@@ -103,6 +77,7 @@ export class AssetsService {
     private readonly mongoClient: MongoClient,
     private readonly categoriesRepo: CategoriesRepository,
     private readonly locationsRepo: LocationsRepository,
+    private readonly orgsRepo: OrganisationsRepository,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -145,59 +120,75 @@ export class AssetsService {
   // -------------------------------------------------------------------------
 
   /**
-   * Create a new asset. Server generates `inventoryNumber` from the
-   * provided prefix and the current year, sequenced via the highest
-   * existing number in `(tenant, prefix, year)`.
+   * Create a new asset.
    *
-   * Records an `ASSET_CREATED` audit log event atomically with the
-   * insert.
+   * Server generates:
+   *   - `inventoryNumber` z tenant-level `inventoryNumberFormat` (ADR-0021)
+   *   - `publicToken` cez CSPRNG (crypto.randomBytes + base32, ADR-0021)
+   *
+   * Oboje sa generuje atomicky v rámci tej istej transakcie ako samotný insert.
+   * Ak tenant nemá `inventoryNumberFormat` → BadRequestError.
+   *
+   * Records an `ASSET_CREATED` audit log event atomically with the insert.
    */
   async create(
     input: CreateAssetServiceInput,
     user: WithId<User>,
     request: FastifyRequest,
   ): Promise<Record<string, unknown>> {
-    const { inventoryNumberPrefix, ...assetData } = input;
     const userId = String(user._id);
     const tenantId = String(user.organisationId);
 
+    // Načítaj org konfig PRED transakciou (read-only, netreba session).
+    // Ak org neexistuje alebo nemá inventoryNumberFormat, failni rýchlo.
+    const org = await this.orgsRepo.findById(tenantId);
+    if (!org) {
+      throw new NotFoundError('Organisation', tenantId);
+    }
+    if (!org.inventoryNumberFormat) {
+      throw new BadRequestError(
+        'Organizácia nemá nastavený formát inventárneho čísla (inventoryNumberFormat). ' +
+          'Nastavte ho v Settings → Organizácia pred pridaním majetku.',
+      );
+    }
+
+    const fmt = org.inventoryNumberFormat;
+
     const inserted = await this.runInTransaction(async (session) => {
       // ----- Step 0: FK validation (category + location must exist) ----
-      //
-      // Defense in depth: route schemas enforce 24-hex format, but the
-      // IDs could still point to non-existent / soft-deleted / cross-
-      // tenant documents. We verify both before doing anything else so
-      // the user gets a clear "category X does not exist" instead of a
-      // successful insert that leaves the asset pointing at a phantom
-      // reference. The tenant scope is enforced by passing tenantId to
-      // the FK repos.
       await this.assertFkExists('category', tenantId, input.categoryId, session);
       await this.assertFkExists('location', tenantId, input.locationId, session);
 
-      // ----- Step 1: generate the next inventoryNumber -----
-      //
-      // Inside the transaction so any concurrent insert that committed
-      // between our find and our insert would conflict on the composite
-      // unique index `{organisationId, inventoryNumber}` and trigger a
-      // retry (Mongo's retryWrites + startTransaction semantics).
+      // ----- Step 1a: generate publicToken (CSPRNG, ADR-0021) -----
+      // 20 náhodných bajtov → base32 → ~32 znakov URL-safe, globálne unikátny.
+      // Generujeme VŽDY (nezávisle od publicAssetLookup) aby bol token stálý
+      // ak tenant funkciu neskôr zapne, bez potreby migrácie.
+      const publicToken = base32Encode(randomBytes(20));
+
+      // ----- Step 1b: generate inventoryNumber (tenant-level config) -----
       const year = new Date().getFullYear();
+      const yearOrNull = fmt.includeYear ? year : null;
       const highestSeq = await this.repo.findHighestInventorySequence(
         tenantId,
-        inventoryNumberPrefix,
-        year,
+        fmt.prefix,
+        yearOrNull,
         session,
       );
       const nextSeq = highestSeq + 1;
-      const inventoryNumber = `${inventoryNumberPrefix}-${year}-${String(nextSeq).padStart(3, '0')}`;
+      const seqStr = String(nextSeq).padStart(fmt.padding, '0');
+      const inventoryNumber = fmt.includeYear
+        ? `${fmt.prefix}-${year}-${seqStr}`
+        : `${fmt.prefix}-${seqStr}`;
 
       // ----- Step 2: build the full Asset document -----
       const now = new Date().toISOString();
       const doc: Omit<Asset, '_id'> = {
-        ...(assetData as Omit<
+        ...(input as Omit<
           Asset,
           | '_id'
           | 'organisationId'
           | 'inventoryNumber'
+          | 'publicToken'
           | 'createdAt'
           | 'updatedAt'
           | 'createdBy'
@@ -208,6 +199,7 @@ export class AssetsService {
         >),
         organisationId: tenantId,
         inventoryNumber,
+        publicToken,
         currentLoanId: null,
         createdAt: now,
         updatedAt: now,
@@ -247,13 +239,7 @@ export class AssetsService {
 
   /**
    * Update an existing asset with a partial patch.
-   *
-   * Records an `ASSET_UPDATED` audit log event with a per-field diff
-   * (top-level fields only — nested object diffing is a future
-   * enhancement).
-   *
-   * Throws `NotFoundError` if the asset doesn't exist, is soft-deleted,
-   * or belongs to a different tenant.
+   * Records an `ASSET_UPDATED` audit log event with a per-field diff.
    */
   async update(
     id: string,
@@ -265,18 +251,9 @@ export class AssetsService {
     const tenantId = String(user.organisationId);
 
     const updated = await this.runInTransaction(async (session) => {
-      // ----- Step 1: load the current document for diff computation --
       const before = await this.repo.findById(tenantId, id, session);
-      if (!before) {
-        throw new NotFoundError('Asset', id);
-      }
+      if (!before) throw new NotFoundError('Asset', id);
 
-      // ----- Step 1b: FK validation (only when changing the FK fields) --
-      //
-      // Same rationale as in create: catch dangling references early.
-      // We only check fields the patch actually changes, so a patch
-      // that doesn't touch categoryId/locationId pays no extra DB
-      // cost.
       const typedPatch = patch as Partial<{ categoryId: string; locationId: string }>;
       if (typedPatch.categoryId !== undefined && typedPatch.categoryId !== before.categoryId) {
         await this.assertFkExists('category', tenantId, typedPatch.categoryId, session);
@@ -285,7 +262,6 @@ export class AssetsService {
         await this.assertFkExists('location', tenantId, typedPatch.locationId, session);
       }
 
-      // ----- Step 2: prepare the patch with audit fields -----
       const now = new Date().toISOString();
       const fullPatch: AssetUpdatePatch = {
         ...(patch as AssetUpdatePatch),
@@ -293,20 +269,11 @@ export class AssetsService {
         updatedBy: userId,
       };
 
-      // ----- Step 3: apply the update -----
       const after = await this.repo.update(tenantId, id, fullPatch, session);
-      if (!after) {
-        // Race: the doc was soft-deleted between our findById and
-        // update. Treat as not-found from the caller's perspective.
-        throw new NotFoundError('Asset', id);
-      }
+      if (!after) throw new NotFoundError('Asset', id);
 
-      // ----- Step 4: compute diff and log audit event -----
       const changes = computeShallowDiff(before, after, ['updatedAt', 'updatedBy']);
 
-      // Only log if there were actual changes — a "no-op" PATCH
-      // (sending the same values back) shouldn't pollute the audit
-      // log.
       if (changes.length > 0) {
         await this.auditLog.record(
           user,
@@ -336,41 +303,24 @@ export class AssetsService {
 
   /**
    * Soft-delete an asset. Records an `ASSET_DELETED` audit event.
-   *
-   * Throws `NotFoundError` if the asset doesn't exist, is already
-   * deleted, or belongs to a different tenant. Throws
-   * `BadRequestError` if the asset is currently on loan
-   * (status=BORROWED) — that case must be resolved before deletion to
-   * avoid stranding open loans.
    */
   async delete(id: string, user: WithId<User>, request: FastifyRequest): Promise<void> {
     const userId = String(user._id);
     const tenantId = String(user.organisationId);
 
     await this.runInTransaction(async (session) => {
-      // ----- Step 1: load and validate state -----
       const existing = await this.repo.findById(tenantId, id, session);
-      if (!existing) {
-        throw new NotFoundError('Asset', id);
-      }
+      if (!existing) throw new NotFoundError('Asset', id);
 
-      // Defense in depth: don't delete an asset currently on loan.
-      // (Loan logic is out of scope for slice #2b; this check just
-      // avoids future foot-guns and clearly signals intent.)
       if (existing.currentLoanId !== null) {
         throw new BadRequestError(
           `Cannot delete asset ${existing.inventoryNumber}: it is currently on loan. Return the loan first.`,
         );
       }
 
-      // ----- Step 2: soft-delete -----
       const deleted = await this.repo.softDelete(tenantId, id, userId, session);
-      if (!deleted) {
-        // Race condition — already deleted by a parallel request.
-        throw new NotFoundError('Asset', id);
-      }
+      if (!deleted) throw new NotFoundError('Asset', id);
 
-      // ----- Step 3: audit log -----
       await this.auditLog.record(
         user,
         request,
@@ -397,23 +347,6 @@ export class AssetsService {
   // FK validation helper
   // -------------------------------------------------------------------------
 
-  /**
-   * Verify that a referenced category or location exists, is not
-   * soft-deleted, and belongs to the same tenant as the caller, inside
-   * the current transaction.
-   *
-   * The kind discriminator selects which repository to query. Throwing
-   * BadRequestError with a clear message is preferable to letting
-   * Mongo accept the write and end up with a dangling reference —
-   * catching it here keeps the assets table in a clean state and
-   * surfaces the bug to the caller immediately.
-   *
-   * Cross-tenant references are blocked because the FK repo call
-   * passes tenantId; a category id that exists in a different tenant
-   * returns null from findById here and surfaces as "does not exist"
-   * to the caller (we deliberately do not leak the existence of the
-   * cross-tenant document).
-   */
   private async assertFkExists(
     kind: 'category' | 'location',
     organisationId: string,
@@ -431,26 +364,9 @@ export class AssetsService {
   // Transaction helper
   // -------------------------------------------------------------------------
 
-  /**
-   * Run `work` inside a Mongo transaction. Commits if `work` resolves,
-   * aborts if it throws. The session is passed to `work` for inclusion
-   * in all DB calls.
-   *
-   * Uses `withTransaction` which handles transient transaction errors
-   * (TransientTransactionError, UnknownTransactionCommitResult) by
-   * retrying automatically — useful when concurrent writes conflict on
-   * the unique inventoryNumber index.
-   */
   private async runInTransaction<T>(work: (session: ClientSession) => Promise<T>): Promise<T> {
     const session = this.mongoClient.startSession();
     try {
-      // `withTransaction` returns whatever `work` returns. The driver
-      // handles retries on transient errors transparently.
-      //
-      // We capture the result in `let` because the driver's types say
-      // `withTransaction` returns `void` even though it forwards the
-      // callback's return value at runtime. The cast at the end keeps
-      // TypeScript happy without compromising correctness.
       let result: T | undefined;
       await session.withTransaction(async () => {
         result = await work(session);
@@ -466,11 +382,6 @@ export class AssetsService {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Convert a Mongo document into the API response shape:
- *   - `_id` → string (binary ObjectId is not JSON-serializable in
- *     clients)
- */
 function toApiShape(doc: WithId<Asset>): Record<string, unknown> {
   return {
     ...doc,
