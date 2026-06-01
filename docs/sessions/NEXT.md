@@ -7,12 +7,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
-| Atribút                   | Hodnota                                                                                                                              |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-01 (Vlna 3: threat model STRIDE + DPIA template hotové; Vlna 2: ADR-0022 on-demand PDF; Vlna 1: ADR-0006/0008/0021 Accepted) |
-| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                                           |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                        |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                           |
+| Atribút                   | Hodnota                                                                                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-01 (Vlna 4: tech-debt uzavretý — čistý stôl; Vlna 3: threat model + DPIA template; Vlna 2: ADR-0022 on-demand PDF; Vlna 1: ADR-0006/0008/0021 Accepted) |
+| **Aktuálna fáza**         | Production LIVE ✅ — ADR-0026 implementované, smoke test + pilot nasleduje                                                                                      |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                                                                                                   |
+| **GitHub**                | https://github.com/ltksolutions/inventario                                                                                                                      |
 
 ---
 
@@ -68,11 +68,7 @@ ADR: `docs/decisions/0022-loan-protocol-pdf.md` (Accepted).
 
 ## 🔥 Najbližšie kroky (priorita)
 
-### 1. ADR-0022 revízia — on-demand PDF bez ukladania (Opus)
-
-PDF protokoly bez attachments infra. ADR-0022 prepísať podľa nového modelu → Accepted.
-
-### 2. Smoke test po deployi
+### 1. Smoke test po deployi
 
 - [ ] `/settings/organisation` — formulár + uloženie billing funguje
 - [ ] IČO zadané pri novej registrácii sa objaví v billing
@@ -80,15 +76,15 @@ PDF protokoly bez attachments infra. ADR-0022 prepísať podľa nového modelu �
 - [ ] `/stock` — sklad prehľad pre ASSET_MANAGER+
 - [ ] ADR-0026 formulár žiadosti (kategória+množstvo) + vydávanie (Vydať tlačidlo)
 
-### 3. Pilot tenant onboarding
+### 2. Pilot tenant onboarding
 
 SFZ (`inventario@futbalsfz.sk`) — overiť login na prod a prejsť onboardingom.
 
-### 4. email_unique index — overiť na prod Atlas
+### 3. email_unique index — overiť na prod Atlas
 
 - [ ] Skontrolovať že `email_unique` / `email_1` index bol dropnutý migráciou 2026-05-29c
 
-### 5. QR kódy majetku — ADR-0021 ✅ Accepted → implementácia (Sonnet)
+### 4. QR kódy majetku — ADR-0021 ✅ Accepted → implementácia (Sonnet)
 
 ADR rozhodnutý, všetky detaily v `docs/decisions/0021-asset-qr-codes.md`.
 
@@ -146,6 +142,19 @@ Retention tabuľka: ROPA sekcia 6 (`docs/compliance/gdpr-article-30.md`).
 
 `Cmd+K` tenant picker, SOC 2 Type II, dashboard štatistiky, QR štítky PDF.
 
+#### Slice #6c follow-up featury (nový vývoj, nie dlh)
+
+Nasledujúce sú **nové funkčnosti** nad rámec hotového Slice #6c (invitations). Nie sú technický dlh
+— sú to potenciálne rozšírenia, ktoré sa implementujú podľa potreby (každé = nový kód + testy + endpoint):
+
+- **Resend invitation** — znovu odoslať pozvánku s novým tokenom (expired/lost e-mail)
+- **Per-email domain exception** — pozvať e-mail mimo `allowedDomains` s expl. výnimkou
+- **Email change verification** — overovací flow pri zmene e-mailu existujúceho používateľa
+- **Bulk invite cez CSV** — hromadné pozvanie nahraním CSV s e-mailmi
+- **Per-tenant email provider override** — tenant si zvolí vlastný Resend namiesto default Ecomail
+
+Priorita LOW — SFZ pilot ich nepotrebuje. Otvárajú sa, keď reálny tenant požiada.
+
 ---
 
 ## 🏗️ Backend status
@@ -175,7 +184,7 @@ Duration:     ~95s
 
 | Task typ                                                    | Model          |
 | ----------------------------------------------------------- | -------------- |
-| Strategické rozhodnutia, ADR, DPIA, security architecture   | **Opus 4.7**   |
+| Strategické rozhodnutia, ADR, DPIA, security architecture   | **Opus 4.8**   |
 | CRUD endpoints, frontend pages, debug, tests, implementácia | **Sonnet 4.6** |
 | Milestone docs, mechanické edits, scoped docs               | **Haiku 4.5**  |
 
@@ -196,6 +205,6 @@ Duration:     ~95s
 
 ---
 
-**Last updated:** 2026-06-01 (Vlna 3 upratovania: threat model STRIDE + DPIA template hotové)
+**Last updated:** 2026-06-01 (Vlna 4 upratovania: tech-debt uzavretý — čistý stôl, 0 otvorených ADR, 0 dlhu)
 **Tests:** 690 ✅ | **CI:** zelené ✅ | **OpenAPI:** 69 endpointov ✅
 **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

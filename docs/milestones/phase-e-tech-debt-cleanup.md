@@ -141,15 +141,19 @@ Z phase-d-eu-compliance.md sa do tejto fázy preniesli tieto položky a všetky 
 - ✅ Marketing footer link cleanup (broken ADR-0010 link) — E1
 - ✅ Root `package.json` post-pivot cleanup — E4
 
-**Nesplnené z pôvodného plánu** (presunuté ďalej):
+**Nesplnené z pôvodného plánu** — všetky tri uzavreté pri audite 2026-06-01 (Vlna 4 upratovania):
 
-- ⏳ `apps/docs/vercel.json` UI override migration — **closed/non-issue**: `vercel.json` už obsahuje len headers, žiadny UI override netreba migrovať (Build Command/Install Command pre docs sú prázdne v UI, čo je rovnaké ako neuvedené v vercel.json)
-- ⏳ `marketing-site/shared.css` migrate `--brand-*` → `@inventario/design-tokens/tokens.css` — **deferred**: zostáva ako future cleanup. Marketing site funguje samostatne so svojimi inline CSS vars; migration na shared package je čistá konsolidácia bez user-facing benefitu. Robí sa keď budeme upravovať tokens.css beztak
-- ⏳ `AssetUpdatePatch / CategoryUpdatePatch / LocationUpdatePatch types` type-narrow cez `Pick` — **deferred**: schema layer (Zod) už blokuje mutation `organisationId`, type-level narrowing je estetické vylepšenie pre IDE autocomplete
+- ✅ `apps/docs/vercel.json` UI override migration — **closed/non-issue**: `vercel.json` už obsahuje len headers, žiadny UI override netreba migrovať (Build Command/Install Command pre docs sú prázdne v UI, čo je rovnaké ako neuvedené v vercel.json)
+- ❌ `marketing-site/shared.css` migrate `--brand-*` → `@inventario/design-tokens/tokens.css` — **won't-fix** (rozhodnuté 2026-06-01): ide o dva **zámerne oddelené** systémy. `tokens.css` je 3-vrstvový design-token systém (primitive → semantic → brand, prefix `--inv-*`, licencia EUPL-1.2, kód aplikácie). Marketing `shared.css` má 5 jednoduchých `--brand-*` premenných (licencia CC-BY-4.0, dokumentácia). Nie je to čistá náhrada — buď by sa do marketingu ťahal celý `--inv-` systém (overkill pre 5 farieb + miešanie licencií), alebo plytká náhrada mien (kozmetika bez hodnoty). Marketing site je statická a funguje samostatne. Hodnoty (Navy #1a2d47, Blue #388fc3, Paper #f8f6f1) sú totožné v oboch — vizuálna konzistentnosť je zachovaná aj bez zdieľaného súboru. Žiadny user-facing ani DX benefit z migrácie
+- ✅ `AssetUpdatePatch / CategoryUpdatePatch / LocationUpdatePatch types` type-narrow — **už hotové** (overené 2026-06-01): `UpdateCategorySchema` aj `UpdateLocationSchema` v shared-types už existujú ako `XSchema.omit({ _id, organisationId, ...audit }).partial()` — `organisationId` je vylúčený zo vstupu. To je presne ten type-narrowing, ktorý táto položka žiadala; rieši ho schéma-vrstva (viď Blok 3 vyššie). Pôvodná poznámka sa vzťahovala na starší inline typ, ktorý už neexistuje
 
 ### Nový debt zo Phase E
 
 Žiadny — phase E bola čisto debt-reducing, žiadne nové TODOs nepribudli.
+
+### Stav po audite 2026-06-01
+
+Všetky tri „presunuté ďalej" položky sú uzavreté (1× non-issue, 1× won't-fix, 1× už hotové). **Z Phase E nezostáva žiadny otvorený technický dlh.**
 
 ---
 
