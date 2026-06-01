@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Slice #5 — Loans Backend MVP (Completed 2026-05-20)
+# Slice #5 — Loans Backend MVP (Completed 2026-05-20; prepísaný ADR-0026 2026-06-01)
 
 ## Cieľ
 
@@ -14,6 +14,21 @@ zdokumentované v [ADR-0012](../decisions/0012-loans-state-machine.md).
 
 **Vyžaduje slice #3** (categories, locations, users admin) a **slice #4**
 (frontend bootstrap + auth) ako predpoklady na strane API kontraktu.
+
+## ⚠️ ADR-0026 — model prepisaný (2026-06-01)
+
+> Tento dokument popisáva pôvodný MVP model z ADR-0012. **[ADR-0026](../decisions/0026-catalog-requests-and-fulfilment.md)**
+> (Accepted + implementované 2026-06-01) prepisal jadro FSM žiadosti:
+>
+> - `LoanRequestItem` zmenený z `assetId`-based → **`categoryId + quantity`** (katalógová žiadosť)
+> - `approve` už **nevytvára Loan** a nerezervuje assety — len PENDING→APPROVED
+> - Nový endpoint **`POST /v1/loan-requests/:id/fulfil`** — vydanie, vznik Loan-u, BORROWED assety
+> - FSM: 7 stavov (+ PARTIALLY_FULFILLED, FULFILLED, CLOSED)
+> - Žiadosť **nedrží zásobu** — nerez. pri vytváraní, neuzávera pri reject/cancel
+> - 1 žiadosť → N Loanov postupne
+>
+> **690 testov zelených.** Session: `docs/sessions/2026-06-01-adr-0026-implementation.md`.
+> Aktuálny model = ADR-0026 + tento dokument ako historický záznam pôvodného MVP.
 
 ## Výsledok
 

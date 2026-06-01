@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Architecture Decision Records (ADR)
 
 Tento adresár obsahuje záznamy o významných architektonických rozhodnutiach v projekte.
@@ -29,9 +34,9 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0003 | [MongoDB Atlas ako primárna databáza](0003-mongodb-atlas.md)                                                     | Accepted                                                  | máj 2026   |
 | 0004 | [Microsoft Entra ID ako identity provider](0004-auth-entra-id.md)                                                | 🚫 Superseded by 0013                                     | máj 2026   |
 | 0005 | [Natívny MongoDB driver + Repository pattern (bez Mongoose)](0005-mongo-native-driver.md)                        | Accepted                                                  | máj 2026   |
-| 0006 | _(plánované)_ OpenAPI 3.1 ako kontrakt API                                                                       | Proposed                                                  | –          |
+| 0006 | [OpenAPI 3.1 ako strojovo čitateľný kontrakt API](0006-openapi-contract.md)                                      | ✅ Accepted                                               | 2026-05-17 |
 | 0007 | _(nahradené ADR-0017)_ MCP server pre AI integrácie                                                              | 🔄 Replaced by 0017                                       | –          |
-| 0008 | _(plánované)_ Next.js + shadcn/ui pre frontend                                                                   | Proposed                                                  | –          |
+| 0008 | [Next.js 15 + shadcn/ui ako frontend stack](0008-frontend-nextjs.md)                                             | ✅ Accepted                                               | 2026-05-17 |
 | 0009 | [Fastify ako backend framework (nahrádza NestJS)](0009-backend-fastify.md)                                       | ✅ Accepted                                               | máj 2026   |
 | 0010 | [Multi-tenant white-label architektúra](0010-multi-tenant-white-label.md)                                        | ✅ Accepted                                               | 2026-05-15 |
 | 0011 | [Open-source licensing — EUPL-1.2 + CC-BY-4.0 + REUSE 3.3](0011-licensing-eupl-reuse.md)                         | ✅ Accepted                                               | 2026-05-15 |
@@ -44,7 +49,7 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0018 | [Custom SelectField komponent namiesto natívneho `<select>`](0018-select-field-component.md)                     | ✅ Accepted                                               | 2026-05-29 |
 | 0019 | [Fakturačné údaje tenanta — vnorený `billing` objekt + self-service](0019-tenant-billing-model.md)               | ✅ Accepted                                               | 2026-05-30 |
 | 0020 | [Skladové množstevné položky — `trackingMode` + StockMovement ledger](0020-stock-and-bulk-items.md)              | ✅ Accepted                                               | 2026-05-31 |
-| 0021 | [QR kódy majetku — obsah, generovanie, verejný lost & found lookup](0021-asset-qr-codes.md)                      | Proposed                                                  | 2026-05-31 |
+| 0021 | [QR kódy majetku — obsah, generovanie, verejný lost & found lookup](0021-asset-qr-codes.md)                      | ✅ Accepted                                               | 2026-05-31 |
 | 0022 | [Preberacie protokoly — model, PDF generovanie a podpisy](0022-loan-protocol-pdf.md)                             | Proposed                                                  | 2026-05-31 |
 | 0023 | [Žiadosť v mene inej osoby + priama výpožička](0023-loan-beneficiary-and-direct-loan.md)                         | ✅ Accepted                                               | 2026-05-31 |
 | 0024 | [Odstránenie role TEAM_MANAGER](0024-remove-team-manager-role.md)                                                | ✅ Accepted                                               | 2026-05-31 |
