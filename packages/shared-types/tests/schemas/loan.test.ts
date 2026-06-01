@@ -26,11 +26,11 @@ describe('LoanRequestSchema', () => {
     plannedTo: '2024-03-23T20:00:00.000Z',
     items: [
       {
-        assetId: '507f1f77bcf86cd799439020',
-        snapshot: { inventoryNumber: 'LT-2024-008', name: 'Lenovo ThinkPad' },
-        status: 'PENDING' as const,
-        substitutedWithAssetId: null,
-        approverNote: null,
+        categoryId: '507f1f77bcf86cd799439040',
+        categorySnapshot: { name: 'Notebooky', slug: 'notebooky' },
+        quantityRequested: 1,
+        quantityFulfilled: 0,
+        note: null,
       },
     ],
     status: LoanRequestStatus.PENDING,
@@ -43,7 +43,7 @@ describe('LoanRequestSchema', () => {
         note: null,
       },
     ],
-    resultingLoanId: null,
+    resultingLoanIds: [],
     rejectionReason: null,
     teamId: null,
     idempotencyKey: null,
@@ -80,8 +80,9 @@ describe('CreateLoanRequestSchema', () => {
       plannedTo: '2025-03-18T08:00:00.000Z',
       items: [
         {
-          assetId: '507f1f77bcf86cd799439020',
-          snapshot: { inventoryNumber: 'LT-2024-008', name: 'Lenovo ThinkPad' },
+          categoryId: '507f1f77bcf86cd799439040',
+          quantityRequested: 1,
+          note: null,
         },
       ],
     });
