@@ -177,13 +177,8 @@ updates:
       - dependency-name: "pnpm/action-setup"
         update-types: ["version-update:semver-major"]
 
-  # Docker images v infra/docker
-  - package-ecosystem: "docker"
-    directory: "/infra/docker"
-    schedule:
-      interval: "monthly"
-    labels:
-      - "dependencies"
-      - "docker"
-    commit-message:
-      prefix: "chore"
+  # Pozn.: docker ekosystém odstránený 2026-06-01 — projekt nemá žiadny
+  # Dockerfile (deploy cez Vercel, nie container image). `infra/docker-compose.yml`
+  # je len lokálny dev nástroj (Mongo); Dependabot docker ekosystém sleduje
+  # `FROM` v Dockerfiloch, nie compose služby. Pôvodný `directory: /infra/docker`
+  # odkazoval na neexistujúci adresár → `dependency_file_not_found` zlyhanie.
