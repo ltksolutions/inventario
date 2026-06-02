@@ -42,6 +42,7 @@ import registrationRoutes from './modules/auth/registration.routes.js';
 import categoriesRoutes from './modules/categories/categories.routes.js';
 import healthRoutes from './modules/health/health.routes.js';
 import invitationsRoutes from './modules/invitations/invitations.routes.js';
+import labelsRoutes from './modules/labels/labels.routes.js';
 import loanRequestsRoutes from './modules/loans/loan-requests.routes.js';
 import loansRoutes from './modules/loans/loans.routes.js';
 import locationsRoutes from './modules/locations/locations.routes.js';
@@ -182,6 +183,7 @@ export async function buildServer(
   await app.register(loanRequestsRoutes);
   await app.register(loansRoutes);
   await app.register(protocolsRoutes);
+  await app.register(labelsRoutes);
   await app.register(invitationsRoutes);
   await app.register(membershipsRoutes);
   await app.register(stockRoutes);

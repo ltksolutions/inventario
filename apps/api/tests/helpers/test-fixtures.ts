@@ -122,6 +122,8 @@ export async function resolveTestTenantId(app: FastifyInstance): Promise<string>
       resetYearly: true,
     },
     protocolSettings: null,
+    // ADR-0027: QR štítky
+    labelPrinting: null,
     createdAt: now,
     updatedAt: now,
     createdBy: 'SYSTEM' as const,
@@ -186,6 +188,8 @@ export async function seedTestTenant(
             resetYearly: true,
           },
     protocolSettings: null,
+    // ADR-0027: QR štítky
+    labelPrinting: null,
     createdAt: now,
     updatedAt: now,
     createdBy: 'SYSTEM' as const,

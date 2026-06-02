@@ -131,7 +131,18 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] unit testy `retention.test.ts` (16 testov) + integračné `retention-cron.test.ts` (4 testy)
 - **Po deployi treba:** nastaviť `CRON_SECRET` v Vercel → Settings → Environment Variables (`openssl rand -hex 32`)
 
-### 16. ADR-0027 — Tlač QR štítkov (Avery PDF + Zebra ZPL) — ⏳ čaká impl
+### 16. ADR-0027 — Tlač QR štítkov (Avery PDF + Zebra ZPL) — ⏳ L1–L4+L6–L7 DONE, L5 čaká
+
+- **Stav:** Backend hotový (L1–L4+L6–L7); L5 frontend zostáva
+- **Session:** [`docs/sessions/2026-06-02-adr-0027-l1-l7-backend.md`](./sessions/2026-06-02-adr-0027-l1-l7-backend.md)
+- **Čo bolo implementované:**
+  - [x] L1 — `OrganisationLabelSettingsSchema` + `labelPrinting: null` do 4 org-create ciest + fixtures ✅
+  - [x] L2 — `renderLabelSheetPdf()` Avery mrižky, finderText, logo v strede QR ✅
+  - [x] L3 — `renderLabelZpl()` ZPL builder, `^CI28`, finderText ✅
+  - [x] L4 — routes: GET /v1/labels/sheet, GET /v1/assets/:id/label?format=zpl, POST /v1/labels/zpl ✅
+  - [ ] L5 — frontend: tlačidle na detaile + dávková tlač; PDF dialóg / Zebra Browser Print (separátna session)
+  - [x] L6 — 27 testov (unit ZPL + unit PDF + integration) ✅
+  - [x] L7 — session doc ✅
 
 - **Stav:** ADR ✅ Accepted (2026-06-01), žiadny `labels` modul v API
 - **Model:** Sonnet (L1–L6), Haiku (L1 schéma doplnky + L7 docs)

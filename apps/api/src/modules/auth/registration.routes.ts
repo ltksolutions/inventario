@@ -171,6 +171,8 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           inventoryNumberFormat: null,
           // ADR-0022: preberacie protokoly — default A4, tenant zmení cez Settings
           protocolSettings: null,
+          // ADR-0027: tlač QR štítkov — default PDF_SHEET, tenant zmení cez Settings
+          labelPrinting: null,
           allowedAuthProviders: [
             AuthProvider.GOOGLE,
             AuthProvider.APPLE,

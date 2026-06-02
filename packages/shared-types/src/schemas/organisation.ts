@@ -213,6 +213,74 @@ export const OrganisationProtocolSettingsSchema = z
 
 export type OrganisationProtocolSettings = z.infer<typeof OrganisationProtocolSettingsSchema>;
 
+/**
+ * Konfigurácia tlače QR štítkov — per tenant (ADR-0027).
+ *
+ * Default: `null` = PDF_SHEET mód (Avery hárok, funguje na každej tlačiarni).
+ * Zebra ZPL je opt-in: tenant nastaví `mode: 'ZEBRA_ZPL'` a vyplní ZPL parametre.
+ *
+ * `finderText` je per-tenant sprievodný text pod QR pre nálezcu. Default vypnutý.
+ * Dáva zmysel len keď má tenant zapnutý `publicAssetLookup` (ADR-0021) — UI to
+ * naznačí, ale nevynúti tvrdo.
+ */
+export const OrganisationLabelSettingsSchema = z
+  .object({
+    /**
+     * Výstupný formát štítkov.
+     * PDF_SHEET = Avery-style hárok (default, funguje na každej tlačiarni).
+     * ZEBRA_ZPL = natívny ZPL pre termotlačiarne (Zebra ZD420 a pod.).
+     */
+    mode: z.enum(['PDF_SHEET', 'ZEBRA_ZPL']).default('PDF_SHEET'),
+
+    /**
+     * Preset rozloženia Avery hárka (platné len pre PDF_SHEET).
+     * avery-l7160: 3×8 = 24 štítkov na A4, 63.5×38.1 mm — najčastejší pre kancelárske štítky.
+     * avery-l7163: 2×7 = 14 štítkov na A4, 99.1×38.1 mm — väčšie štítky.
+     */
+    pdfPreset: z.enum(['avery-l7160', 'avery-l7163']).default('avery-l7160'),
+
+    /**
+     * Šírka ZPL štítka v mm (platné len pre ZEBRA_ZPL).
+     * Typicky 50 mm pre štandardné Zebra štítky (50×25 mm).
+     */
+    zplLabelWidthMm: z.number().int().min(10).max(200).default(50),
+
+    /**
+     * Výška ZPL štítka v mm (platné len pre ZEBRA_ZPL).
+     * Typicky 25 mm pre štandardné Zebra štítky (50×25 mm).
+     */
+    zplLabelHeightMm: z.number().int().min(10).max(200).default(25),
+
+    /**
+     * Rozlíšenie termohlavy v DPI (platné len pre ZEBRA_ZPL).
+     * ZD420 = 203 dpi (default). ZD620 a niektoré ZT série = 300 dpi.
+     */
+    zplDpi: z.union([z.literal(203), z.literal(300)]).default(203),
+
+    /**
+     * Sýtosť termotlače 0–30 (platné len pre ZEBRA_ZPL).
+     * Vyššia hodnota = tmavší výtlačok. Default 20 (mierne nad stredom).
+     */
+    zplDarkness: z.number().int().min(0).max(30).default(20),
+
+    /**
+     * Sprievodný text pre nálezcu — zobrazí sa pod QR na štítku.
+     * Platí pre PDF aj ZPL výstup.
+     * Default: vypnutý. Odporúča sa zapnúť spolu s `publicAssetLookup`.
+     */
+    finderText: z
+      .object({
+        /** Či sa text zobrazuje na štítku. Default false. */
+        enabled: z.boolean().default(false),
+        /** Text zobrazený pod QR. Tenant môže zmeniť jazyk/tón. */
+        text: z.string().max(120).default('Našli ste ma? Naskenujte a pomôžte ma vrátiť.'),
+      })
+      .default({ enabled: false, text: 'Našli ste ma? Naskenujte a pomôžte ma vrátiť.' }),
+  })
+  .strict();
+
+export type OrganisationLabelSettings = z.infer<typeof OrganisationLabelSettingsSchema>;
+
 export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).extend({
   /**
    * Tenant display name. Free-form, shown in UI alongside the wordmark.
@@ -329,6 +397,13 @@ export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).ext
    * kopírujú do snapshotu na `LoanProtocol` pri jeho vzniku (nemennosť + determinizmus).
    */
   protocolSettings: OrganisationProtocolSettingsSchema.nullable().default(null),
+
+  /**
+   * Konfigurácia tlače QR štítkov (ADR-0027). Null = default
+   * `{ mode: 'PDF_SHEET', pdfPreset: 'avery-l7160', ... }` — Avery hárok na
+   * každej tlačiarni. Viď `OrganisationLabelSettingsSchema`.
+   */
+  labelPrinting: OrganisationLabelSettingsSchema.nullable().default(null),
 
   // -----------------------------------------------------------------
   // Auth + member policy (ADR-0013)

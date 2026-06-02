@@ -236,6 +236,8 @@ export class OrganisationsService {
       inventoryNumberFormat: null,
       // ADR-0022: preberacie protokoly — tenant nakonfiguruje cez Settings (default A4)
       protocolSettings: null,
+      // ADR-0027: tlač QR štítkov — tenant nakonfiguruje cez Settings (default PDF_SHEET)
+      labelPrinting: null,
       createdAt: now,
       updatedAt: now,
       createdBy: 'SYSTEM',

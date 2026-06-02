@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                        |
 | ------------------------- | -------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-02 (ADR-0022 K5–K8 hotové — ADR-0022 UZAVRETÝ)         |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0027 L1–L4+L6–L7 backend hotový)               |
 | **Aktuálna fáza**         | Production LIVE — dev pokračuje, cieľ: čím skôr reálny testing |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                  |
 | **GitHub**                | https://github.com/ltksolutions/inventario                     |
@@ -18,50 +18,62 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 🎯 Vedúci princíp
 
-**Všetko musí byť praktické pre bežnú dennú prevádzku z reálneho života.** Pri každom kroku sa pýtať: „zvládne to človek pri pulte / v sklade / na ihrisku bez školenia?". **Cieľ: čím skôr reálny testing so SFZ.**
+**Všetko musí byť praktické pre bežnú dennú prevádzku z reálneho života.**
 
 ---
 
 ## ✅ Hotové (posledná session, 2026-06-02)
 
-**ADR-0022 K5–K8** — session doc: [`docs/sessions/2026-06-02-adr-0022-k5-k8.md`](./2026-06-02-adr-0022-k5-k8.md)
+**ADR-0022 K5–K8** — uzavretý ✅ (viď session doc K5–K8)
 
-- **K5** — `protocols.routes.ts`: `GET /v1/loans/:id/protocols`, `GET /v1/protocols/:id`, `GET /v1/protocols/:id/pdf`; RBAC (borrower/ASSET_MANAGER/ADMIN); cross-tenant izolácia; lazy `pdfSha256` (background update po prvom stiahnutí); `setProtocolsRepo()` injection pattern; zaregistrovaný v `server.ts`
-- **K6** — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN); DRAFT→SIGNED pri obojstrannom podpise; pdfSha256 fixnutý pri SIGNED (render s novými podpismi)
-- **K7** — 15 integration testov (`protocols.test.ts`): RBAC, cross-tenant, PDF headers, lazy sha256, podpis (jedno/obojstranný/duplicate/signed), snapshot-not-live, multi-fulfil, stránkovanie 26+
-- **K8** — milestone doc, session log, TODO.md #7 zatvorené, NEXT.md
+**ADR-0027 L1–L4 + L6–L7** (backend QR štítky) — session doc: [`docs/sessions/2026-06-02-adr-0027-l1-l7-backend.md`](./2026-06-02-adr-0027-l1-l7-backend.md)
 
-**ADR-0022 je UZAVRETÝ** ✅ (K1–K8 kompletné)
+- **L1** — `OrganisationLabelSettingsSchema` (mode, pdfPreset, ZPL params, finderText); `labelPrinting: null` do JIT + register + oauth + test fixtures
+- **L2** — `renderLabelSheetPdf()`: Avery L7160/L7163, QR + invNum + názov + finderText, logo v strede QR, DejaVu Sans
+- **L3** — `renderLabelZpl()`: vlastný ZPL builder, `^CI28` UTF-8, `^BQ` QR, finderText, rozmery z configu
+- **L4** — routes: `GET /v1/labels/sheet`, `GET /v1/assets/:id/label?format=zpl`, `POST /v1/labels/zpl`; EMPLOYEE+; registrácia v `server.ts`
+- **L6** — 27 testov (unit ZPL ×8, unit PDF ×7, integration ×12)
+- **L7** — session doc, TODO.md aktualizovaný
 
-**Stav testov:** 783 (pred session) + 15 nových = **798 očakávaných** ✅
-
----
-
-## 🔥 Ďalší krok — Po ADR-0022
-
-### Odporúčaný postup (v poradí):
-
-1. **`pnpm typecheck` + `pnpm test`** — overiť 0 TypeScript chýb + 798 zelených testov
-2. **`pnpm --filter @inventario/api openapi:export:offline`** — regen OpenAPI (pridali sme nové endpointy)
-3. **Commit cez GitHub Desktop** — header-only: `feat(protocols): K5-K8 routes, sign, integration tests`
-4. **Deploy na Vercel** — `git push` na main; smoke test na `app.inventario.estate`
-
-### Po úspešnom smoke teste:
-
-5. **ADR-0027 — Tlač QR štítkov** (zdieľa `pdf-lib` + DejaVu Sans, rozumné robiť hneď)
-   - L1 schéma (`labelPrinting`) → Haiku
-   - L2–L6 impl (Avery PDF, ZPL builder, routes, frontend) → Sonnet
-   - L7 docs → Haiku
-
-6. **SFZ pilot tenant onboarding** — reálny testing
+**Stav testov:** 798 (pred session) + 27 nových = **825 očakávaných** ✅
 
 ---
 
-## 📋 Otvorené položky
+## 🔥 Ďalší krok
 
-- `openapi:export:offline` regen po tejto session (Janika spúšťa lokálne)
-- ADR-0027 QR štítky (viď TODO.md #16)
+### 1. Overiť a commitnúť
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm --filter @inventario/api openapi:export:offline
+```
+
+Commit (header-only):
+
+```
+feat(labels): ADR-0027 L1-L4+L6-L7 QR label printing backend
+```
+
+### 2. ADR-0027 L5 — Frontend (separátna session, Sonnet)
+
+- Tlačidlo na detaile assetu (detail page v `apps/web`)
+- Dávková tlač zo zoznamu (checkbox selection → Print)
+- PDF: `window.open('/v1/labels/sheet?assetIds=...')` → OS tlačový dialóg
+- ZPL: Zebra Browser Print JS API (agent); fallback na PDF ak agent nebeží
+- UI hint: "Zapnite finderText spolu s publicAssetLookup"
+
+### 3. SFZ pilot onboarding
+
+Reálny testing s prvým tenantom.
+
+---
+
+## 📋 Otvorené položky (z TODO.md)
+
+- ADR-0027 L5 frontend (viď TODO.md #16)
 - SFZ pilot onboarding
+- Migrations at deploy-time (TODO.md dlhodobé)
 
 ---
 
@@ -75,13 +87,5 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ---
 
-## Workflow pripomienka
-
-- Po zmene schém: `pnpm --filter @inventario/shared-types build` → `openapi:export:offline` → `pnpm test`
-- Header-only commit messages (GitHub Desktop blank-line pasca)
-- Filesystem MCP = disk I/O; bash sandbox je izolovaný
-
----
-
-**Last updated:** 2026-06-02 (ADR-0022 K5–K8 hotové, ADR-0022 UZAVRETÝ)
-**Tests:** 783 zelených (pred session) + 15 nových = 798 očakávaných ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
+**Last updated:** 2026-06-02 (ADR-0027 L1–L4+L6–L7 backend hotový)
+**Tests:** 798 zelených + 27 nových = 825 očakávaných | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
