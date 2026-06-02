@@ -34,6 +34,8 @@ Session doc: [`docs/sessions/2026-06-03-adr-0028-v2-branding-presets.md`](./2026
 
 **Testy:** 884/884 zelených
 
+**Follow-up (živé testovanie večer):** brand hlavička — lišta v brand farbe (varianta A, logo na bielej dlaždici), auto-refresh brandu po uložení (bez reloadu), fix výšky vysokého/štvorcového loga. Commity `9c0e3d0` + `44d05d0`. Detaily v dodatku session docu.
+
 ---
 
 ## 🔥 Ďalší krok
@@ -79,5 +81,5 @@ Po deployi:
 
 ---
 
-**Last updated:** 2026-06-03 (ADR-0028 v2 kompletný)
+**Last updated:** 2026-06-03 (ADR-0028 v2 kompletný + brand hlavička follow-up)
 **Tests:** 884/884 zelených | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

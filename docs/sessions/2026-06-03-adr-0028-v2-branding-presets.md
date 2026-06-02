@@ -147,6 +147,59 @@ pole. Dôvod: spätná kompatibilita (BrandProvider, protokoly, štítky čítaj
 
 ---
 
+## Dodatok — brand hlavička (počas živého testovania, 2026-06-03 večer)
+
+Počas prvého reálneho testu (LTK tenant, nahraté logo + zvolená paleta) vyšli najavo
+tri vizuálne nedostatky. Všetky vyriešené v 3 follow-up commitoch (čisto frontend,
+žiadna zmena logiky/testov; build 28/28 zelený).
+
+**Problém 1 — hlavička sa nefarbila podľa palety.** AppShell header bol napevno
+`bg-surface-card` (biely). Podľa interactive-dema má byť v brand farbe.
+
+- Rozhodnutie (po vizualizácii 3 možností): **varianta A** — celá lišta v `bg-brand-primary`,
+  text/meno/role/switcher v `text-brand-primary-fg`, logo na **bielej zaoblenej dlaždici**
+  (čitateľné na tmavom pozadí). Default tenant (bez brandu) = navy lišta = Inventario
+  identita → žiadna regresia.
+- `LogoutButton` ostal biely (`bg-surface-card`) — white-on-dark je čitateľný, sekundárna akcia.
+- Switcher dropdown panel + mobile drawer ostali biele (sú to plávajúce panely mimo lišty).
+
+**Problém 2 — zmena palety sa prejavila až po reloade.** `BrandProvider` číta brand
+z `auth-context` (`availableOrganisations`), nie z TanStack query. PATCH/upload invalidoval
+len query cache, nie auth kontext.
+
+- Fix: `useUpdateCurrentOrganisation` + `useUploadLogo` v `onSuccess` volajú `refresh()`
+  z `useAuth()` → `/v1/auth/me` sa načíta znova → `availableOrganisations` sa aktualizujú
+  → `BrandProvider` useEffect prefarbí hlavičku/logo **okamžite, bez reloadu**.
+
+**Problém 3 — vysoké/štvorcové logo natiahlo hlavičku.** `next/image` s `width={0}`
+
+- `height={28}` nerespektoval výšku pri štvorcovom pomere strán.
+
+* Fix: `TenantLogo` prepnutý z `next/image` na natívny `<img>` s napevno `height: 28px`,
+  `width: auto`, `objectFit: contain`. Logo sa zoškáluje na výšku lišty bez ohľadu na
+  pomer strán. (next/image aj tak bežal `unoptimized` → o nič sme neprišli; bonus: menší
+  bundle, dashboard 143 → 137 kB.)
+  - POZOR: projekt nemá `@next/next` ESLint plugin → `eslint-disable @next/next/no-img-element`
+    by spadol na „rule not found“. Natívny `<img>` bez disable komentára je tu OK.
+* Drobnosť: role v hlavičke zmenená z `/70` na `/80` opacity — čitateľnejšie na sýtych palách.
+
+**Follow-up commity:**
+
+- `9c0e3d0` — organisations-hooks (auto-refresh `refresh()` v onSuccess)
+- `44d05d0` — AppShell (brand lišta, fix výšky loga, opacity role)
+
+**Dotknuté súbory:** `apps/web/src/components/AppShell.tsx`, `apps/web/src/lib/organisations-hooks.ts`.
+
+**Známe hraničné prípady (akceptované):**
+
+- Biela dlaždica pod logom predpokladá logo s tmavým motívom (LTK/SFZ OK). Logo s bielym
+  motívom + priehľadným pozadím by na bielej dlaždici „zmizlo“ — nie je to blocker, len
+  odporúčanie nahrať logo s tmavým motívom.
+- `themeColor` v `layout.tsx` ostal napevno navy `#1A2D47` (mobile URL bar tint) — je to
+  `<meta>` riešený server-side pred resolveom tenanta, rovnaký FOUC kompromis ako pri farbách.
+
+---
+
 ## Poznámky pre ďalšiu session
 
 - **Happy path upload test** vyžaduje `BLOB_READ_WRITE_TOKEN` — lokálne funguje, CI skipne
