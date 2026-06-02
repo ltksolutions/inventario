@@ -188,6 +188,7 @@ len query cache, nie auth kontext.
 
 - `9c0e3d0` — organisations-hooks (auto-refresh `refresh()` v onSuccess)
 - `44d05d0` — AppShell (brand lišta, fix výšky loga, opacity role)
+- `0a70b1e` — AppShell (plná biela pre rolu — čitateľnosť na navy) + doc oprava
 
 **Dotknuté súbory:** `apps/web/src/components/AppShell.tsx`, `apps/web/src/lib/organisations-hooks.ts`.
 
