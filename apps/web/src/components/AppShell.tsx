@@ -34,7 +34,6 @@ import {
   Warehouse,
   X,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -332,12 +331,15 @@ function TenantSwitcher({
 }
 
 /**
- * TenantLogo — tenant logo s onError fallback (ADR-0028 B6).
+ * TenantLogo — tenant logo s onError fallback (ADR-0028 B6, v2 fix výšky).
  *
- * `next/image` vyžaduje konfigurované domény pre optimizáciu. Keďže
- * logoUrl je aktívna URL na cudzom hostingu (externá URL, v1), použíjeme
- * `unoptimized` aby sme sa vyhli nutnosti whitelistovať všetky možné domény.
- * v2 (upload do Blob) bude z jednej domény → optimizácia bude môcť byť zapnutá.
+ * Logo sa natvrdo zoškáluje na pevnú výšku (28px) bez ohľadu na jeho
+ * pomer strán — štvorcové ani vysoké logo už nenatíahne hlavičku. Box má
+ * pevnú výšku + `overflow:hidden`, obrázok `height:100%, width:auto`.
+ *
+ * Používame natívny `<img>` (nie next/image) — logo aj tak servírujeme
+ * `unoptimized` (externé/Blob URL), takže o nič neprichádzame, a `<img>`
+ * so štýlom sa správa predvídateľne pri ľubovoľnom pomere strán.
  */
 function TenantLogo({ url, orgName }: { url: string; orgName: string }): JSX.Element {
   const [errored, setErrored] = useState(false);
@@ -345,14 +347,11 @@ function TenantLogo({ url, orgName }: { url: string; orgName: string }): JSX.Ele
     return <Layers aria-hidden="true" className="h-6 w-6 shrink-0" />;
   }
   return (
-    <Image
+    <img
       src={url}
       alt={orgName}
-      unoptimized
-      width={0}
-      height={28}
-      style={{ width: 'auto', maxWidth: '120px', objectFit: 'contain' }}
-      className="shrink-0"
+      style={{ height: '28px', width: 'auto', maxWidth: '120px', objectFit: 'contain' }}
+      className="block shrink-0"
       onError={() => setErrored(true)}
     />
   );
