@@ -37,6 +37,7 @@
 
 import {
   AuthProvider,
+  getBrandPreset,
   MemberJoinPolicy,
   OrganisationPlan,
   OrganisationStatus,
@@ -45,7 +46,7 @@ import {
 
 import { contrastRatio, meetsWcagAA } from '../../lib/contrast.js';
 import { seedTenantDefaults } from '../../lib/seed-tenant-defaults.js';
-import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
+import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
 
 import type {
@@ -358,75 +359,69 @@ export class OrganisationsService {
     const actorId = String(actor._id);
 
     // -----------------------------------------------------------------------
-    // ADR-0028: Branding validations (before the transaction — fast-fail)
+    // ADR-0028 v2: Branding — preset expanzia + WCAG poistka (pred transakciou)
     // -----------------------------------------------------------------------
+    //
+    // v2 zmena oproti v1: preset aj logo sú dostupné VŠETKÝM plánom (žiadny
+    // Pro+ gating). Farby prichádzajú len cez `presetId` — UI neposiela voľné
+    // hex. Keď príde presetId, NAPLNÍME z neho hex polia (rozhodnutie B:
+    // preset je naplňovač existujúcich polí, nie náhrada — protokoly/štítky/
+    // BrandProvider čítajú hex ako doteraz, determinizmus zachovaný).
     if (patch.brandKit !== undefined && patch.brandKit !== null) {
-      const bk = patch.brandKit;
+      const bk = patch.brandKit as Record<string, unknown>;
 
-      // 1. Plan gating: FREE = len logo (logoUrl + faviconUrl).
-      //    Farby, logoDot a font sú Pro+ featury.
-      const hasColorOrFont =
-        (bk.primary !== undefined && bk.primary !== null) ||
-        (bk.primaryFg !== undefined && bk.primaryFg !== null) ||
-        (bk.accent !== undefined && bk.accent !== null) ||
-        (bk.accentFg !== undefined && bk.accentFg !== null) ||
-        (bk.logoDot !== undefined && bk.logoDot !== null) ||
-        (bk.fontFamilySans !== undefined && bk.fontFamilySans !== null);
-
-      if (hasColorOrFont) {
-        // Načítame org aby sme vedeli plan (použijeme priamo repo, pred transakciou)
-        const org = await this.repo.findById(organisationId);
-        if (!org) throw new NotFoundError('Organisation', organisationId);
-
-        if (org.plan === OrganisationPlan.FREE) {
-          throw new ForbiddenError(
-            'Vlastné farby a font sú dostupné v pláne Pro. ' +
-              'Logo (logoUrl) môžete nastaviť bezplatne.',
+      // 1. Preset expanzia: presetId → skopíruj hex do primary/.../logoDot.
+      //    Neznámy presetId = chyba (klient poslal nezmysel).
+      if (bk['presetId'] !== undefined && bk['presetId'] !== null) {
+        const preset = getBrandPreset(String(bk['presetId']));
+        if (!preset) {
+          throw new BadRequestError(
+            `Neznámy brand preset "${String(bk['presetId'])}". ` +
+              'Vyberte jednu z preddefinovaných paliet.',
           );
         }
+        bk['primary'] = preset.primary;
+        bk['primaryFg'] = preset.primaryFg;
+        bk['accent'] = preset.accent;
+        bk['accentFg'] = preset.accentFg;
+        bk['logoDot'] = preset.logoDot;
       }
 
-      // 2. WCAG kontrast: odmietnuť pár pod 4.5:1 (len keď oba fieldy zadané).
-      if (
-        bk.primary !== null &&
-        bk.primary !== undefined &&
-        bk.primaryFg !== null &&
-        bk.primaryFg !== undefined
-      ) {
-        if (!meetsWcagAA(bk.primary, bk.primaryFg)) {
-          const ratio = contrastRatio(bk.primary, bk.primaryFg);
+      // 2. WCAG poistka: aj keď presety sú overené testom, niekto môže poslať
+      //    hex priamo cez API (mimo UI). Odmietni pár pod 4.5:1.
+      const primary = bk['primary'];
+      const primaryFg = bk['primaryFg'];
+      if (typeof primary === 'string' && typeof primaryFg === 'string') {
+        if (!meetsWcagAA(primary, primaryFg)) {
+          const ratio = contrastRatio(primary, primaryFg);
           throw new BadRequestError(
             `Kontrast primárnej farby a textu je ${ratio}:1 — ` +
-              'minimum pre WCAG 2.1 AA je 4.5:1. ' +
-              'Zvoľte tmavšiu primárnu farbu alebo svetlejší text.',
+              'minimum pre WCAG 2.1 AA je 4.5:1.',
           );
         }
       }
-      if (
-        bk.accent !== null &&
-        bk.accent !== undefined &&
-        bk.accentFg !== null &&
-        bk.accentFg !== undefined
-      ) {
-        if (!meetsWcagAA(bk.accent, bk.accentFg)) {
-          const ratio = contrastRatio(bk.accent, bk.accentFg);
+      const accent = bk['accent'];
+      const accentFg = bk['accentFg'];
+      if (typeof accent === 'string' && typeof accentFg === 'string') {
+        if (!meetsWcagAA(accent, accentFg)) {
+          const ratio = contrastRatio(accent, accentFg);
           throw new BadRequestError(
             `Kontrast akcentovej farby a textu je ${ratio}:1 — ` +
-              'minimum pre WCAG 2.1 AA je 4.5:1. ' +
-              'Zvoľte tmavšiu akcentovú farbu alebo svetlejší text.',
+              'minimum pre WCAG 2.1 AA je 4.5:1.',
           );
         }
       }
 
-      // 3. Logo URL: SVG je zakázané (pdf-lib ho neembeduje).
-      //    Overujeme len Content-Type prefix, nie HEAD request (byť best-effort).
-      if (bk.logoUrl !== null && bk.logoUrl !== undefined) {
-        const url = bk.logoUrl.toLowerCase();
-        if (url.endsWith('.svg') || url.includes('.svg?')) {
+      // 3. Logo URL: SVG zakázané (pdf-lib ho neembeduje). Pri uploade cez
+      //    Blob endpoint to nenastane (validujeme content-type), ale ak
+      //    príde logoUrl priamo v PATCH, kontrola ostáva.
+      const logoUrl = bk['logoUrl'];
+      if (typeof logoUrl === 'string') {
+        const lower = logoUrl.toLowerCase();
+        if (lower.endsWith('.svg') || lower.includes('.svg?')) {
           throw new BadRequestError(
             'Logo musí byť PNG, JPEG alebo WEBP — nie SVG. ' +
-              'SVG sa nedá vložiť do PDF protokolov (obmedzenie pdf-lib). ' +
-              'OdporúĊme PNG 256×256 px.',
+              'SVG sa nedá vložiť do PDF protokolov (obmedzenie pdf-lib).',
           );
         }
       }
@@ -485,6 +480,90 @@ export class OrganisationsService {
     });
 
     return toApiShape(updated);
+  }
+
+  /**
+   * Zapíše novú logo URL (už nahranú do Blobu route handlerom) do
+   * brandKit.logoUrl tenanta. Vráti starú logo URL (ak bola), aby ju
+   * handler mohol zmazať z Blobu — service sama Blob nevolá (čistá
+   * deliacia čiara: HTTP/upload vrstva = routes, dáta = service).
+   *
+   * ADR-0028 v2. Logo je dostupné všetkým plánom. Audit:
+   * ORGANISATION_BRANDING_UPDATED.
+   */
+  async updateLogoUrl(
+    organisationId: string,
+    logoUrl: string,
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<{ organisation: Record<string, unknown>; previousLogoUrl: string | null }> {
+    if (!this.auditLog || !this.mongoClient) {
+      throw new Error('OrganisationsService.updateLogoUrl requires auditLog and mongoClient.');
+    }
+    const auditLog = this.auditLog;
+    const actorId = String(actor._id);
+
+    let previousLogoUrl: string | null = null;
+
+    const updated = await this.runInTransaction(async (session) => {
+      const before = await this.repo.findById(organisationId, session);
+      if (!before) {
+        throw new NotFoundError('Organisation', organisationId);
+      }
+      previousLogoUrl = before.brandKit?.logoUrl ?? null;
+
+      // Zachováme ostatné brandKit polia, prepíšeme len logoUrl. Ak brandKit
+      // ešte neexistuje, vytvoríme ho s default null hodnotami + nové logo.
+      const mergedBrandKit = {
+        presetId: before.brandKit?.presetId ?? null,
+        logoUrl,
+        faviconUrl: before.brandKit?.faviconUrl ?? null,
+        primary: before.brandKit?.primary ?? null,
+        primaryFg: before.brandKit?.primaryFg ?? null,
+        accent: before.brandKit?.accent ?? null,
+        accentFg: before.brandKit?.accentFg ?? null,
+        logoDot: before.brandKit?.logoDot ?? null,
+        fontFamilySans: before.brandKit?.fontFamilySans ?? null,
+      };
+
+      const now = new Date().toISOString();
+      const after = await this.repo.update(
+        organisationId,
+        {
+          brandKit: mergedBrandKit,
+          updatedAt: now,
+          updatedBy: actorId,
+        } as OrganisationUpdatePatch,
+        session,
+      );
+      if (!after) {
+        throw new NotFoundError('Organisation', organisationId);
+      }
+
+      await auditLog.record(
+        actor,
+        request,
+        {
+          action: 'ORGANISATION_BRANDING_UPDATED',
+          target: {
+            entityType: 'Organisation',
+            entityId: String(after._id),
+            snapshot: {
+              displayName: after.displayName,
+              slug: after.slug,
+              status: after.status,
+              plan: after.plan,
+            },
+          },
+          description: `Tenant admin uploaded a new logo for "${after.displayName}"`,
+        },
+        session,
+      );
+
+      return after;
+    });
+
+    return { organisation: toApiShape(updated), previousLogoUrl };
   }
 
   // -------------------------------------------------------------------------

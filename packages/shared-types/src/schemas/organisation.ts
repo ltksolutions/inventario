@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { FONT_OPTION_IDS } from '../brand-presets.js';
 import { AuthProvider, MemberJoinPolicy, RegistrationMethod } from '../enums/auth-provider.js';
 import { OrganisationPlan, OrganisationStatus } from '../enums/organisation-status.js';
 
@@ -49,6 +50,12 @@ import {
  */
 export const OrganisationBrandKitSchema = z
   .object({
+    /**
+     * ID vybraného presetu (ADR-0028 v2). Len UI skratka — backend podľa
+     * neho NAPLNÍ primary/primaryFg/accent/accentFg/logoDot. Null = farby
+     * neboli nastavené cez preset (alebo legacy custom hodnoty).
+     */
+    presetId: z.string().max(64).nullable().default(null),
     logoUrl: z.string().url().nullable().default(null),
     faviconUrl: z.string().url().nullable().default(null),
     primary: HexColorSchema.nullable().default(null),
@@ -56,7 +63,12 @@ export const OrganisationBrandKitSchema = z
     accent: HexColorSchema.nullable().default(null),
     accentFg: HexColorSchema.nullable().default(null),
     logoDot: HexColorSchema.nullable().default(null), // ADR-0028: default = accent at runtime
-    fontFamilySans: z.string().max(200).nullable().default(null),
+    /**
+     * Font (ADR-0028 v2) — enum z povolených hodnôt (FONT_OPTION_IDS).
+     * Nie voľný string: zabraňuje výberu fontu ktorý sa nenačíta.
+     * Null = system-ui default.
+     */
+    fontFamilySans: z.enum(FONT_OPTION_IDS).nullable().default(null),
   })
   .strict();
 

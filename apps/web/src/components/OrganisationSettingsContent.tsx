@@ -7,6 +7,9 @@
  * OrganisationSettingsContent — /settings/organisation
  *
  * Tenant ADMIN spravuje VLASTNÚ organizáciu:
+ *   - Základné údaje (názov, kontakt)
+ *   - QR kontakt na vrátenie (ADR-0021)
+ *   - Branding (ADR-0028 v2): logo upload + výber palety + font
  *   - Fakturačné a právne údaje (IČO, DIČ, IČ DPH, sídlo, IBAN...)
  *   - Náhľad aktuálneho plánu + CTA "Požiadať o vyšší plán"
  *
@@ -14,29 +17,33 @@
  * vracia true len pre ADMIN rolu). Backend PATCH /v1/organisations/current
  * je tiež ADMIN-only — frontend gating je len UX vrstva.
  *
- * Dáta:
- *   - useCurrentOrganisation() — GET /v1/organisations/current
- *   - useUpdateCurrentOrganisation() — PATCH (SAFE subset: displayName,
- *     primaryContactEmail, billing)
- *
- * Plán + upgrade:
- *   Platby zatiaľ nie sú napojené. Tlačidlo "Požiadať o vyšší plán"
- *   otvorí mailto: na LTK s predvyplneným predmetom. Keď pribudne
- *   billing provider, nahradíme za reálny upgrade flow.
+ * Branding (ADR-0028 v2):
+ *   - Logo: file upload do Vercel Blob cez useUploadLogo (samostatný request,
+ *     nie súčasť PATCH). Po úspechu sa logoUrl objaví v org dátach.
+ *   - Farby: výber z 10 WCAG-overených paliet (presetId). Žiadne voľné hex.
+ *   - Font: výber z enum (system-ui, Inter, Open Sans, Roboto, Lato).
+ *   Preset/font/logo dostupné všetkým plánom (žiadny Pro+ gating).
  */
 
 import {
+  BRAND_PRESETS,
+  FONT_OPTIONS,
+  getBrandPreset,
+  type FontOptionId,
+} from '@inventario/shared-types';
+import {
   AlertCircle,
   Building2,
+  Check,
   CheckCircle2,
   Loader2,
-  Lock,
   Mail,
   Palette,
   Save,
   ShieldOff,
+  Upload,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SelectField } from './SelectField';
 
@@ -46,6 +53,7 @@ import { useCanAdminUsers, useMe } from '@/lib/api-hooks';
 import {
   useCurrentOrganisation,
   useUpdateCurrentOrganisation,
+  useUploadLogo,
   type AddressInfo,
   type BillingInfo,
 } from '@/lib/organisations-hooks';
@@ -62,7 +70,7 @@ const PLAN_LABELS: Record<string, string> = {
 
 const PLAN_DESCRIPTIONS: Record<string, string> = {
   FREE: 'Základné funkcie pre malé tímy.',
-  PRO: 'Vlastný branding, väčšie limity, prioritná podpora.',
+  PRO: 'Väčšie limity, prioritná podpora.',
   ENTERPRISE: 'SSO, vlastná doména, SLA, dedikovaná podpora.',
 };
 
@@ -78,31 +86,8 @@ const COUNTRY_OPTIONS = [
 
 const UPGRADE_EMAIL = 'obchod@ltk.solutions';
 
-/**
- * WCAG 2.1 kontrast ratio — frontend verzia (identický algoritmus s backendom contrast.ts).
- * Vstup: #RRGGBB hex stringy. Výstup: pomer zaokrºhlený na 2 des. miesta.
- */
-function hexContrast(hex1: string, hex2: string): number {
-  function linear(hex2ch: string): number {
-    const c = parseInt(hex2ch, 16) / 255;
-    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  }
-  function lum(hex: string): number {
-    const h = hex.replace('#', '');
-    return (
-      0.2126 * linear(h.slice(0, 2)) +
-      0.7152 * linear(h.slice(2, 4)) +
-      0.0722 * linear(h.slice(4, 6))
-    );
-  }
-  const l1 = lum(hex1);
-  const l2 = lum(hex2);
-  const lighter = Math.max(l1, l2);
-  const darker = Math.min(l1, l2);
-  return Math.round(((lighter + 0.05) / (darker + 0.05)) * 100) / 100;
-}
-
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+/** Max veľkosť loga (musí súhlasiť s backendom — LOGO_MAX_BYTES). */
+const LOGO_MAX_BYTES = 512 * 1024;
 
 const EMPTY_ADDRESS: AddressInfo = {
   street: '',
@@ -132,6 +117,7 @@ export function OrganisationSettingsContent(): JSX.Element {
 function OrganisationSettingsPanel(): JSX.Element {
   const query = useCurrentOrganisation();
   const update = useUpdateCurrentOrganisation();
+  const uploadLogo = useUploadLogo();
 
   // Form state — mirrors the editable subset
   const [displayName, setDisplayName] = useState('');
@@ -156,15 +142,13 @@ function OrganisationSettingsPanel(): JSX.Element {
   const [foundPhone, setFoundPhone] = useState('');
   const [foundMessage, setFoundMessage] = useState('');
 
-  // Branding state (ADR-0028)
-  const [logoUrl, setLogoUrl] = useState('');
-  const [primary, setPrimary] = useState('');
-  const [primaryFg, setPrimaryFg] = useState('');
-  const [accent, setAccent] = useState('');
-  const [accentFg, setAccentFg] = useState('');
-  const [logoDot, setLogoDot] = useState('');
-  const [fontFamilySans, setFontFamilySans] = useState('');
-  const [logoPreviewError, setLogoPreviewError] = useState(false);
+  // Branding state (ADR-0028 v2): presetId + font enum
+  const [presetId, setPresetId] = useState<string | null>(null);
+  const [fontFamilySans, setFontFamilySans] = useState<FontOptionId>('system-ui');
+
+  // Logo upload state (samostatný request, mimo hlavného PATCH)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   // Hydrate form once the org loads
   const org = query.data;
@@ -188,21 +172,18 @@ function OrganisationSettingsPanel(): JSX.Element {
     setFoundEmail(org.foundContactInfo?.email ?? '');
     setFoundPhone(org.foundContactInfo?.phone ?? '');
     setFoundMessage(org.foundContactInfo?.message ?? '');
-    // brandKit hydration (ADR-0028)
-    setLogoUrl(org.brandKit?.logoUrl ?? '');
-    setPrimary(org.brandKit?.primary ?? '');
-    setPrimaryFg(org.brandKit?.primaryFg ?? '');
-    setAccent(org.brandKit?.accent ?? '');
-    setAccentFg(org.brandKit?.accentFg ?? '');
-    setLogoDot(org.brandKit?.logoDot ?? '');
-    setFontFamilySans(org.brandKit?.fontFamilySans ?? '');
-    setLogoPreviewError(false);
+    // brandKit hydration (ADR-0028 v2)
+    setPresetId(org.brandKit?.presetId ?? null);
+    const f = org.brandKit?.fontFamilySans;
+    setFontFamilySans(isFontOptionId(f) ? f : 'system-ui');
   }, [org]);
 
   if (query.isLoading) return <PageSkeleton />;
   if (query.isError || !org) {
     return <ErrorPanel message="Organizáciu sa nepodarilo načítať. Skús to znova." />;
   }
+
+  const currentLogoUrl = org.brandKit?.logoUrl ?? null;
 
   function buildBilling(): BillingInfo {
     const addr = (a: AddressInfo): AddressInfo | null =>
@@ -229,8 +210,13 @@ function OrganisationSettingsPanel(): JSX.Element {
     };
   }
 
-  /** Zostaví brandKit payload pre PATCH. Null = vynulovať celý brand kit. */
+  /**
+   * Zostaví brandKit payload pre PATCH. presetId + font; hex polia naplní
+   * backend z presetu. logoUrl sa NEPOSIELA tu — rieši ho samostatný
+   * upload endpoint. Zachováme existujúce logoUrl z org dát.
+   */
   function buildBrandKit(): {
+    presetId: string | null;
     logoUrl: string | null;
     faviconUrl: string | null;
     primary: string | null;
@@ -240,16 +226,35 @@ function OrganisationSettingsPanel(): JSX.Element {
     logoDot: string | null;
     fontFamilySans: string | null;
   } {
+    // Ak je vybraný preset, hex polia naplní backend — pošleme len presetId.
+    // Posielame aj existujúce logoUrl, nech ho PATCH neprepíše na null.
     return {
-      logoUrl: logoUrl.trim() || null,
-      faviconUrl: null, // v2: upload do Blob
-      primary: primary.trim() || null,
-      primaryFg: primaryFg.trim() || null,
-      accent: accent.trim() || null,
-      accentFg: accentFg.trim() || null,
-      logoDot: logoDot.trim() || null,
-      fontFamilySans: fontFamilySans.trim() || null,
+      presetId,
+      logoUrl: org!.brandKit?.logoUrl ?? null,
+      faviconUrl: org!.brandKit?.faviconUrl ?? null,
+      primary: null,
+      primaryFg: null,
+      accent: null,
+      accentFg: null,
+      logoDot: null,
+      fontFamilySans: fontFamilySans === 'system-ui' ? null : fontFamilySans,
     };
+  }
+
+  function handleLogoFile(file: File): void {
+    setLogoError(null);
+    // Client-side pred-validácia (backend re-validuje magic bytes + veľkosť).
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError(`Logo je príliš veľké. Maximálna veľkosť je ${LOGO_MAX_BYTES / 1024} KB.`);
+      return;
+    }
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setLogoError('Povolené sú len PNG, JPEG a WEBP.');
+      return;
+    }
+    uploadLogo.mutate(file, {
+      onError: (err) => setLogoError(err.message),
+    });
   }
 
   function handleSave(): void {
@@ -370,217 +375,133 @@ function OrganisationSettingsPanel(): JSX.Element {
           </Field>
         </Section>
 
-        {/* Branding (ADR-0028) */}
+        {/* Branding (ADR-0028 v2) */}
         <section className="rounded-xl border border-border-subtle bg-surface-card shadow-sm">
           <h2 className="border-b border-border-subtle px-5 py-3 text-sm font-semibold text-text-primary flex items-center gap-2">
             <Palette aria-hidden="true" className="h-4 w-4 text-brand-accent" />
             Branding
           </h2>
-          <div className="space-y-4 p-5">
+          <div className="space-y-5 p-5">
             <p className="-mt-1 text-xs text-text-secondary">
-              Logo je dostupné pre všetky plány. Farby a font sú dostupné v pláne Pro.
+              Logo, farebná paleta a font sú dostupné pre všetky plány.
             </p>
 
-            {/* Logo URL */}
-            <Field
-              label="Logo URL"
-              hint="HTTPS, PNG/JPEG/WEBP, odpoŕúčame 256×256 px. SVG nie je podporované (PDF limitačia)."
-            >
-              <input
-                type="url"
-                value={logoUrl}
-                onChange={(e) => {
-                  setLogoUrl(e.target.value);
-                  setLogoPreviewError(false);
-                }}
-                placeholder="https://example.com/logo.png"
-                className={inputCls()}
-              />
-            </Field>
-
-            {/* Logo náhľad */}
-            {logoUrl.trim() && !logoPreviewError && (
-              <div className="flex items-center gap-3">
-                <img
-                  src={logoUrl.trim()}
-                  alt="Náhľad loga"
-                  className="h-12 w-auto max-w-[160px] rounded border border-border-subtle object-contain p-1"
-                  onError={() => setLogoPreviewError(true)}
-                />
-                <span className="text-xs text-text-secondary">Náhľad</span>
-              </div>
-            )}
-            {logoUrl.trim() && logoPreviewError && (
-              <p className="text-xs text-danger-fg">
-                Logo sa nepodarilo načítať — skontrolujte URL.
-              </p>
-            )}
-
-            {/* Farby + font — Pro gating */}
-            {org.plan === 'FREE' ? (
-              <div className="rounded-lg border border-border-subtle bg-surface-subtle p-4">
-                <p className="flex items-center gap-2 text-sm text-text-secondary">
-                  <Lock aria-hidden="true" className="h-4 w-4 shrink-0" />
-                  Vlastné farby a font sú dostupné v pláne{' '}
-                  <strong className="text-text-primary">Pro</strong>.
-                </p>
-                <a
-                  href={`mailto:${UPGRADE_EMAIL}?subject=${encodeURIComponent('Záujem o plán Pro — Inventario')}`}
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent hover:underline"
-                >
-                  <Mail aria-hidden="true" className="h-3.5 w-3.5" />
-                  Požiadať o Pro
-                </a>
-              </div>
-            ) : (
-              <>
-                {/* Primárna farba */}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Primárna farba" hint="Hex, napr. #003d7a">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={primary || '#1a2d47'}
-                        onChange={(e) => setPrimary(e.target.value)}
-                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
-                        aria-label="Vybrať primárnu farbu"
-                      />
-                      <input
-                        type="text"
-                        value={primary}
-                        onChange={(e) => setPrimary(e.target.value)}
-                        placeholder="#1a2d47"
-                        className={inputCls() + ' font-mono'}
-                      />
-                    </div>
-                  </Field>
-                  <Field label="Text na primárnej" hint="Hex, napr. #ffffff">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={primaryFg || '#ffffff'}
-                        onChange={(e) => setPrimaryFg(e.target.value)}
-                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
-                        aria-label="Vybrať farbu textu na primárnej"
-                      />
-                      <input
-                        type="text"
-                        value={primaryFg}
-                        onChange={(e) => setPrimaryFg(e.target.value)}
-                        placeholder="#ffffff"
-                        className={inputCls() + ' font-mono'}
-                      />
-                    </div>
-                  </Field>
-                </div>
-                {/* Kontrast indikátor pre primárny pár */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-muted">Kontrast primárna/text:</span>
-                  <ContrastBadge fg={primaryFg} bg={primary} />
-                </div>
-
-                {/* Akcentová farba */}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Akcentová farba" hint="Hex, napr. #388fc3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={accent || '#388fc3'}
-                        onChange={(e) => setAccent(e.target.value)}
-                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
-                        aria-label="Vybrať akcentovú farbu"
-                      />
-                      <input
-                        type="text"
-                        value={accent}
-                        onChange={(e) => setAccent(e.target.value)}
-                        placeholder="#388fc3"
-                        className={inputCls() + ' font-mono'}
-                      />
-                    </div>
-                  </Field>
-                  <Field label="Text na akcente" hint="Hex, napr. #ffffff">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={accentFg || '#ffffff'}
-                        onChange={(e) => setAccentFg(e.target.value)}
-                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
-                        aria-label="Vybrať farbu textu na akcente"
-                      />
-                      <input
-                        type="text"
-                        value={accentFg}
-                        onChange={(e) => setAccentFg(e.target.value)}
-                        placeholder="#ffffff"
-                        className={inputCls() + ' font-mono'}
-                      />
-                    </div>
-                  </Field>
-                </div>
-                {/* Kontrast indikátor pre akcentový pár */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-muted">Kontrast akcentová/text:</span>
-                  <ContrastBadge fg={accentFg} bg={accent} />
-                </div>
-
-                {/* Logo dot + font */}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Logo dot" hint="Farba bodky v logu, napr. #388fc3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={logoDot || accent || '#388fc3'}
-                        onChange={(e) => setLogoDot(e.target.value)}
-                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
-                        aria-label="Vybrať farbu logo dot"
-                      />
-                      <input
-                        type="text"
-                        value={logoDot}
-                        onChange={(e) => setLogoDot(e.target.value)}
-                        placeholder="#388fc3"
-                        className={inputCls() + ' font-mono'}
-                      />
-                    </div>
-                  </Field>
-                  <Field label="Font" hint="Napr. 'Open Sans', system-ui, sans-serif">
-                    <input
-                      type="text"
-                      value={fontFamilySans}
-                      onChange={(e) => setFontFamilySans(e.target.value)}
-                      placeholder="'Open Sans', system-ui, sans-serif"
-                      className={inputCls()}
+            {/* Logo upload */}
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-text-secondary">Logo</span>
+              <div className="flex items-center gap-4">
+                {/* Náhľad aktuálneho loga */}
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
+                  {currentLogoUrl ? (
+                    <img
+                      src={currentLogoUrl}
+                      alt="Logo organizácie"
+                      className="h-full w-full rounded-lg object-contain p-1"
                     />
-                  </Field>
+                  ) : (
+                    <Building2 aria-hidden="true" className="h-6 w-6 text-text-muted" />
+                  )}
                 </div>
 
-                {/* Náhľad CTA tlačidla */}
-                {(primary || accent) && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-text-secondary">Náhľad</p>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {primary && primaryFg && (
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleLogoFile(file);
+                      // reset, nech sa dá nahrať ten istý súbor znova
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadLogo.isPending}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm font-medium text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  >
+                    {uploadLogo.isPending ? (
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload aria-hidden="true" className="h-4 w-4" />
+                    )}
+                    {currentLogoUrl ? 'Zmeniť logo' : 'Nahrať logo'}
+                  </button>
+                  <span className="text-xs text-text-muted">
+                    PNG, JPEG alebo WEBP, max 512 KB. Odporúčame 256×256 px.
+                  </span>
+                </div>
+              </div>
+              {logoError && (
+                <p className="flex items-center gap-1.5 text-xs text-danger-fg">
+                  <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  {logoError}
+                </p>
+              )}
+            </div>
+
+            {/* Farebná paleta */}
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-text-secondary">Farebná paleta</span>
+              <div
+                role="radiogroup"
+                aria-label="Farebná paleta"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+              >
+                {BRAND_PRESETS.map((preset) => {
+                  const selected = presetId === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setPresetId(preset.id)}
+                      className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                        selected
+                          ? 'border-brand-accent ring-1 ring-brand-accent'
+                          : 'border-border-subtle hover:border-border-default'
+                      }`}
+                    >
+                      {/* Swatch — primary + accent */}
+                      <span className="flex shrink-0 overflow-hidden rounded-md border border-border-subtle">
                         <span
-                          className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm"
-                          style={{ background: primary, color: primaryFg }}
-                        >
-                          Primárne CTA
-                        </span>
-                      )}
-                      {accent && accentFg && (
+                          className="h-7 w-4"
+                          style={{ background: preset.primary }}
+                          aria-hidden="true"
+                        />
                         <span
-                          className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm"
-                          style={{ background: accent, color: accentFg }}
-                        >
-                          Akcentové CTA
-                        </span>
+                          className="h-7 w-4"
+                          style={{ background: preset.accent }}
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary">
+                        {preset.name}
+                      </span>
+                      {selected && (
+                        <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-brand-accent" />
                       )}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Náhľad CTA */}
+            {presetId && <PresetPreview presetId={presetId} />}
+
+            {/* Font */}
+            <div className="max-w-xs">
+              <SelectField
+                label="Font"
+                value={fontFamilySans}
+                onChange={(v) => setFontFamilySans(isFontOptionId(v) ? v : 'system-ui')}
+                options={FONT_OPTIONS.map((f) => ({ value: f.id, label: f.label }))}
+              />
+            </div>
           </div>
         </section>
 
@@ -732,6 +653,34 @@ function OrganisationSettingsPanel(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// Preset preview — CTA náhľad vybranej palety
+// ---------------------------------------------------------------------------
+
+function PresetPreview({ presetId }: { presetId: string }): JSX.Element | null {
+  const preset = getBrandPreset(presetId);
+  if (!preset) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-text-secondary">Náhľad</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm"
+          style={{ background: preset.primary, color: preset.primaryFg }}
+        >
+          Primárne CTA
+        </span>
+        <span
+          className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm"
+          style={{ background: preset.accent, color: preset.accentFg }}
+        >
+          Akcentové CTA
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Plan card
 // ---------------------------------------------------------------------------
 
@@ -831,25 +780,9 @@ function AddressFields({
 // Layout helpers
 // ---------------------------------------------------------------------------
 
-/**
- * ContrastBadge — WCAG 2.1 AA indikátor (ADR-0028 B8).
- * Zobrazí pomer kontrastu + zelený/červený badge.
- * Renderu sa len keď sú oba hex stringy platné.
- */
-function ContrastBadge({ fg, bg }: { fg: string; bg: string }): JSX.Element | null {
-  if (!HEX_RE.test(fg) || !HEX_RE.test(bg)) return null;
-  const ratio = hexContrast(fg, bg);
-  const passes = ratio >= 4.5;
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
-        passes ? 'bg-success-bg text-success-fg' : 'bg-danger-bg text-danger-fg'
-      }`}
-      title={`WCAG AA: ${passes ? 'splňa' : 'nesplňa'} (${ratio}:1, minimum 4.5:1)`}
-    >
-      {passes ? '✓' : '✗'} {ratio}:1
-    </span>
-  );
+/** Type guard pre font enum ID. */
+function isFontOptionId(value: string | null | undefined): value is FontOptionId {
+  return value != null && FONT_OPTIONS.some((f) => f.id === value);
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }): JSX.Element {

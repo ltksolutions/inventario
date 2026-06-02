@@ -26,6 +26,7 @@
  * → useEffect reaguje na zmenu `activeMembership` a prepíše brand.
  */
 
+import { getFontCss } from '@inventario/shared-types';
 import { useEffect } from 'react';
 
 import { useAuth } from './auth-context';
@@ -46,7 +47,7 @@ import type { JSX, ReactNode } from 'react';
  *     --inv-brand-accent: #ffd700;
  *     --inv-brand-accent-fg: #1a2d47;
  *     --inv-brand-logo-dot: #ffd700;
- *     --inv-font-family-sans: 'Open Sans', system-ui, sans-serif;
+ *     --inv-font-family-sans: var(--font-open-sans), system-ui, sans-serif;
  *   }
  */
 export function buildBrandStyle(
@@ -70,7 +71,12 @@ export function buildBrandStyle(
   // — jednoducho nevložíme, tokens.css má --inv-brand-logo-dot default = blue.500)
   if (brandKit.logoDot) lines.push(`  --inv-brand-logo-dot: ${brandKit.logoDot};`);
   else if (brandKit.accent) lines.push(`  --inv-brand-logo-dot: ${brandKit.accent};`);
-  if (brandKit.fontFamilySans) lines.push(`  --inv-font-family-sans: ${brandKit.fontFamilySans};`);
+  // fontFamilySans je enum ID (napr. 'Inter') — cez getFontCss() ho preložíme
+  // na reálny CSS string s var(--font-*) referenciou (ADR-0028 v2). 'system-ui'
+  // a null = nedávame override (tokens.css default).
+  if (brandKit.fontFamilySans && brandKit.fontFamilySans !== 'system-ui') {
+    lines.push(`  --inv-font-family-sans: ${getFontCss(brandKit.fontFamilySans)};`);
+  }
 
   if (lines.length === 0) return '';
 

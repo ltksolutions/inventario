@@ -3,10 +3,53 @@
 
 import './globals.css';
 
+import { Inter, Lato, Open_Sans, Roboto } from 'next/font/google';
+
 import { AppProviders } from './providers';
 
 import type { Metadata, Viewport } from 'next';
 import type { JSX, ReactNode } from 'react';
+
+/*
+ * ADR-0028 v2 — per-tenant fonty.
+ *
+ * Načítame 4 Google fonty cez `next/font/google` (self-hosted, GDPR-friendly
+ * — next/font ich pri builde sté a servíruje z nášho origin, žiadny request
+ * na Google CDN za behu). Každý dostane CSS premennú, ktorú font enum
+ * (`FONT_OPTIONS` v shared-types) referencuje cez `var(--font-*)`.
+ *
+ * `display: 'swap'` — text sa zobrazí okamžite v fallback fonte a prepne sa
+ * keď sa web font načíta (žiadny neviditeľný text).
+ *
+ * Premenné sa nasadia na <html> — sú tým globálne dostupné. Default font
+ * ostáva system-ui (cez --inv-font-family-sans v tokens.css); BrandProvider
+ * prepíše --inv-font-family-sans na `var(--font-*)` keď tenant zvolí font.
+ *
+ * INVARIANT: názvy `variable` MUSIA súhlasiť s `var(--font-*)` v
+ * `FONT_OPTIONS` (packages/shared-types/src/brand-presets.ts).
+ */
+const inter = Inter({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-inter',
+});
+const openSans = Open_Sans({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-open-sans',
+});
+const roboto = Roboto({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '700'],
+  display: 'swap',
+  variable: '--font-roboto',
+});
+const lato = Lato({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '700'],
+  display: 'swap',
+  variable: '--font-lato',
+});
 
 /**
  * Root metadata for the Inventario web app.
@@ -45,8 +88,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
+  // Font premenné (ADR-0028 v2) na <html> — sprístupní var(--font-*) globálne.
+  const fontVars = `${inter.variable} ${openSans.variable} ${roboto.variable} ${lato.variable}`;
+
   return (
-    <html lang="sk">
+    <html lang="sk" className={fontVars}>
       <body>
         {/*
           Skip link — first focusable element, jumps past nav for keyboard

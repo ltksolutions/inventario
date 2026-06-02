@@ -2,19 +2,26 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * Integračné testy pre branding PATCH /v1/organisations/current (ADR-0028).
+ * Integračné testy pre branding PATCH /v1/organisations/current (ADR-0028 v2).
+ *
+ * v2 zmeny oproti v1:
+ *   - Preset, font aj logo sú dostupné VŠETKÝM plánom (žiadny Pro+ gating).
+ *   - Farby sa nastavujú cez `presetId` (UI skratka) → backend naplní hex.
+ *   - `fontFamilySans` je enum ID ('system-ui'|'Inter'|'Open Sans'|'Roboto'|'Lato').
  *
  * Pokrýva:
- *   - FREE tenant smie nastaviť logoUrl (happy path)
- *   - FREE tenant dostane 403 pri pokuse o farby / font
- *   - Pro tenant smie nastaviť farby + font (happy path)
- *   - WCAG kontrast pod 4.5:1 → 400 (primary+primaryFg, accent+accentFg)
+ *   - logoUrl (happy path, všetky plány)
+ *   - presetId → expanzia na hex polia (primary/primaryFg/accent/accentFg/logoDot)
+ *   - neznámy presetId → 400
+ *   - fontFamilySans enum: platná hodnota OK, neplatná → 400 (Zod)
+ *   - WCAG poistka: priame hex pod 4.5:1 → 400
  *   - SVG logo → 400
- *   - logoDot sa uloží a vráti
  *   - brandKit: null vynuluje celý brand kit
- *   - Audit log zaznamená ORGANISATION_BRANDING_UPDATED
+ *   - FREE plán smie preset/font/logo (žiadny gating)
+ *   - Audit log ORGANISATION_BRANDING_UPDATED
  */
 
+import { getBrandPreset } from '@inventario/shared-types';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
@@ -22,7 +29,7 @@ import { provisionUser, UserRole } from '../helpers/test-fixtures.js';
 
 import type { FastifyInstance } from 'fastify';
 
-describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
+describe('PATCH /v1/organisations/current — branding (ADR-0028 v2)', () => {
   let app: FastifyInstance;
   let adminToken: string;
   let orgId: string;
@@ -41,7 +48,6 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
     const { token } = await provisionUser(app, { oid: 'branding-admin', role: UserRole.ADMIN });
     adminToken = token;
 
-    // Resolve test tenant _id
     const meRes = await app.inject({
       method: 'GET',
       url: '/v1/organisations/current',
@@ -54,11 +60,6 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
     await cleanTestDatabase(app);
   });
 
-  // -------------------------------------------------------------------------
-  // Helper: elevate test tenant plan directly in DB (bypass API — plan je
-  // platform-operator concern, nie tenant self-service)
-  // -------------------------------------------------------------------------
-
   async function setOrgPlan(plan: 'FREE' | 'PRO' | 'ENTERPRISE'): Promise<void> {
     await app.mongo.db
       .collection('organisations')
@@ -66,24 +67,21 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
   }
 
   // -------------------------------------------------------------------------
-  // FREE plán — len logo povolené
+  // Logo URL (všetky plány)
   // -------------------------------------------------------------------------
 
-  describe('FREE plán', () => {
+  describe('logoUrl', () => {
     it('smie nastaviť logoUrl (PNG URL)', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            logoUrl: 'https://sfz.sk/logo.png',
-          },
-        },
+        payload: { brandKit: { logoUrl: 'https://sfz.sk/logo.png' } },
       });
       expect(res.statusCode, res.body).toBe(200);
-      const body = res.json<{ brandKit: { logoUrl: string } }>();
-      expect(body.brandKit?.logoUrl).toBe('https://sfz.sk/logo.png');
+      expect(res.json<{ brandKit: { logoUrl: string } }>().brandKit?.logoUrl).toBe(
+        'https://sfz.sk/logo.png',
+      );
     });
 
     it('smie nastaviť brandKit: null (vynuluje branding)', async () => {
@@ -96,64 +94,129 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
       expect(res.statusCode, res.body).toBe(200);
       expect(res.json<{ brandKit: unknown }>().brandKit).toBeNull();
     });
+  });
 
-    it('dostane 403 pri pokuse o primary farbu', async () => {
+  // -------------------------------------------------------------------------
+  // Preset expanzia (ADR-0028 v2 — rozhodnutie B)
+  // -------------------------------------------------------------------------
+
+  describe('presetId → hex expanzia', () => {
+    it('presetId naplní primary/primaryFg/accent/accentFg/logoDot z palety', async () => {
+      const preset = getBrandPreset('royal-blue');
+      expect(preset).toBeDefined();
+
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            primary: '#003d7a',
-            primaryFg: '#ffffff',
-          },
-        },
+        payload: { brandKit: { presetId: 'royal-blue' } },
       });
-      expect(res.statusCode).toBe(403);
-      expect(res.json<{ message: string }>().message).toContain('Pro');
+      expect(res.statusCode, res.body).toBe(200);
+
+      const bk = res.json<{
+        brandKit: {
+          presetId: string;
+          primary: string;
+          primaryFg: string;
+          accent: string;
+          accentFg: string;
+          logoDot: string;
+        };
+      }>().brandKit;
+
+      expect(bk?.presetId).toBe('royal-blue');
+      expect(bk?.primary).toBe(preset!.primary);
+      expect(bk?.primaryFg).toBe(preset!.primaryFg);
+      expect(bk?.accent).toBe(preset!.accent);
+      expect(bk?.accentFg).toBe(preset!.accentFg);
+      expect(bk?.logoDot).toBe(preset!.logoDot);
     });
 
-    it('dostane 403 pri pokuse o accent farbu', async () => {
+    it('default preset inventario-navy funguje', async () => {
+      const preset = getBrandPreset('inventario-navy');
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            accent: '#ffd700',
-            accentFg: '#1a2d47',
-          },
-        },
+        payload: { brandKit: { presetId: 'inventario-navy' } },
       });
-      expect(res.statusCode).toBe(403);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json<{ brandKit: { primary: string } }>().brandKit?.primary).toBe(preset!.primary);
     });
 
-    it('dostane 403 pri pokuse o fontFamilySans', async () => {
+    it('neznámy presetId → 400', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            fontFamilySans: "'Open Sans', system-ui, sans-serif",
-          },
-        },
+        payload: { brandKit: { presetId: 'neexistuje-xyz' } },
       });
-      expect(res.statusCode).toBe(403);
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ message: string }>().message).toContain('preset');
     });
 
-    it('dostane 403 pri pokuse o logoDot', async () => {
+    it('FREE plán tiež smie preset (žiadny Pro+ gating v2)', async () => {
+      await setOrgPlan('FREE');
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            logoDot: '#ffd700',
-          },
-        },
+        payload: { brandKit: { presetId: 'forest-green' } },
       });
-      expect(res.statusCode).toBe(403);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json<{ brandKit: { presetId: string } }>().brandKit?.presetId).toBe(
+        'forest-green',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Font enum (ADR-0028 v2)
+  // -------------------------------------------------------------------------
+
+  describe('fontFamilySans enum', () => {
+    it('smie nastaviť platnú enum hodnotu (Open Sans)', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { brandKit: { fontFamilySans: 'Open Sans' } },
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json<{ brandKit: { fontFamilySans: string } }>().brandKit?.fontFamilySans).toBe(
+        'Open Sans',
+      );
+    });
+
+    it('smie nastaviť system-ui', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { brandKit: { fontFamilySans: 'system-ui' } },
+      });
+      expect(res.statusCode, res.body).toBe(200);
+    });
+
+    it('odmietne neplatnú font hodnotu (voľný string) → 400', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { brandKit: { fontFamilySans: 'Comic Sans MS' } },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('FREE plán tiež smie font (žiadny gating v2)', async () => {
+      await setOrgPlan('FREE');
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { brandKit: { fontFamilySans: 'Inter' } },
+      });
+      expect(res.statusCode, res.body).toBe(200);
     });
   });
 
@@ -167,11 +230,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            logoUrl: 'https://sfz.sk/logo.svg',
-          },
-        },
+        payload: { brandKit: { logoUrl: 'https://sfz.sk/logo.svg' } },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toContain('SVG');
@@ -182,11 +241,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            logoUrl: 'https://cdn.example.com/logo.svg?v=2',
-          },
-        },
+        payload: { brandKit: { logoUrl: 'https://cdn.example.com/logo.svg?v=2' } },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -200,129 +255,13 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
       });
       expect(res.statusCode, res.body).toBe(200);
     });
-
-    it('akceptuje .jpg URL', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: '/v1/organisations/current',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { brandKit: { logoUrl: 'https://sfz.sk/logo.jpg' } },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-    });
   });
 
   // -------------------------------------------------------------------------
-  // Pro plán — farby + font povolené
+  // WCAG poistka (priame hex cez API, mimo presetu)
   // -------------------------------------------------------------------------
 
-  describe('Pro plán', () => {
-    beforeEach(async () => {
-      await setOrgPlan('PRO');
-    });
-
-    it('smie nastaviť primary + primaryFg s dostatočným kontrastom', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: '/v1/organisations/current',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            primary: '#003d7a', // navy — tmavá
-            primaryFg: '#ffffff', // biela — kontrast ~13.3:1 ✓
-          },
-        },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-      const bk = res.json<{ brandKit: { primary: string; primaryFg: string } }>().brandKit;
-      expect(bk?.primary).toBe('#003d7a');
-      expect(bk?.primaryFg).toBe('#ffffff');
-    });
-
-    it('smie nastaviť accent + accentFg s dostatočným kontrastom', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: '/v1/organisations/current',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            accent: '#1a2d47', // navy — tmavá
-            accentFg: '#ffffff', // biela — kontrast ~13.9:1 ✓
-          },
-        },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-    });
-
-    it('smie nastaviť fontFamilySans', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: '/v1/organisations/current',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            fontFamilySans: "'Open Sans', system-ui, sans-serif",
-          },
-        },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-      expect(res.json<{ brandKit: { fontFamilySans: string } }>().brandKit?.fontFamilySans).toBe(
-        "'Open Sans', system-ui, sans-serif",
-      );
-    });
-
-    it('smie nastaviť logoDot', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: '/v1/organisations/current',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            logoDot: '#ffd700',
-          },
-        },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-      expect(res.json<{ brandKit: { logoDot: string } }>().brandKit?.logoDot).toBe('#ffd700');
-    });
-
-    it('happy path — celý brand kit naraz', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: '/v1/organisations/current',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            logoUrl: 'https://sfz.sk/logo.png',
-            primary: '#003d7a',
-            primaryFg: '#ffffff',
-            accent: '#1a2d47',
-            accentFg: '#ffffff',
-            logoDot: '#003d7a',
-            fontFamilySans: "'Open Sans', system-ui, sans-serif",
-          },
-        },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-      const bk = res.json<{
-        brandKit: {
-          logoUrl: string;
-          primary: string;
-          primaryFg: string;
-          accent: string;
-          accentFg: string;
-          logoDot: string;
-          fontFamilySans: string;
-        };
-      }>().brandKit;
-      expect(bk?.logoUrl).toBe('https://sfz.sk/logo.png');
-      expect(bk?.primary).toBe('#003d7a');
-      expect(bk?.logoDot).toBe('#003d7a');
-      expect(bk?.fontFamilySans).toBe("'Open Sans', system-ui, sans-serif");
-    });
-
-    // WCAG kontrast odmietnutia
-
+  describe('WCAG poistka (priame hex)', () => {
     it('odmietne primary + primaryFg s kontrastom pod 4.5:1 → 400', async () => {
       const res = await app.inject({
         method: 'PATCH',
@@ -330,8 +269,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
         headers: { cookie: `inv_access=${adminToken}` },
         payload: {
           brandKit: {
-            // svetlá žltá na bielej — kontrast ~1.28:1
-            primary: '#ffd700',
+            primary: '#ffd700', // žltá na bielej ~1.28:1
             primaryFg: '#ffffff',
           },
         },
@@ -349,8 +287,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
         headers: { cookie: `inv_access=${adminToken}` },
         payload: {
           brandKit: {
-            // sivá na bielej — kontrast ~2.3:1
-            accent: '#aaaaaa',
+            accent: '#aaaaaa', // sivá na bielej ~2.3:1
             accentFg: '#ffffff',
           },
         },
@@ -362,29 +299,11 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028)', () => {
     });
 
     it('akceptuje primary bez primaryFg (nekontroluje kontrast pri jednom poli)', async () => {
-      // Ak je zadaný len primary bez primaryFg, nevieme spočítať kontrast →
-      // validácia sa preskočí, PATCH uspeje.
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
         payload: { brandKit: { primary: '#ffd700' } },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-    });
-
-    it('ENTERPRISE plán tiež smie farby', async () => {
-      await setOrgPlan('ENTERPRISE');
-      const res = await app.inject({
-        method: 'PATCH',
-        url: '/v1/organisations/current',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          brandKit: {
-            primary: '#003d7a',
-            primaryFg: '#ffffff',
-          },
-        },
       });
       expect(res.statusCode, res.body).toBe(200);
     });

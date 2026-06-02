@@ -30,9 +30,16 @@
  *   login, and post-hoc rename/rebrand of an existing tenant.
  */
 
-import { ORGANISATION_PLAN_VALUES, ORGANISATION_STATUS_VALUES } from '@inventario/shared-types';
+import {
+  FONT_OPTION_IDS,
+  ORGANISATION_PLAN_VALUES,
+  ORGANISATION_STATUS_VALUES,
+} from '@inventario/shared-types';
+import { put, del } from '@vercel/blob';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
+
+import { BadRequestError, HttpError } from '../../plugins/error-handler.js';
 
 import { OrganisationsRepository } from './organisations.repository.js';
 import { OrganisationsService } from './organisations.service.js';
@@ -107,6 +114,8 @@ const HexColorMessage = 'Farba musí byť hex (napr. #1A2D47).';
 
 const BrandKitBodySchema = z
   .object({
+    // ADR-0028 v2: presetId je UI skratka — backend podľa neho naplní hex polia.
+    presetId: z.string().max(64).nullable().default(null),
     logoUrl: z.string().url().nullable().default(null),
     faviconUrl: z.string().url().nullable().default(null),
     primary: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null),
@@ -114,7 +123,8 @@ const BrandKitBodySchema = z
     accent: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null),
     accentFg: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null),
     logoDot: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null), // ADR-0028
-    fontFamilySans: z.string().max(200).nullable().default(null),
+    // ADR-0028 v2: font je enum z povolených hodnôt (reálne načítaných cez next/font).
+    fontFamilySans: z.enum(FONT_OPTION_IDS).nullable().default(null),
   })
   .strict();
 
@@ -260,12 +270,65 @@ const UpdateOwnOrganisationBodySchema = z
     displayName: z.string().min(1).max(200).trim(),
     primaryContactEmail: z.string().email('Neplatná e-mailová adresa.').nullable(),
     billing: BillingBodySchema.nullable(),
-    brandKit: BrandKitBodySchema.nullable(), // ADR-0028: FREE=len logo, Pro+=farby+font; gating v service
+    brandKit: BrandKitBodySchema.nullable(), // ADR-0028 v2: preset+logo všetkým plánom; preset expanzia v service
   })
   .partial()
   .describe(
     'Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding).',
   );
+
+// ---------------------------------------------------------------------------
+// Logo upload — konštanty + magic-byte detekcia (ADR-0028 v2)
+// ---------------------------------------------------------------------------
+//
+// Logo sa nahráva do Vercel Blob (public store). Validujeme:
+//   - typ: len PNG / JPEG / WEBP (nie SVG — pdf-lib ho neembeduje)
+//   - veľkosť: max 512 KB
+// Typ overujeme z MAGIC BYTES, nie z deklarovaného Content-Type (ten sa dá
+// podvrhnúť). To je bezpečnostná poistka: útočník nemôže nahrať .svg/.html
+// premenované na .png.
+
+const LOGO_MAX_BYTES = 512 * 1024; // 512 KB
+
+/**
+ * Zistí reálny obrázkový typ z magic bytes. Vráti príponu + content-type,
+ * alebo null ak to nie je povolený obrázok.
+ */
+function detectImageType(buf: Buffer): { ext: string; contentType: string } | null {
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buf.length >= 8 &&
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
+  ) {
+    return { ext: 'png', contentType: 'image/png' };
+  }
+  // JPEG: FF D8 FF
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return { ext: 'jpg', contentType: 'image/jpeg' };
+  }
+  // WEBP: "RIFF" .... "WEBP" (bytes 0-3 = RIFF, 8-11 = WEBP)
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return { ext: 'webp', contentType: 'image/webp' };
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -277,6 +340,17 @@ const UpdateOwnOrganisationBodySchema = z
 
 const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
+
+  // Multipart — zaregistrovaný lokálne v tomto plugine s limitmi pre logo
+  // upload (ADR-0028 v2). Limit fileSize je tvrdý strop na úrovni parsera;
+  // hodnotu validujeme ešte raz v handleri pre jasnú chybovú hlášku.
+  await fastify.register(import('@fastify/multipart'), {
+    limits: {
+      fileSize: LOGO_MAX_BYTES,
+      files: 1,
+      fields: 0,
+    },
+  });
 
   const repo = new OrganisationsRepository(fastify.mongo.db);
   const service = new OrganisationsService(
@@ -358,6 +432,112 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
         request.currentUser,
         request,
       );
+    },
+  );
+
+  // --- POST /v1/organisations/current/logo ---------------------------------
+  //
+  // Tenant ADMIN nahrá logo svojej organizácie (ADR-0028 v2). Server-side
+  // upload: súbor tečie cez API, zvaliduje sa (magic bytes + veľkosť),
+  // nahrá do Vercel Blob, a výsledná verejná URL sa zapíše do
+  // brandKit.logoUrl. Staré logo (ak bolo) sa zmaže z Blobu.
+  //
+  // Dostupné všetkým plánom (žiadny Pro+ gating). Org id z JWT claimu —
+  // tenant admin nemôže nahrať logo inej organizácii.
+  //
+  // Bez Zod body schémy (multipart) — preto plain `fastify`, nie `app`.
+  fastify.post(
+    '/v1/organisations/current/logo',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canAdmin],
+      schema: {
+        tags: ['Organisations'],
+        summary: 'Upload tenant logo (self, ADMIN)',
+        description:
+          'Tenant admin uploads a logo image (PNG, JPEG or WEBP, max 512 KB) ' +
+          'for their own organisation. The file is validated by magic bytes, ' +
+          'stored in Vercel Blob, and the resulting public URL is written to ' +
+          'brandKit.logoUrl. Any previous logo blob is deleted. Available on ' +
+          'all plans. Requires ADMIN role.',
+        security: [{ bearerAuth: [] }],
+        consumes: ['multipart/form-data'],
+        response: {
+          200: OrganisationResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const blobToken = process.env['BLOB_READ_WRITE_TOKEN'];
+      if (!blobToken) {
+        // Konfiguračná chyba — Blob token chýba v prostredí.
+        throw new HttpError(
+          500,
+          'Logo upload nie je nakonfigurovaný (chýba BLOB_READ_WRITE_TOKEN).',
+        );
+      }
+
+      // Načítaj nahraný súbor. `request.file()` vráti prvý file part.
+      const data = await request.file();
+      if (!data) {
+        throw new BadRequestError('Chýba súbor. Očakáva sa multipart/form-data s jedným súborom.');
+      }
+
+      // Zozbieraj bajty do bufferu. @fastify/multipart presadzuje fileSize
+      // limit — ak ho súbor prekročí, `toBuffer()` hodí chybu. Skontrolujeme
+      // aj `truncated` flag.
+      let buffer: Buffer;
+      try {
+        buffer = await data.toBuffer();
+      } catch {
+        throw new HttpError(
+          413,
+          `Logo je príliš veľké. Maximálna veľkosť je ${LOGO_MAX_BYTES / 1024} KB.`,
+        );
+      }
+      if (data.file.truncated || buffer.byteLength > LOGO_MAX_BYTES) {
+        throw new HttpError(
+          413,
+          `Logo je príliš veľké. Maximálna veľkosť je ${LOGO_MAX_BYTES / 1024} KB.`,
+        );
+      }
+
+      // Overenie typu z magic bytes (nie z deklarovaného mimetype).
+      const detected = detectImageType(buffer);
+      if (!detected) {
+        throw new BadRequestError('Nepodporovaný typ súboru. Povolené sú len PNG, JPEG a WEBP.');
+      }
+
+      const organisationId = String(request.currentUser.organisationId);
+
+      // Nahraj do Blobu. Cesta: logos/{organisationId}/{timestamp}.{ext}
+      // — timestamp zaručí unikátnosť a obchádza CDN cache starého loga.
+      const blobPath = `logos/${organisationId}/${Date.now()}.${detected.ext}`;
+      const { url } = await put(blobPath, buffer, {
+        access: 'public',
+        contentType: detected.contentType,
+        token: blobToken,
+      });
+
+      // Zapíš URL do brandKit.logoUrl, získaj starú URL na zmazanie.
+      const { organisation, previousLogoUrl } = await service.updateLogoUrl(
+        organisationId,
+        url,
+        request.currentUser,
+        request,
+      );
+
+      // Zmaž staré logo z Blobu (best-effort — zlyhanie nesmie rozbiť odpoveď).
+      // Mazíme len blob z nášho store (vercel-storage.com URL), nie externé
+      // logoUrl ktoré mohlo byť nastavené ešte z v1 (externá URL).
+      if (previousLogoUrl && previousLogoUrl.includes('.public.blob.vercel-storage.com')) {
+        try {
+          await del(previousLogoUrl, { token: blobToken });
+        } catch (err) {
+          request.log.warn({ err, previousLogoUrl }, 'Staré logo sa nepodarilo zmazať z Blobu');
+        }
+      }
+
+      return reply.status(200).send(organisation);
     },
   );
 

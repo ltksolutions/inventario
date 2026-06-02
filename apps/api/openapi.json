@@ -355,6 +355,12 @@
                   "brandKit": {
                     "type": "object",
                     "properties": {
+                      "presetId": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "nullable": true,
+                        "default": null
+                      },
                       "logoUrl": {
                         "type": "string",
                         "format": "uri",
@@ -399,7 +405,13 @@
                       },
                       "fontFamilySans": {
                         "type": "string",
-                        "maxLength": 200,
+                        "enum": [
+                          "system-ui",
+                          "Inter",
+                          "Open Sans",
+                          "Roboto",
+                          "Lato"
+                        ],
                         "nullable": true,
                         "default": null
                       }
@@ -415,6 +427,33 @@
           },
           "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding)."
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/organisations/current/logo": {
+      "post": {
+        "summary": "Upload tenant logo (self, ADMIN)",
+        "tags": [
+          "Organisations"
+        ],
+        "description": "Tenant admin uploads a logo image (PNG, JPEG or WEBP, max 512 KB) for their own organisation. The file is validated by magic bytes, stored in Vercel Blob, and the resulting public URL is written to brandKit.logoUrl. Any previous logo blob is deleted. Available on all plans. Requires ADMIN role.",
         "security": [
           {
             "bearerAuth": []
@@ -629,6 +668,12 @@
                   "brandKit": {
                     "type": "object",
                     "properties": {
+                      "presetId": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "nullable": true,
+                        "default": null
+                      },
                       "logoUrl": {
                         "type": "string",
                         "format": "uri",
@@ -673,7 +718,13 @@
                       },
                       "fontFamilySans": {
                         "type": "string",
-                        "maxLength": 200,
+                        "enum": [
+                          "system-ui",
+                          "Inter",
+                          "Open Sans",
+                          "Roboto",
+                          "Lato"
+                        ],
                         "nullable": true,
                         "default": null
                       }
@@ -938,6 +989,12 @@
                   "brandKit": {
                     "type": "object",
                     "properties": {
+                      "presetId": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "nullable": true,
+                        "default": null
+                      },
                       "logoUrl": {
                         "type": "string",
                         "format": "uri",
@@ -982,7 +1039,13 @@
                       },
                       "fontFamilySans": {
                         "type": "string",
-                        "maxLength": 200,
+                        "enum": [
+                          "system-ui",
+                          "Inter",
+                          "Open Sans",
+                          "Roboto",
+                          "Lato"
+                        ],
                         "nullable": true,
                         "default": null
                       }
