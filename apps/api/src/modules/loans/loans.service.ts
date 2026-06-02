@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * LoansService — business logic for the loan request + loan lifecycle.
  *
@@ -18,23 +21,30 @@
  *   - reject / cancel     — NO reservation release (nič nebolo rezervované)
  *
  * OVERDUE is NOT a persistent DB status — computed field on GET.
+ *
+ * K4 (ADR-0022): protokoly vznikajú v transakciách fulfil/createDirectLoan/return.
+ *   `protocolsRepo` je optional — ak nie je nakonfigurovaný, protokoly sa preskočia
+ *   (spätná kompatibilita so starými testami). Routes (K5) ho vždy poskytnú.
  */
 
 import { ObjectId } from 'mongodb';
 
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
+import { generateProtocolNumber } from '../protocols/protocol-number.js';
 
 import type { LoanRequestsRepository } from './loan-requests.repository.js';
 import type { LoansRepository, LoanPatch } from './loans.repository.js';
 import type { EmailService } from '../../plugins/email.js';
 import type { AssetsRepository } from '../assets/assets.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
+import type { LoanProtocolsRepository } from '../protocols/loan-protocols.repository.js';
 import type {
   AssetStatus,
   CreateDirectLoanInput,
   FulfilLoanRequestInput,
   Loan,
   LoanItem,
+  LoanProtocol,
   LoanRequest,
   LoanRequestStatus,
   LoanStatus,
@@ -110,6 +120,11 @@ export class LoansService {
      * test DB and breaks cross-collection lookups (users, memberships).
      */
     private readonly db: Db | null = null,
+    /**
+     * K4 (ADR-0022): optional — ak nie je, protokoly sa preskočia.
+     * Routes (K5) vždy poskytnú inštanciu.
+     */
+    private readonly protocolsRepo: LoanProtocolsRepository | null = null,
   ) {}
 
   private getDb(): Db {
@@ -194,9 +209,7 @@ export class LoansService {
 
   /**
    * Create a katalógová žiadosť (ADR-0026).
-   *
    * NO asset reservation — žiadosť nedrží zásobu.
-   * Server resolves categorySnapshot for each item.
    */
   async createLoanRequest(
     input: CreateCatalogLoanRequestInput,
@@ -207,13 +220,11 @@ export class LoansService {
     const actorId = String(actor._id);
     const now = new Date().toISOString();
 
-    // Resolve beneficiaryId
     const beneficiaryId = input.beneficiaryId ?? actorId;
     if (beneficiaryId !== actorId) {
       await this.assertBeneficiaryIsActiveMember(tenantId, beneficiaryId);
     }
 
-    // Resolve category snapshots
     const categoriesCol = this.getDb().collection('categories');
     const resolvedItems: LoanRequest['items'] = [];
 
@@ -308,10 +319,7 @@ export class LoansService {
 
   /**
    * Approve a loan request (ADR-0026).
-   *
-   * ONLY changes status PENDING → APPROVED.
-   * Does NOT create a Loan — that happens in fulfilLoanRequest.
-   * No asset state changes.
+   * ONLY changes status PENDING → APPROVED. Does NOT create a Loan.
    */
   async approveLoanRequest(
     id: string,
@@ -334,11 +342,7 @@ export class LoansService {
       const result = await this.loanRequestsRepo.update(
         tenantId,
         id,
-        {
-          status: 'APPROVED' as LoanRequestStatus,
-          updatedAt: now,
-          updatedBy: actorId,
-        },
+        { status: 'APPROVED' as LoanRequestStatus, updatedAt: now, updatedBy: actorId },
         session,
       );
       if (!result) throw new NotFoundError('LoanRequest', id);
@@ -366,12 +370,7 @@ export class LoansService {
 
   /**
    * Fulfil a loan request — the actual handout (ADR-0026).
-   *
-   * Maps category+quantity items → concrete assets (SERIALIZED) or BULK quantity.
-   * Creates a Loan document. Updates quantityFulfilled on each request item.
-   * Recomputes request status (PARTIALLY_FULFILLED / FULFILLED / CLOSED).
-   *
-   * Caller must be ASSET_MANAGER or ADMIN (enforced in routes).
+   * K4: HANDOVER protokol vzniká v tej istej transakcii (ADR-0022).
    */
   async fulfilLoanRequest(
     id: string,
@@ -407,7 +406,6 @@ export class LoansService {
           );
         }
 
-        // Guard: over-fulfilment check
         const remaining = reqItem.quantityRequested - reqItem.quantityFulfilled;
         const issuingQty =
           fulfilItem.type === 'SERIALIZED' ? fulfilItem.assetIds.length : fulfilItem.quantity;
@@ -444,7 +442,6 @@ export class LoansService {
             });
           }
         } else {
-          // BULK — stock movement handled below; loan item uses bulkItemId as assetId
           loanItems.push({
             assetId: fulfilItem.bulkItemId,
             snapshot: { inventoryNumber: '', name: reqItem.categorySnapshot.name },
@@ -459,10 +456,11 @@ export class LoansService {
       }
 
       // ----- Step 3: create Loan -----
+      const borrowerId = String(loanRequest.beneficiaryId ?? loanRequest.requesterId);
       const loanDoc: Omit<Loan, '_id'> = {
         organisationId: tenantId,
         requestId: id,
-        borrowerId: String(loanRequest.beneficiaryId ?? loanRequest.requesterId),
+        borrowerId,
         purpose: loanRequest.purpose,
         pickedUpAt: now,
         handedOverBy: actorId,
@@ -503,13 +501,34 @@ export class LoansService {
             );
           }
         }
-        // BULK: StockMovement LOAN_OUT — handled via StockService (separate call or inline)
-        // For now: BULK asset state update is a no-op at asset level (tracked via ledger in ADR-0020)
+      }
+
+      // ----- Step 4b: HANDOVER protokol (ADR-0022 K4) -----
+      const handoverProtocolId = await this.insertDraftProtocol(
+        'HANDOVER',
+        loanId,
+        tenantId,
+        actorId,
+        now,
+        loanItems,
+        actorId,
+        { displayName: actor.displayName, email: actor.email ?? '', organizationalUnit: null },
+        borrowerId,
+        { displayName: '', email: '', organizationalUnit: null },
+        'A4',
+        session,
+      );
+
+      if (handoverProtocolId) {
+        await this.loansRepo.update(
+          tenantId,
+          loanId,
+          { handoverProtocolId, updatedAt: now, updatedBy: actorId },
+          session,
+        );
       }
 
       // ----- Step 5: increment quantityFulfilled + push loanId -----
-      // We do this one by one because each item may have a different index.
-      // Last write wins for resultingLoanIds push — we only push once per fulfil call.
       let updatedRequest: WithId<LoanRequest> | null = null;
       for (const inc of itemIncrements) {
         updatedRequest = await this.loanRequestsRepo.incrementItemFulfilled(
@@ -525,7 +544,6 @@ export class LoansService {
       }
 
       // ----- Step 6: recompute request status -----
-      // Re-read after increments
       const freshRequest =
         updatedRequest ?? (await this.loanRequestsRepo.findById(tenantId, id, session));
       if (!freshRequest) throw new NotFoundError('LoanRequest', id);
@@ -559,11 +577,7 @@ export class LoansService {
           target: {
             entityType: 'LoanRequest',
             entityId: id,
-            snapshot: {
-              loanId,
-              newRequestStatus: newStatus,
-              issuedItemCount: loanItems.length,
-            },
+            snapshot: { loanId, newRequestStatus: newStatus, issuedItemCount: loanItems.length },
           },
           description: `Vydanie z žiadosti — Loan ${loanId} vytvorený, stav žiadosti: ${newStatus}.`,
         },
@@ -578,11 +592,7 @@ export class LoansService {
           target: {
             entityType: 'Loan',
             entityId: loanId,
-            snapshot: {
-              borrowerId: loanDoc.borrowerId,
-              dueAt: loanDoc.dueAt,
-              itemCount: loanItems.length,
-            },
+            snapshot: { borrowerId, dueAt: loanDoc.dueAt, itemCount: loanItems.length },
           },
           description: `Loan ${loanId} vytvorený — ${loanItems.length} kus/ov odovzdaných, splatnosť ${loanDoc.dueAt ?? 'do odvolania'}.`,
         },
@@ -596,9 +606,7 @@ export class LoansService {
   }
 
   /**
-   * Reject a loan request.
-   *
-   * Only from PENDING. No reservation release (nothing was reserved — ADR-0026).
+   * Reject a loan request. Only from PENDING.
    */
   async rejectLoanRequest(
     id: string,
@@ -636,18 +644,13 @@ export class LoansService {
         request,
         {
           action: 'LOAN_REQUEST_REJECTED',
-          target: {
-            entityType: 'LoanRequest',
-            entityId: id,
-            snapshot: { reason },
-          },
+          target: { entityType: 'LoanRequest', entityId: id, snapshot: { reason } },
           description: `Žiadosť zamietnutá. Dôvod: ${reason}`,
         },
         session,
       );
     });
 
-    // Fire-and-forget: notify requester
     if (this.emailService?.isConfigured) {
       void (async () => {
         try {
@@ -672,10 +675,7 @@ export class LoansService {
   }
 
   /**
-   * Cancel a loan request.
-   *
-   * Only requester or ADMIN. Only from PENDING.
-   * No reservation release (ADR-0026 — nothing was reserved).
+   * Cancel a loan request. Only requester or ADMIN. Only from PENDING.
    */
   async cancelLoanRequest(id: string, actor: WithId<User>, request: FastifyRequest): Promise<void> {
     const tenantId = String(actor.organisationId);
@@ -709,11 +709,7 @@ export class LoansService {
         request,
         {
           action: 'LOAN_REQUEST_CANCELLED',
-          target: {
-            entityType: 'LoanRequest',
-            entityId: id,
-            snapshot: { cancelledBy: actorId },
-          },
+          target: { entityType: 'LoanRequest', entityId: id, snapshot: { cancelledBy: actorId } },
           description: `Žiadosť zrušená používateľom ${actor.displayName}.`,
         },
         session,
@@ -722,8 +718,8 @@ export class LoansService {
   }
 
   /**
-   * Create a direct loan without a prior request (ADR-0023 — quick loan).
-   * ASSET_MANAGER or ADMIN only. Asset goes directly AVAILABLE → BORROWED.
+   * Create a direct loan without a prior request (ADR-0023).
+   * K4: HANDOVER protokol vzniká v tej istej transakcii (ADR-0022).
    */
   async createDirectLoan(
     input: CreateDirectLoanInput,
@@ -810,6 +806,31 @@ export class LoansService {
         }
       }
 
+      // HANDOVER protokol (ADR-0022 K4)
+      const handoverProtocolId = await this.insertDraftProtocol(
+        'HANDOVER',
+        loanId,
+        tenantId,
+        actorId,
+        now,
+        loanItems,
+        actorId,
+        { displayName: actor.displayName, email: actor.email ?? '', organizationalUnit: null },
+        input.borrowerId,
+        { displayName: '', email: '', organizationalUnit: null },
+        'A4',
+        session,
+      );
+
+      if (handoverProtocolId) {
+        await this.loansRepo.update(
+          tenantId,
+          loanId,
+          { handoverProtocolId, updatedAt: now, updatedBy: actorId },
+          session,
+        );
+      }
+
       await this.auditLog.record(
         actor,
         request,
@@ -836,8 +857,8 @@ export class LoansService {
   }
 
   /**
-   * Return a loan.
-   * ASSET_MANAGER or ADMIN only.
+   * Return a loan. ASSET_MANAGER or ADMIN only.
+   * K4: RETURN protokol vzniká v tej istej transakcii (ADR-0022).
    */
   async returnLoan(
     id: string,
@@ -909,6 +930,31 @@ export class LoansService {
 
       const updatedLoan = await this.loansRepo.update(tenantId, id, loanPatch, session);
       if (!updatedLoan) throw new NotFoundError('Loan', id);
+
+      // RETURN protokol (ADR-0022 K4)
+      const returnProtocolId = await this.insertDraftProtocol(
+        'RETURN',
+        id,
+        tenantId,
+        actorId,
+        now,
+        loan.items,
+        loan.borrowerId, // pri vrátení: odovzdávajúci = borrower
+        { displayName: '', email: '', organizationalUnit: null },
+        actorId, // preberajúci = správca (actor)
+        { displayName: actor.displayName, email: actor.email ?? '', organizationalUnit: null },
+        'A4',
+        session,
+      );
+
+      if (returnProtocolId) {
+        await this.loansRepo.update(
+          tenantId,
+          id,
+          { returnProtocolId, updatedAt: now, updatedBy: actorId },
+          session,
+        );
+      }
 
       await this.auditLog.record(
         actor,
@@ -997,6 +1043,70 @@ export class LoansService {
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Vloží DRAFT LoanProtocol do transakcie (ADR-0022 K4).
+   * Ak `protocolsRepo` nie je nastavený, ticho vráti null.
+   */
+  private async insertDraftProtocol(
+    type: LoanProtocol['type'],
+    loanId: string,
+    tenantId: string,
+    actorId: string,
+    now: string,
+    loanItems: LoanItem[],
+    handoverUserId: string,
+    handoverSnapshot: LoanProtocol['parties']['handover']['snapshot'],
+    receiveUserId: string,
+    receiveSnapshot: LoanProtocol['parties']['receive']['snapshot'],
+    paperSize: LoanProtocol['paperSize'],
+    session: ClientSession,
+  ): Promise<string | null> {
+    if (!this.protocolsRepo) return null;
+
+    const db = this.getDb();
+    const year = new Date(now).getUTCFullYear();
+    const protocolNumber = await generateProtocolNumber(db, tenantId, session, year);
+
+    const protocolItems: LoanProtocol['items'] = loanItems.map((item) => ({
+      assetId: item.assetId,
+      snapshot: {
+        inventoryNumber: item.snapshot.inventoryNumber,
+        name: item.snapshot.name,
+        serialNumber: null,
+        category: '',
+      },
+      condition: 'GOOD' as const,
+      conditionNote: null,
+      photoIds: [],
+    }));
+
+    const protocolDoc: Omit<LoanProtocol, '_id'> = {
+      organisationId: tenantId,
+      type,
+      loanId,
+      originalProtocolId: null,
+      protocolNumber,
+      issuedAt: now,
+      paperSize,
+      parties: {
+        handover: { userId: handoverUserId, snapshot: handoverSnapshot },
+        receive: { userId: receiveUserId, snapshot: receiveSnapshot },
+      },
+      items: protocolItems,
+      notes: null,
+      signatures: { handover: null, receive: null },
+      pdfSha256: null,
+      status: 'DRAFT',
+      createdAt: now,
+      updatedAt: now,
+      createdBy: actorId,
+      updatedBy: actorId,
+    };
+
+    const inserted = await this.protocolsRepo.insert(protocolDoc, session);
+    return String(inserted._id);
+  }
 
   private async assertBeneficiaryIsActiveMember(
     tenantId: string,
