@@ -172,7 +172,7 @@ function Header({
   drawerOpen,
 }: HeaderProps): JSX.Element {
   return (
-    <header className="relative border-b border-border-subtle bg-surface-card">
+    <header className="relative border-b border-border-subtle bg-brand-primary">
       <RouteProgressBar />
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-2">
@@ -182,17 +182,22 @@ function Header({
             aria-label="Otvoriť navigáciu"
             aria-controls="mobile-nav-drawer"
             aria-expanded={drawerOpen}
-            className="-ml-2 rounded-lg p-2 text-text-primary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus md:hidden"
+            className="-ml-2 rounded-lg p-2 text-brand-primary-fg transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:hidden"
           >
             <Menu aria-hidden="true" className="h-5 w-5" />
           </button>
           <Link
             href="/"
-            className="flex min-w-0 items-center gap-2 text-lg font-bold text-brand-primary transition hover:opacity-80"
+            className="flex min-w-0 items-center gap-2 text-lg font-bold text-brand-primary-fg transition hover:opacity-80"
           >
-            {/* ADR-0028: tenant logo alebo Inventario wordmark (fallback) */}
-            {currentLogoUrl ? <TenantLogo url={currentLogoUrl} orgName={currentOrgName} /> : null}
-            {!currentLogoUrl && <Layers aria-hidden="true" className="h-6 w-6 shrink-0" />}
+            {/* ADR-0028 v2: tenant logo na bielej dlaždici (čitateľné na brand lište) alebo Inventario wordmark */}
+            {currentLogoUrl ? (
+              <span className="flex shrink-0 items-center rounded-md bg-white px-1.5 py-1">
+                <TenantLogo url={currentLogoUrl} orgName={currentOrgName} />
+              </span>
+            ) : (
+              <Layers aria-hidden="true" className="h-6 w-6 shrink-0" />
+            )}
             <span className="truncate">{currentOrgName}</span>
           </Link>
 
@@ -206,9 +211,9 @@ function Header({
 
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden min-w-0 text-right sm:block">
-            <p className="truncate text-sm font-medium text-text-primary">{userName}</p>
+            <p className="truncate text-sm font-medium text-brand-primary-fg">{userName}</p>
             {roles.length > 0 && (
-              <p className="truncate text-xs text-text-muted">{formatRoles(roles)}</p>
+              <p className="truncate text-xs text-brand-primary-fg/70">{formatRoles(roles)}</p>
             )}
           </div>
           <LogoutButton />
@@ -269,7 +274,7 @@ function TenantSwitcher({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1 rounded-lg border border-border-subtle px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+        className="flex items-center gap-1 rounded-lg border border-white/25 px-2 py-1 text-xs font-medium text-brand-primary-fg/90 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
       >
         <Building2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
         <span className="max-w-[140px] truncate">{currentOrgName}</span>
