@@ -14,8 +14,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-02 (ADR-0028 per-tenant branding navrhnutý)                                  |
-| **Stav projektu**         | Production LIVE ✅ — pred-pilotné featury hotové; ADR-0028 branding čaká na impl     |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0028 branding implementovaný — DONE)                                 |
+| **Stav projektu**         | Production LIVE ✅ — ADR-0028 uzavretý; SFZ pilot pripravený                         |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
 
@@ -144,11 +144,12 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] L6 — 27 testov (unit ZPL + unit PDF + integration) ✅
   - [x] L7 — session doc ✅
 
-### 17. ADR-0028 — Per-tenant branding (logo + farby + font)
+### 17. ADR-0028 — Per-tenant branding (logo + farby + font) ✅ DONE (2026-06-02)
 
-- **Stav:** 📝 ADR Proposed (2026-06-02) — design hotový, čaká na implementáciu
-- **ADR:** [`docs/decisions/0028-per-tenant-branding.md`](./decisions/0028-per-tenant-branding.md)
-- **Problém (audit 2026-06-02):** white-label branding z dema (Inter/Pezinok/Kremnica) **nie je v produkcii zapojený**. Dve nezhodné schémy (Zod vs design-tokens JSON), `tokens.css` override mechanika len zakomentovaná, web app `brandKit` zahadzuje, `/settings/organisation` branding neponúka. Logo v PDF/štítkoch padá na default Inventario (nedá sa nastaviť `logoUrl`).
+- **Stav:** ✅ B1–B10 kompletné — ADR-0028 uzavretý
+- **Session:** [`docs/sessions/2026-06-02-adr-0028-branding.md`](./sessions/2026-06-02-adr-0028-branding.md)
+- **Čo bolo implementované:** B1 HexColorSchema+logoDot · B2 kontrast util (21 testov) · B3 PATCH brandKit+gating+WCAG+SVG check+audit · B4 21 integračných testov · B5 BrandProvider · B6 logo AppShell · B7 Branding sekcia settings · B8 ContrastBadge · B9 openapi regen · B10 docs
+- **Manuálne po deployi:** SFZ nastaviť `logoUrl` (PNG) cez Settings → Branding; farby = dočasne PRO plán
 - **Rozhodnutia (Q1–Q6):** Zod = zdroj pravdy (+`logoDot`, žiadna migrácia) · logo v1 = externá HTTPS URL (upload v2) · farby/font klientsky cez `data-tenant` + injektovaný `<style>` (FOUC ok v1) · WCAG tvrdé odmietnutie <4.5:1 · logo=všetky plány, farby/font=Pro+ · v1 rozsah bez uploadu/SSR/favicon
 - **Model:** Sonnet (B1–B9), Haiku/Sonnet (B10 docs)
 - **Rozsah — 10 blokov v 4 fázach (detail v ADR-0028 „Implementačný plán“):**

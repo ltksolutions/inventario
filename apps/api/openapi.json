@@ -351,14 +351,69 @@
                     },
                     "additionalProperties": false,
                     "nullable": true
+                  },
+                  "brandKit": {
+                    "type": "object",
+                    "properties": {
+                      "logoUrl": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "faviconUrl": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "primary": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "primaryFg": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "accent": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "accentFg": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "logoDot": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "fontFamilySans": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "nullable": true,
+                        "default": null
+                      }
+                    },
+                    "additionalProperties": false,
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
-                "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing)."
+                "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding)."
               }
             }
           },
-          "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing)."
+          "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding)."
         },
         "security": [
           {
@@ -605,6 +660,12 @@
                         "default": null
                       },
                       "accentFg": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "logoDot": {
                         "type": "string",
                         "pattern": "^#[0-9a-fA-F]{6}$",
                         "nullable": true,
@@ -908,6 +969,12 @@
                         "default": null
                       },
                       "accentFg": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$",
+                        "nullable": true,
+                        "default": null
+                      },
+                      "logoDot": {
                         "type": "string",
                         "pattern": "^#[0-9a-fA-F]{6}$",
                         "nullable": true,
@@ -5068,6 +5135,181 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/labels/sheet": {
+      "get": {
+        "summary": "Avery PDF hárok so štítkami (on-demand)",
+        "tags": [
+          "Labels"
+        ],
+        "description": "Vygeneruje PDF s mriežkou QR štítkov pre zvolené assety. Každý štítok obsahuje QR kód (appBaseUrl/scan/publicToken), inventoryNumber a názov. Preset avery-l7160: 3×8 = 24 štítkov/A4 (default). Preset avery-l7163: 2×7 = 14 štítkov/A4. Vyžaduje nastavený appBaseUrl na Organisation — inak 409.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "assetIds",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "avery-l7160",
+                "avery-l7163"
+              ],
+              "default": "avery-l7160"
+            },
+            "in": "query",
+            "name": "preset",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/v1/assets/{id}/label": {
+      "get": {
+        "summary": "ZPL string pre jeden štítok (on-demand)",
+        "tags": [
+          "Labels"
+        ],
+        "description": "Vygeneruje ZPL string pre jeden asset. Odovzdajte ho Zebra Browser Print agentovi na doručenie na termotlačiareň. Rozmery a DPI sa berú z Organisation.labelPrinting configu. format=zpl je povinný.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "zpl"
+              ]
+            },
+            "in": "query",
+            "name": "format",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "zpl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "zpl"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/labels/zpl": {
+      "post": {
+        "summary": "ZPL stringy pre dávku štítkov",
+        "tags": [
+          "Labels"
+        ],
+        "description": "Vygeneruje ZPL string pre každý asset v dávke (max 200). Vracia pole { assetId, zpl } — frontend ich odovzdá Browser Print agentovi.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assetIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-f\\d]{24}$"
+                    },
+                    "minItems": 1,
+                    "maxItems": 200
+                  }
+                },
+                "required": [
+                  "assetIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "labels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "assetId": {
+                            "type": "string"
+                          },
+                          "zpl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "assetId",
+                          "zpl"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "labels"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
