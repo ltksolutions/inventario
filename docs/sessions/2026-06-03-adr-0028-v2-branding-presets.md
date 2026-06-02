@@ -181,7 +181,8 @@ len query cache, nie auth kontext.
   bundle, dashboard 143 → 137 kB.)
   - POZOR: projekt nemá `@next/next` ESLint plugin → `eslint-disable @next/next/no-img-element`
     by spadol na „rule not found“. Natívny `<img>` bez disable komentára je tu OK.
-* Drobnosť: role v hlavičke zmenená z `/70` na `/80` opacity — čitateľnejšie na sýtych palách.
+* Drobnosť: role v hlavičke — plná biela `text-brand-primary-fg` (pôvodné `/70`→`/80` opacity
+  stále splývalo na navy/sýtych palách; hierarchiu mena vs. role drží váha+veľkosť, nie opacity).
 
 **Follow-up commity:**
 
