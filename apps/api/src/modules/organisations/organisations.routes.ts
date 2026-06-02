@@ -467,14 +467,10 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const blobToken = process.env['BLOB_READ_WRITE_TOKEN'];
-      if (!blobToken) {
-        // Konfiguračná chyba — Blob token chýba v prostredí.
-        throw new HttpError(
-          500,
-          'Logo upload nie je nakonfigurovaný (chýba BLOB_READ_WRITE_TOKEN).',
-        );
-      }
+      // Najprv validujeme VSTUP (súbor, veľkosť, magic bytes) — 4xx chyby klienta
+      // majú prednosť pred 5xx konfiguračnou chybou. Až potom kontrolujeme Blob
+      // token (tesne pred uploadom). Takéto poradie zaručí, že neplatný požiadavka
+      // dostane 400/413 aj v prostredí bez BLOB_READ_WRITE_TOKEN (napr. CI).
 
       // Načítaj nahraný súbor. `request.file()` vráti prvý file part.
       const data = await request.file();
@@ -505,6 +501,16 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
       const detected = detectImageType(buffer);
       if (!detected) {
         throw new BadRequestError('Nepodporovaný typ súboru. Povolené sú len PNG, JPEG a WEBP.');
+      }
+
+      // Vstup je platný — až teraz kontrolujeme Blob token (konfigurácia prostredia).
+      const blobToken = process.env['BLOB_READ_WRITE_TOKEN'];
+      if (!blobToken) {
+        // Konfiguračná chyba — Blob token chýba v prostredí.
+        throw new HttpError(
+          500,
+          'Logo upload nie je nakonfigurovaný (chýba BLOB_READ_WRITE_TOKEN).',
+        );
       }
 
       const organisationId = String(request.currentUser.organisationId);
