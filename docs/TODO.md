@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-03 (ADR-0028 v2 — preset paléty + Blob upload + font enum)                   |
+| **Posledná aktualizácia** | 2026-06-03 (post-deploy fixy: pozvánky URL + CI logo upload + resend tlačidlo)       |
 | **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                      |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
@@ -197,7 +197,7 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Model:** Sonnet, podľa potreby
 - **Pozn.:** nové funkčnosti nad rámec hotového Slice #6c (invitations) — otvoria sa, keď reálny tenant požiada. SFZ pilot ich nepotrebuje.
 - **Rozsah:**
-  - [ ] Resend invitation (nový token pre expired/lost e-mail)
+  - [x] Resend invitation (nový token pre expired/lost e-mail) — ✅ DONE 2026-06-03 (backend už existoval, doplnené frontend tlačidlo; session [`2026-06-03-post-deploy-fixes.md`](./sessions/2026-06-03-post-deploy-fixes.md))
   - [ ] Per-email domain exception (pozvať mimo `allowedDomains` s explicitnou výnimkou)
   - [ ] Email change verification (overovací flow pri zmene e-mailu)
   - [ ] Bulk invite cez CSV

@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                      |
 | ------------------------- | ---------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-03 (ADR-0028 v2 — preset palety + Blob upload + font enum kompletné) |
+| **Posledná aktualizácia** | 2026-06-03 (post-deploy fixy: pozvánky URL, CI logo upload, resend tlačidlo) |
 | **Aktuálna fáza**         | Production LIVE — ADR-0028 v2 uzavretý; SFZ pilot pripravený                 |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                |
 | **GitHub**                | https://github.com/ltksolutions/inventario                                   |
@@ -21,6 +21,17 @@ SPDX-License-Identifier: CC-BY-4.0
 ---
 
 ## ✅ Hotové (posledná session, 2026-06-03)
+
+**Post-deploy fixy (živé testovanie pozvánok)**
+Session doc: [`docs/sessions/2026-06-03-post-deploy-fixes.md`](./2026-06-03-post-deploy-fixes.md)
+
+- **fix(api): accept-invite link** — rozbité `https://.inventario.estate` → používa sa explicitný `FRONTEND_BASE_URL` z configu (vo Vercel nastavené na `https://app.inventario.estate`)
+- **fix(api): logo upload validuje vstup pred Blob tokenom** — CI bez `BLOB_READ_WRITE_TOKEN` dostával 500 namiesto 400/413; pretočené poradie (4xx vstup pred 5xx konfigurácia)
+- **feat(web): tlačidlo „Odoslať znovu“** pre čakajúce pozvánky (backend `/resend` už existoval) — uzatvára prvú odrážku TODO #13
+
+**Testy:** 884/884 zelených · **CI:** zelené · 3 commity (2× fix(api), 1× feat(web))
+
+---
 
 **ADR-0028 v2 Per-tenant branding — preset palety, Blob upload, font enum**
 Session doc: [`docs/sessions/2026-06-03-adr-0028-v2-branding-presets.md`](./2026-06-03-adr-0028-v2-branding-presets.md)
@@ -40,9 +51,11 @@ Session doc: [`docs/sessions/2026-06-03-adr-0028-v2-branding-presets.md`](./2026
 
 ## 🔥 Ďalší krok
 
-### 1. Push + deploy
+### 1. Overiť deploy fixov (už pushnuté)
 
-Commity tejto session pushnuté → Vercel auto-deploy.
+- Poslať testovaciu pozvánku → overiť že odkaz v maile je `https://app.inventario.estate/accept-invite?token=…` (bez rozbitej bodky)
+- Otestovať tlačidlo „Odoslať znovu“ na čakajúcej pozvánke → nový mail, predĺžená platnosť
+- CI na poslednom commite zelené (logo upload fix)
 
 ### 2. SFZ pilot onboarding — nastaviť branding (manuálne)
 
@@ -81,5 +94,5 @@ Po deployi:
 
 ---
 
-**Last updated:** 2026-06-03 (ADR-0028 v2 kompletný + brand hlavička follow-up)
+**Last updated:** 2026-06-03 (post-deploy fixy: pozvánky URL + CI logo upload + resend tlačidlo)
 **Tests:** 884/884 zelených | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
