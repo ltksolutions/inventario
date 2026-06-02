@@ -103,12 +103,14 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   await invRepo.ensureIndexes();
   await membRepo.ensureIndexes();
 
-  const { OAUTH_REDIRECT_BASE_URL, JWT_ACCESS_TOKEN_TTL_SECONDS, JWT_REFRESH_TOKEN_TTL_DAYS } =
+  const { FRONTEND_BASE_URL, JWT_ACCESS_TOKEN_TTL_SECONDS, JWT_REFRESH_TOKEN_TTL_DAYS } =
     fastify.config;
 
-  const frontendUrl = OAUTH_REDIRECT_BASE_URL
-    ? OAUTH_REDIRECT_BASE_URL.replace('/v1/auth/callback', '').replace('/api', '')
-    : 'http://localhost:3001';
+  // Frontend URL pre accept-invite link. Používame explicitný FRONTEND_BASE_URL
+  // z configu (NIE odvodzovanie z OAUTH_REDIRECT_BASE_URL cez .replace() — to
+  // produkovalo rozbité URL ako `https://.inventario.estate`, lebo `.replace('/api','')`
+  // chytalo `/api` v `https://api...`). Trailing slash odstránime pre istotu.
+  const frontendUrl = FRONTEND_BASE_URL.replace(/\/+$/, '');
 
   // =========================================================================
   // K10: POST /v1/invitations — cross-tenant email match logic
