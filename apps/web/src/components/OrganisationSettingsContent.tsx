@@ -25,7 +25,17 @@
  *   billing provider, nahradíme za reálny upgrade flow.
  */
 
-import { AlertCircle, Building2, CheckCircle2, Loader2, Mail, Save, ShieldOff } from 'lucide-react';
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Loader2,
+  Lock,
+  Mail,
+  Palette,
+  Save,
+  ShieldOff,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { SelectField } from './SelectField';
@@ -67,6 +77,32 @@ const COUNTRY_OPTIONS = [
 ];
 
 const UPGRADE_EMAIL = 'obchod@ltk.solutions';
+
+/**
+ * WCAG 2.1 kontrast ratio — frontend verzia (identický algoritmus s backendom contrast.ts).
+ * Vstup: #RRGGBB hex stringy. Výstup: pomer zaokrºhlený na 2 des. miesta.
+ */
+function hexContrast(hex1: string, hex2: string): number {
+  function linear(hex2ch: string): number {
+    const c = parseInt(hex2ch, 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+  function lum(hex: string): number {
+    const h = hex.replace('#', '');
+    return (
+      0.2126 * linear(h.slice(0, 2)) +
+      0.7152 * linear(h.slice(2, 4)) +
+      0.0722 * linear(h.slice(4, 6))
+    );
+  }
+  const l1 = lum(hex1);
+  const l2 = lum(hex2);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return Math.round(((lighter + 0.05) / (darker + 0.05)) * 100) / 100;
+}
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 const EMPTY_ADDRESS: AddressInfo = {
   street: '',
@@ -120,6 +156,16 @@ function OrganisationSettingsPanel(): JSX.Element {
   const [foundPhone, setFoundPhone] = useState('');
   const [foundMessage, setFoundMessage] = useState('');
 
+  // Branding state (ADR-0028)
+  const [logoUrl, setLogoUrl] = useState('');
+  const [primary, setPrimary] = useState('');
+  const [primaryFg, setPrimaryFg] = useState('');
+  const [accent, setAccent] = useState('');
+  const [accentFg, setAccentFg] = useState('');
+  const [logoDot, setLogoDot] = useState('');
+  const [fontFamilySans, setFontFamilySans] = useState('');
+  const [logoPreviewError, setLogoPreviewError] = useState(false);
+
   // Hydrate form once the org loads
   const org = query.data;
   useEffect(() => {
@@ -142,6 +188,15 @@ function OrganisationSettingsPanel(): JSX.Element {
     setFoundEmail(org.foundContactInfo?.email ?? '');
     setFoundPhone(org.foundContactInfo?.phone ?? '');
     setFoundMessage(org.foundContactInfo?.message ?? '');
+    // brandKit hydration (ADR-0028)
+    setLogoUrl(org.brandKit?.logoUrl ?? '');
+    setPrimary(org.brandKit?.primary ?? '');
+    setPrimaryFg(org.brandKit?.primaryFg ?? '');
+    setAccent(org.brandKit?.accent ?? '');
+    setAccentFg(org.brandKit?.accentFg ?? '');
+    setLogoDot(org.brandKit?.logoDot ?? '');
+    setFontFamilySans(org.brandKit?.fontFamilySans ?? '');
+    setLogoPreviewError(false);
   }, [org]);
 
   if (query.isLoading) return <PageSkeleton />;
@@ -171,6 +226,29 @@ function OrganisationSettingsPanel(): JSX.Element {
       billingEmail: billingEmail.trim() || null,
       registeredAddress: addr(registeredAddress),
       mailingAddress: hasMailingAddress ? addr(mailingAddress) : null,
+    };
+  }
+
+  /** Zostaví brandKit payload pre PATCH. Null = vynulovať celý brand kit. */
+  function buildBrandKit(): {
+    logoUrl: string | null;
+    faviconUrl: string | null;
+    primary: string | null;
+    primaryFg: string | null;
+    accent: string | null;
+    accentFg: string | null;
+    logoDot: string | null;
+    fontFamilySans: string | null;
+  } {
+    return {
+      logoUrl: logoUrl.trim() || null,
+      faviconUrl: null, // v2: upload do Blob
+      primary: primary.trim() || null,
+      primaryFg: primaryFg.trim() || null,
+      accent: accent.trim() || null,
+      accentFg: accentFg.trim() || null,
+      logoDot: logoDot.trim() || null,
+      fontFamilySans: fontFamilySans.trim() || null,
     };
   }
 
@@ -205,6 +283,7 @@ function OrganisationSettingsPanel(): JSX.Element {
                 message: foundMessage.trim() || null,
               }
             : null,
+        brandKit: buildBrandKit(),
       },
       {
         onSuccess: () => {
@@ -290,6 +369,220 @@ function OrganisationSettingsPanel(): JSX.Element {
             />
           </Field>
         </Section>
+
+        {/* Branding (ADR-0028) */}
+        <section className="rounded-xl border border-border-subtle bg-surface-card shadow-sm">
+          <h2 className="border-b border-border-subtle px-5 py-3 text-sm font-semibold text-text-primary flex items-center gap-2">
+            <Palette aria-hidden="true" className="h-4 w-4 text-brand-accent" />
+            Branding
+          </h2>
+          <div className="space-y-4 p-5">
+            <p className="-mt-1 text-xs text-text-secondary">
+              Logo je dostupné pre všetky plány. Farby a font sú dostupné v pláne Pro.
+            </p>
+
+            {/* Logo URL */}
+            <Field
+              label="Logo URL"
+              hint="HTTPS, PNG/JPEG/WEBP, odpoŕúčame 256×256 px. SVG nie je podporované (PDF limitačia)."
+            >
+              <input
+                type="url"
+                value={logoUrl}
+                onChange={(e) => {
+                  setLogoUrl(e.target.value);
+                  setLogoPreviewError(false);
+                }}
+                placeholder="https://example.com/logo.png"
+                className={inputCls()}
+              />
+            </Field>
+
+            {/* Logo náhľad */}
+            {logoUrl.trim() && !logoPreviewError && (
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoUrl.trim()}
+                  alt="Náhľad loga"
+                  className="h-12 w-auto max-w-[160px] rounded border border-border-subtle object-contain p-1"
+                  onError={() => setLogoPreviewError(true)}
+                />
+                <span className="text-xs text-text-secondary">Náhľad</span>
+              </div>
+            )}
+            {logoUrl.trim() && logoPreviewError && (
+              <p className="text-xs text-danger-fg">
+                Logo sa nepodarilo načítať — skontrolujte URL.
+              </p>
+            )}
+
+            {/* Farby + font — Pro gating */}
+            {org.plan === 'FREE' ? (
+              <div className="rounded-lg border border-border-subtle bg-surface-subtle p-4">
+                <p className="flex items-center gap-2 text-sm text-text-secondary">
+                  <Lock aria-hidden="true" className="h-4 w-4 shrink-0" />
+                  Vlastné farby a font sú dostupné v pláne{' '}
+                  <strong className="text-text-primary">Pro</strong>.
+                </p>
+                <a
+                  href={`mailto:${UPGRADE_EMAIL}?subject=${encodeURIComponent('Záujem o plán Pro — Inventario')}`}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent hover:underline"
+                >
+                  <Mail aria-hidden="true" className="h-3.5 w-3.5" />
+                  Požiadať o Pro
+                </a>
+              </div>
+            ) : (
+              <>
+                {/* Primárna farba */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Primárna farba" hint="Hex, napr. #003d7a">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={primary || '#1a2d47'}
+                        onChange={(e) => setPrimary(e.target.value)}
+                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
+                        aria-label="Vybrať primárnu farbu"
+                      />
+                      <input
+                        type="text"
+                        value={primary}
+                        onChange={(e) => setPrimary(e.target.value)}
+                        placeholder="#1a2d47"
+                        className={inputCls() + ' font-mono'}
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Text na primárnej" hint="Hex, napr. #ffffff">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={primaryFg || '#ffffff'}
+                        onChange={(e) => setPrimaryFg(e.target.value)}
+                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
+                        aria-label="Vybrať farbu textu na primárnej"
+                      />
+                      <input
+                        type="text"
+                        value={primaryFg}
+                        onChange={(e) => setPrimaryFg(e.target.value)}
+                        placeholder="#ffffff"
+                        className={inputCls() + ' font-mono'}
+                      />
+                    </div>
+                  </Field>
+                </div>
+                {/* Kontrast indikátor pre primárny pár */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-muted">Kontrast primárna/text:</span>
+                  <ContrastBadge fg={primaryFg} bg={primary} />
+                </div>
+
+                {/* Akcentová farba */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Akcentová farba" hint="Hex, napr. #388fc3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={accent || '#388fc3'}
+                        onChange={(e) => setAccent(e.target.value)}
+                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
+                        aria-label="Vybrať akcentovú farbu"
+                      />
+                      <input
+                        type="text"
+                        value={accent}
+                        onChange={(e) => setAccent(e.target.value)}
+                        placeholder="#388fc3"
+                        className={inputCls() + ' font-mono'}
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Text na akcente" hint="Hex, napr. #ffffff">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={accentFg || '#ffffff'}
+                        onChange={(e) => setAccentFg(e.target.value)}
+                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
+                        aria-label="Vybrať farbu textu na akcente"
+                      />
+                      <input
+                        type="text"
+                        value={accentFg}
+                        onChange={(e) => setAccentFg(e.target.value)}
+                        placeholder="#ffffff"
+                        className={inputCls() + ' font-mono'}
+                      />
+                    </div>
+                  </Field>
+                </div>
+                {/* Kontrast indikátor pre akcentový pár */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-muted">Kontrast akcentová/text:</span>
+                  <ContrastBadge fg={accentFg} bg={accent} />
+                </div>
+
+                {/* Logo dot + font */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Logo dot" hint="Farba bodky v logu, napr. #388fc3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={logoDot || accent || '#388fc3'}
+                        onChange={(e) => setLogoDot(e.target.value)}
+                        className="h-9 w-10 cursor-pointer rounded border border-border-default bg-surface-card p-0.5"
+                        aria-label="Vybrať farbu logo dot"
+                      />
+                      <input
+                        type="text"
+                        value={logoDot}
+                        onChange={(e) => setLogoDot(e.target.value)}
+                        placeholder="#388fc3"
+                        className={inputCls() + ' font-mono'}
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Font" hint="Napr. 'Open Sans', system-ui, sans-serif">
+                    <input
+                      type="text"
+                      value={fontFamilySans}
+                      onChange={(e) => setFontFamilySans(e.target.value)}
+                      placeholder="'Open Sans', system-ui, sans-serif"
+                      className={inputCls()}
+                    />
+                  </Field>
+                </div>
+
+                {/* Náhľad CTA tlačidla */}
+                {(primary || accent) && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-text-secondary">Náhľad</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {primary && primaryFg && (
+                        <span
+                          className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm"
+                          style={{ background: primary, color: primaryFg }}
+                        >
+                          Primárne CTA
+                        </span>
+                      )}
+                      {accent && accentFg && (
+                        <span
+                          className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm"
+                          style={{ background: accent, color: accentFg }}
+                        >
+                          Akcentové CTA
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </section>
 
         <Section title="Fakturačné a právne údaje">
           <Field label="Obchodné meno" hint="Právny názov subjektu tak, ako má byť na faktúre.">
@@ -537,6 +830,27 @@ function AddressFields({
 // ---------------------------------------------------------------------------
 // Layout helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * ContrastBadge — WCAG 2.1 AA indikátor (ADR-0028 B8).
+ * Zobrazí pomer kontrastu + zelený/červený badge.
+ * Renderu sa len keď sú oba hex stringy platné.
+ */
+function ContrastBadge({ fg, bg }: { fg: string; bg: string }): JSX.Element | null {
+  if (!HEX_RE.test(fg) || !HEX_RE.test(bg)) return null;
+  const ratio = hexContrast(fg, bg);
+  const passes = ratio >= 4.5;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
+        passes ? 'bg-success-bg text-success-fg' : 'bg-danger-bg text-danger-fg'
+      }`}
+      title={`WCAG AA: ${passes ? 'splňa' : 'nesplňa'} (${ratio}:1, minimum 4.5:1)`}
+    >
+      {passes ? '✓' : '✗'} {ratio}:1
+    </span>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }): JSX.Element {
   return (
