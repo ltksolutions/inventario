@@ -27,6 +27,7 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 
 import { AssetDetailEditForm } from './AssetDetailEditForm';
 import { AssetDetailReadView } from './AssetDetailReadView';
+import { LabelPrintButton } from './LabelPrintButton';
 import { StockPanel } from './StockPanel';
 
 import type { AssetDetail, LoanSummary } from '@/lib/api-hooks';
@@ -41,6 +42,7 @@ import {
   useLoansForAsset,
 } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
+import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 // ---------------------------------------------------------------------------
 // Label maps
@@ -105,6 +107,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
   const canEdit = useCanEditAssets();
+  const orgQuery = useCurrentOrganisation();
 
   const isBulk = assetQuery.data?.trackingMode === 'BULK';
   const TABS = isBulk ? TABS_BULK : TABS_SERIALIZED;
@@ -168,6 +171,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                   locationName={locationsById.get(assetQuery.data.locationId)?.name}
                   canEdit={canEdit}
                   onEdit={() => setMode('edit')}
+                  labelPrintingMode={orgQuery.data?.labelPrinting?.mode ?? null}
                 />
                 {/* QR card */}
                 <QrCard assetId={assetId} inventoryNumber={assetQuery.data.inventoryNumber} />
@@ -284,12 +288,14 @@ function AssetHeroCard({
   locationName,
   canEdit,
   onEdit,
+  labelPrintingMode,
 }: {
   asset: AssetDetail;
   categoryName: string | undefined;
   locationName: string | undefined;
   canEdit: boolean;
   onEdit: () => void;
+  labelPrintingMode?: 'PDF_SHEET' | 'ZEBRA_ZPL' | null;
 }): JSX.Element {
   return (
     <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-sm lg:col-span-2">
@@ -378,6 +384,11 @@ function AssetHeroCard({
                 <Pencil aria-hidden="true" className="h-4 w-4" />
                 Upraviť
               </button>
+              <LabelPrintButton
+                assetId={asset._id}
+                inventoryNumber={asset.inventoryNumber}
+                labelPrintingMode={labelPrintingMode}
+              />
             </div>
           )}
         </div>

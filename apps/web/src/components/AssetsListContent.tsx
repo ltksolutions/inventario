@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { AssetsTable } from './AssetsTable';
+import { BatchLabelPrintButton } from './BatchLabelPrintButton';
 import { SelectField } from './SelectField';
 import { TableSkeleton } from './Skeleton';
 import { TRACKING_MODE_FILTER_OPTIONS } from './TrackingModeBadge';
@@ -17,6 +18,7 @@ import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
 import { useAssets, useCanEditAssets, useCategories, useLocations } from '@/lib/api-hooks';
+import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 /**
  * Assets list page content.
@@ -65,6 +67,7 @@ export function AssetsListContent(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [trackingModeFilter, setTrackingModeFilter] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Paginated assets request. The query key includes both pagination
   // params so TanStack caches each page independently — clicking back
@@ -118,6 +121,7 @@ export function AssetsListContent(): JSX.Element {
     statusFilter !== '' || trackingModeFilter !== '' || searchTerm.trim() !== '';
 
   const canEdit = useCanEditAssets();
+  const orgQuery = useCurrentOrganisation();
 
   return (
     <div>
@@ -128,15 +132,24 @@ export function AssetsListContent(): JSX.Element {
             Evidencia jednotlivých položiek majetku organizácie.
           </p>
         </div>
-        {canEdit && (
-          <Link
-            href="/assets/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <Plus aria-hidden="true" className="h-4 w-4" />
-            Pridať majetok
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedIds.size > 0 && (
+            <BatchLabelPrintButton
+              selectedAssetIds={[...selectedIds]}
+              labelPrintingMode={orgQuery.data?.labelPrinting?.mode}
+              pdfPreset={orgQuery.data?.labelPrinting?.pdfPreset}
+            />
+          )}
+          {canEdit && (
+            <Link
+              href="/assets/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              <Plus aria-hidden="true" className="h-4 w-4" />
+              Pridať majetok
+            </Link>
+          )}
+        </div>
       </header>
 
       <section
@@ -224,6 +237,47 @@ export function AssetsListContent(): JSX.Element {
           </>
         )}
       </p>
+
+      {/* Selekcia pre dávkovú tlač */}
+      {filteredAssets.length > 0 && (
+        <div className="mb-2 flex items-center gap-3 text-sm text-text-secondary">
+          <button
+            type="button"
+            onClick={() => {
+              const allIds = new Set(filteredAssets.map((a) => a._id));
+              const allSelected = filteredAssets.every((a) => selectedIds.has(a._id));
+              if (allSelected) {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  for (const a of filteredAssets) next.delete(a._id);
+                  return next;
+                });
+              } else {
+                setSelectedIds((prev) => new Set([...prev, ...allIds]));
+              }
+            }}
+            className="rounded border border-border-default bg-surface-card px-2.5 py-1 text-xs font-medium hover:bg-surface-subtle"
+          >
+            {filteredAssets.every((a) => selectedIds.has(a._id))
+              ? 'Zrušiť výber strany'
+              : 'Vybrať všetky na strane'}
+          </button>
+          {selectedIds.size > 0 && (
+            <>
+              <span className="text-xs">
+                Vybraných: <strong>{selectedIds.size}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-text-muted hover:text-text-primary"
+              >
+                Zrušiť všetko
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {assetsQuery.isLoading ? (
         <TableSkeleton rows={Math.min(pageSize, 8)} columns={6} />

@@ -5,11 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # NEXT — čo robiť v ďalšej session
 
-> **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
-
 | Atribút                   | Hodnota                                                        |
 | ------------------------- | -------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-02 (ADR-0027 L1–L4+L6–L7 backend hotový)               |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0027 L5 frontend — ADR-0027 UZAVRETÝ)          |
 | **Aktuálna fáza**         | Production LIVE — dev pokračuje, cieľ: čím skôr reálny testing |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                  |
 | **GitHub**                | https://github.com/ltksolutions/inventario                     |
@@ -24,56 +22,52 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## ✅ Hotové (posledná session, 2026-06-02)
 
-**ADR-0022 K5–K8** — uzavretý ✅ (viď session doc K5–K8)
+**ADR-0027 L5** (frontend QR štítky) — session doc: [`docs/sessions/2026-06-02-adr-0027-l5-frontend.md`](./2026-06-02-adr-0027-l5-frontend.md)
 
-**ADR-0027 L1–L4 + L6–L7** (backend QR štítky) — session doc: [`docs/sessions/2026-06-02-adr-0027-l1-l7-backend.md`](./2026-06-02-adr-0027-l1-l7-backend.md)
+- `LabelPrintButton` — detail page: PDF (window.open) alebo ZPL (Browser Print), fallback
+- `BatchLabelPrintButton` — zoznam: preset dropdown, dávková ZPL tlač, max 200
+- `AssetDetailContent` — `LabelPrintButton` vedľa Upraviť, `useCurrentOrganisation` hook
+- `AssetsListContent` — multi-select (Vybrať všetky na strane), `BatchLabelPrintButton` v header
+- `OrganisationSummary` rozšírená o `labelPrinting` typ
 
-- **L1** — `OrganisationLabelSettingsSchema` (mode, pdfPreset, ZPL params, finderText); `labelPrinting: null` do JIT + register + oauth + test fixtures
-- **L2** — `renderLabelSheetPdf()`: Avery L7160/L7163, QR + invNum + názov + finderText, logo v strede QR, DejaVu Sans
-- **L3** — `renderLabelZpl()`: vlastný ZPL builder, `^CI28` UTF-8, `^BQ` QR, finderText, rozmery z configu
-- **L4** — routes: `GET /v1/labels/sheet`, `GET /v1/assets/:id/label?format=zpl`, `POST /v1/labels/zpl`; EMPLOYEE+; registrácia v `server.ts`
-- **L6** — 27 testov (unit ZPL ×8, unit PDF ×7, integration ×12)
-- **L7** — session doc, TODO.md aktualizovaný
-
-**Stav testov:** 798 (pred session) + 27 nových = **825 očakávaných** ✅
+**ADR-0027 je UZAVRETÝ** ✅ (L1–L7 kompletné)
 
 ---
 
 ## 🔥 Ďalší krok
 
-### 1. Overiť a commitnúť
+### 1. Typecheck + test + commit
 
 ```bash
 pnpm typecheck
 pnpm test
-pnpm --filter @inventario/api openapi:export:offline
 ```
 
-Commit (header-only):
+Frontend commit (header-only):
 
 ```
-feat(labels): ADR-0027 L1-L4+L6-L7 QR label printing backend
+feat(labels): L5 frontend label printing (LabelPrintButton + batch)
 ```
 
-### 2. ADR-0027 L5 — Frontend (separátna session, Sonnet)
+### 2. Deploy + smoke test
 
-- Tlačidlo na detaile assetu (detail page v `apps/web`)
-- Dávková tlač zo zoznamu (checkbox selection → Print)
-- PDF: `window.open('/v1/labels/sheet?assetIds=...')` → OS tlačový dialóg
-- ZPL: Zebra Browser Print JS API (agent); fallback na PDF ak agent nebeží
-- UI hint: "Zapnite finderText spolu s publicAssetLookup"
+Po push na main: Vercel deploy automaticky. Smoke test:
+
+- Detail stránka assetu → viditeľné tlačidlo „Tlačiť štítok"
+- PDF tlač → otvorí sa nová záložka s PDF
+- Zoznam assetov → „Vybrať všetky na strane" → „Tlačiť N štítkov" button
 
 ### 3. SFZ pilot onboarding
 
-Reálny testing s prvým tenantom.
+Odporúčaný nasledujúci krok — reálny testing s prvým tenantom.
 
 ---
 
 ## 📋 Otvorené položky (z TODO.md)
 
-- ADR-0027 L5 frontend (viď TODO.md #16)
 - SFZ pilot onboarding
-- Migrations at deploy-time (TODO.md dlhodobé)
+- Migrations at deploy-time (dlhodobé)
+- ADR-0027 L5 Browser Print — reálny test so ZD420 počas pilotu
 
 ---
 
@@ -87,5 +81,5 @@ Reálny testing s prvým tenantom.
 
 ---
 
-**Last updated:** 2026-06-02 (ADR-0027 L1–L4+L6–L7 backend hotový)
-**Tests:** 798 zelených + 27 nových = 825 očakávaných | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
+**Last updated:** 2026-06-02 (ADR-0027 kompletný)
+**Tests:** 825 zelených (backend) | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

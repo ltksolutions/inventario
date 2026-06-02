@@ -60,6 +60,16 @@ export interface OrganisationSummary {
     phone: string | null;
     message: string | null;
   } | null;
+  /** Konfigurácia tlače QR štítkov (ADR-0027). Null = PDF_SHEET default. */
+  labelPrinting: {
+    mode: 'PDF_SHEET' | 'ZEBRA_ZPL';
+    pdfPreset: 'avery-l7160' | 'avery-l7163';
+    finderText: { enabled: boolean; text: string };
+    zplLabelWidthMm: number;
+    zplLabelHeightMm: number;
+    zplDpi: 203 | 300;
+    zplDarkness: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
