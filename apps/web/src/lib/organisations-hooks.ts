@@ -178,6 +178,7 @@ export function useUpdateCurrentOrganisation(): UseMutationResult<
   UpdateCurrentOrganisationInput
 > {
   const queryClient = useQueryClient();
+  const { refresh } = useAuth();
 
   return useMutation<OrganisationSummary, Error, UpdateCurrentOrganisationInput>({
     mutationFn: async (patch) => {
@@ -198,6 +199,9 @@ export function useUpdateCurrentOrganisation(): UseMutationResult<
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['organisation', 'current'] });
       void queryClient.invalidateQueries({ queryKey: ['organisations'] });
+      // ADR-0028 v2: refresh auth kontextu → availableOrganisations[].brandKit
+      // sa aktualizujú → BrandProvider okamžite prefarbí hlavičku/logo bez reloadu.
+      void refresh();
     },
   });
 }
@@ -213,6 +217,7 @@ export function useUpdateCurrentOrganisation(): UseMutationResult<
  */
 export function useUploadLogo(): UseMutationResult<OrganisationSummary, Error, File> {
   const queryClient = useQueryClient();
+  const { refresh } = useAuth();
 
   return useMutation<OrganisationSummary, Error, File>({
     mutationFn: async (file) => {
@@ -237,6 +242,8 @@ export function useUploadLogo(): UseMutationResult<OrganisationSummary, Error, F
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['organisation', 'current'] });
       void queryClient.invalidateQueries({ queryKey: ['organisations'] });
+      // ADR-0028 v2: refresh auth kontextu → nové logo sa zobrazí v hlavičke bez reloadu.
+      void refresh();
     },
   });
 }
