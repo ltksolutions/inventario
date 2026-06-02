@@ -8,6 +8,7 @@ import {
   BaseDocumentSchema,
   DicSchema,
   EmailSchema,
+  HexColorSchema,
   IbanSchema,
   IcDphSchema,
   IcoSchema,
@@ -50,26 +51,11 @@ export const OrganisationBrandKitSchema = z
   .object({
     logoUrl: z.string().url().nullable().default(null),
     faviconUrl: z.string().url().nullable().default(null),
-    primary: z
-      .string()
-      .regex(/^#[0-9a-fA-F]{6}$/, 'Color must be a #RRGGBB hex value.')
-      .nullable()
-      .default(null),
-    primaryFg: z
-      .string()
-      .regex(/^#[0-9a-fA-F]{6}$/)
-      .nullable()
-      .default(null),
-    accent: z
-      .string()
-      .regex(/^#[0-9a-fA-F]{6}$/)
-      .nullable()
-      .default(null),
-    accentFg: z
-      .string()
-      .regex(/^#[0-9a-fA-F]{6}$/)
-      .nullable()
-      .default(null),
+    primary: HexColorSchema.nullable().default(null),
+    primaryFg: HexColorSchema.nullable().default(null),
+    accent: HexColorSchema.nullable().default(null),
+    accentFg: HexColorSchema.nullable().default(null),
+    logoDot: HexColorSchema.nullable().default(null), // ADR-0028: default = accent at runtime
     fontFamilySans: z.string().max(200).nullable().default(null),
   })
   .strict();

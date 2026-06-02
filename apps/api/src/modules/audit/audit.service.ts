@@ -148,7 +148,8 @@ function defaultLegalBasisFor(action: string): AuditLog['legalBasis'] {
   if (
     action === 'ORGANISATION_CREATED' ||
     action === 'ORGANISATION_UPDATED' ||
-    action === 'ORGANISATION_DELETED'
+    action === 'ORGANISATION_DELETED' ||
+    action === 'ORGANISATION_BRANDING_UPDATED'
   ) {
     return 'contract';
   }
@@ -232,6 +233,11 @@ function defaultDataCategoriesFor(action: string): NonNullable<AuditLog['dataCat
     action === 'ORGANISATION_DELETED'
   ) {
     return ['contact', 'audit_metadata'];
+  }
+
+  // Organisation branding — neobsahuje osobné údaje, len vizual setup.
+  if (action === 'ORGANISATION_BRANDING_UPDATED') {
+    return ['audit_metadata'];
   }
 
   // Asset CRUD — nepriame os. údaje cez createdBy/updatedBy.

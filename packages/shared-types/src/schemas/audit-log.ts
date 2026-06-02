@@ -60,6 +60,7 @@ export const AuditLogSchema = z.object({
     'ORGANISATION_CREATED',
     'ORGANISATION_UPDATED',
     'ORGANISATION_DELETED',
+    'ORGANISATION_BRANDING_UPDATED', // ADR-0028: tenant self-service branding update
 
     // Asset
     'ASSET_CREATED',

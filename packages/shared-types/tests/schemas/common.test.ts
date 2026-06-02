@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   EmailSchema,
+  HexColorSchema,
   ObjectIdSchema,
   PhoneSchema,
   TimestampSchema,
@@ -115,5 +116,46 @@ describe('PhoneSchema', () => {
   it('odmieta pevnú linku', () => {
     const result = PhoneSchema.safeParse('+421 2 5443 1234');
     expect(result.success).toBe(false);
+  });
+});
+
+describe('HexColorSchema', () => {
+  it('akceptuje platný lowercase #RRGGBB', () => {
+    expect(HexColorSchema.safeParse('#1a2d47').success).toBe(true);
+  });
+
+  it('akceptuje platný uppercase #RRGGBB', () => {
+    expect(HexColorSchema.safeParse('#1A2D47').success).toBe(true);
+  });
+
+  it('akceptuje bielu a čiernu', () => {
+    expect(HexColorSchema.safeParse('#ffffff').success).toBe(true);
+    expect(HexColorSchema.safeParse('#000000').success).toBe(true);
+  });
+
+  it('odmieta skrátený #RGB formát', () => {
+    expect(HexColorSchema.safeParse('#fff').success).toBe(false);
+  });
+
+  it('odmieta hodnotu bez # prefixu', () => {
+    expect(HexColorSchema.safeParse('1a2d47').success).toBe(false);
+  });
+
+  it('odmieta 8-znakový RGBA formát', () => {
+    expect(HexColorSchema.safeParse('#1a2d47ff').success).toBe(false);
+  });
+
+  it('odmieta neplatné hex znaky', () => {
+    expect(HexColorSchema.safeParse('#1a2d4g').success).toBe(false);
+  });
+
+  it('odmieta prázdny string', () => {
+    expect(HexColorSchema.safeParse('').success).toBe(false);
+  });
+
+  it('vracia pôvodnú hodnotu (bez transformácie)', () => {
+    const result = HexColorSchema.safeParse('#388fc3');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBe('#388fc3');
   });
 });

@@ -43,8 +43,9 @@ import {
   RegistrationMethod,
 } from '@inventario/shared-types';
 
+import { contrastRatio, meetsWcagAA } from '../../lib/contrast.js';
 import { seedTenantDefaults } from '../../lib/seed-tenant-defaults.js';
-import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
 
 import type {
@@ -356,6 +357,81 @@ export class OrganisationsService {
     const auditLog = this.auditLog;
     const actorId = String(actor._id);
 
+    // -----------------------------------------------------------------------
+    // ADR-0028: Branding validations (before the transaction — fast-fail)
+    // -----------------------------------------------------------------------
+    if (patch.brandKit !== undefined && patch.brandKit !== null) {
+      const bk = patch.brandKit;
+
+      // 1. Plan gating: FREE = len logo (logoUrl + faviconUrl).
+      //    Farby, logoDot a font sú Pro+ featury.
+      const hasColorOrFont =
+        (bk.primary !== undefined && bk.primary !== null) ||
+        (bk.primaryFg !== undefined && bk.primaryFg !== null) ||
+        (bk.accent !== undefined && bk.accent !== null) ||
+        (bk.accentFg !== undefined && bk.accentFg !== null) ||
+        (bk.logoDot !== undefined && bk.logoDot !== null) ||
+        (bk.fontFamilySans !== undefined && bk.fontFamilySans !== null);
+
+      if (hasColorOrFont) {
+        // Načítame org aby sme vedeli plan (použijeme priamo repo, pred transakciou)
+        const org = await this.repo.findById(organisationId);
+        if (!org) throw new NotFoundError('Organisation', organisationId);
+
+        if (org.plan === OrganisationPlan.FREE) {
+          throw new ForbiddenError(
+            'Vlastné farby a font sú dostupné v pláne Pro. ' +
+              'Logo (logoUrl) môžete nastaviť bezplatne.',
+          );
+        }
+      }
+
+      // 2. WCAG kontrast: odmietnuť pár pod 4.5:1 (len keď oba fieldy zadané).
+      if (
+        bk.primary !== null &&
+        bk.primary !== undefined &&
+        bk.primaryFg !== null &&
+        bk.primaryFg !== undefined
+      ) {
+        if (!meetsWcagAA(bk.primary, bk.primaryFg)) {
+          const ratio = contrastRatio(bk.primary, bk.primaryFg);
+          throw new BadRequestError(
+            `Kontrast primárnej farby a textu je ${ratio}:1 — ` +
+              'minimum pre WCAG 2.1 AA je 4.5:1. ' +
+              'Zvoľte tmavšiu primárnu farbu alebo svetlejší text.',
+          );
+        }
+      }
+      if (
+        bk.accent !== null &&
+        bk.accent !== undefined &&
+        bk.accentFg !== null &&
+        bk.accentFg !== undefined
+      ) {
+        if (!meetsWcagAA(bk.accent, bk.accentFg)) {
+          const ratio = contrastRatio(bk.accent, bk.accentFg);
+          throw new BadRequestError(
+            `Kontrast akcentovej farby a textu je ${ratio}:1 — ` +
+              'minimum pre WCAG 2.1 AA je 4.5:1. ' +
+              'Zvoľte tmavšiu akcentovú farbu alebo svetlejší text.',
+          );
+        }
+      }
+
+      // 3. Logo URL: SVG je zakázané (pdf-lib ho neembeduje).
+      //    Overujeme len Content-Type prefix, nie HEAD request (byť best-effort).
+      if (bk.logoUrl !== null && bk.logoUrl !== undefined) {
+        const url = bk.logoUrl.toLowerCase();
+        if (url.endsWith('.svg') || url.includes('.svg?')) {
+          throw new BadRequestError(
+            'Logo musí byť PNG, JPEG alebo WEBP — nie SVG. ' +
+              'SVG sa nedá vložiť do PDF protokolov (obmedzenie pdf-lib). ' +
+              'OdporúĊme PNG 256×256 px.',
+          );
+        }
+      }
+    }
+
     const updated = await this.runInTransaction(async (session) => {
       const before = await this.repo.findById(organisationId, session);
       if (!before) {
@@ -376,11 +452,16 @@ export class OrganisationsService {
 
       const changes = computeShallowDiff(before, after, ['updatedAt', 'updatedBy']);
       if (changes.length > 0) {
+        const isBrandingOnly =
+          patch.brandKit !== undefined &&
+          patch.displayName === undefined &&
+          patch.primaryContactEmail === undefined &&
+          patch.billing === undefined;
         await auditLog.record(
           actor,
           request,
           {
-            action: 'ORGANISATION_UPDATED',
+            action: isBrandingOnly ? 'ORGANISATION_BRANDING_UPDATED' : 'ORGANISATION_UPDATED',
             target: {
               entityType: 'Organisation',
               entityId: String(after._id),
@@ -391,7 +472,9 @@ export class OrganisationsService {
                 plan: after.plan,
               },
             },
-            description: `Tenant admin updated own organisation "${after.displayName}" (${changes.length} field${changes.length === 1 ? '' : 's'} changed)`,
+            description: isBrandingOnly
+              ? `Tenant admin updated branding for "${after.displayName}"`
+              : `Tenant admin updated own organisation "${after.displayName}" (${changes.length} field${changes.length === 1 ? '' : 's'} changed)`,
             changes,
           },
           session,

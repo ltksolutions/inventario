@@ -113,6 +113,7 @@ const BrandKitBodySchema = z
     primaryFg: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null),
     accent: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null),
     accentFg: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null),
+    logoDot: z.string().regex(HexColorRegex, HexColorMessage).nullable().default(null), // ADR-0028
     fontFamilySans: z.string().max(200).nullable().default(null),
   })
   .strict();
@@ -259,9 +260,12 @@ const UpdateOwnOrganisationBodySchema = z
     displayName: z.string().min(1).max(200).trim(),
     primaryContactEmail: z.string().email('Neplatná e-mailová adresa.').nullable(),
     billing: BillingBodySchema.nullable(),
+    brandKit: BrandKitBodySchema.nullable(), // ADR-0028: FREE=len logo, Pro+=farby+font; gating v service
   })
   .partial()
-  .describe('Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing).');
+  .describe(
+    'Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding).',
+  );
 
 // ---------------------------------------------------------------------------
 // Plugin

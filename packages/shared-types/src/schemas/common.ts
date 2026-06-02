@@ -191,3 +191,19 @@ export const IbanSchema = z
   .describe('IBAN (bez medzier, uppercase)');
 
 export type Iban = z.infer<typeof IbanSchema>;
+
+/**
+ * Hex farba vo formáte #RRGGBB (6 číslic, bez skrateného #RGB).
+ *
+ * Používa sa pre brand-kit farby (`primary`, `accent`, `logoDot`, ...).
+ * Validácia je case-insensitive (`#1a2d47` aj `#1A2D47` sú platné),
+ * ale DB ukladá hodnoty tak ako prídu — UI by mal posielať lowercase.
+ *
+ * Príklady platných hodnôt: `#1A2D47`, `#ffffff`, `#388fc3`.
+ */
+export const HexColorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, 'Farba musí byť hex #RRGGBB (napr. #1A2D47).')
+  .describe('Hex farba #RRGGBB');
+
+export type HexColor = z.infer<typeof HexColorSchema>;

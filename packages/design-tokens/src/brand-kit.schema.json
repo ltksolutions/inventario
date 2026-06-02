@@ -1,141 +1,119 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://inventario.sportup.sk/schemas/brand-kit.schema.json",
+  "$id": "https://inventario.estate/schemas/brand-kit.schema.json",
+  "$comment": "BUILD-TIME REFERENCE ONLY. Zdroj pravdy je OrganisationBrandKitSchema v packages/shared-types/src/schemas/organisation.ts (Zod). Tento súbor je zladený s Zod tvarom (ploché polia, bez vnorených colors/typography) a je exportovaný v @inventario/design-tokens pre konzumentov mimo TS (napr. JSON Schema validátory, dokumentácia). Pri zmene Zod schémy zladiť aj tento súbor. ADR-0028.",
   "title": "Inventario Brand Kit",
-  "description": "Per-tenant brand customization payload. Validates input from organisation admin UI before persisting to backend (`organisations.brandKit` field) and before generating runtime CSS override blocks. Schema deliberately covers ONLY the brand layer of design tokens — primitive and semantic layers are not overridable. This keeps multi-tenant UI predictable while giving each tenant a recognisable identity. See BRAND.md §8 for the underlying policy.",
+  "description": "Per-tenant brand customization payload. Covers ONLY the brand layer of design tokens — primitive and semantic layers are not overridable per BRAND.md §8. WCAG 2.1 AA (4.5:1) is enforced server-side on primary+primaryFg and accent+accentFg pairs. Logo must be HTTPS PNG/JPEG/WEBP — not SVG (pdf-lib limitation). Colors and font are Pro+ only; logo is available on all plans.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["tenantId", "version"],
+  "required": [],
   "properties": {
-    "tenantId": {
-      "type": "string",
-      "description": "Stable slug identifying the tenant. Used as the value of the `data-tenant` attribute on the html element. Lowercase ASCII letters, digits, and hyphens only. Length 2-40.",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$",
-      "minLength": 2,
-      "maxLength": 40,
-      "examples": ["bratislava", "skola-kremnica", "sk-inter"]
-    },
-    "version": {
-      "type": "integer",
-      "description": "Brand kit schema version. Bumped when the schema introduces breaking changes. Allows the runtime to apply migration logic for older brand kits.",
-      "const": 1
-    },
-    "displayName": {
-      "type": "string",
-      "description": "Tenant-facing display name, shown in UI alongside or instead of the Inventario wordmark depending on the plan. Free-form, 1-80 chars.",
-      "minLength": 1,
-      "maxLength": 80,
-      "examples": ["Mesto Bratislava", "Stredná škola Kremnica", "ŠK Inter"]
-    },
     "logoUrl": {
-      "type": "string",
-      "format": "uri",
-      "description": "HTTPS URL to a tenant logo (PNG or SVG). Recommended dimensions 256x256 px or SVG with 1:1 aspect ratio. Served from tenant CDN or Inventario asset storage."
-    },
-    "colors": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Brand color overrides. Each value MUST pass WCAG 2.1 AA contrast against its paired foreground in normal text size. The backend rejects payloads where contrast falls below 4.5:1.",
-      "properties": {
-        "primary": {
-          "$ref": "#/$defs/HexColor",
-          "description": "Primary brand color. Overrides --inv-brand-primary. Used for hero backgrounds, primary CTAs, navigation. Inventario default is navy.700 (#1a2d47)."
-        },
-        "primaryFg": {
-          "$ref": "#/$defs/HexColor",
-          "description": "Foreground color used on top of primary. Typically white. Overrides --inv-brand-primary-fg."
-        },
-        "accent": {
-          "$ref": "#/$defs/HexColor",
-          "description": "Accent color. Overrides --inv-brand-accent. Used for links, status highlights, logo dot. Inventario default is blue.500 (#388fc3)."
-        },
-        "accentFg": {
-          "$ref": "#/$defs/HexColor",
-          "description": "Foreground color used on top of accent. Typically white. Overrides --inv-brand-accent-fg."
-        },
-        "logoDot": {
-          "$ref": "#/$defs/HexColor",
-          "description": "Color of the logo accent dot. Per BRAND.md §3 this only applies when the tenant uses a custom logo. Defaults to accent if omitted."
-        }
-      }
-    },
-    "typography": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Optional typography overrides. Most tenants stay with Poppins; enterprise customers occasionally request their corporate font.",
-      "properties": {
-        "fontFamilySans": {
+      "oneOf": [
+        {
           "type": "string",
-          "description": "Font family stack for sans-serif text. MUST end with a generic fallback (sans-serif). The named font MUST be available via the tenant CSS bundle, Inventario default fonts, or system fonts.",
+          "format": "uri",
+          "description": "HTTPS URL to tenant logo. PNG/JPEG/WEBP, recommended 256x256 px, not SVG (PDF rendering limitation). Available on all plans."
+        },
+        { "type": "null" }
+      ]
+    },
+    "faviconUrl": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "HTTPS URL to tenant favicon. Application in v2 (field exists in schema, not yet wired in runtime)."
+        },
+        { "type": "null" }
+      ]
+    },
+    "primary": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HexColor",
+          "description": "Primary brand color. Overrides --inv-brand-primary. WCAG contrast with primaryFg >= 4.5:1 required. Pro+ only."
+        },
+        { "type": "null" }
+      ]
+    },
+    "primaryFg": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HexColor",
+          "description": "Foreground on primary (typically white). Overrides --inv-brand-primary-fg. Pro+ only."
+        },
+        { "type": "null" }
+      ]
+    },
+    "accent": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HexColor",
+          "description": "Accent color. Overrides --inv-brand-accent. WCAG contrast with accentFg >= 4.5:1 required. Pro+ only."
+        },
+        { "type": "null" }
+      ]
+    },
+    "accentFg": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HexColor",
+          "description": "Foreground on accent (typically white). Overrides --inv-brand-accent-fg. Pro+ only."
+        },
+        { "type": "null" }
+      ]
+    },
+    "logoDot": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HexColor",
+          "description": "Logo accent dot color. Overrides --inv-brand-logo-dot. Defaults to accent at runtime if null. Pro+ only."
+        },
+        { "type": "null" }
+      ]
+    },
+    "fontFamilySans": {
+      "oneOf": [
+        {
+          "type": "string",
           "maxLength": 200,
+          "description": "Font family stack for sans-serif text. Must end with a generic fallback (sans-serif). Pro+ only.",
           "examples": [
             "'Open Sans', 'Poppins', system-ui, sans-serif",
             "'IBM Plex Sans', system-ui, sans-serif"
           ]
-        }
-      }
-    },
-    "metadata": {
-      "type": "object",
-      "additionalProperties": true,
-      "description": "Free-form tenant metadata. Not used by the runtime, but persisted alongside the brand kit for audit and support purposes. Avoid storing PII here — that belongs in the organisation profile, not the brand kit.",
-      "properties": {
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
         },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "createdBy": {
-          "type": "string",
-          "description": "User id of the admin who first uploaded the brand kit."
-        },
-        "notes": {
-          "type": "string",
-          "maxLength": 500,
-          "description": "Free-form notes from the tenant admin (e.g. why a specific color was chosen)."
-        }
-      }
+        { "type": "null" }
+      ]
     }
   },
   "$defs": {
     "HexColor": {
       "type": "string",
-      "description": "Hex color in #RRGGBB format. Lowercase letters preferred but uppercase accepted.",
+      "description": "Hex color in #RRGGBB format. Case-insensitive (#1a2d47 and #1A2D47 both valid).",
       "pattern": "^#[0-9a-fA-F]{6}$",
-      "examples": ["#1a2d47", "#388fc3", "#003d7a"]
+      "examples": ["#1a2d47", "#388fc3", "#003d7a", "#ffffff"]
     }
   },
   "examples": [
     {
-      "tenantId": "bratislava",
-      "version": 1,
-      "displayName": "Mesto Bratislava",
-      "logoUrl": "https://cdn.inventario.sportup.sk/tenants/bratislava/logo.svg",
-      "colors": {
-        "primary": "#003d7a",
-        "primaryFg": "#ffffff",
-        "accent": "#ffd700",
-        "accentFg": "#1a2d47"
-      },
-      "metadata": {
-        "createdAt": "2026-06-01T09:00:00Z",
-        "createdBy": "user_abc123",
-        "notes": "Modrá pochádza z mestského erbu, zlatá z radničnej veže."
-      }
+      "logoUrl": "https://sfz.sk/logo.png",
+      "primary": "#003d7a",
+      "primaryFg": "#ffffff",
+      "accent": "#ffd700",
+      "accentFg": "#1a2d47",
+      "logoDot": "#ffd700",
+      "fontFamilySans": null
     },
     {
-      "tenantId": "skola-kremnica",
-      "version": 1,
-      "displayName": "Stredná škola Kremnica",
-      "colors": {
-        "primary": "#2c5f2d",
-        "primaryFg": "#ffffff",
-        "accent": "#97bc62",
-        "accentFg": "#1a2d47"
-      }
+      "logoUrl": null,
+      "primary": "#2c5f2d",
+      "primaryFg": "#ffffff",
+      "accent": "#97bc62",
+      "accentFg": "#1a2d47",
+      "logoDot": null,
+      "fontFamilySans": "'Open Sans', system-ui, sans-serif"
     }
   ]
 }
