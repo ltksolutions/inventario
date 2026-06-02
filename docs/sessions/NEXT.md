@@ -5,12 +5,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # NEXT — čo robiť v ďalšej session
 
-| Atribút                   | Hodnota                                                        |
-| ------------------------- | -------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-02 (ADR-0027 L5 frontend — ADR-0027 UZAVRETÝ)          |
-| **Aktuálna fáza**         | Production LIVE — dev pokračuje, cieľ: čím skôr reálny testing |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                  |
-| **GitHub**                | https://github.com/ltksolutions/inventario                     |
+| Atribút                   | Hodnota                                                       |
+| ------------------------- | ------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0017 rev — MCP tool catalog + Slice #10 TODO) |
+| **Aktuálna fáza**         | Production LIVE — všetky pred-pilotné featury hotové          |
+| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                 |
+| **GitHub**                | https://github.com/ltksolutions/inventario                    |
 
 ---
 
@@ -22,52 +22,42 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## ✅ Hotové (posledná session, 2026-06-02)
 
-**ADR-0027 L5** (frontend QR štítky) — session doc: [`docs/sessions/2026-06-02-adr-0027-l5-frontend.md`](./2026-06-02-adr-0027-l5-frontend.md)
+**ADR-0017 rev** (MCP server — aktualizácia tool catalogu) — session doc: [`docs/sessions/2026-06-02-adr-0017-mcp-rev.md`](./2026-06-02-adr-0017-mcp-rev.md)
 
-- `LabelPrintButton` — detail page: PDF (window.open) alebo ZPL (Browser Print), fallback
-- `BatchLabelPrintButton` — zoznam: preset dropdown, dávková ZPL tlač, max 200
-- `AssetDetailContent` — `LabelPrintButton` vedľa Upraviť, `useCurrentOrganisation` hook
-- `AssetsListContent` — multi-select (Vybrať všetky na strane), `BatchLabelPrintButton` v header
-- `OrganisationSummary` rozšírená o `labelPrinting` typ
+- Tool catalog zosúladený s modulmi ADR-0020 až 0027: read 10 → 18, write 7 → 11 (29 tools)
+- Opravené nereálne nástroje (`extend_loan` → fulfil/direct/return/lost po ADR-0023/0026)
+- EXCLUDED rozšírený (podpis protokolu, QR/štítky download, verejný scan, stock reconcile)
+- Implementačný plán: 24 K-blokov (pribudol K13b stock read), baseline 825 → target ~848 testov
+- TODO.md #14 prepísaný na odpracovateľný plán (5 fáz, K-bloky, modely, checkboxy)
 
-**ADR-0027 je UZAVRETÝ** ✅ (L1–L7 kompletné)
+**Housekeeping:** CRON_SECRET potvrdený (Vercel) → TODO #8 ✅; TODO #16 (ADR-0027) hlavička opravená na ✅ DONE.
 
 ---
 
 ## 🔥 Ďalší krok
 
-### 1. Typecheck + test + commit
+### 1. Push
 
-```bash
-pnpm typecheck
-pnpm test
-```
+Commit `096702e` (ADR-0017 rev + TODO) + tento „poupratuj" commit (NEXT.md + session doc) → **push cez GitHub Desktop**.
 
-Frontend commit (header-only):
+### 2. SFZ pilot onboarding
 
-```
-feat(labels): L5 frontend label printing (LabelPrintButton + batch)
-```
+Hlavný ďalší krok — reálny testing s prvým tenantom. Celý systém je pripravený:
 
-### 2. Deploy + smoke test
-
-Po push na main: Vercel deploy automaticky. Smoke test:
-
-- Detail stránka assetu → viditeľné tlačidlo „Tlačiť štítok"
-- PDF tlač → otvorí sa nová záložka s PDF
-- Zoznam assetov → „Vybrať všetky na strane" → „Tlačiť N štítkov" button
-
-### 3. SFZ pilot onboarding
-
-Odporúčaný nasledujúci krok — reálny testing s prvým tenantom.
+- Auth (SSO, email, MFA, passkeys), assets, číselníky, loans + protokoly, QR + štítky,
+  stock, DSAR práva — všetko hotové a otestované (825 testov).
+- Počas pilotu overiť dve veci, ktoré nejdú bez hardvéru: Zebra Browser Print + ZD420
+  (ZPL tlač + SK diakritika), a retention cron (CRON_SECRET je nastavený).
 
 ---
 
 ## 📋 Otvorené položky (z TODO.md)
 
-- SFZ pilot onboarding
-- Migrations at deploy-time (dlhodobé)
-- ADR-0027 L5 Browser Print — reálny test so ZD420 počas pilotu
+- **SFZ pilot onboarding** (ďalší krok)
+- **P3 compliance docs** — whitepaper, security policy, data retention schedule, DPIA pack (písanie, nie kód)
+- **P4 podľa dopytu** — Slice #10 MCP server (Q1 2027, pripravený v TODO #14), follow-up featury
+- Migrations at deploy-time (dlhodobé, pri škálovaní)
+- Zmazať staré SFZ Atlas clustre
 
 ---
 
@@ -81,5 +71,5 @@ Odporúčaný nasledujúci krok — reálny testing s prvým tenantom.
 
 ---
 
-**Last updated:** 2026-06-02 (ADR-0027 kompletný)
+**Last updated:** 2026-06-02 (ADR-0017 rev — MCP pripravený na Slice #10)
 **Tests:** 825 zelených (backend) | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
