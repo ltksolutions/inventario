@@ -55,3 +55,5 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0024 | [Odstránenie role TEAM_MANAGER](0024-remove-team-manager-role.md)                                                | ✅ Accepted                                               | 2026-05-31 |
 | 0025 | [Výpožičky bez termínu (open-ended) + dotiahnutie formulára žiadosti](0025-open-ended-loans-and-request-form.md) | ✅ Accepted                                               | 2026-06-01 |
 | 0026 | [Katalógové žiadosti (kategória + množstvo) + oddelené vydávanie](0026-catalog-requests-and-fulfilment.md)       | ✅ Accepted                                               | 2026-06-01 |
+| 0027 | [Tlač QR štítkov — Avery PDF hárky + Zebra ZPL](0027-qr-label-printing.md)                                       | ✅ Accepted                                               | 2026-06-01 |
+| 0028 | [Per-tenant branding — logo, farby a font (end-to-end)](0028-per-tenant-branding.md)                             | 📝 Proposed                                               | 2026-06-02 |

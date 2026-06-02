@@ -14,8 +14,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-02 (ADR-0022 + ADR-0027 kompletné)                                           |
-| **Stav projektu**         | Production LIVE ✅ — všetky pred-pilotné featury hotové, pripravené na SFZ pilot     |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0028 per-tenant branding navrhnutý)                                  |
+| **Stav projektu**         | Production LIVE ✅ — pred-pilotné featury hotové; ADR-0028 branding čaká na impl     |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
 
@@ -140,23 +140,24 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] L2 — `renderLabelSheetPdf()` Avery mrižky, finderText, logo v strede QR ✅
   - [x] L3 — `renderLabelZpl()` ZPL builder, `^CI28`, finderText ✅
   - [x] L4 — routes: GET /v1/labels/sheet, GET /v1/assets/:id/label?format=zpl, POST /v1/labels/zpl ✅
-  - [ ] L5 — frontend: tlačidle na detaile + dávková tlač; PDF dialóg / Zebra Browser Print (separátna session)
+  - [x] L5 — frontend: `LabelPrintButton` + `BatchLabelPrintButton` (PDF / Zebra Browser Print) ✅
   - [x] L6 — 27 testov (unit ZPL + unit PDF + integration) ✅
   - [x] L7 — session doc ✅
 
-- **Stav:** ADR ✅ Accepted (2026-06-01), žiadny `labels` modul v API
-- **Model:** Sonnet (L1–L6), Haiku (L1 schéma doplnky + L7 docs)
-- **ADR:** [`docs/decisions/0027-qr-label-printing.md`](./decisions/0027-qr-label-printing.md)
-- **Rozhodnutie:** PDF Avery hárok = default (každý tenant); Zebra ZPL = opt-in per tenant (`labelPrinting.mode`); doručenie ZPL cez Zebra Browser Print (lokálny agent), backend nikdy nekomunikuje s tlačiarňou; vlastný ZPL builder bez závisu
-- **Rozsah (L1–L7):**
-  - [ ] L1 — `OrganisationLabelSettingsSchema` (`labelPrinting`) na `Organisation`; openapi regen; **doplniť `labelPrinting: null` do všetkých org-create ciest** (JIT, register, oauth, test fixtures — rovnaká pasca ako `protocolSettings`)
-  - [ ] L2 — `renderLabelSheetPdf()` Avery mriežka (QR + inventoryNumber + názov, DejaVu Sans, ≥1 preset, deterministický)
-  - [ ] L3 — `renderLabelZpl()` vlastný ZPL builder (`^BQ` QR + `^FD` text + `^CI28` UTF-8, rozmery z configu)
-  - [ ] L4 — routes: `GET /v1/labels/sheet`, `GET /v1/assets/:id/label?format=zpl`, `POST /v1/labels/zpl` (EMPLOYEE+, on-demand)
-  - [ ] L5 — frontend: tlačidlo na detaile + dávková tlač; podľa `mode` buď PDF (OS dialóg) alebo Zebra Browser Print agent
-  - [ ] L6 — testy: deterministický PDF, ZPL snapshot, diakritika `^CI28`, cross-tenant, fork doména v QR, RBAC, dávka
-  - [ ] L7 — milestone doc + návod pre tenanta „ako nainštalovať Browser Print"
-- **Zdieľa s ADR-0022:** `pdf-lib` + embedovaný DejaVu Sans + on-demand render princíp (rozumné robiť po/spolu s protokolmi K2)
+### 17. ADR-0028 — Per-tenant branding (logo + farby + font)
+
+- **Stav:** 📝 ADR Proposed (2026-06-02) — design hotový, čaká na implementáciu
+- **ADR:** [`docs/decisions/0028-per-tenant-branding.md`](./decisions/0028-per-tenant-branding.md)
+- **Problém (audit 2026-06-02):** white-label branding z dema (Inter/Pezinok/Kremnica) **nie je v produkcii zapojený**. Dve nezhodné schémy (Zod vs design-tokens JSON), `tokens.css` override mechanika len zakomentovaná, web app `brandKit` zahadzuje, `/settings/organisation` branding neponúka. Logo v PDF/štítkoch padá na default Inventario (nedá sa nastaviť `logoUrl`).
+- **Rozhodnutia (Q1–Q6):** Zod = zdroj pravdy (+`logoDot`, žiadna migrácia) · logo v1 = externá HTTPS URL (upload v2) · farby/font klientsky cez `data-tenant` + injektovaný `<style>` (FOUC ok v1) · WCAG tvrdé odmietnutie <4.5:1 · logo=všetky plány, farby/font=Pro+ · v1 rozsah bez uploadu/SSR/favicon
+- **Model:** Sonnet (B1–B9), Haiku/Sonnet (B10 docs)
+- **Rozsah — 10 blokov v 4 fázach (detail v ADR-0028 „Implementačný plán“):**
+  - [ ] **Fáza 1 — schéma + backend (~1.5 dňa):** B1 `HexColorSchema` + `logoDot`, zladiť JSON schému · B2 WCAG kontrast util + testy · B3 PATCH `brandKit` + plán gating + WCAG + logo URL check + audit · B4 integračné testy (gating, kontrast, SVG, happy path)
+  - [ ] **Fáza 2 — runtime (~1 deň):** B5 `BrandProvider` (`data-tenant` + `<style>`, koniec `unknown`) · B6 logo v `AppShell` headeri (fallback wordmark)
+  - [ ] **Fáza 3 — admin UI (~1 deň):** B7 „Branding" sekcia (logo URL + náhľad, farby, font) · B8 živý náhľad + kontrast indikátor + plán gating
+  - [ ] **Fáza 4 — testy + docs (~0.5 dňa):** B9 frontend testy + openapi regen · B10 milestone/session + user-guide „Nastavenie loga a farieb"
+- **Pozn.:** nie je blocker pre pilot (default brand funguje), ale **logo na protokoloch/štítkoch je viditeľná pilotná bolesť**. Po dokončení SFZ nastaviť `logoUrl` (PNG, nie SVG). FREE pilot dostane logo; farby vyžadujú dočasné povýšenie plánu.
+- **Zdieľa:** `loadLogo()` (ADR-0022) — featura ho len odomkne tým, že `logoUrl` sa dá nastaviť.
 
 ---
 
