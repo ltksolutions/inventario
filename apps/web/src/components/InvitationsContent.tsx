@@ -16,7 +16,7 @@
  * user nie je ADMIN).
  */
 
-import { Loader2, Mail, Trash2, UserPlus } from 'lucide-react';
+import { Loader2, Mail, RotateCcw, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { FormEvent, JSX } from 'react';
@@ -110,6 +110,9 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
 
   // Revoke state
   const [revoking, setRevoking] = useState<string | null>(null);
+  // Resend state (ADR-0015 — backend POST /v1/invitations/:id/resend už existuje)
+  const [resending, setResending] = useState<string | null>(null);
+  const [resendSuccess, setResendSuccess] = useState('');
 
   // -------------------------------------------------------------------------
   // Load invitations
@@ -208,6 +211,32 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
       setFetchError('Sieťová chyba. Skúste znova.');
     } finally {
       setRevoking(null);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Resend invitation (nový token + predĺžená platnosť, znovu odošle e-mail)
+  // -------------------------------------------------------------------------
+  const handleResend = async (id: string, invEmail: string): Promise<void> => {
+    setResending(id);
+    setResendSuccess('');
+    setFetchError('');
+    try {
+      const res = await fetch(`${API_BASE}/v1/invitations/${id}/resend`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setResendSuccess(`Pozvánka bola znovu odoslaná na ${invEmail}.`);
+        void load(q);
+      } else {
+        const body = (await res.json()) as { message?: string };
+        setFetchError(body.message ?? 'Nepodarilo sa znovu odoslať pozvánku.');
+      }
+    } catch {
+      setFetchError('Sieťová chyba. Skúste znova.');
+    } finally {
+      setResending(null);
     }
   };
 
@@ -365,6 +394,11 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
           />
         </div>
 
+        {resendSuccess && (
+          <div className="mb-3 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+            {resendSuccess}
+          </div>
+        )}
         {fetchError && (
           <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{fetchError}</div>
         )}
@@ -406,7 +440,9 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
                     key={inv._id}
                     inv={inv}
                     revoking={revoking === inv._id}
+                    resending={resending === inv._id}
                     onRevoke={() => void handleRevoke(inv._id, inv.email)}
+                    onResend={() => void handleResend(inv._id, inv.email)}
                   />
                 ))}
               </tbody>
@@ -425,11 +461,15 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
 function InvitationRow({
   inv,
   revoking,
+  resending,
   onRevoke,
+  onResend,
 }: {
   inv: PendingInvitation;
   revoking: boolean;
+  resending: boolean;
   onRevoke: () => void;
+  onResend: () => void;
 }): JSX.Element {
   const expiresAt = new Date(inv.expiresAt);
   const isExpired = expiresAt < new Date();
@@ -449,21 +489,37 @@ function InvitationRow({
           {isExpired ? 'Vypršaná' : expiresAt.toLocaleDateString('sk-SK')}
         </span>
       </td>
-      <td className="px-4 py-3 text-right">
-        <button
-          type="button"
-          onClick={onRevoke}
-          disabled={revoking}
-          title="Odvolať pozvánku"
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-        >
-          {revoking ? (
-            <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
-          ) : (
-            <Trash2 aria-hidden="true" className="h-3 w-3" />
-          )}
-          Odvolať
-        </button>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={onResend}
+            disabled={resending || revoking}
+            title="Odoslať pozvánku znovu (nový odkaz, predĺžená platnosť)"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle hover:text-text-primary disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            {resending ? (
+              <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+            ) : (
+              <RotateCcw aria-hidden="true" className="h-3 w-3" />
+            )}
+            Odoslať znovu
+          </button>
+          <button
+            type="button"
+            onClick={onRevoke}
+            disabled={revoking || resending}
+            title="Odvolať pozvánku"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            {revoking ? (
+              <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+            ) : (
+              <Trash2 aria-hidden="true" className="h-3 w-3" />
+            )}
+            Odvolať
+          </button>
+        </div>
       </td>
     </tr>
   );
