@@ -213,7 +213,7 @@ function Header({
           <div className="hidden min-w-0 text-right sm:block">
             <p className="truncate text-sm font-medium text-brand-primary-fg">{userName}</p>
             {roles.length > 0 && (
-              <p className="truncate text-xs text-brand-primary-fg/70">{formatRoles(roles)}</p>
+              <p className="truncate text-xs text-brand-primary-fg/80">{formatRoles(roles)}</p>
             )}
           </div>
           <LogoutButton />
