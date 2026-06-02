@@ -110,9 +110,9 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Plán ďalšej session:** [`docs/sessions/2026-06-01-loan-protocols-plan.md`](./sessions/2026-06-01-loan-protocols-plan.md)
 - **Rozsah (K1–K8):**
   - [x] **K1** — schéma: odstránený `pdfAttachmentId` z `LoanProtocolSchema`; openapi regen ✅ (2026-06-01)
-  - [ ] K2 — embedovaný font (DejaVu/Noto) + `@pdf-lib/fontkit` + default logo rasterizácia (SVG→PNG); `renderProtocolPdf()` deterministický renderer
-  - [ ] K3 — `protocolNumber` transakčný generátor (`PROT-YYYY-NNNNNN`, scoped org+rok, unique index)
-  - [ ] K4 — `LoanProtocolsRepository` + service: vznik DRAFT protokolu v transakciách `fulfilLoanRequest` (HANDOVER), `createDirectLoan` (HANDOVER), `returnLoan` (RETURN); nastavenie `Loan.*ProtocolId`
+  - [x] **K2** — `pdf-lib` + `@pdf-lib/fontkit`; DejaVu Sans TTF + default logo PNG v repo; `renderProtocolPdf()` deterministický renderer; `loadLogo()` helper; 9 unit testov ✅ (2026-06-02)
+  - [x] **K3** — `generateProtocolNumber()` cez `counters` collection, race-safe, 7 unit testov ✅ (2026-06-02)
+  - [x] **K4** — `LoanProtocolsRepository`; `insertDraftProtocol()` helper v `LoansService`; HANDOVER v fulfil+direct, RETURN v returnLoan; `Loan.*ProtocolId` nastavený v transakcii ✅ (2026-06-02)
   - [ ] K5 — routes: `GET /v1/loans/:id/protocols`, `GET /v1/protocols/:id`, `GET /v1/protocols/:id/pdf` (on-demand render), RBAC
   - [ ] K6 — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN), prechod `DRAFT → SIGNED`, fixácia `pdfSha256`
   - [ ] K7 — testy: determinizmus renderu (dvojitý render → rovnaký hash), diakritika, číslovanie + race, RBAC, cross-tenant, snapshot-not-live, stránkovanie 25+ poloziek

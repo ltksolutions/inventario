@@ -3,109 +3,83 @@ SPDX-FileCopyrightText: 2026 Jan Letko / LTK Solutions
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# NEXT — co robit v dalšej session
+# NEXT — čo robiť v ďalšej session
 
 > **Living document.** Vždy aktuálny stav projektu a najbližšie kroky.
 
 | Atribút                   | Hodnota                                                        |
 | ------------------------- | -------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-01 (ADR-0027 label printing prijatý)                   |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0022 K2–K4 hotové)                             |
 | **Aktuálna fáza**         | Production LIVE — dev pokračuje, cieľ: čím skôr reálny testing |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                  |
 | **GitHub**                | https://github.com/ltksolutions/inventario                     |
 
 ---
 
-## 🎯 Vedúci princíp pre celý ďalší vývoj
+## 🎯 Vedúci princíp
 
-**Všetko musí byť praktické pre bežnú dennú prevádzku z reálneho života.** Nie demo-ware,
-ale nástroj, ktorý správca majetku reálne používa každý deň. Pri každom kroku sa pýtať:
-„zvládne to človek pri pulte / v sklade / na ihrisku bez školenia?". **Cieľ: čím skôr
-reálny testing so SFZ** — funkcionalita je hotová/rozpracovaná, teraz ju treba dostať
-do rúk reálnemu používateľovi.
+**Všetko musí byť praktické pre bežnú dennú prevádzku z reálneho života.** Pri každom kroku sa pýtať: „zvládne to človek pri pulte / v sklade / na ihrisku bez školenia?". **Cieľ: čím skôr reálny testing so SFZ.**
 
 ---
 
-## ✅ Hotové (tento blok sessions, 2026-06-01)
+## ✅ Hotové (posledná session, 2026-06-02)
 
-- **DSAR čl. 16/17/18/20** — export, patch-me, erasure, restrict (kompletné, otestované)
-- **Retention job #8** — live na prod, cron `0 3 1 * *` beží, smoke test 200
-- **email_unique index** — prod má správne 4 indexy, SFZ pilot odblokovaný
-- **ADR-0021 QR kódy** — K1–K7 kompletné
-- **ADR-0022 Preberacie protokoly** — K1 hotový (schéma + paperSize snapshot + protocolSettings)
-- **ADR-0027 Tlač QR štítkov** — prijaté (Avery PDF default + Zebra ZPL opt-in + text pod QR)
+**ADR-0022 K2–K4** — session doc: [`docs/sessions/2026-06-02-adr-0022-k2-k4.md`](./2026-06-02-adr-0022-k2-k4.md)
 
-Smoke test prod (hotový): export, patch/me, retention cron — všetko zelené. Cron viditeľný
-vo Vercel → Settings → Crons.
+- **K2** — `pdf-lib` + `@pdf-lib/fontkit`; DejaVu Sans TTF + default logo PNG v repo; `renderProtocolPdf()` deterministický renderer (A4/LETTER, hlavička, tabuľka, stránkovanie 25+, pätka s podpismi); `loadLogo()` helper (fetch + timeout + fallback, SVG odmietnutý); 9 unit testov vrátane kritického byte-equality determinizmus testu
+- **K3** — `generateProtocolNumber()` cez `counters` collection, `$inc + upsert`, race-safe (10 súbežných → 10 unikátnych), 7 unit testov
+- **K4** — `LoanProtocolsRepository` (insert, findById, findByLoanId, update, indexy); `insertDraftProtocol()` helper v `LoansService`; HANDOVER protokol v `fulfilLoanRequest` + `createDirectLoan`; RETURN protokol v `returnLoan`; `Loan.*ProtocolId` nastavený v tej istej transakcii
+
+**Stav testov:** 783/783 zelené ✅
 
 ---
 
-## 🔥 Zajtra pokračujeme s developom
+## 🔥 Ďalší krok — ADR-0022 K5–K8
 
-Dve veľké featury čakajú impl, **zdieľajú render stack** (`pdf-lib` + embedovaný DejaVu Sans),
-preto sa oplatí robiť ich blízko seba. Obe sú „po pilote / podľa potreby" v zmysle ADR, ale
-Jan ich chce dorobiť pred reálnym testingom, aby pilot videl praktickú hodnotu.
+**Session B** (routes + podpis + testy + docs). Odporúčaný model: **Sonnet 4.6** (K5–K7), **Haiku 4.5** (K8).
 
-### A. ADR-0022 Preberacie protokoly — K2–K8
+### K5 — Routes (read + PDF on-demand)
 
-**Plán:** [`docs/sessions/2026-06-01-loan-protocols-plan.md`](./2026-06-01-loan-protocols-plan.md)
+- `GET /v1/loans/:id/protocols` — zoznam protokolov k zápožičke
+- `GET /v1/protocols/:id` — metadata protokolu (JSON)
+- `GET /v1/protocols/:id/pdf` — on-demand render; doplniť borrower snapshot + paperSize pri inserte; voliteľný lazy `pdfSha256`
+- RBAC: účastník protokolu (borrower) ALEBO ASSET_MANAGER+ADMIN
+- Cross-tenant izolácia (organisationId scope)
+- **Doplniť** `LoanProtocolsRepository.ensureIndexes()` do server startup (loans routes plugin)
 
-Rozhodnutia R1–R3 sú **uzavreté** (diskusia 2026-06-01):
+### K6 — Podpis (CLICK_TO_SIGN)
 
-- **Font:** DejaVu Sans, jeden default, žiadny per-tenant výber
-- **Papier:** A4 default, per-tenant A4/LETTER, snapshot na zázname (schéma hotová v K1)
-- **Logo:** per-tenant z `brandKit.logoUrl`, bez cache, s timeout + fallback na default
+- `POST /v1/protocols/:id/sign` — zapíše `signatures.handover` / `.receive`
+- Keď obe strany podpísané → `DRAFT → SIGNED`
+- Pri SIGNED: dopočítať + fixovať `pdfSha256`
+- Rozhodnutie logo-vs-hash (ADR-0022 R3 poznámka) — zafixovať logo bytes pri podpise, alebo akceptovať verziu v čase podpisu?
+- RBAC: len príslušná strana
 
-K2 (renderer) = prvý krok, najväčší kus, **samostatná session s čistou hlavou** (determinizmus
-renderu je kritický invariant — povinný byte-equality test). K3 číslo → K4 service integrácia
-→ K5 routes → K6 podpis → K7 testy → K8 docs.
+### K7 — Testy
 
-### B. ADR-0027 Tlač QR štítkov — L1–L7
+- Determinizmus: dvojitý render → rovnaký hash (kritický invariant)
+- Diakritika SK
+- `protocolNumber` race (dva súbežné fulfil)
+- RBAC — borrower vidí svoje, manager všetky, cudzí 403
+- Cross-tenant izolácia
+- Snapshot-not-live — zmena assetu po vzniku nezmení protokol
+- Logo fallback — neplatná URL → default logo, render nespadne
+- Stránkovanie 25+ položiek
+- Multi-fulfil: každý fulfil = vlastný HANDOVER protokol
 
-**ADR:** [`docs/decisions/0027-qr-label-printing.md`](../decisions/0027-qr-label-printing.md)
+### K8 — Docs (Haiku)
 
-- **Avery PDF hárok** = default (každý tenant, akákoľvek tlačiareň)
-- **Zebra ZPL** = opt-in per tenant (`labelPrinting.mode`), doručenie cez Zebra Browser Print
-  (lokálny agent), backend nikdy nekomunikuje s tlačiarňou
-- **Vlastný ZPL builder** bez závisu; **sprievodný text pod QR** (opt-in, „naskenuj ma")
-- **Pozor L1:** `labelPrinting: null` doplniť do všetkých org-create ciest — rovnaká pasca
-  ako `protocolSettings` dnes (JIT, register, oauth, test fixtures)
-
-> **Synergia:** L2 (label sheet PDF) zdieľa `pdf-lib` + DejaVu Sans s protokolmi K2. Keď
-> postavíš renderer pre protokoly, label sheet je z veľkej časti ten istý stack. Rozumné
-> poradie: protokoly K2–K4, potom label L1–L4 (recyklujú render), potom dokončiť oboje.
-
-### Workflow pripomienka pre zajtra
-
-- Po každej zmene schémy: `pnpm --filter @inventario/shared-types build` → `openapi:export:offline` → `pnpm test`
-- Pre-commit hook chytá typecheck — ak pridáš required pole na `Organisation`, **doplň ho do
-  všetkých org-create ciest** (5 miest: JIT service, register, oauth, 2× test fixtures)
-- Header-only commit messages (GitHub Desktop blank-line pasca)
-- Model: K2/L2 renderery = Sonnet; číslo/service/routes = Sonnet; docs/milestone = Haiku
+- Milestone doc
+- Session log
+- Zatvoriť #7 v TODO.md → presun do milestone docu
+- Aktualizovať NEXT.md
 
 ---
 
-## 🚀 Reálny testing — čím skôr
+## 📋 Po ADR-0022 — ADR-0027 Tlač QR štítkov
 
-Cieľ po dorobení A+B (alebo aj priebežne). Plán hotový:
-[`docs/sessions/2026-06-01-sfz-pilot-onboarding-plan.md`](./2026-06-01-sfz-pilot-onboarding-plan.md)
-
-**Kritický gate (Fáza 0):** prejsť self-serve registráciu sám na testovacom konte, než pozveš
-SFZ. Self-serve flow už existuje a je kompletný (overené v kóde) — „komplikované na Entra" je
-config/verifikácia, nie chýbajúci kód. Overiť OAuth env vars na Verceli + redirect URI v
-Google/Azure konzole.
-
-**Praktický test so SFZ ZD420:** ZPL štítok naskenovať reálne z termotlačiarne — overiť QR
-modul size pri 203 dpi (riziko z ADR-0027). Toto je presne ten „reálny život" test.
-
----
-
-## 📋 Backlog po A+B (poradie podľa Jana)
-
-1. **REUSE/EUPL technická compliance** — `reuse lint` zelený, SPDX hlavičky, LICENSES/ (kompletne dotiahnuť)
-2. **Onboarding wizard** — až po pilote (pilot povie čo má riešiť; stavať naslepo = prerábka)
-3. **EÚ fondy** — až keď bude konkrétna výzva (právna/dotačná oblasť, nie kódovanie)
-4. **Compliance docs** (položky 9–12 v TODO.md)
+Zdieľa `pdf-lib` + DejaVu Sans s protokolmi — rozumné robiť hneď po K8.
+Viď TODO.md položka #16.
 
 ---
 
@@ -119,5 +93,14 @@ modul size pri 203 dpi (riziko z ADR-0027). Toto je presne ten „reálny život
 
 ---
 
-**Last updated:** 2026-06-01 (ADR-0027 label printing prijatý)
-**Tests:** zelené ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
+## Workflow pripomienka
+
+- Po zmene schém: `pnpm --filter @inventario/shared-types build` → `openapi:export:offline` → `pnpm test`
+- Header-only commit messages (GitHub Desktop blank-line pasca)
+- `LoanProtocolsRepository.ensureIndexes()` treba zaregistrovať v loans routes plugin pri K5
+- Borrower snapshot + paperSize sa doplnia v K5 route handleri (pred insertom cez service)
+
+---
+
+**Last updated:** 2026-06-02 (K2–K4 hotové)
+**Tests:** 783 zelených ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
