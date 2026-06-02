@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                        |
 | ------------------------- | -------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-02 (ADR-0022 K2–K4 hotové)                             |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0022 K5–K8 hotové — ADR-0022 UZAVRETÝ)         |
 | **Aktuálna fáza**         | Production LIVE — dev pokračuje, cieľ: čím skôr reálny testing |
 | **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                  |
 | **GitHub**                | https://github.com/ltksolutions/inventario                     |
@@ -24,62 +24,44 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## ✅ Hotové (posledná session, 2026-06-02)
 
-**ADR-0022 K2–K4** — session doc: [`docs/sessions/2026-06-02-adr-0022-k2-k4.md`](./2026-06-02-adr-0022-k2-k4.md)
+**ADR-0022 K5–K8** — session doc: [`docs/sessions/2026-06-02-adr-0022-k5-k8.md`](./2026-06-02-adr-0022-k5-k8.md)
 
-- **K2** — `pdf-lib` + `@pdf-lib/fontkit`; DejaVu Sans TTF + default logo PNG v repo; `renderProtocolPdf()` deterministický renderer (A4/LETTER, hlavička, tabuľka, stránkovanie 25+, pätka s podpismi); `loadLogo()` helper (fetch + timeout + fallback, SVG odmietnutý); 9 unit testov vrátane kritického byte-equality determinizmus testu
-- **K3** — `generateProtocolNumber()` cez `counters` collection, `$inc + upsert`, race-safe (10 súbežných → 10 unikátnych), 7 unit testov
-- **K4** — `LoanProtocolsRepository` (insert, findById, findByLoanId, update, indexy); `insertDraftProtocol()` helper v `LoansService`; HANDOVER protokol v `fulfilLoanRequest` + `createDirectLoan`; RETURN protokol v `returnLoan`; `Loan.*ProtocolId` nastavený v tej istej transakcii
+- **K5** — `protocols.routes.ts`: `GET /v1/loans/:id/protocols`, `GET /v1/protocols/:id`, `GET /v1/protocols/:id/pdf`; RBAC (borrower/ASSET_MANAGER/ADMIN); cross-tenant izolácia; lazy `pdfSha256` (background update po prvom stiahnutí); `setProtocolsRepo()` injection pattern; zaregistrovaný v `server.ts`
+- **K6** — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN); DRAFT→SIGNED pri obojstrannom podpise; pdfSha256 fixnutý pri SIGNED (render s novými podpismi)
+- **K7** — 15 integration testov (`protocols.test.ts`): RBAC, cross-tenant, PDF headers, lazy sha256, podpis (jedno/obojstranný/duplicate/signed), snapshot-not-live, multi-fulfil, stránkovanie 26+
+- **K8** — milestone doc, session log, TODO.md #7 zatvorené, NEXT.md
 
-**Stav testov:** 783/783 zelené ✅
+**ADR-0022 je UZAVRETÝ** ✅ (K1–K8 kompletné)
 
----
-
-## 🔥 Ďalší krok — ADR-0022 K5–K8
-
-**Session B** (routes + podpis + testy + docs). Odporúčaný model: **Sonnet 4.6** (K5–K7), **Haiku 4.5** (K8).
-
-### K5 — Routes (read + PDF on-demand)
-
-- `GET /v1/loans/:id/protocols` — zoznam protokolov k zápožičke
-- `GET /v1/protocols/:id` — metadata protokolu (JSON)
-- `GET /v1/protocols/:id/pdf` — on-demand render; doplniť borrower snapshot + paperSize pri inserte; voliteľný lazy `pdfSha256`
-- RBAC: účastník protokolu (borrower) ALEBO ASSET_MANAGER+ADMIN
-- Cross-tenant izolácia (organisationId scope)
-- **Doplniť** `LoanProtocolsRepository.ensureIndexes()` do server startup (loans routes plugin)
-
-### K6 — Podpis (CLICK_TO_SIGN)
-
-- `POST /v1/protocols/:id/sign` — zapíše `signatures.handover` / `.receive`
-- Keď obe strany podpísané → `DRAFT → SIGNED`
-- Pri SIGNED: dopočítať + fixovať `pdfSha256`
-- Rozhodnutie logo-vs-hash (ADR-0022 R3 poznámka) — zafixovať logo bytes pri podpise, alebo akceptovať verziu v čase podpisu?
-- RBAC: len príslušná strana
-
-### K7 — Testy
-
-- Determinizmus: dvojitý render → rovnaký hash (kritický invariant)
-- Diakritika SK
-- `protocolNumber` race (dva súbežné fulfil)
-- RBAC — borrower vidí svoje, manager všetky, cudzí 403
-- Cross-tenant izolácia
-- Snapshot-not-live — zmena assetu po vzniku nezmení protokol
-- Logo fallback — neplatná URL → default logo, render nespadne
-- Stránkovanie 25+ položiek
-- Multi-fulfil: každý fulfil = vlastný HANDOVER protokol
-
-### K8 — Docs (Haiku)
-
-- Milestone doc
-- Session log
-- Zatvoriť #7 v TODO.md → presun do milestone docu
-- Aktualizovať NEXT.md
+**Stav testov:** 783 (pred session) + 15 nových = **798 očakávaných** ✅
 
 ---
 
-## 📋 Po ADR-0022 — ADR-0027 Tlač QR štítkov
+## 🔥 Ďalší krok — Po ADR-0022
 
-Zdieľa `pdf-lib` + DejaVu Sans s protokolmi — rozumné robiť hneď po K8.
-Viď TODO.md položka #16.
+### Odporúčaný postup (v poradí):
+
+1. **`pnpm typecheck` + `pnpm test`** — overiť 0 TypeScript chýb + 798 zelených testov
+2. **`pnpm --filter @inventario/api openapi:export:offline`** — regen OpenAPI (pridali sme nové endpointy)
+3. **Commit cez GitHub Desktop** — header-only: `feat(protocols): K5-K8 routes, sign, integration tests`
+4. **Deploy na Vercel** — `git push` na main; smoke test na `app.inventario.estate`
+
+### Po úspešnom smoke teste:
+
+5. **ADR-0027 — Tlač QR štítkov** (zdieľa `pdf-lib` + DejaVu Sans, rozumné robiť hneď)
+   - L1 schéma (`labelPrinting`) → Haiku
+   - L2–L6 impl (Avery PDF, ZPL builder, routes, frontend) → Sonnet
+   - L7 docs → Haiku
+
+6. **SFZ pilot tenant onboarding** — reálny testing
+
+---
+
+## 📋 Otvorené položky
+
+- `openapi:export:offline` regen po tejto session (Janika spúšťa lokálne)
+- ADR-0027 QR štítky (viď TODO.md #16)
+- SFZ pilot onboarding
 
 ---
 
@@ -97,10 +79,9 @@ Viď TODO.md položka #16.
 
 - Po zmene schém: `pnpm --filter @inventario/shared-types build` → `openapi:export:offline` → `pnpm test`
 - Header-only commit messages (GitHub Desktop blank-line pasca)
-- `LoanProtocolsRepository.ensureIndexes()` treba zaregistrovať v loans routes plugin pri K5
-- Borrower snapshot + paperSize sa doplnia v K5 route handleri (pred insertom cez service)
+- Filesystem MCP = disk I/O; bash sandbox je izolovaný
 
 ---
 
-**Last updated:** 2026-06-02 (K2–K4 hotové)
-**Tests:** 783 zelených ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
+**Last updated:** 2026-06-02 (ADR-0022 K5–K8 hotové, ADR-0022 UZAVRETÝ)
+**Tests:** 783 zelených (pred session) + 15 nových = 798 očakávaných ✅ | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅

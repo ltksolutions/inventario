@@ -4897,6 +4897,184 @@
         }
       }
     },
+    "/v1/loans/{id}/protocols": {
+      "get": {
+        "summary": "Zoznam protokolov k výpožičke",
+        "tags": [
+          "Protocols"
+        ],
+        "description": "Vráti všetky protokoly (HANDOVER + RETURN) viazané na danú výpožičku. Prístupné borrowerovi daného Loan alebo ASSET_MANAGER/ADMIN.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/protocols/{protocolId}": {
+      "get": {
+        "summary": "Metadata protokolu (JSON)",
+        "tags": [
+          "Protocols"
+        ],
+        "description": "Vráti JSON záznam protokolu (číslo, strany, stav, podpisy). Prístupné účastníkovi protokolu (handover/receive strana) alebo ASSET_MANAGER/ADMIN.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "protocolId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/protocols/{protocolId}/pdf": {
+      "get": {
+        "summary": "PDF protokolu (on-demand render)",
+        "tags": [
+          "Protocols"
+        ],
+        "description": "Vyrenderuje PDF protokolu zo záznamu a vráti ho ako application/pdf. Render je deterministický — rovnaký záznam → vždy identický PDF. pdfSha256 sa dopočíta a uloží po prvom stiahnutí (lazy). Prístupné účastníkovi protokolu alebo ASSET_MANAGER/ADMIN.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "protocolId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/v1/protocols/{protocolId}/sign": {
+      "post": {
+        "summary": "Podpísať protokol (CLICK_TO_SIGN)",
+        "tags": [
+          "Protocols"
+        ],
+        "description": "Zapíše podpis prihlásená strana (handover alebo receive). Keď sú obe strany podpísané, protokol prejde DRAFT → SIGNED a pdfSha256 sa fixuje (hash záväznej podpísanej verzie). Každá strana môže podpísať len svoju rolu.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "CLICK_TO_SIGN"
+                    ]
+                  }
+                },
+                "required": [
+                  "method"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "protocolId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/invitations": {
       "post": {
         "responses": {

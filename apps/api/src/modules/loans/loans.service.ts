@@ -124,8 +124,16 @@ export class LoansService {
      * K4 (ADR-0022): optional — ak nie je, protokoly sa preskočia.
      * Routes (K5) vždy poskytnú inštanciu.
      */
-    private readonly protocolsRepo: LoanProtocolsRepository | null = null,
+    private protocolsRepo: LoanProtocolsRepository | null = null,
   ) {}
+
+  /**
+   * Umožňuje protokolom plugin-u injektnúť repo po vytvorení service.
+   * Volá `protocols-routes` plugin (K5) — service je dekorovaný pred protokolmi.
+   */
+  setProtocolsRepo(repo: LoanProtocolsRepository): void {
+    this.protocolsRepo = repo;
+  }
 
   private getDb(): Db {
     return this.db ?? (this.mongoClient.db() as Db);

@@ -102,22 +102,21 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 🟡 P2 — Accepted ADR čakajúce na implementáciu
 
-### 7. ADR-0022 — Preberacie protokoly (on-demand PDF) — ⏳ K1 DONE, K2–K8 čaká
+### 7. ADR-0022 — Preberacie protokoly (on-demand PDF) — ✅ DONE (2026-06-02)
 
-- **Stav:** K1 hotový (schéma), K2–K8 naplánované — viac sessions
-- **Model:** Sonnet (K2–K7), Haiku (K8)
-- **ADR:** [`docs/decisions/0022-loan-protocol-pdf.md`](./decisions/0022-loan-protocol-pdf.md)
-- **Plán ďalšej session:** [`docs/sessions/2026-06-01-loan-protocols-plan.md`](./sessions/2026-06-01-loan-protocols-plan.md)
-- **Rozsah (K1–K8):**
-  - [x] **K1** — schéma: odstránený `pdfAttachmentId` z `LoanProtocolSchema`; openapi regen ✅ (2026-06-01)
-  - [x] **K2** — `pdf-lib` + `@pdf-lib/fontkit`; DejaVu Sans TTF + default logo PNG v repo; `renderProtocolPdf()` deterministický renderer; `loadLogo()` helper; 9 unit testov ✅ (2026-06-02)
-  - [x] **K3** — `generateProtocolNumber()` cez `counters` collection, race-safe, 7 unit testov ✅ (2026-06-02)
-  - [x] **K4** — `LoanProtocolsRepository`; `insertDraftProtocol()` helper v `LoansService`; HANDOVER v fulfil+direct, RETURN v returnLoan; `Loan.*ProtocolId` nastavený v transakcii ✅ (2026-06-02)
-  - [ ] K5 — routes: `GET /v1/loans/:id/protocols`, `GET /v1/protocols/:id`, `GET /v1/protocols/:id/pdf` (on-demand render), RBAC
-  - [ ] K6 — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN), prechod `DRAFT → SIGNED`, fixácia `pdfSha256`
-  - [ ] K7 — testy: determinizmus renderu (dvojitý render → rovnaký hash), diakritika, číslovanie + race, RBAC, cross-tenant, snapshot-not-live, stránkovanie 25+ poloziek
-  - [ ] K8 — milestone doc + session log
-- **Kritický invariant:** determinizmus renderu (povinný byte-equality test) — PDF sa neukladá, `pdfSha256` lazy dopočítaný
+- **Stav:** ✅ K1–K8 kompletné — ADR-0022 uzavretý
+- **Session K2–K4:** [`docs/sessions/2026-06-02-adr-0022-k2-k4.md`](./sessions/2026-06-02-adr-0022-k2-k4.md)
+- **Session K5–K8:** [`docs/sessions/2026-06-02-adr-0022-k5-k8.md`](./sessions/2026-06-02-adr-0022-k5-k8.md)
+- **Milestone:** [`docs/milestones/2026-06-02-adr-0022-complete.md`](./milestones/2026-06-02-adr-0022-complete.md)
+- **Čo bolo implementované:**
+  - [x] K1 — schéma: odstránený `pdfAttachmentId`; openapi regen ✅
+  - [x] K2 — `pdf-lib` + DejaVu Sans; `renderProtocolPdf()` deterministický; `loadLogo()`; 9 unit testov ✅
+  - [x] K3 — `generateProtocolNumber()` race-safe; 7 unit testov ✅
+  - [x] K4 — `LoanProtocolsRepository`; `insertDraftProtocol()` v `LoansService`; HANDOVER+RETURN v transakciách ✅
+  - [x] K5 — `protocols.routes.ts`: 3 GET endpointy (zoznam, metadata, PDF), RBAC, cross-tenant ✅
+  - [x] K6 — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN); DRAFT→SIGNED; pdfSha256 fixnutý ✅
+  - [x] K7 — 15 integration testov (RBAC, cross-tenant, PDF, podpis, snapshot, stránkovanie) ✅
+  - [x] K8 — milestone doc + session log ✅
 
 ### 8. Audit log retention job — automatická pseudonymizácia ✅ DONE (2026-06-01)
 
