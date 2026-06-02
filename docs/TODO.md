@@ -14,8 +14,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-02 (ADR-0028 branding implementovaný — DONE)                                 |
-| **Stav projektu**         | Production LIVE ✅ — ADR-0028 uzavretý; SFZ pilot pripravený                         |
+| **Posledná aktualizácia** | 2026-06-03 (ADR-0028 v2 — preset paléty + Blob upload + font enum)                   |
+| **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                      |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
 
@@ -144,12 +144,13 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] L6 — 27 testov (unit ZPL + unit PDF + integration) ✅
   - [x] L7 — session doc ✅
 
-### 17. ADR-0028 — Per-tenant branding (logo + farby + font) ✅ DONE (2026-06-02)
+### 17. ADR-0028 — Per-tenant branding ✅ DONE (v1: 2026-06-02, v2: 2026-06-03)
 
-- **Stav:** ✅ B1–B10 kompletné — ADR-0028 uzavretý
-- **Session:** [`docs/sessions/2026-06-02-adr-0028-branding.md`](./sessions/2026-06-02-adr-0028-branding.md)
-- **Čo bolo implementované:** B1 HexColorSchema+logoDot · B2 kontrast util (21 testov) · B3 PATCH brandKit+gating+WCAG+SVG check+audit · B4 21 integračných testov · B5 BrandProvider · B6 logo AppShell · B7 Branding sekcia settings · B8 ContrastBadge · B9 openapi regen · B10 docs
-- **Manuálne po deployi:** SFZ nastaviť `logoUrl` (PNG) cez Settings → Branding; farby = dočasne PRO plán
+- **Stav:** ✅ v1 B1–B10 + v2 B0–B5 kompletné
+- **Session v1:** [`docs/sessions/2026-06-02-adr-0028-branding.md`](./sessions/2026-06-02-adr-0028-branding.md)
+- **Session v2:** [`docs/sessions/2026-06-03-adr-0028-v2-branding-presets.md`](./sessions/2026-06-03-adr-0028-v2-branding-presets.md)
+- **v2 zmeny:** 10 WCAG preset palít · Vercel Blob upload (magic bytes validácia, 512 KB) · font enum (next/font/google) · gating zrušený (všetky plány) · UI: preset karty + file picker + font select
+- **Manuálne po deployi:** SFZ nastaviť branding cez Settings → Branding (logo upload + paléta + font)
 - **Rozhodnutia (Q1–Q6):** Zod = zdroj pravdy (+`logoDot`, žiadna migrácia) · logo v1 = externá HTTPS URL (upload v2) · farby/font klientsky cez `data-tenant` + injektovaný `<style>` (FOUC ok v1) · WCAG tvrdé odmietnutie <4.5:1 · logo=všetky plány, farby/font=Pro+ · v1 rozsah bez uploadu/SSR/favicon
 - **Model:** Sonnet (B1–B9), Haiku/Sonnet (B10 docs)
 - **Rozsah — 10 blokov v 4 fázach (detail v ADR-0028 „Implementačný plán“):**

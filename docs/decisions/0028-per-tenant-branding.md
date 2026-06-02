@@ -7,8 +7,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 |                   |                                                                                                                                                                                                                                                                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**        | ✅ Accepted — implementovaný (2026-06-02)                                                                                                                                                                                                                                                            |
-| **Dátum**         | 2026-06-02                                                                                                                                                                                                                                                                                           |
+| **Status**        | ✅ Accepted — v1 implementovaný (2026-06-02), v2 implementovaný (2026-06-03)                                                                                                                                                                                                                         |
+| **Dátum**         | 2026-06-02, rev. 2026-06-03                                                                                                                                                                                                                                                                          |
 | **Autori**        | Ján Letko, Claude Opus 4.8 (LTK Solutions)                                                                                                                                                                                                                                                           |
 | **Súvisiace ADR** | [0010 Multi-tenant white-label](0010-multi-tenant-white-label.md) (napĺňa „white-label" sľub), [0022 Loan protocol PDF](0022-loan-protocol-pdf.md) (logo v PDF), [0027 QR štítky](0027-qr-label-printing.md) (logo na štítku), [0019 Tenant billing](0019-tenant-billing-model.md) (branding ~ plán) |
 
@@ -420,6 +420,89 @@ overiť protokoly aj štítky. Ak pilot chce aj farby, dočasne povýšiť plán
 | 5   | `metadata` (notes, createdBy) z JSON schémy         | Odložené — audit nadstavba, nie nutná pre funkčnosť.           |
 | 6   | Per-tenant font upload (vlastný webfont)            | Out of scope. v1 = názov fontu z dostupných/systémových.       |
 | 7   | Náhľad brandu „naživo" na celej appke pred uložením | Odložené — v1 má lokálny náhľad (karta), nie full-app preview. |
+
+## Revízia v2 (2026-06-03) — preset paléty, Blob upload, font enum
+
+**Dôvod revízie:** Po v1 implementácii (logo URL + voľné hex polía + voľný font string) sa
+ukázalo že tenant má príliš veľa „spobody“ na chybu — nečitateľný kontrast, font
+ktorý sa nenačíta, preklep v hex, otázka kde zoženie HTTPS URL pre logo.
+Revízia nahrádza voľné vstupné polía riadeným výberom.
+
+### Zmeny oproti v1
+
+| #         | Rozhodnutie v1                                                           | Revízia v2                                                                                                |
+| --------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Q2 Logo   | Externá HTTPS URL (tenant si hostuje)                                    | **Upload do Vercel Blob** (public store, región fra1). Backend validuje magic bytes + veľkosť.            |
+| Q3 Farby  | 6 voľných hex polí (`primary`/`primaryFg`/`accent`/`accentFg`/`logoDot`) | **10 preset paliet** (WCAG AA overené testom). Tenant vyberá z kariet, žiadna voľná farba.                |
+| Q3 Font   | Voľný string (možnosť zadať font čo sa nenačíta)                         | **Enum 5 fontov** (`system-ui`, Inter, Open Sans, Roboto, Lato) — reálne načítané cez `next/font/google`. |
+| Q5 Gating | Logo = všetky plány; farby + font = Pro+                                 | **Logo + preset + font = všetky plány** (žiadny Pro+ gating). Branding odomknutý pre všetkých.            |
+
+### Architektonické rozhodnutie B (preset model)
+
+Preset je **"naplňovač"** existujúcich hex polí, nie ich náhrada. Backend pri výbere
+presetu SKOPÍRUJE jeho hex hodnoty do `primary`/`primaryFg`/`accent`/`accentFg`/`logoDot`.
+`presetId` sa uloží ako informačné pole (UI vie zvýrazniť vybranú kartu).
+
+**Dôvod:** Spätná kompatibilita — `BrandProvider`, protokoly (ADR-0022), štítky (ADR-0027)
+čítajú hex ako doteraz bez zmeny. Determinizmus — uložené hex sa nezmenia ani keď sa
+upraví definícia presetu v kóde (kritické pre reprodukovateľnosť protokolov).
+
+### WCAG invariant (vynútený testom)
+
+Každý preset musí splňať `contrastRatio(primary, primaryFg) >= 4.5`
+a `contrastRatio(accent, accentFg) >= 4.5`. Test `brand-presets.test.ts` to overí
+pre všetkých 10 paliet. Paleta čo neprejde sa fyzicky nedostane do kódu.
+WCAG poistka na backende ostáva pre priame hex vstupy cez API (mimo UI).
+
+### Dopad na dátový model
+
+`OrganisationBrandKitSchema` dostáva:
+
+- `presetId: z.string().max(64).nullable().default(null)` — ID vybratej palety
+- `fontFamilySans` zúžený z `z.string().max(200)` na `z.enum(FONT_OPTION_IDS)`
+
+Žiadna migrácia existujúcich dát — žiadny SFZ pilot tenant v prode ešte nemá
+vyplnený `brandKit` (overené pred implementáciou).
+
+### Logo upload (Vercel Blob)
+
+Nový endpoint `POST /v1/organisations/current/logo` (multipart):
+
+- Validácia magic bytes (nie deklarovaný Content-Type — bezpečnostná poistka)
+- Limit 512 KB, povolené: PNG/JPEG/WEBP, nie SVG
+- Upload do Vercel Blob public store (región fra1, EU GDPR)
+- Blob URL zapisaná do `brandKit.logoUrl`
+- Starý blob zmazaný pri nahradení (best-effort)
+- `BLOB_READ_WRITE_TOKEN` v Vercel env (All Environments)
+
+### Font loading
+
+`next/font/google` v `layout.tsx` načíta Inter, Open Sans, Roboto, Lato
+ako self-hosted fonty (žiadny runtime request na Google CDN — GDPR-friendly).
+Každý font dostane CSS premennú (`--font-inter`, ...) na `<html>` elemente.
+`BrandProvider` mapuje enum ID → CSS string s `var(--font-*)` referenciou.
+
+**Invariant:** Názvy `variable` v `layout.tsx` MUSIA súhlasiť s `var(--font-*)`
+v `FONT_OPTIONS` (packages/shared-types/src/brand-presets.ts). Pri pridaní
+nového fontu treba upraviť OBE miesta.
+
+### Súbory zmenené v revízii v2
+
+| Súbor                                                          | Zmena                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------- |
+| `packages/shared-types/src/brand-presets.ts`                   | NOVÝ — 10 WCAG paliet + font enum + helpery              |
+| `packages/shared-types/src/schemas/organisation.ts`            | `presetId`, font enum                                    |
+| `packages/shared-types/src/index.ts`                           | export `brand-presets`                                   |
+| `packages/shared-types/tests/brand-presets.test.ts`            | NOVÝ — WCAG testy                                        |
+| `apps/api/src/modules/organisations/organisations.service.ts`  | Preset expanzia, zruš gating, `updateLogoUrl()`          |
+| `apps/api/src/modules/organisations/organisations.routes.ts`   | `BrandKitBodySchema` v2, logo upload endpoint, multipart |
+| `apps/api/tests/integration/organisations-branding.test.ts`    | Prepisatý na v2 sémantiku                                |
+| `apps/api/tests/integration/organisations-logo-upload.test.ts` | NOVÝ — upload testy                                      |
+| `apps/web/src/app/layout.tsx`                                  | `next/font/google` pre 4 fonty                           |
+| `apps/web/src/lib/BrandProvider.tsx`                           | Font enum → CSS var mapovanie                            |
+| `apps/web/src/lib/organisations-hooks.ts`                      | `presetId` v `BrandKit`, `useUploadLogo()`               |
+| `apps/web/src/components/OrganisationSettingsContent.tsx`      | Branding sekcia prepisatá (preset karty + upload)        |
+| `turbo.json`                                                   | `BLOB_READ_WRITE_TOKEN` do `globalEnv`                   |
 
 ## Referencie
 
