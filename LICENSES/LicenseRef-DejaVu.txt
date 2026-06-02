@@ -1,0 +1,85 @@
+Fonts are (c) Bitstream (see below). DejaVu changes are in public domain.
+Glyphs imported from Arev fonts are (c) Tavmjong Bah (see below).
+
+Bitstream Vera Fonts Copyright
+------------------------------
+
+Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. Bitstream Vera is
+a trademark of Bitstream, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of the fonts accompanying this license ("Fonts") and associated
+documentation files (the "Font Software"), to reproduce and distribute the
+Font Software, including without limitation the rights to use, copy, merge,
+publish, distribute, and/or sell copies of the Font Software, and to permit
+persons to whom the Font Software is furnished to do so, subject to the
+following conditions:
+
+The above copyright and trademark notices and this permission notice shall
+be included in all copies of one or more of the Font Software typefaces.
+
+The Font Software may be modified, altered, or added to, and in particular
+the designs of glyphs or characters in the Fonts, and the resulting Font
+Software or any derivative thereof may be provided under this same license
+with the exception that the derivative must not be named with any of the same
+names (i.e. Bitstream Vera) as the original Font Software unless Bitstream
+Inc. has given prior written consent.
+
+The Font Software may be sold as part of a larger software package but no
+copy of one or more of the Font Software typefaces may be sold by itself.
+
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, INCLUDING ANY INCIDENTAL, SPECIAL, INDIRECT, PUNITIVE OR
+CONSEQUENTIAL DAMAGES OR ANY OTHER DAMAGES, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE FONT
+SOFTWARE OR THE DEALINGS IN THE FONT SOFTWARE.
+
+Except as contained in this notice, the names of Bitstream Inc. and the
+DejaVu project shall not be used in advertising or otherwise to promote the
+sale, use or other dealings in this Font Software without prior written
+authorization from Bitstream Inc. For further information, contact: fonts at
+bitstream dot com.
+
+Arev Fonts Copyright
+------------------------------
+
+Copyright (c) 2006 by Tavmjong Bah. All Rights Reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the fonts accompanying this license ("Fonts") and
+associated documentation files (the "Font Software"), to reproduce
+and distribute the modifications to the Bitstream Vera Font Software,
+including without limitation the rights to use, copy, merge, publish,
+distribute, and/or sell copies of the Font Software, and to permit
+persons to whom the Font Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright and trademark notices and this permission notice
+shall be included in all copies of one or more of the Font Software
+typefaces.
+
+The Font Software may be modified, altered, or added to, and in particular
+the designs of glyphs or characters in the Fonts, and the resulting Font
+Software or any derivative thereof may be provided under this same license
+with the exception that the derivative must not be named with any of the
+same names as the original Font Software unless Tavmjong Bah has given
+prior written consent.
+
+The Font Software may be sold as part of a larger software package but no
+copy of one or more of the Font Software typefaces may be sold by itself.
+
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, INCLUDING ANY INCIDENTAL, SPECIAL, INDIRECT, PUNITIVE OR
+CONSEQUENTIAL DAMAGES OR ANY OTHER DAMAGES, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE FONT
+SOFTWARE OR THE DEALINGS IN THE FONT SOFTWARE.
+
+For further information, contact: tavmjong @ free.fr.
+
+$Id: LICENSE 2133 2007-11-15 22:32:42Z lechimp $

@@ -140,3 +140,20 @@ SPDX-License-Identifier = "EUPL-1.2"
 # path = "apps/web/public/brand/**"
 # SPDX-FileCopyrightText = "2026 Ján Letko / LTK Solutions · SportUp ecosystem"
 # SPDX-License-Identifier = "CC-BY-4.0"
+
+# ─── 10. Binárne assets protokol-renderera ───
+# DejaVu Sans TTF: licencia Bitstream Vera Fonts Copyright + DejaVu doplnky.
+# Kompatibilná s EUPL-1.2 (permisívna, bez copyleft). Súbor je pribalený
+# priamo do repozitára kvôli deterministickému offline renderu (ADR-0022).
+# Licenčný text: apps/api/src/modules/protocols/assets/LICENSE-DejaVuFonts.txt
+[[annotations]]
+path = "apps/api/src/modules/protocols/assets/DejaVuSans.ttf"
+SPDX-FileCopyrightText = "2003 Bitstream, Inc. / 2006 DejaVu authors"
+SPDX-License-Identifier = "LicenseRef-DejaVu"
+
+# Default Inventario logo pre PDF protokoly (fallback keď tenant nemá logo).
+# Rasterizovaný PNG z SVG brandkitu projektu.
+[[annotations]]
+path = "apps/api/src/modules/protocols/assets/inventario-logo-default.png"
+SPDX-FileCopyrightText = "2026 Ján Letko / LTK Solutions"
+SPDX-License-Identifier = "CC-BY-4.0"
