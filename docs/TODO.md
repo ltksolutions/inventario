@@ -14,8 +14,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-01 (ADR-0027 label printing prijatý)                                         |
-| **Stav projektu**         | Production LIVE ✅ — 2 Accepted ADR čaká impl (0022 protokoly, 0027 štítky)          |
+| **Posledná aktualizácia** | 2026-06-02 (ADR-0022 + ADR-0027 kompletné)                                           |
+| **Stav projektu**         | Production LIVE ✅ — všetky pred-pilotné featury hotové, pripravené na SFZ pilot     |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
 
@@ -129,11 +129,11 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] `vercel.json` cron: `0 3 1 * *` (1. každého mesiaca o 03:00 UTC)
   - [x] `CRON_SECRET` do `config.ts` + `turbo.json` globalEnv
   - [x] unit testy `retention.test.ts` (16 testov) + integračné `retention-cron.test.ts` (4 testy)
-- **Po deployi treba:** nastaviť `CRON_SECRET` v Vercel → Settings → Environment Variables (`openssl rand -hex 32`)
+- **Po deployi treba:** ✅ HOTOVO — `CRON_SECRET` nastavený vo Vercel → Settings → Environment Variables (2026-06-02)
 
-### 16. ADR-0027 — Tlač QR štítkov (Avery PDF + Zebra ZPL) — ⏳ L1–L4+L6–L7 DONE, L5 čaká
+### 16. ADR-0027 — Tlač QR štítkov (Avery PDF + Zebra ZPL) — ✅ DONE (2026-06-02)
 
-- **Stav:** Backend hotový (L1–L4+L6–L7); L5 frontend zostáva
+- **Stav:** ✅ L1–L7 kompletné — ADR-0027 uzavretý (backend + frontend); frontend session [`docs/sessions/2026-06-02-adr-0027-l5-frontend.md`](./sessions/2026-06-02-adr-0027-l5-frontend.md)
 - **Session:** [`docs/sessions/2026-06-02-adr-0027-l1-l7-backend.md`](./sessions/2026-06-02-adr-0027-l1-l7-backend.md)
 - **Čo bolo implementované:**
   - [x] L1 — `OrganisationLabelSettingsSchema` + `labelPrinting: null` do 4 org-create ciest + fixtures ✅
@@ -202,9 +202,19 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### 14. Slice #10 — MCP server
 
-- **Stav:** plánované Q1 2027 (~10 dní)
-- **Model:** Sonnet
-- **Rozsah:** K1–K23 — backend foundation, MCP scaffold, tools (10 read + 7 write), frontend `/settings/integrations`, docs + Vercel + DNS
+- **Stav:** Design hotový a aktualizovaný (ADR-0017 rev 2026-06-02); implácia naplánovaná Q1 2027 (~10.5 dňa)
+- **ADR:** [`docs/decisions/0017-mcp-server.md`](./decisions/0017-mcp-server.md) — tool catalog zosúladený s modulmi ADR-0020 až 0027
+- **Rozhodnutia (Q1–Q7, nemenné):** remote HTTP/SSE na `mcp.inventario.estate` · manual token paste (v0.7) → OAuth 2.1 (v0.8) · single-tenant tokeny · curated tools · read + non-destructive writes · API gateway pattern · tools only
+- **Tool catalog:** 18 read + 11 write = 29 nástrojov (vrátane stock, číselníky, protokoly, members; loan tools po ADR-0026)
+- **Model:** Sonnet (K1–K20), Haiku (K21–K22 docs), Ján (K23 Vercel/DNS manuálne)
+- **Rozsah — 24 K-blokov v 5 fázach (detail v ADR-0017 „Slice #10 implementačný plán“):**
+  - [ ] **Fáza 1 — backend foundation (~2 dni):** K1 `mcp-access-token` schéma + audit enum + entityType · K2 repository (findByHash, indexy) · K3 `/v1/auth/mcp-tokens` CRUD endpointy + testy · K4 cleanup job pre expired tokeny
+  - [ ] **Fáza 2 — MCP server scaffold (~2 dni):** K5 nový `apps/mcp-server` package · K6 token-resolver · K7 short-lived JWT issuer · K8 `openapi-fetch` client + build step · K9 MCP SDK server setup · K10 rate-limit (Vercel KV)
+  - [ ] **Fáza 3 — tools (~3.5 dňa):** K11 asset read · K12 loan read (vrátane protokolov) · K13 číselníky + members · K13b stock read · K14 loan write (fulfil/direct/return/lost) · K15 asset + stock write · K16 `MCP_TOOL_INVOKED` audit
+  - [ ] **Fáza 4 — frontend (~1.5 dňa):** K17 `/settings/integrations` page + token dialog · K18 revoke/rename + freshness indikátor
+  - [ ] **Fáza 5 — testy + docs (~1.5 dňa):** K19 mcp-server integračné testy (~15) · K20 API token endpoint testy (~8) · K21 milestone + NEXT.md · K22 user guide + tools katalóg · K23 Vercel deploy + DNS (Ján)
+- **Baseline testov pred Slice #10:** 825 → target ~848 po K19+K20
+- **Pozn.:** nie je blocker pre launch ani SFZ pilot. Pred spustením Fázy 1 overiť, že endpointy v tool catalogu stále sedia (API sa medzičasom mohlo vyvíjať) a prečítať aktuálny ADR-0017.
 
 ### 15. Post-launch drobnosti (LOW)
 

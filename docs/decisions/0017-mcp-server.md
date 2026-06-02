@@ -5,15 +5,17 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # 0017. MCP server — AI integration cez Model Context Protocol
 
-|                   |                                                                                                                                                                                                                                                 |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**        | ✅ Accepted (design); implementácia naplánovaná na Q1 2027 ako Slice #10                                                                                                                                                                        |
-| **Dátum**         | 2026-05-25                                                                                                                                                                                                                                      |
-| **Autori**        | Ján Letko, Claude Opus 4.7 (LTK Solutions)                                                                                                                                                                                                      |
-| **Súvisiace ADR** | [0013 Multi-provider auth](0013-multi-provider-auth-self-serve.md), [0015 Cross-tenant memberships](0015-cross-tenant-memberships.md), [0016 Passkeys impl plan](0016-passkeys-implementation-plan.md), [0009 Fastify](0009-backend-fastify.md) |
-| **Nahrádza**      | Pôvodný "Proposed" placeholder _ADR-0007 MCP server pre AI integrácie_ v ADR README                                                                                                                                                             |
+|                   |                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Status**        | ✅ Accepted (design); implementácia naplánovaná na Q1 2027 ako Slice #10                                                                                                                                                                                                                                                                                                                                                                      |
+| **Dátum**         | 2026-05-25 (pôvodný design) · 2026-06-02 (rev, tool catalog aktualizovaný na moduly ADR-0020 až 0027)                                                                                                                                                                                                                                                                                                                                         |
+| **Autori**        | Ján Letko, Claude Opus 4.7 (pôvodný); Claude Opus 4.8 (rev 2026-06-02) (LTK Solutions)                                                                                                                                                                                                                                                                                                                                                        |
+| **Súvisiace ADR** | [0013 Multi-provider auth](0013-multi-provider-auth-self-serve.md), [0015 Cross-tenant memberships](0015-cross-tenant-memberships.md), [0009 Fastify](0009-backend-fastify.md), [0020 Stock + bulk](0020-stock-and-bulk-items.md), [0021 QR kódy](0021-asset-qr-codes.md), [0022 Loan protocol PDF](0022-loan-protocol-pdf.md), [0026 Catalog requests](0026-catalog-requests-and-fulfilment.md), [0027 QR štítky](0027-qr-label-printing.md) |
+| **Nahrádza**      | Pôvodný "Proposed" placeholder _ADR-0007 MCP server pre AI integrácie_ v ADR README                                                                                                                                                                                                                                                                                                                                                           |
 
 ## Kontext
+
+> **Rev 2026-06-02.** Pôvodný design (2026-05-25) ostáva platný v jadre (hosting, auth, tenant scoping, API gateway pattern, threat model). Táto revízia **aktualizuje tool catalog** o moduly, ktoré pribudli od mája 2026 (ADR-0020 stock/bulk, 0021 QR, 0022 protokoly, 0023 beneficiary/direct loan, 0026 katalógové žiadosti, 0027 štítky), opravuje názvy nástrojov na reálne endpointy (loan fulfilment je katalógový, nie priamy; loan ukončenie je `return`/`lost`, nie `extend`) a zosúlaďuje implementačný plán. Rozhodnutia Q1–Q7 sa nemenia.
 
 Funkčná špecifikácia projektu (§ 1) explicitne spomína MCP server ako súčasť produktu: _"Súčasťou riešenia bude aj MCP server (Model Context Protocol), ktorý umožní napojenie AI asistentov pre prácu s dátami systému."_ Inventario je v produkcii (LIVE na `inventario.estate`, 553/553 testov, Slice #9 cross-tenant memberships dokončený). Najbližšie funkčné kroky podľa `NEXT.md` sú Passkeys (Slice #8) a MCP server (Slice #10). Toto ADR rieši návrh MCP servera.
 
@@ -44,14 +46,21 @@ Transport vrstva: pre lokálne MCP servery `stdio` (mature), pre remote `HTTP+SS
 
 ### Existujúci stav
 
-| Komponent                              | Stav                                                                                                    |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Inventario API (`apps/api`)            | LIVE na `asset-management-api.vercel.app`, 553 testov                                                   |
-| OpenAPI 3.1 spec                       | Generovaný cez `pnpm openapi:export`, žije v `apps/api/openapi.json` (101 KiB, 50 endpointov, 32 paths) |
-| Shared types (`packages/shared-types`) | 28 Zod schém + JSON Schema export, používaný web aplikáciou                                             |
-| Auth model                             | Inventario JWT (RS256), httpOnly cookies pre web, Bearer tokens pre future non-browser clients          |
-| Refresh tokens collection              | Existujúci pattern pre revokovateľné dlhodobé tokeny (Slice #6c)                                        |
-| Audit log                              | Per-tenant, štrukturalizované eventy s `legalBasis` + `dataCategories`                                  |
+> Aktualizované 2026-06-02.
+
+| Komponent                              | Stav                                                                                                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Inventario API (`apps/api`)            | LIVE na `app.inventario.estate`, 825 testov                                                                                                                                    |
+| Doménové moduly                        | assets, asset-types, asset-conditions, categories, locations, loan-requests, loans, protocols, labels, stock, invitations, memberships, organisations, users, audit, retention |
+| OpenAPI 3.1 spec                       | Generovaný cez `pnpm openapi:export:offline`, žije v `apps/api/openapi.json`                                                                                                   |
+| Shared types (`packages/shared-types`) | Zod schémy + JSON Schema export, používaný web aplikáciou aj (budúce) MCP serverom                                                                                             |
+| Auth model                             | Inventario JWT (RS256), httpOnly cookies pre web, Bearer tokens pre non-browser clients                                                                                        |
+| Refresh tokens collection              | Existujúci pattern pre revokovateľné dlhodobé tokeny — vzor pre `mcp_access_tokens`                                                                                            |
+| Audit log                              | Per-tenant, štrukturalizované eventy s `legalBasis` + `dataCategories`                                                                                                         |
+| Loan model (ADR-0023, 0025, 0026)      | Katalógové žiadosti (kategória+množstvo) → fulfilment → N Loanov; beneficiary; loans bez termínu                                                                               |
+| Stock model (ADR-0020)                 | BULK položky s StockMovement ledgerom; SERIALIZED (default) jednotlivé kusy                                                                                                    |
+| QR + štítky (ADR-0021, 0027)           | `publicToken` per asset, on-demand QR render, verejný scan (opt-in), Avery PDF + Zebra ZPL štítky                                                                              |
+| Protokoly (ADR-0022)                   | On-demand PDF preberací/vratný protokol, click-to-sign, deterministický render                                                                                                 |
 
 ## Možnosti — kľúčové rozhodnutia
 
@@ -279,42 +288,66 @@ interface ToolDefinition {
 
 #### Read tools (RBAC: EMPLOYEE+)
 
+> Aktualizované 2026-06-02 — zarátané moduly stock, protokoly, štítky, číselníky, members.
+
 | Tool name                        | Popis                                                                    | Maps to API                                           |
 | -------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------- |
 | `list_assets`                    | List assets s pagination + filters (status, category, location, search)  | `GET /v1/assets`                                      |
 | `get_asset`                      | Detail jedného aktíva podľa \_id alebo inventoryNumber                   | `GET /v1/assets/:id`                                  |
-| `find_available_assets_for_loan` | Aktíva voľné pre loan v zadanom časovom okne, optionally filter category | `GET /v1/assets?status=AVAILABLE&availableFrom=...`   |
+| `find_available_assets_for_loan` | Aktíva voľné pre loan v zadanom časovom okne, optionally filter category | `GET /v1/assets?status=AVAILABLE&...`                 |
+| `list_loan_requests`             | List žiadostí o výpožičku s filters (status, requester)                  | `GET /v1/loan-requests`                               |
 | `list_loans`                     | List loans s filters (status, borrower, asset, dateRange)                | `GET /v1/loans`                                       |
 | `get_loan`                       | Detail jednej loan / loan request                                        | `GET /v1/loans/:id` alebo `GET /v1/loan-requests/:id` |
 | `get_my_loans`                   | Loans aktuálneho usera (ja som borrower)                                 | `GET /v1/loans/my`                                    |
-| `get_overdue_loans`              | Aktívne loans po deadline (ASSET_MANAGER+ pre cross-user view)           | `GET /v1/loans?status=OVERDUE`                        |
+| `get_overdue_loans`              | Aktívne loans po deadline (ASSET_MANAGER+ pre cross-user view)           | `GET /v1/loans?status=ACTIVE` + lazy OVERDUE filter   |
 | `list_categories`                | Kategórie tenantu                                                        | `GET /v1/categories`                                  |
 | `list_locations`                 | Lokality tenantu                                                         | `GET /v1/locations`                                   |
+| `list_asset_types`               | Číselník typov majetku tenantu (ADR-0020)                                | `GET /v1/asset-types`                                 |
+| `list_asset_conditions`          | Číselník kondícií majetku tenantu (ADR-0020)                             | `GET /v1/asset-conditions`                            |
+| `get_stock_overview`             | Prehľad skladu — BULK položky + zostatky (ASSET_MANAGER+, ADR-0020)      | `GET /v1/stock`                                       |
+| `get_stock_movements`            | História skladových pohybov pre BULK položku (ADR-0020)                  | `GET /v1/stock/:itemId/movements`                     |
+| `list_loan_protocols`            | Zoznam preberacích/vratných protokolov k loanu (ADR-0022)                | `GET /v1/loans/:id/protocols`                         |
+| `get_loan_protocol`              | Metadata jedného protokolu (ýčastník alebo ASSET_MANAGER+, ADR-0022)     | `GET /v1/protocols/:id`                               |
+| `list_members`                   | Picker-safe zoznam členov tenantu (pre beneficiary/borrower výber)       | `GET /v1/members`                                     |
 | `search_users`                   | Vyhľadanie users v tenantu podľa display name / email (ASSET_MANAGER+)   | `GET /v1/users?q=...`                                 |
+
+> **Poznámka k QR/scan:** verejný scan (`GET /v1/public/scan/:token`, ADR-0021) je zámerne **mimo MCP surface** — je to neautentifikovaný verejný lost-and-found endpoint, MCP token je naopak autentifikovaný tenant-scoped. QR obrázok (`GET /v1/assets/:id/qr`) a štítky (`/v1/labels/*`) sú binárne/PDF výstupy — LLM ich nepotrebuje ako tool (download patrí do web UI); prečo nie sú v catalogu viď excluded nižšie.
 
 #### Write tools (RBAC varies, destructiveHint: false on all)
 
-| Tool name              | RBAC           | Popis                                                                | Maps to API                          |
-| ---------------------- | -------------- | -------------------------------------------------------------------- | ------------------------------------ |
-| `create_loan_request`  | EMPLOYEE+      | Vytvor loan request na konkrétny asset s dôvodom a expected period   | `POST /v1/loan-requests`             |
-| `approve_loan_request` | ASSET_MANAGER+ | Schváliť pending loan request                                        | `POST /v1/loan-requests/:id/approve` |
-| `reject_loan_request`  | ASSET_MANAGER+ | Odmietnuť pending loan request s reason                              | `POST /v1/loan-requests/:id/reject`  |
-| `mark_loan_returned`   | ASSET_MANAGER+ | Mark loan ako returned + optional condition note                     | `POST /v1/loans/:id/return`          |
-| `extend_loan`          | ASSET_MANAGER+ | Predĺžiť aktívny loan o nový deadline                                | `POST /v1/loans/:id/extend`          |
-| `create_asset`         | ASSET_MANAGER+ | Vytvor nový asset (inventoryNumber server-generated)                 | `POST /v1/assets`                    |
-| `update_asset`         | ASSET_MANAGER+ | PATCH editable fields (name, description, location, value, metadata) | `PATCH /v1/assets/:id`               |
+> Aktualizované 2026-06-02 — zosúladené s katalógovým loan modelom (ADR-0026), direct loan (ADR-0023) a stock (ADR-0020).
+
+| Tool name              | RBAC           | Popis                                                                                             | Maps to API                          |
+| ---------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `create_loan_request`  | EMPLOYEE+      | Vytvor žiadosť o výpožičku — kategória+množstvo, dôvod, obdobie, voliteľný beneficiary (ADR-0026) | `POST /v1/loan-requests`             |
+| `approve_loan_request` | ASSET_MANAGER+ | Schváliť pending žiadosť (len zmena stavu, nevytvára Loan; ADR-0026)                              | `POST /v1/loan-requests/:id/approve` |
+| `reject_loan_request`  | ASSET_MANAGER+ | Odmietnuť pending žiadosť s reason                                                                | `POST /v1/loan-requests/:id/reject`  |
+| `fulfil_loan_request`  | ASSET_MANAGER+ | Vydať zo žiadosti — mapovanie kategórií na konkrétne assety/BULK, vznik Loanu (ADR-0026)          | `POST /v1/loan-requests/:id/fulfil`  |
+| `create_direct_loan`   | ASSET_MANAGER+ | Priama výpožička bez žiadosti — manager rovno vydá asset (ADR-0023)                               | `POST /v1/loans`                     |
+| `mark_loan_returned`   | ASSET_MANAGER+ | Označ loan ako vrátený + optional condition note                                                  | `POST /v1/loans/:id/return`          |
+| `mark_loan_lost`       | ASSET_MANAGER+ | Označ loan / jeho položku ako stratenú                                                            | `POST /v1/loans/:id/lost`            |
+| `create_asset`         | ASSET_MANAGER+ | Vytvor nový asset (inventoryNumber server-generated)                                              | `POST /v1/assets`                    |
+| `update_asset`         | ASSET_MANAGER+ | PATCH editable fields (name, description, location, value, metadata)                              | `PATCH /v1/assets/:id`               |
+| `receive_stock`        | ASSET_MANAGER+ | Príjem BULK položky na sklad (RECEIPT pohyb, ADR-0020)                                            | `POST /v1/stock/:itemId/receive`     |
+| `adjust_stock`         | ASSET_MANAGER+ | Ručná korekcia skladu s povinným dôvodom (ADJUSTMENT, ADR-0020)                                   | `POST /v1/stock/:itemId/adjust`      |
+
+> **Poznámka k podpisu protokolov.** `POST /v1/protocols/:id/sign` (ADR-0022) je **mimo MCP write surface** — podpis má právnu váhu a vyžaduje explicitný ľudský úkon konkrétnej strany; LLM ho nesmie vyvolať v mene používateľa. Patrí do web UI (a budúce mobile). `reconcile_stock` (ADMIN diagnostika) tiež ostáva mimo — je to expertný opravný nástroj, nie bežná operácia.
 
 #### Explicitne EXCLUDED zo Slice #10 MVP
 
-| Funkcionalita                                                         | Dôvod exclusion                                                              |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `delete_asset`, `delete_category`, `delete_location`                  | Destruktívne, audit-sensitive — web UI only                                  |
-| User/membership management (create user, update roles, remove member) | Admin operations s LAST_ADMIN protection — web UI only                       |
-| Invitation management (create/revoke invite)                          | Bezpečnostne citlivé identity operations — web UI only                       |
-| MFA, passkey, password management                                     | Security operations vyžadujúce user-presence prompts — web UI only           |
-| Organisation settings (allowedDomains, MFA policy, brand kit)         | Tenant-wide configuration — web UI only                                      |
-| Audit log read                                                        | PII exposure risk via LLM context bleed — web UI only                        |
-| GDPR DSAR (data export, account deletion)                             | Compliance operations vyžadujúce explicit verified user intent — web UI only |
+| Funkcionalita                                                           | Dôvod exclusion                                                               |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `delete_asset`, `delete_category`, `delete_location`                    | Destruktívne, audit-sensitive — web UI only                                   |
+| User/membership management (create user, update roles, remove member)   | Admin operations s LAST_ADMIN protection — web UI only                        |
+| Invitation management (create/revoke invite)                            | Bezpečnostne citlivé identity operations — web UI only                        |
+| MFA, passkey, password management                                       | Security operations vyžadujúce user-presence prompts — web UI only            |
+| Organisation settings (allowedDomains, MFA policy, brand kit)           | Tenant-wide configuration — web UI only                                       |
+| Audit log read                                                          | PII exposure risk via LLM context bleed — web UI only                         |
+| GDPR DSAR (data export, account deletion)                               | Compliance operations vyžadujúce explicit verified user intent — web UI only  |
+| Podpis protokolu (`POST /v1/protocols/:id/sign`, ADR-0022)              | Právny úkon s váhou — nesmie ho urobiť LLM v mene strany; web UI only         |
+| QR/štítky download (`/v1/assets/:id/qr`, `/v1/labels/*`, ADR-0021/0027) | Binárne/PDF výstupy na tlač — patria do web UI, LLM ich ako tool nepotrebuje  |
+| Verejný scan (`GET /v1/public/scan/:token`, ADR-0021)                   | Neautentifikovaný verejný lost-and-found — mimo autentifikovaného MCP surface |
+| Stock reconcile (`POST /v1/stock/:itemId/reconcile`, ADR-0020)          | ADMIN diagnostický opravný nástroj — nie bežná operácia, web UI only          |
 
 **Pravidlo pre budúce additions:** keď zvažujeme pridať tool, otázka je _"ak LLM toto zavolá nedopatrením s vymyslenými parametrami, môže to spôsobiť irreversible damage alebo data leak?"_ Ak áno → web UI only.
 
@@ -692,16 +725,19 @@ apps/mcp-server/
 | K9   | `apps/mcp-server/src/server.ts` — MCP SDK server setup s `tools/list` + `tools/call` handlers (zatiaľ prázdne registry). Vercel handler entry point.                            |
 | K10  | `apps/mcp-server/src/lib/rate-limit.ts` — Vercel KV-backed counter. Per-token + per-tool limits per ADR table.                                                                  |
 
-### Fáza 3: Tool implementation (Slice #10c, ~3 dni, Sonnet)
+### Fáza 3: Tool implementation (Slice #10c, ~3.5 dňa, Sonnet)
 
-| Blok | Popis                                                                                                                            |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| K11  | Read tools — asset module (`list_assets`, `get_asset`, `find_available_assets_for_loan`).                                        |
-| K12  | Read tools — loan module (`list_loans`, `get_loan`, `get_my_loans`, `get_overdue_loans`).                                        |
-| K13  | Read tools — categories, locations, users (`list_categories`, `list_locations`, `search_users`).                                 |
-| K14  | Write tools — loans (`create_loan_request`, `approve_loan_request`, `reject_loan_request`, `mark_loan_returned`, `extend_loan`). |
-| K15  | Write tools — assets (`create_asset`, `update_asset`).                                                                           |
-| K16  | `MCP_TOOL_INVOKED` audit log emission for write tools. Forward to Inventario API audit endpoint.                                 |
+> Aktualizované 2026-06-02 — catalog rozšírený o stock, číselníky, protokoly, members; loan write tools zosúladené s ADR-0026.
+
+| Blok | Popis                                                                                                                                                                            |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| K11  | Read tools — asset modul (`list_assets`, `get_asset`, `find_available_assets_for_loan`).                                                                                         |
+| K12  | Read tools — loan modul (`list_loan_requests`, `list_loans`, `get_loan`, `get_my_loans`, `get_overdue_loans`, `list_loan_protocols`, `get_loan_protocol`).                       |
+| K13  | Read tools — číselníky + members (`list_categories`, `list_locations`, `list_asset_types`, `list_asset_conditions`, `list_members`, `search_users`).                             |
+| K13b | Read tools — stock (`get_stock_overview`, `get_stock_movements`).                                                                                                                |
+| K14  | Write tools — loans (`create_loan_request`, `approve_loan_request`, `reject_loan_request`, `fulfil_loan_request`, `create_direct_loan`, `mark_loan_returned`, `mark_loan_lost`). |
+| K15  | Write tools — assets + stock (`create_asset`, `update_asset`, `receive_stock`, `adjust_stock`).                                                                                  |
+| K16  | `MCP_TOOL_INVOKED` audit log emission for write tools. Forward to Inventario API audit endpoint.                                                                                 |
 
 ### Fáza 4: Frontend integrations page (Slice #10d, ~1.5 dňa, Sonnet)
 
@@ -720,7 +756,7 @@ apps/mcp-server/
 | K22  | User guide `docs/user-guide/how-to/pripojit-claude-cez-mcp.md` + reference `mcp-tools-katalog.md`.                                                                                           | Haiku        |
 | K23  | Vercel deployment setup: mcp-inventario-server project, env vars (`INVENTARIO_API_URL`, `MONGO_URI`, `JWT_PRIVATE_KEY`, `KV_REST_API_URL/TOKEN`), domain `mcp.inventario.estate` DNS record. | Ján manuálne |
 
-**Celkom:** 23 K-blokov, ~10 pracovných dní rozdelených na 5 fáz. Target test count: ~575 (post-Slice #8) + 23 = ~598 tests.
+**Celkom:** 24 K-blokov (pribudol K13b pre stock read tools), ~10.5 pracovných dní rozdelených na 5 fáz. Baseline pred Slice #10 je 825 testov; plus ~23 nových (K19 ~15 + K20 ~8) → target ~848 testov. Tool catalog: 18 read + 11 write = 29 nástrojov.
 
 ## Otvorené otázky / odložené veci
 
