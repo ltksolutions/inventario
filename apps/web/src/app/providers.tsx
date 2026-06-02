@@ -9,6 +9,7 @@ import { useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 
 import { AuthProvider } from '@/lib/auth-context';
+import { BrandProvider } from '@/lib/BrandProvider';
 
 /**
  * Client-side provider tree — Slice #6b.
@@ -45,7 +46,9 @@ export function AppProviders({ children }: { children: ReactNode }): JSX.Element
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <BrandProvider>{children}</BrandProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -34,6 +34,7 @@ import {
   Warehouse,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -108,6 +109,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
     (o) => o.organisationId === activeMembership?.organisationId,
   );
   const currentOrgName = currentOrg?.organisationName ?? 'Inventario';
+  const currentLogoUrl = currentOrg?.brandKit?.logoUrl ?? null;
 
   // Filter nav items by role
   const isAdmin = roles.includes('ADMIN');
@@ -122,6 +124,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
         userName={displayName}
         roles={roles}
         currentOrgName={currentOrgName}
+        currentLogoUrl={currentLogoUrl}
         availableOrganisations={availableOrganisations}
         activeMembershipOrgId={activeMembership?.organisationId ?? null}
         onOpenDrawer={() => setDrawerOpen(true)}
@@ -151,6 +154,7 @@ interface HeaderProps {
   userName: string;
   roles: readonly string[];
   currentOrgName: string;
+  currentLogoUrl: string | null; // ADR-0028: tenant logo
   availableOrganisations: ReturnType<typeof useAuth>['availableOrganisations'];
   activeMembershipOrgId: string | null;
   onOpenDrawer: () => void;
@@ -161,6 +165,7 @@ function Header({
   userName,
   roles,
   currentOrgName,
+  currentLogoUrl,
   availableOrganisations,
   activeMembershipOrgId,
   onOpenDrawer,
@@ -185,8 +190,10 @@ function Header({
             href="/"
             className="flex min-w-0 items-center gap-2 text-lg font-bold text-brand-primary transition hover:opacity-80"
           >
-            <Layers aria-hidden="true" className="h-6 w-6 shrink-0" />
-            <span className="truncate">Inventario</span>
+            {/* ADR-0028: tenant logo alebo Inventario wordmark (fallback) */}
+            {currentLogoUrl ? <TenantLogo url={currentLogoUrl} orgName={currentOrgName} /> : null}
+            {!currentLogoUrl && <Layers aria-hidden="true" className="h-6 w-6 shrink-0" />}
+            <span className="truncate">{currentOrgName}</span>
           </Link>
 
           {/* Tenant switcher */}
@@ -316,6 +323,33 @@ function TenantSwitcher({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * TenantLogo — tenant logo s onError fallback (ADR-0028 B6).
+ *
+ * `next/image` vyžaduje konfigurované domény pre optimizáciu. Keďže
+ * logoUrl je aktívna URL na cudzom hostingu (externá URL, v1), použíjeme
+ * `unoptimized` aby sme sa vyhli nutnosti whitelistovať všetky možné domény.
+ * v2 (upload do Blob) bude z jednej domény → optimizácia bude môcť byť zapnutá.
+ */
+function TenantLogo({ url, orgName }: { url: string; orgName: string }): JSX.Element {
+  const [errored, setErrored] = useState(false);
+  if (errored) {
+    return <Layers aria-hidden="true" className="h-6 w-6 shrink-0" />;
+  }
+  return (
+    <Image
+      src={url}
+      alt={orgName}
+      unoptimized
+      width={0}
+      height={28}
+      style={{ width: 'auto', maxWidth: '120px', objectFit: 'contain' }}
+      className="shrink-0"
+      onError={() => setErrored(true)}
+    />
   );
 }
 

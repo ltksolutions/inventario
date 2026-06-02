@@ -57,7 +57,20 @@ export interface AvailableOrganisation {
   organisationId: string;
   organisationName: string;
   slug: string;
-  brandKit: unknown;
+  /**
+   * Brand kit pre runtime CSS override (ADR-0028).
+   * Inline — vyhýba import/order konfliktu medzi external/internal type skupinami.
+   */
+  brandKit: {
+    logoUrl: string | null;
+    faviconUrl: string | null;
+    primary: string | null;
+    primaryFg: string | null;
+    accent: string | null;
+    accentFg: string | null;
+    logoDot: string | null;
+    fontFamilySans: string | null;
+  } | null;
   roles: string[];
   isDefault: boolean;
   lastAccessedAt: string | null;

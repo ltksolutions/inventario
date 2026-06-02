@@ -31,6 +31,21 @@ export interface AddressInfo {
   countryCode: string;
 }
 
+/**
+ * Brand kit pre tenanta (ADR-0028). Zrkadlo OrganisationBrandKitSchema zo Zod.
+ * Null = použiť Inventario default (navy + blue).
+ */
+export interface BrandKit {
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  primary: string | null;
+  primaryFg: string | null;
+  accent: string | null;
+  accentFg: string | null;
+  logoDot: string | null;
+  fontFamilySans: string | null;
+}
+
 export interface BillingInfo {
   legalName: string | null;
   ico: string | null;
@@ -54,6 +69,8 @@ export interface OrganisationSummary {
   entraTenantId: string | null;
   customDomain: string | null;
   billing: BillingInfo | null;
+  /** Brand kit pre runtime CSS override (ADR-0028). Null = Inventario default. */
+  brandKit: BrandKit | null;
   /** Kontakt na vrátenie najdeného majetku (ADR-0021). */
   foundContactInfo: {
     email: string | null;
@@ -147,6 +164,8 @@ export interface UpdateCurrentOrganisationInput {
     phone?: string | null;
     message?: string | null;
   } | null;
+  /** Brand kit (ADR-0028). FREE = len logoUrl/faviconUrl; Pro+ = farby + font. */
+  brandKit?: BrandKit | null;
 }
 
 export function useUpdateCurrentOrganisation(): UseMutationResult<
