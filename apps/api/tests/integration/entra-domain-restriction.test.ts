@@ -106,17 +106,15 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
 
     it('org can have autoJoinDomains and DOMAIN_RESTRICTED set', async () => {
       await provisionUser(app, { role: UserRole.ADMIN });
-      await app.mongo.db
-        .collection('organisations')
-        .updateOne(
-          { deletedAt: null },
-          {
-            $set: {
-              memberJoinPolicy: 'DOMAIN_RESTRICTED',
-              autoJoinDomains: ['sfz.sk', 'futbalsfz.sk'],
-            },
+      await app.mongo.db.collection('organisations').updateOne(
+        { deletedAt: null },
+        {
+          $set: {
+            memberJoinPolicy: 'DOMAIN_RESTRICTED',
+            autoJoinDomains: ['sfz.sk', 'futbalsfz.sk'],
           },
-        );
+        },
+      );
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
       expect(org?.['memberJoinPolicy']).toBe('DOMAIN_RESTRICTED');
       expect(org?.['autoJoinDomains']).toEqual(['sfz.sk', 'futbalsfz.sk']);
@@ -132,17 +130,15 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
   describe('accept-invitation with org domain policy', () => {
     it('invite domain check fires when enforceAllowedDomains is set', async () => {
       const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
-      await app.mongo.db
-        .collection('organisations')
-        .updateOne(
-          { deletedAt: null },
-          {
-            $set: {
-              autoJoinDomains: ['approved.sk'],
-              settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
-            },
+      await app.mongo.db.collection('organisations').updateOne(
+        { deletedAt: null },
+        {
+          $set: {
+            autoJoinDomains: ['approved.sk'],
+            settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
           },
-        );
+        },
+      );
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
@@ -155,17 +151,15 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
 
     it('invite succeeds for email in allowed domain', async () => {
       const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
-      await app.mongo.db
-        .collection('organisations')
-        .updateOne(
-          { deletedAt: null },
-          {
-            $set: {
-              autoJoinDomains: ['approved.sk'],
-              settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
-            },
+      await app.mongo.db.collection('organisations').updateOne(
+        { deletedAt: null },
+        {
+          $set: {
+            autoJoinDomains: ['approved.sk'],
+            settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
           },
-        );
+        },
+      );
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
@@ -177,22 +171,20 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
 
     it('exception email can be invited outside allowed domain', async () => {
       const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
-      await app.mongo.db
-        .collection('organisations')
-        .updateOne(
-          { deletedAt: null },
-          {
-            $set: {
-              autoJoinDomains: ['approved.sk'],
-              settings: {
-                invitations: {
-                  enforceAllowedDomains: true,
-                  exceptions: ['special@otherdomain.sk'],
-                },
+      await app.mongo.db.collection('organisations').updateOne(
+        { deletedAt: null },
+        {
+          $set: {
+            autoJoinDomains: ['approved.sk'],
+            settings: {
+              invitations: {
+                enforceAllowedDomains: true,
+                exceptions: ['special@otherdomain.sk'],
               },
             },
           },
-        );
+        },
+      );
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
