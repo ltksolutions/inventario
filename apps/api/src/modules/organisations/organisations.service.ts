@@ -52,6 +52,7 @@ import { computeShallowDiff } from '../assets/assets-diff.js';
 import type {
   OrganisationsRepository,
   OrganisationUpdatePatch,
+  OrganisationSelfServicePatch,
   ListOrganisationsParams,
 } from './organisations.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
@@ -434,13 +435,13 @@ export class OrganisationsService {
       }
 
       const now = new Date().toISOString();
-      const fullPatch: OrganisationUpdatePatch = {
-        ...(patch as OrganisationUpdatePatch),
+      const fullPatch: OrganisationSelfServicePatch = {
+        ...(patch as OrganisationSelfServicePatch),
         updatedAt: now,
         updatedBy: actorId,
       };
 
-      const after = await this.repo.update(organisationId, fullPatch, session);
+      const after = await this.repo.updateSelf(organisationId, fullPatch, session);
       if (!after) {
         throw new NotFoundError('Organisation', organisationId);
       }

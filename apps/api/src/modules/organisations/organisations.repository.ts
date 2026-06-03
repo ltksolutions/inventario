@@ -63,6 +63,15 @@ export type OrganisationUpdatePatch = Partial<
   Omit<Organisation, '_id' | 'slug' | 'entraTenantId' | 'createdAt' | 'createdBy'>
 >;
 
+/**
+ * Extended patch for tenant self-service (PATCH /current).
+ * Adds entraTenantId to allow tenant ADMINs to configure their own
+ * Entra domain restriction (ADR-0030 D3).
+ */
+export type OrganisationSelfServicePatch = OrganisationUpdatePatch & {
+  entraTenantId?: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Repository
 // ---------------------------------------------------------------------------
@@ -247,6 +256,32 @@ export class OrganisationsRepository {
         deletedAt: null,
       } as Filter<Organisation>,
       { $set: patch },
+      {
+        returnDocument: 'after',
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
+
+  /**
+   * Apply a partial update for tenant self-service (PATCH /current).
+   * Unlike `update`, this also allows setting `entraTenantId` (ADR-0030 D3).
+   */
+  async updateSelf(
+    id: string,
+    patch: OrganisationSelfServicePatch,
+    session?: ClientSession,
+  ): Promise<WithId<Organisation> | null> {
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      {
+        _id: new ObjectId(id) as unknown as Organisation['_id'],
+        deletedAt: null,
+      } as Filter<Organisation>,
+      { $set: patch as Partial<Organisation> },
       {
         returnDocument: 'after',
         ...(session ? { session } : {}),

@@ -12,7 +12,21 @@ import type { FormEvent, JSX, ReactNode } from 'react';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
-type Provider = 'google' | 'microsoft' | 'email';
+type Provider = 'google' | 'microsoft' | 'apple' | 'email';
+
+const PROVIDER_LABELS: Record<Provider, string> = {
+  google: 'Google',
+  microsoft: 'Microsoft',
+  apple: 'Apple',
+  email: 'E-mail',
+};
+
+const PROVIDER_SUBMIT_LABELS: Record<Provider, string> = {
+  google: 'Pokračovať s Google',
+  microsoft: 'Pokračovať s Microsoft',
+  apple: 'Pokračovať s Apple',
+  email: 'Vytvoriť účet',
+};
 
 /**
  * /register page — Slice #6b K13.
@@ -155,8 +169,8 @@ export function RegisterPage(): JSX.Element {
 
             {/* Provider */}
             <Field label="Spôsob prihlásenia" htmlFor="provider" required>
-              <div className="mt-1 grid grid-cols-3 gap-2">
-                {(['google', 'microsoft', 'email'] as Provider[]).map((p) => (
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {(['google', 'apple', 'microsoft', 'email'] as Provider[]).map((p) => (
                   <button
                     key={p}
                     type="button"
@@ -167,7 +181,7 @@ export function RegisterPage(): JSX.Element {
                         : 'border-border-default bg-surface-card text-text-secondary hover:bg-surface-subtle'
                     }`}
                   >
-                    {p === 'google' ? 'Google' : p === 'microsoft' ? 'Microsoft' : 'E-mail'}
+                    {PROVIDER_LABELS[p]}
                   </button>
                 ))}
               </div>
@@ -218,9 +232,7 @@ export function RegisterPage(): JSX.Element {
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
-              {provider === 'email'
-                ? 'Vytvoriť účet'
-                : 'Pokračovať s ' + (provider === 'google' ? 'Google' : 'Microsoft')}
+              {provider === 'email' ? 'Vytvoriť účet' : PROVIDER_SUBMIT_LABELS[provider]}
             </button>
           </form>
 

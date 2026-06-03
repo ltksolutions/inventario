@@ -2,20 +2,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * ADR-0030 D2 — entraTenantId domain restriction tests.
- *
- * Tests that:
- *   1. Microsoft login is allowed when org has no entraTenantId (open to any MS account).
- *   2. Microsoft login is blocked when tid mismatches org.entraTenantId.
- *   3. Microsoft login is allowed when tid matches org.entraTenantId.
- *   4. Google login is never subject to entraTenantId restriction.
- *   5. entraTenantId restriction fires at invite-accept (OAuth path).
- *
- * We test the restriction logic directly via the provisionOrFindUser helper
- * by inspecting the errorCode returned, since real MS OAuth token exchange
- * requires live Microsoft infrastructure.
- *
- * The tid extraction from id_token is also unit-tested (decodeJwtPayload).
+ * ADR-0030 D2+D3 — entraTenantId domain restriction + auth settings tests.
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -25,11 +12,6 @@ import { provisionUser, UserRole } from '../helpers/test-fixtures.js';
 
 import type { FastifyInstance } from 'fastify';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Build a minimal JWT id_token with the given payload (unsigned — for decode tests only). */
 function makeFakeIdToken(payload: Record<string, unknown>): string {
   const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -48,10 +30,6 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
   beforeEach(async () => {
     await cleanTestDatabase(app);
   });
-
-  // -------------------------------------------------------------------------
-  // id_token decoding (unit-level — no network needed)
-  // -------------------------------------------------------------------------
 
   describe('id_token tid extraction', () => {
     it('extracts tid from a well-formed MS id_token payload', () => {
@@ -76,29 +54,15 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Organisation entraTenantId setup
-  // -------------------------------------------------------------------------
-
   describe('org without entraTenantId — no restriction', () => {
-    it('Microsoft user with any tid can log in when org has no entraTenantId configured', async () => {
-      // Org created by provisionUser may inherit ENTRA_TENANT_ID from test env.
-      // The restriction logic fires only when entraTenantId IS set AND tid mismatches.
-      // When entraTenantId is null OR tid is null, restriction is skipped — this
-      // is verified by the logic in provisionOrFindUser (provider check is AND-gated).
+    it('restriction only fires when BOTH entraTenantId AND tid are set AND mismatched', async () => {
       await provisionUser(app, { role: UserRole.ADMIN });
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
-      // entraTenantId may be null or a test UUID — both are valid states.
-      // The key invariant is: restriction only fires when BOTH entraTenantId AND tid are set AND mismatched.
       expect(org).not.toBeNull();
-      // Verify the restriction guard condition: if entraTenantId is null, no restriction applies.
       const entraTenantId = org?.['entraTenantId'] as string | null;
       if (entraTenantId === null) {
-        // No restriction — any MS account can log in. Correct.
         expect(entraTenantId).toBeNull();
       } else {
-        // Test env has a placeholder entraTenantId — that's fine, restriction
-        // only blocks when tid !== entraTenantId (mismatch), not when tid === entraTenantId.
         expect(typeof entraTenantId).toBe('string');
       }
     });
@@ -108,46 +72,30 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
     it('org document can store entraTenantId', async () => {
       const sfzTid = 'a1b2c3d4-5e6f-7890-abcd-ef1234567890';
       await provisionUser(app, { role: UserRole.ADMIN });
-
-      // Simulate SFZ migration: set entraTenantId on the org
       const updateResult = await app.mongo.db
         .collection('organisations')
         .updateOne({ deletedAt: null }, { $set: { entraTenantId: sfzTid } });
       expect(updateResult.modifiedCount).toBe(1);
-
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
       expect(org?.['entraTenantId']).toBe(sfzTid);
     });
 
     it('entra_tenant_mismatch error code is correct string', () => {
-      // Unit test — error code must stay stable (frontend maps it to user message)
       expect('entra_tenant_mismatch').toBe('entra_tenant_mismatch');
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Restriction logic — integration via login route shape
-  // -------------------------------------------------------------------------
-
   describe('GET /v1/auth/login/:provider', () => {
-    it('returns 503 for unknown provider (not google/microsoft)', async () => {
+    it('returns non-200 for unknown provider', async () => {
       const res = await app.inject({ method: 'GET', url: '/v1/auth/login/facebook' });
-      // Without OAUTH_STATE_SECRET configured in test, route is skipped → 404
-      // With it configured → 400 or 503. Either way not 200.
       expect(res.statusCode).not.toBe(200);
     });
 
-    it('apple is handled by separate plugin (not /v1/auth/login/:provider)', async () => {
-      // apple must go to /v1/auth/login/apple, NOT /v1/auth/login/:provider
+    it('apple is handled by separate plugin', async () => {
       const res = await app.inject({ method: 'GET', url: '/v1/auth/login/apple' });
-      // Stub returns 503 in test env (no Apple credentials)
       expect(res.statusCode).toBe(503);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // autoJoinDomains — stored correctly on org (domain restriction model)
-  // -------------------------------------------------------------------------
 
   describe('autoJoinDomains domain model', () => {
     it('org stores autoJoinDomains as empty array by default', async () => {
@@ -156,17 +104,19 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
       expect(org?.['autoJoinDomains']).toEqual([]);
     });
 
-    it('org can have autoJoinDomains set (simulates DOMAIN_RESTRICTED config)', async () => {
+    it('org can have autoJoinDomains and DOMAIN_RESTRICTED set', async () => {
       await provisionUser(app, { role: UserRole.ADMIN });
-      await app.mongo.db.collection('organisations').updateOne(
-        { deletedAt: null },
-        {
-          $set: {
-            memberJoinPolicy: 'DOMAIN_RESTRICTED',
-            autoJoinDomains: ['sfz.sk', 'futbalsfz.sk'],
+      await app.mongo.db
+        .collection('organisations')
+        .updateOne(
+          { deletedAt: null },
+          {
+            $set: {
+              memberJoinPolicy: 'DOMAIN_RESTRICTED',
+              autoJoinDomains: ['sfz.sk', 'futbalsfz.sk'],
+            },
           },
-        },
-      );
+        );
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
       expect(org?.['memberJoinPolicy']).toBe('DOMAIN_RESTRICTED');
       expect(org?.['autoJoinDomains']).toEqual(['sfz.sk', 'futbalsfz.sk']);
@@ -179,34 +129,25 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Restriction at invite-accept level (no OAuth exchange needed)
-  // -------------------------------------------------------------------------
-
   describe('accept-invitation with org domain policy', () => {
-    it('invite domain check fires when org enforceAllowedDomains is set', async () => {
+    it('invite domain check fires when enforceAllowedDomains is set', async () => {
       const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
-
-      // Enable domain enforcement
-      await app.mongo.db.collection('organisations').updateOne(
-        { deletedAt: null },
-        {
-          $set: {
-            autoJoinDomains: ['approved.sk'],
-            settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
+      await app.mongo.db
+        .collection('organisations')
+        .updateOne(
+          { deletedAt: null },
+          {
+            $set: {
+              autoJoinDomains: ['approved.sk'],
+              settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
+            },
           },
-        },
-      );
-
-      // Try to invite an email outside the allowed domain
+        );
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          email: 'user@otherdomain.sk',
-          role: UserRole.EMPLOYEE,
-        },
+        payload: { email: 'user@otherdomain.sk', role: UserRole.EMPLOYEE },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toMatch(/not allowed/i);
@@ -214,57 +155,135 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
 
     it('invite succeeds for email in allowed domain', async () => {
       const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
-
-      await app.mongo.db.collection('organisations').updateOne(
-        { deletedAt: null },
-        {
-          $set: {
-            autoJoinDomains: ['approved.sk'],
-            settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
+      await app.mongo.db
+        .collection('organisations')
+        .updateOne(
+          { deletedAt: null },
+          {
+            $set: {
+              autoJoinDomains: ['approved.sk'],
+              settings: { invitations: { enforceAllowedDomains: true, exceptions: [] } },
+            },
           },
-        },
-      );
-
+        );
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          email: 'user@approved.sk',
-          role: UserRole.EMPLOYEE,
-        },
+        payload: { email: 'user@approved.sk', role: UserRole.EMPLOYEE },
       });
       expect(res.statusCode).toBe(201);
     });
 
-    it('exception email can be invited even outside allowed domain', async () => {
+    it('exception email can be invited outside allowed domain', async () => {
       const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
-
-      await app.mongo.db.collection('organisations').updateOne(
-        { deletedAt: null },
-        {
-          $set: {
-            autoJoinDomains: ['approved.sk'],
-            settings: {
-              invitations: {
-                enforceAllowedDomains: true,
-                exceptions: ['special@otherdomain.sk'],
+      await app.mongo.db
+        .collection('organisations')
+        .updateOne(
+          { deletedAt: null },
+          {
+            $set: {
+              autoJoinDomains: ['approved.sk'],
+              settings: {
+                invitations: {
+                  enforceAllowedDomains: true,
+                  exceptions: ['special@otherdomain.sk'],
+                },
               },
             },
           },
-        },
-      );
-
+        );
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: {
-          email: 'special@otherdomain.sk',
-          role: UserRole.EMPLOYEE,
-        },
+        payload: { email: 'special@otherdomain.sk', role: UserRole.EMPLOYEE },
       });
       expect(res.statusCode).toBe(201);
+    });
+  });
+
+  describe('PATCH /v1/organisations/current — auth domain settings (D3)', () => {
+    it('ADMIN can update allowedAuthProviders', async () => {
+      const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { allowedAuthProviders: ['MICROSOFT', 'EMAIL'] },
+      });
+      expect(res.statusCode).toBe(200);
+      const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
+      expect(org?.['allowedAuthProviders']).toEqual(expect.arrayContaining(['MICROSOFT', 'EMAIL']));
+    });
+
+    it('ADMIN can update memberJoinPolicy to DOMAIN_RESTRICTED', async () => {
+      const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { memberJoinPolicy: 'DOMAIN_RESTRICTED', autoJoinDomains: ['sfz.sk'] },
+      });
+      expect(res.statusCode).toBe(200);
+      const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
+      expect(org?.['memberJoinPolicy']).toBe('DOMAIN_RESTRICTED');
+      expect(org?.['autoJoinDomains']).toContain('sfz.sk');
+    });
+
+    it('ADMIN can set entraTenantId (SFZ migrácia model)', async () => {
+      const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
+      const sfzTid = 'bcd6945a-5a57-4c2b-9ebb-d62712ad4b55';
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { entraTenantId: sfzTid },
+      });
+      expect(res.statusCode).toBe(200);
+      const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
+      expect(org?.['entraTenantId']).toBe(sfzTid);
+    });
+
+    it('ADMIN can clear entraTenantId', async () => {
+      const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
+      await app.mongo.db
+        .collection('organisations')
+        .updateOne(
+          { deletedAt: null },
+          { $set: { entraTenantId: 'bcd6945a-5a57-4c2b-9ebb-d62712ad4b55' } },
+        );
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { entraTenantId: null },
+      });
+      expect(res.statusCode).toBe(200);
+      const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
+      expect(org?.['entraTenantId']).toBeNull();
+    });
+
+    it('rejects empty allowedAuthProviders array', async () => {
+      const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { allowedAuthProviders: [] },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('EMPLOYEE cannot update auth domain settings (403)', async () => {
+      const { token: employeeToken } = await provisionUser(app, { role: UserRole.EMPLOYEE });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/organisations/current',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: { memberJoinPolicy: 'OPEN' },
+      });
+      expect(res.statusCode).toBe(403);
     });
   });
 });
