@@ -367,7 +367,57 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
       const membership = memberships[0] ?? null;
       if (!membership) {
-        throw new UnauthorizedError('Organizácia nie je dostupná.');
+        // User nema membership (caka na pozvanku) — vydaj cookie s dummy org
+        // Najdeme org z pending pozvanky pre tento email
+        const { ObjectId: ObjId } = await import('mongodb');
+        const pendingInvite = await db.collection('invitations').findOne({
+          email,
+          status: 'PENDING',
+          deletedAt: null,
+        });
+        let fallbackOrg: WithId<Organisation> | null = null;
+        if (pendingInvite) {
+          fallbackOrg = (await orgsCol.findOne({
+            _id: new ObjId(String(pendingInvite['organisationId'])) as never,
+            deletedAt: null,
+          } as never)) as WithId<Organisation> | null;
+        }
+        // Fallback: User.organisationId (legacy)
+        if (!fallbackOrg) {
+          const legacyOrgId = (user as Record<string, unknown>)['organisationId'] as string | null;
+          if (legacyOrgId && legacyOrgId.match(/^[a-f\d]{24}$/i)) {
+            fallbackOrg = (await orgsCol.findOne({
+              _id: new ObjId(legacyOrgId) as never,
+              deletedAt: null,
+            } as never)) as WithId<Organisation> | null;
+          }
+        }
+        if (!fallbackOrg) {
+          throw new UnauthorizedError('Organizácia nie je dostupná.');
+        }
+        // Vydaj token bez mid (synthesizeMembership fallback v auth.ts to zvladne)
+        const accessToken = await fastify.inventarioJwt.issueAccessToken(
+          user,
+          fallbackOrg,
+          undefined,
+          UserRole.EMPLOYEE,
+        );
+        const refreshToken = await fastify.inventarioJwt.issueRefreshToken(
+          String(user._id),
+          request,
+        );
+        setAuthCookies(
+          reply,
+          accessToken,
+          refreshToken,
+          JWT_ACCESS_TOKEN_TTL_SECONDS,
+          JWT_REFRESH_TOKEN_TTL_DAYS,
+        );
+        fastify.log.info(
+          { userId: String(user._id), email },
+          'Email login: no membership, issued cookie for invite accept',
+        );
+        return reply.code(204).send();
       }
 
       const org = (await orgsCol.findOne({
