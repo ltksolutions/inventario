@@ -143,7 +143,7 @@ export function RegisterPage(): JSX.Element {
             </Field>
 
             {/* Contact email */}
-            <Field label="Kontaktný e-mail" htmlFor="contactEmail" required>
+            <Field label="Fakturačný e-mail organizácie" htmlFor="contactEmail" required>
               <input
                 id="contactEmail"
                 type="email"
