@@ -233,6 +233,22 @@ export class MembershipsRepository {
   }
 
   /**
+   * Return the list of userId strings for all ACTIVE, non-deleted members
+   * of a tenant. Used by UsersService.list() to resolve the member set
+   * before fetching User documents — cross-tenant users have no
+   * organisationId on the User document, so a direct users.find() by
+   * organisationId would miss them.
+   */
+  async findUserIdsByOrganisation(organisationId: string): Promise<string[]> {
+    const docs = await this.col
+      .find({ organisationId, status: 'ACTIVE', deletedAt: null } as never, {
+        projection: { userId: 1 },
+      })
+      .toArray();
+    return docs.map((d) => (d as unknown as { userId: string }).userId);
+  }
+
+  /**
    * Insert a new membership. The unique index on {userId, organisationId}
    * prevents duplicates (callers catch E11000 and surface as 409).
    */

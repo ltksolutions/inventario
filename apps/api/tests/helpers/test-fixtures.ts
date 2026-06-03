@@ -295,6 +295,36 @@ export async function provisionUser(
     _id: new ObjectId(userId),
   } as never)) as WithId<User>;
 
+  // Ensure membership exists for this user in the tenant.
+  // GET /v1/users now resolves members via memberships collection,
+  // so provisionUser must also create a membership (idempotent upsert).
+  const membColl = app.mongo.db.collection('memberships');
+  const existingMembership = await membColl.findOne({ userId, organisationId, deletedAt: null });
+  if (!existingMembership) {
+    const now2 = new Date().toISOString();
+    await membColl.insertOne({
+      userId,
+      organisationId,
+      role: options.role,
+      status: 'ACTIVE',
+      isDefault: true,
+      mustChangePassword: false,
+      notifications: { email: true, push: false },
+      organizationalUnit: null,
+      teams: [],
+      lastAccessedAt: null,
+      acceptedAt: now2,
+      invitedBy: 'test-setup',
+      invitedAt: now2,
+      createdAt: now2,
+      updatedAt: now2,
+      createdBy: 'test-setup',
+      updatedBy: 'test-setup',
+      deletedAt: null,
+      deletedBy: null,
+    });
+  }
+
   const org = (await app.mongo.db.collection('organisations').findOne({
     _id: new ObjectId(organisationId),
   } as never)) as never;
@@ -1029,6 +1059,14 @@ export interface InsertTestUserOptions {
   isActive?: boolean;
   /** ID of the user who "created" this record. Defaults to "test-creator". */
   createdBy?: string;
+  /**
+   * Whether to also insert a membership for this user in the tenant.
+   * Defaults to true — required for GET /v1/users which now resolves
+   * members via memberships collection (not users.organisationId).
+   * Set to false only when testing scenarios where the user intentionally
+   * has no membership (e.g. cross-tenant isolation tests).
+   */
+  createMembership?: boolean;
 }
 
 /**
@@ -1096,6 +1134,16 @@ export async function insertTestUser(
 
   const insertResult = await app.mongo.db.collection('users').insertOne(doc);
 
+  // GET /v1/users resolves members via memberships collection, not users.organisationId.
+  // Create a matching membership by default so insertTestUser fixtures show up in list.
+  if (options.createMembership !== false) {
+    await insertTestMembership(app, {
+      userId: String(insertResult.insertedId),
+      organisationId,
+      roles: doc.roles,
+    });
+  }
+
   return {
     _id: String(insertResult.insertedId),
     email: doc.email,
@@ -1122,9 +1170,18 @@ export async function insertTestMembership(
 ): Promise<{ _id: string }> {
   const now = new Date().toISOString();
   const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
-  // ADR-0029: membership ma jednu rolu. Ak volajuci posle legacy roles[],
-  // odvodime jednu hodnotu cez highestRole.
   const role = highestRole(options.roles ?? [UserRole.EMPLOYEE]);
+
+  // Idempotent: return existing membership if one already exists
+  // (provisionUser now auto-creates memberships, so direct calls to
+  // insertTestMembership would collide on the unique index).
+  const existing = await app.mongo.db
+    .collection('memberships')
+    .findOne({ userId: options.userId, organisationId });
+  if (existing) {
+    return { _id: String(existing['_id']) };
+  }
+
   const doc = {
     userId: options.userId,
     organisationId,

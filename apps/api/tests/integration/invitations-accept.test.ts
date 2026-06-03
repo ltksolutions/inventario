@@ -10,7 +10,12 @@ import { randomBytes } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
-import { provisionUser, resolveTestTenantId, UserRole } from '../helpers/test-fixtures.js';
+import {
+  provisionUser,
+  resolveTestTenantId,
+  seedTestTenant,
+  UserRole,
+} from '../helpers/test-fixtures.js';
 
 import type { FastifyInstance } from 'fastify';
 
@@ -376,10 +381,14 @@ describe('POST /v1/auth/accept-invitation — existing-user path', () => {
   });
 
   it('cross-tenant: existing user accepts invite → 204 + new membership created', async () => {
-    // Provision a real user in a different org (simulated by using a second provisioned user)
+    // Provision existing user in a DIFFERENT org so they have no membership
+    // in the admin's test tenant. provisionUser auto-creates membership in
+    // its own org — we need to provision in a separate org.
+    const otherOrg = await seedTestTenant(app, { slug: 'other-org-cross-tenant' });
     const { user: existingUserDoc, token: existingUserToken } = await provisionUser(app, {
       oid: 'cross-tenant-user',
       role: UserRole.EMPLOYEE,
+      organisationId: otherOrg._id,
     });
     const existingUserId = String(existingUserDoc._id);
     const existingUserEmail = existingUserDoc.email;
@@ -399,8 +408,10 @@ describe('POST /v1/auth/accept-invitation — existing-user path', () => {
     expect(res.cookies.some((c) => c.name === 'inv_access')).toBe(true);
 
     // Verify membership was created in the admin's org
+    const adminOrgId = await resolveTestTenantId(app);
     const membership = await app.mongo.db.collection('memberships').findOne({
       userId: existingUserId,
+      organisationId: adminOrgId,
       deletedAt: null,
       status: 'ACTIVE',
     });
@@ -408,7 +419,7 @@ describe('POST /v1/auth/accept-invitation — existing-user path', () => {
   });
 
   it('rejoin: reactivates soft-deleted membership instead of inserting new one', async () => {
-    // Provision existing user
+    // Provision existing user — provisionUser creates an ACTIVE membership
     const { user: existingUserDoc, token: existingUserToken } = await provisionUser(app, {
       oid: 'rejoin-user',
       role: UserRole.EMPLOYEE,
@@ -416,30 +427,17 @@ describe('POST /v1/auth/accept-invitation — existing-user path', () => {
     const existingUserId = String(existingUserDoc._id);
     const orgId = await resolveTestTenantId(app);
 
-    // Directly insert a soft-deleted membership (simulates having left the org)
+    // Soft-delete the existing membership (simulates user having left the org)
+    // Use updateOne on the doc provisionUser already created — no new insert needed.
+    const originalMembership = await app.mongo.db
+      .collection('memberships')
+      .findOne({ userId: existingUserId, organisationId: orgId });
+    expect(originalMembership).not.toBeNull();
+    const originalId = originalMembership!['_id'];
     const now = new Date().toISOString();
-    const insertResult = await app.mongo.db.collection('memberships').insertOne({
-      userId: existingUserId,
-      organisationId: orgId,
-      role: UserRole.EMPLOYEE,
-      status: 'ACTIVE',
-      isDefault: true,
-      organizationalUnit: null,
-      teams: [],
-      invitedBy: 'test-setup',
-      invitedAt: now,
-      acceptedAt: now,
-      mustChangePassword: false,
-      lastAccessedAt: now,
-      notifications: { email: true, push: false },
-      createdAt: now,
-      updatedAt: now,
-      createdBy: 'test-setup',
-      updatedBy: 'test-setup',
-      deletedAt: now, // already soft-deleted
-      deletedBy: existingUserId,
-    });
-    const originalId = insertResult.insertedId;
+    await app.mongo.db
+      .collection('memberships')
+      .updateOne({ _id: originalId }, { $set: { deletedAt: now, deletedBy: existingUserId } });
 
     // Create rejoin invite
     const { token } = await createInvite(app, adminToken, { email: existingUserDoc.email });
@@ -472,9 +470,13 @@ describe('POST /v1/auth/accept-invitation — existing-user path', () => {
   });
 
   it('double-accept: second accept returns 409, not 500', async () => {
+    // Provision user in a DIFFERENT org so they have no membership in admin's tenant.
+    // This simulates the cross-tenant scenario where first accept creates membership.
+    const otherOrg = await seedTestTenant(app, { slug: 'other-org-double-accept' });
     const { user: existingUserDoc, token: existingUserToken } = await provisionUser(app, {
       oid: 'double-accept-user',
       role: UserRole.EMPLOYEE,
+      organisationId: otherOrg._id,
     });
     const existingUserId = String(existingUserDoc._id);
     const orgId = await resolveTestTenantId(app);

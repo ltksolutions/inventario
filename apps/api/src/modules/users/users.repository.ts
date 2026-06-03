@@ -212,6 +212,53 @@ export class UsersRepository {
   }
 
   /**
+   * List users by explicit userId list (membership-based tenant query).
+   *
+   * Used by UsersService.list() after resolving member userIds from the
+   * memberships collection. This replaces the legacy organisationId filter
+   * on the users collection, which broke for cross-tenant invited users
+   * whose User document carries their original organisationId, not the
+   * tenant they were invited into.
+   *
+   * Applies the caller-supplied filter (role, isActive, q) on top of the
+   * userId $in filter. Soft-deleted users are always excluded.
+   */
+  async listByUserIds({
+    userIds,
+    limit = 50,
+    skip = 0,
+    filter = {},
+    sort = { displayName: 1 },
+  }: {
+    userIds: string[];
+    limit?: number;
+    skip?: number;
+    filter?: Filter<User>;
+    sort?: FindOptions<User>['sort'];
+  }): Promise<ListUsersResult> {
+    if (userIds.length === 0) return { items: [], total: 0 };
+
+    const objectIds = userIds.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+
+    if (objectIds.length === 0) return { items: [], total: 0 };
+
+    const effectiveFilter = {
+      ...filter,
+      _id: { $in: objectIds },
+      deletedAt: null,
+    } as never as Filter<User>;
+
+    const [items, total] = await Promise.all([
+      this.collection
+        .find(effectiveFilter, { limit, skip, sort, projection: PUBLIC_PROJECTION })
+        .toArray(),
+      this.collection.countDocuments(effectiveFilter),
+    ]);
+
+    return { items, total };
+  }
+
+  /**
    * Update `lastLoginAt` to the current time. Best-effort — failures
    * here should NOT block authentication, only be logged.
    *

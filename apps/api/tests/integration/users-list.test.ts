@@ -6,7 +6,13 @@ import { ObjectId } from 'mongodb';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
-import { insertTestUser, provisionUser, UserRole } from '../helpers/test-fixtures.js';
+import {
+  insertTestMembership,
+  insertTestUser,
+  provisionUser,
+  resolveTestTenantId,
+  UserRole,
+} from '../helpers/test-fixtures.js';
 
 import type { FastifyInstance } from 'fastify';
 
@@ -202,6 +208,63 @@ describe('GET /v1/users', () => {
       const emails = res.json<{ data: Array<{ email: string }> }>().data.map((u) => u.email);
       expect(emails).toContain('a.b@example.com');
       expect(emails).not.toContain('aXb@example.com');
+    });
+  });
+
+  describe('cross-tenant users', () => {
+    it('shows a cross-tenant invited user (no organisationId on User doc) in the list', async () => {
+      const orgId = await resolveTestTenantId(app);
+
+      // Insert a user WITHOUT organisationId matching the tenant (simulates cross-tenant invite).
+      // createMembership:false so we control the membership manually.
+      const crossTenantUser = await insertTestUser(app, {
+        email: 'cross-tenant@other-org.com',
+        createMembership: false,
+      });
+
+      // Manually insert membership linking this user to the test tenant
+      // (mirrors what accept-invite does for existing-user path).
+      await insertTestMembership(app, {
+        userId: crossTenantUser._id,
+        organisationId: orgId,
+        roles: [UserRole.ASSET_MANAGER],
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/users',
+        headers: { cookie: `inv_access=${adminToken}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const emails = res.json<{ data: Array<{ email: string }> }>().data.map((u) => u.email);
+      expect(emails).toContain('cross-tenant@other-org.com');
+    });
+
+    it('does NOT show a user who has a membership in a different org', async () => {
+      // Insert user with membership in a completely different org (not test tenant)
+      const otherOrgId = new ObjectId().toHexString();
+      const foreignUser = await insertTestUser(app, {
+        email: 'foreign@other-org.com',
+        organisationId: otherOrgId,
+        createMembership: false, // no membership in test tenant
+      });
+      // Insert membership for the OTHER org only
+      await insertTestMembership(app, {
+        userId: foreignUser._id,
+        organisationId: otherOrgId,
+        roles: [UserRole.EMPLOYEE],
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/users',
+        headers: { cookie: `inv_access=${adminToken}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const emails = res.json<{ data: Array<{ email: string }> }>().data.map((u) => u.email);
+      expect(emails).not.toContain('foreign@other-org.com');
     });
   });
 

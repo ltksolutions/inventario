@@ -14,7 +14,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
-import { provisionUser, resolveTestTenantId, UserRole } from '../helpers/test-fixtures.js';
+import { insertTestMembership, provisionUser, UserRole } from '../helpers/test-fixtures.js';
 import {
   createSyntheticAuthenticator,
   makeSyntheticAssertion,
@@ -292,30 +292,8 @@ describe('Passkeys — registration + authentication + management', () => {
   describe('Authentication', () => {
     it('K14-A1: logs in with passkey (allow-credentials flow) and sets cookies', async () => {
       const { user, token } = await provisionUser(app, { role: UserRole.EMPLOYEE });
-
-      // Seed membership for default tenant resolution
-      const orgId = await resolveTestTenantId(app);
-      await app.mongo.db.collection('memberships').insertOne({
-        userId: String(user._id),
-        organisationId: orgId,
-        roles: [UserRole.EMPLOYEE],
-        status: 'ACTIVE',
-        isDefault: true,
-        invitedBy: 'SYSTEM',
-        invitedAt: new Date().toISOString(),
-        acceptedAt: new Date().toISOString(),
-        mustChangePassword: false,
-        lastAccessedAt: null,
-        notifications: { email: true, push: false },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'test',
-        updatedBy: 'test',
-        deletedAt: null,
-        deletedBy: null,
-        organizationalUnit: null,
-        teams: [],
-      });
+      // provisionUser already creates a membership; insertTestMembership is idempotent
+      await insertTestMembership(app, { userId: String(user._id), roles: [UserRole.EMPLOYEE] });
 
       const { authenticator } = await registerPasskeyForUser(token);
       const { statusCode, cookies } = await loginWithPasskey(authenticator, user.email);
@@ -328,28 +306,7 @@ describe('Passkeys — registration + authentication + management', () => {
 
     it('K14-A2: logs in without email (discovery/resident-key flow)', async () => {
       const { user, token } = await provisionUser(app, { role: UserRole.EMPLOYEE });
-      const orgId = await resolveTestTenantId(app);
-      await app.mongo.db.collection('memberships').insertOne({
-        userId: String(user._id),
-        organisationId: orgId,
-        roles: [UserRole.EMPLOYEE],
-        status: 'ACTIVE',
-        isDefault: true,
-        invitedBy: 'SYSTEM',
-        invitedAt: new Date().toISOString(),
-        acceptedAt: new Date().toISOString(),
-        mustChangePassword: false,
-        lastAccessedAt: null,
-        notifications: { email: true, push: false },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'test',
-        updatedBy: 'test',
-        deletedAt: null,
-        deletedBy: null,
-        organizationalUnit: null,
-        teams: [],
-      });
+      await insertTestMembership(app, { userId: String(user._id), roles: [UserRole.EMPLOYEE] });
 
       const { authenticator } = await registerPasskeyForUser(token);
       const { statusCode } = await loginWithPasskey(authenticator);
@@ -387,28 +344,7 @@ describe('Passkeys — registration + authentication + management', () => {
 
     it('K14-A4: returns 401 for invalid assertion (wrong signature)', async () => {
       const { user, token } = await provisionUser(app, { role: UserRole.EMPLOYEE });
-      const orgId = await resolveTestTenantId(app);
-      await app.mongo.db.collection('memberships').insertOne({
-        userId: String(user._id),
-        organisationId: orgId,
-        roles: [UserRole.EMPLOYEE],
-        status: 'ACTIVE',
-        isDefault: true,
-        invitedBy: 'SYSTEM',
-        invitedAt: new Date().toISOString(),
-        acceptedAt: new Date().toISOString(),
-        mustChangePassword: false,
-        lastAccessedAt: null,
-        notifications: { email: true, push: false },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'test',
-        updatedBy: 'test',
-        deletedAt: null,
-        deletedBy: null,
-        organizationalUnit: null,
-        teams: [],
-      });
+      await insertTestMembership(app, { userId: String(user._id), roles: [UserRole.EMPLOYEE] });
 
       const { authenticator } = await registerPasskeyForUser(token);
 
@@ -468,28 +404,7 @@ describe('Passkeys — registration + authentication + management', () => {
 
     it('K14-A6: returns 401 when user is inactive', async () => {
       const { user, token } = await provisionUser(app, { role: UserRole.EMPLOYEE });
-      const orgId = await resolveTestTenantId(app);
-      await app.mongo.db.collection('memberships').insertOne({
-        userId: String(user._id),
-        organisationId: orgId,
-        roles: [UserRole.EMPLOYEE],
-        status: 'ACTIVE',
-        isDefault: true,
-        invitedBy: 'SYSTEM',
-        invitedAt: new Date().toISOString(),
-        acceptedAt: new Date().toISOString(),
-        mustChangePassword: false,
-        lastAccessedAt: null,
-        notifications: { email: true, push: false },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'test',
-        updatedBy: 'test',
-        deletedAt: null,
-        deletedBy: null,
-        organizationalUnit: null,
-        teams: [],
-      });
+      await insertTestMembership(app, { userId: String(user._id), roles: [UserRole.EMPLOYEE] });
 
       const { authenticator } = await registerPasskeyForUser(token);
 
@@ -577,28 +492,7 @@ describe('Passkeys — registration + authentication + management', () => {
   describe('Counter regression', () => {
     it('K14-C1: login succeeds even when counter does not increment (synced passkey)', async () => {
       const { user, token } = await provisionUser(app, { role: UserRole.EMPLOYEE });
-      const orgId = await resolveTestTenantId(app);
-      await app.mongo.db.collection('memberships').insertOne({
-        userId: String(user._id),
-        organisationId: orgId,
-        roles: [UserRole.EMPLOYEE],
-        status: 'ACTIVE',
-        isDefault: true,
-        invitedBy: 'SYSTEM',
-        invitedAt: new Date().toISOString(),
-        acceptedAt: new Date().toISOString(),
-        mustChangePassword: false,
-        lastAccessedAt: null,
-        notifications: { email: true, push: false },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'test',
-        updatedBy: 'test',
-        deletedAt: null,
-        deletedBy: null,
-        organizationalUnit: null,
-        teams: [],
-      });
+      await insertTestMembership(app, { userId: String(user._id), roles: [UserRole.EMPLOYEE] });
 
       const { authenticator } = await registerPasskeyForUser(token);
 

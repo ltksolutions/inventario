@@ -202,13 +202,21 @@ export class UsersService {
    * `isActive`, `q`).
    */
   async list(params: ListUsersServiceParams, actor: WithId<User>): Promise<ListUsersResponse> {
+    if (!this.membershipsRepo) {
+      throw new Error('UsersService.list requires membershipsRepo.');
+    }
     const tenantId = String(actor.organisationId);
     const limit = params.limit ?? 50;
     const skip = params.skip ?? 0;
     const filter = params.filter ?? {};
 
-    const { items, total } = await this.repo.list({
-      organisationId: tenantId,
+    // Resolve member userIds from memberships — cross-tenant users have
+    // no organisationId on their User document, so filtering users directly
+    // by organisationId misses them. We go via memberships instead.
+    const userIds = await this.membershipsRepo.findUserIdsByOrganisation(tenantId);
+
+    const { items, total } = await this.repo.listByUserIds({
+      userIds,
       limit,
       skip,
       filter,
