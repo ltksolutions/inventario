@@ -26,9 +26,10 @@
  * Indexy sú vytvorené v migration runneri. ensureIndexes() je záchrana pre testy.
  */
 
+import { highestRole } from '@inventario/shared-types';
 import { ObjectId, type ClientSession, type Collection, type Db, type WithId } from 'mongodb';
 
-import type { Invitation, User } from '@inventario/shared-types';
+import type { Invitation, User, UserRole } from '@inventario/shared-types';
 
 // ---------------------------------------------------------------------------
 // Projection — token NEVER returned except via the preview endpoint
@@ -44,7 +45,7 @@ const SAFE_PROJECTION = { token: 0 } as const;
 export interface PendingInvitation {
   _id: string;
   email: string;
-  roles: string[];
+  role: string;
   firstName: string | null;
   lastName: string | null;
   invitedBy: string;
@@ -365,7 +366,7 @@ export class InvitationsRepository {
       return {
         _id: inv._id.toString(),
         email: inv.email,
-        roles: inv.roles as string[],
+        role: inv.role as string,
         firstName: inv.firstName ?? null,
         lastName: inv.lastName ?? null,
         invitedBy: inv.invitedBy,
@@ -377,7 +378,7 @@ export class InvitationsRepository {
     return {
       _id: user._id.toString(),
       email: user.email,
-      roles: (user.roles ?? []) as string[],
+      role: highestRole((user.roles ?? []) as UserRole[]),
       firstName: user.firstName ?? null,
       lastName: user.lastName ?? null,
       invitedBy: user.createdBy,
@@ -399,7 +400,7 @@ export class InvitationsRepository {
       _id: ghost._id,
       email: ghost.email,
       organisationId: ghost.organisationId ?? '',
-      roles: (ghost.roles ?? ['EMPLOYEE']) as Invitation['roles'],
+      role: highestRole((ghost.roles ?? ['EMPLOYEE']) as UserRole[]),
       firstName: ghost.firstName ?? null,
       lastName: ghost.lastName ?? null,
       invitedUserId: null,

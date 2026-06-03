@@ -1,98 +1,35 @@
-<!--
-SPDX-FileCopyrightText: 2026 Jan Letko / LTK Solutions
-SPDX-License-Identifier: CC-BY-4.0
--->
+# NEXT — aktuálny stav + ďalší krok
 
-# NEXT — čo robiť v ďalšej session
+Posledná session: `docs/sessions/2026-06-03-adr-0029-single-role.md`
 
-| Atribút                   | Hodnota                                                                      |
-| ------------------------- | ---------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-03 (post-deploy fixy: pozvánky URL, CI logo upload, resend tlačidlo) |
-| **Aktuálna fáza**         | Production LIVE — ADR-0028 v2 uzavretý; SFZ pilot pripravený                 |
-| **Lokálny adresár**       | `/Users/janletko/Documents/GitHub/inventario`                                |
-| **GitHub**                | https://github.com/ltksolutions/inventario                                   |
+## Aktuálny stav
 
----
+**ADR-0029 (single hierarchical role) — K1–K7 DONE, čaká na Janíku:**
 
-## 🎯 Vedúci princíp
+Všetky kódové zmeny zapísané na disk. Janika musí spustiť:
 
-**Všetko musí byť praktické pre bežnú dennú prevádzku z reálneho života.**
+```bash
+pnpm --filter @inventario/shared-types build
+pnpm --filter @inventario/api openapi:export:offline
+# regen apps/web/api-types.ts z nového OpenAPI
+pnpm typecheck
+pnpm test
+```
 
----
+Ak niečo padne → pošlite výstup, opravím.
 
-## ✅ Hotové (posledná session, 2026-06-03)
+## Ďalší krok (po zelených testoch)
 
-**Post-deploy fixy (živé testovanie pozvánok)**
-Session doc: [`docs/sessions/2026-06-03-post-deploy-fixes.md`](./2026-06-03-post-deploy-fixes.md)
+1. **Commit + push** (GitHub Desktop): `feat: single hierarchical role per membership (ADR-0029)`
+2. **K8** — replikácia do SFZ Asset-Management repa (shared-types zmeny)
+3. **Tech-debt (TODO P2)**: `users.service.ts` — PATCH /v1/users/:id je zastaraný
+   (správa rolí = PATCH /v1/memberships/:id); premigrovat alebo odstraniť pred GA
 
-- **fix(api): accept-invite link** — rozbité `https://.inventario.estate` → používa sa explicitný `FRONTEND_BASE_URL` z configu (vo Vercel nastavené na `https://app.inventario.estate`)
-- **fix(api): logo upload validuje vstup pred Blob tokenom** — CI bez `BLOB_READ_WRITE_TOKEN` dostával 500 namiesto 400/413; pretočené poradie (4xx vstup pred 5xx konfigurácia)
-- **feat(web): tlačidlo „Odoslať znovu“** pre čakajúce pozvánky (backend `/resend` už existoval) — uzatvára prvú odrážku TODO #13
+## Na horizonte (v TODO.md)
 
-**Testy:** 884/884 zelených · **CI:** zelené · 3 commity (2× fix(api), 1× feat(web))
-
----
-
-**ADR-0028 v2 Per-tenant branding — preset palety, Blob upload, font enum**
-Session doc: [`docs/sessions/2026-06-03-adr-0028-v2-branding-presets.md`](./2026-06-03-adr-0028-v2-branding-presets.md)
-
-- v2-B0 — Vercel Blob store (manuálne): `inventario-api-blob`, Frankfurt fra1, Public, `BLOB_READ_WRITE_TOKEN`
-- v2-B1 — `brand-presets.ts`: 10 WCAG paliet + font enum + `FONT_OPTIONS` s `var(--font-*)` CSS refs; 29 testov
-- v2-B2 — Blob upload endpoint + preset→hex expanzia + gating zrušený; `updateLogoUrl()` v service
-- v2-B3 — `next/font/google` (Inter/Open Sans/Roboto/Lato), CSS premenné, `BrandProvider` getFontCss
-- v2-B4 — UI: file picker + preset karty grid + font select; `useUploadLogo()` hook
-- v2-B5 — testy (8 upload + prepísané branding), ADR revízia, OpenAPI regen (84 endpoints), web build 28/28
-
-**Testy:** 884/884 zelených
-
-**Follow-up (živé testovanie večer):** brand hlavička — lišta v brand farbe (varianta A, logo na bielej dlaždici), auto-refresh brandu po uložení (bez reloadu), fix výšky vysokého/štvorcového loga. Commity `9c0e3d0` + `44d05d0`. Detaily v dodatku session docu.
-
----
-
-## 🔥 Ďalší krok
-
-### 1. Overiť deploy fixov (už pushnuté)
-
-- Poslať testovaciu pozvánku → overiť že odkaz v maile je `https://app.inventario.estate/accept-invite?token=…` (bez rozbitej bodky)
-- Otestovať tlačidlo „Odoslať znovu“ na čakajúcej pozvánke → nový mail, predĺžená platnosť
-- CI na poslednom commite zelené (logo upload fix)
-
-### 2. SFZ pilot onboarding — nastaviť branding (manuálne)
-
-Po deployi:
-
-1. Prihlásiť sa ako SFZ admin → `/settings/organisation` → **Branding**
-2. Kliknúť „Nahrať logo" → nahrať PNG logo SFZ (max 512 KB, nie SVG)
-3. Vybrať farebnú paletu (napr. `royal-blue` alebo `inventario-navy`)
-4. Vybrať font (odporúča sa `Inter` alebo default `system-ui`)
-5. Uložiť → overiť že logo sa objaví v headeri, protokoloch (ADR-0022) aj štítkoch (ADR-0027)
-
-### 3. SFZ pilot onboarding — reálny testing
-
-- Zebra Browser Print + ZD420 (ZPL tlač + SK diakritika)
-- Retention cron (`CRON_SECRET` nastavený vo Vercel)
-- Forced MFA enforcement — smoke-test s kolegom (K12a/K12b implementované, test pending)
-
----
-
-## 📋 Otvorené položky (z TODO.md)
-
-- **SFZ pilot onboarding** (ďalší krok — viď vyššie)
-- **P2: ADR-0022 K5–K8** — protokoly: download PDF, sign endpoint (ak ešte nie DONE — over TODO.md)
-- **P3 compliance docs** — whitepaper, security policy, data retention schedule, DPIA pack
-- **P4 podľa dopytu** — Slice #10 MCP server (Q1 2027), follow-up featury
-
----
-
-## 🧭 Model routing
-
-| Task typ                                                    | Model          |
-| ----------------------------------------------------------- | -------------- |
-| Strategické rozhodnutia, ADR, DPIA, security architecture   | **Opus 4.8**   |
-| CRUD endpoints, frontend pages, debug, tests, implementácia | **Sonnet 4.6** |
-| Milestone docs, mechanické edits, scoped docs               | **Haiku 4.5**  |
-
----
-
-**Last updated:** 2026-06-03 (post-deploy fixy: pozvánky URL + CI logo upload + resend tlačidlo)
-**Tests:** 884/884 zelených | **Repo:** github.com/ltksolutions/inventario | **Status:** Production LIVE ✅
+- ADR-0022 K5–K8 (loan protocol PDF gen) — ďalší blok
+- ADR-0027 (QR label printing — Avery PDF + ZPL)
+- ADR-0015 Slice #9 K1–K4 (cross-tenant memberships impl)
+- SFZ pilot onboarding (self-serve registration test)
+- Forced MFA smoke-test s kolegom
+- Pre-go-live blocky (legal review, Atlas allowlist, DR test, pentest)

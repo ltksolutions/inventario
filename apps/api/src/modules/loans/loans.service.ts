@@ -27,6 +27,7 @@
  *   (spätná kompatibilita so starými testami). Routes (K5) ho vždy poskytnú.
  */
 
+import { roleSatisfies } from '@inventario/shared-types';
 import { ObjectId } from 'mongodb';
 
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
@@ -700,7 +701,7 @@ export class LoansService {
       }
 
       const isOwner = String(loanRequest.requesterId) === actorId;
-      const isAdmin = actor.roles.includes('ADMIN');
+      const isAdmin = (actor as { role?: string }).role === 'ADMIN';
       if (!isOwner && !isAdmin) {
         throw new ForbiddenError('Žiadosť môže zrušiť len jej autor alebo ADMIN.');
       }
@@ -1158,7 +1159,7 @@ export class LoansService {
           organisationId: tenantId,
           status: 'ACTIVE',
           deletedAt: null,
-          roles: { $in: ['ASSET_MANAGER', 'ADMIN'] },
+          role: { $in: ['ASSET_MANAGER', 'ADMIN'] },
         })
         .toArray();
 
@@ -1200,8 +1201,10 @@ export class LoansService {
 // RBAC helpers
 // ---------------------------------------------------------------------------
 
-function hasManagerRole(actor: WithId<User>): boolean {
-  return actor.roles.includes('ASSET_MANAGER') || actor.roles.includes('ADMIN');
+function hasManagerRole(actor: WithId<User> & { role?: string }): boolean {
+  // ADR-0029: single role on actor (backfilled from membership). ASSET_MANAGER
+  // and above (i.e. ADMIN too) satisfy the manager check via hierarchy.
+  return roleSatisfies((actor.role ?? 'EMPLOYEE') as never, 'ASSET_MANAGER' as never);
 }
 
 function assertCanReadLoanRequest(doc: WithId<LoanRequest>, actor: WithId<User>): void {

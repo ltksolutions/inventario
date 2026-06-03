@@ -28,7 +28,6 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrátor',
   ASSET_MANAGER: 'Správca majetku',
-  TEAM_MANAGER: 'Vedúci tímu',
   EMPLOYEE: 'Zamestnanec',
   EXTERNAL: 'Externý',
 };
@@ -149,7 +148,7 @@ export function OrganisationsContent(): JSX.Element {
                         )}
                       </div>
                       <p className="mt-0.5 text-xs text-text-muted">
-                        {org.roles.map((r) => ROLE_LABELS[r] ?? r).join(' · ')}
+                        {ROLE_LABELS[org.role] ?? org.role}
                       </p>
                     </div>
                   </div>

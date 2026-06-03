@@ -36,7 +36,10 @@ export interface InventarioJwtPayload extends JWTPayload {
   org: string; // active organisationId
   /** Active membershipId (ADR-0015 K5). Optional for backward compat with pre-K5 tokens. */
   mid?: string;
-  roles: string[];
+  /** Per-tenant role (ADR-0029). Single value. Legacy tokens may carry `roles[]` instead. */
+  role?: string;
+  /** @deprecated Legacy multi-role claim (pre-ADR-0029). Tolerated for backward compat. */
+  roles?: string[];
   email: string;
   name: string;
 }
@@ -53,16 +56,15 @@ export interface InventarioJwtService {
    * @param org           - Active organisation
    * @param membershipId  - Active membership _id (optional; omitted for
    *                        legacy flows until K6 wires memberships fully)
-   * @param roles         - Per-tenant roles, sourced from the active
-   *                        Membership (ADR-0015). NOT from user.roles,
-   *                        which is deprecated and removed from User docs
-   *                        by the memberships migration.
+   * @param role          - Per-tenant role, sourced from the active
+   *                        Membership (ADR-0015 + ADR-0029). Single value.
+   *                        NOT from user.roles (deprecated legacy array).
    */
   issueAccessToken(
     user: WithId<User>,
     org: WithId<Organisation>,
     membershipId: string | undefined,
-    roles: string[],
+    role: string,
   ): Promise<string>;
 
   /**
@@ -190,15 +192,12 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
   const service: InventarioJwtService = {
     isConfigured: true,
 
-    async issueAccessToken(user, org, membershipId, roles) {
+    async issueAccessToken(user, org, membershipId, role) {
       const claims: Omit<InventarioJwtPayload, 'sub' | 'iss' | 'aud' | 'iat' | 'exp'> = {
         org: String(org._id),
-        // Roles are per-tenant and authoritative on the Membership
-        // (ADR-0015). user.roles is deprecated and may be undefined or []
-        // after the memberships migration, which previously produced
-        // tokens with a missing/empty roles claim that verifyAccessToken
-        // then rejected. Always source roles from the caller's membership.
-        roles: roles ?? [],
+        // Role is per-tenant and authoritative on the Membership
+        // (ADR-0015 + ADR-0029). Single value, not an array.
+        role: role,
         email: user.email,
         name: user.displayName,
       };
@@ -403,7 +402,13 @@ function assertInventarioPayload(
     throw new UnauthorizedError('Token missing `sub` claim');
   if (typeof payload['org'] !== 'string' || payload['org'].length === 0)
     throw new UnauthorizedError('Token missing `org` claim');
-  if (!Array.isArray(payload['roles'])) throw new UnauthorizedError('Token missing `roles` claim');
+  // ADR-0029: accept either the new single `role` claim or the legacy
+  // `roles[]` array (backward compat — no forced re-login). The role is
+  // re-resolved authoritatively from the DB membership anyway, so a missing
+  // claim is not fatal; we only sanity-check the type when present.
+  const hasRole = typeof payload['role'] === 'string';
+  const hasLegacyRoles = Array.isArray(payload['roles']);
+  if (!hasRole && !hasLegacyRoles) throw new UnauthorizedError('Token missing `role` claim');
   if (typeof payload['email'] !== 'string')
     throw new UnauthorizedError('Token missing `email` claim');
   // `mid` is optional — do not throw if missing (backward compat with pre-K5 tokens)

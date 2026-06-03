@@ -31,7 +31,7 @@
  *   data for tenant B alongside tenant A.
  */
 
-import { UserRole, AccountType, type User } from '@inventario/shared-types';
+import { UserRole, AccountType, highestRole, type User } from '@inventario/shared-types';
 import { ObjectId } from 'mongodb';
 
 import type { FastifyInstance } from 'fastify';
@@ -299,9 +299,12 @@ export async function provisionUser(
     _id: new ObjectId(organisationId),
   } as never)) as never;
 
-  const token = await app.inventarioJwt.issueAccessToken(user as never, org, undefined, [
+  const token = await app.inventarioJwt.issueAccessToken(
+    user as never,
+    org,
+    undefined,
     options.role,
-  ]);
+  );
 
   return { user, token };
 }
@@ -1119,10 +1122,13 @@ export async function insertTestMembership(
 ): Promise<{ _id: string }> {
   const now = new Date().toISOString();
   const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
+  // ADR-0029: membership ma jednu rolu. Ak volajuci posle legacy roles[],
+  // odvodime jednu hodnotu cez highestRole.
+  const role = highestRole(options.roles ?? [UserRole.EMPLOYEE]);
   const doc = {
     userId: options.userId,
     organisationId,
-    roles: options.roles ?? [UserRole.EMPLOYEE],
+    role,
     status: options.status ?? 'ACTIVE',
     isDefault: false,
     mustChangePassword: false,

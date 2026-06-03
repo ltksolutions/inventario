@@ -245,7 +245,7 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         await membershipsRepo.create({
           userId: userId.toString(),
           organisationId: orgId.toString(),
-          roles: [UserRole.ADMIN],
+          role: UserRole.ADMIN,
           organizationalUnit: null,
           teams: [],
           status: 'ACTIVE',

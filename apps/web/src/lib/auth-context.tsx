@@ -12,9 +12,9 @@
  *   - activeMembership: current org membership with authoritative roles
  *   - availableOrganisations: list for tenant switcher
  *
- * AuthUser.roles is populated from activeMembership.roles so all
- * existing consumers of useAuth().user.roles continue to work
- * with the authoritative per-tenant roles.
+ * AuthUser.role is populated from activeMembership.role so all
+ * existing consumers of useAuth().user.role work with the
+ * authoritative per-tenant role (ADR-0029, single role).
  *
  * New context values:
  *   availableOrganisations  — for AppShell tenant switcher (K19)
@@ -38,7 +38,7 @@ export interface AuthUser {
   lastName: string;
   displayName: string;
   accountType: string;
-  roles: string[]; // populated from activeMembership.roles (authoritative)
+  role: string; // populated from activeMembership.role (authoritative, ADR-0029)
   isActive: boolean;
   lastLoginAt: string | null;
   preferences: Record<string, unknown>;
@@ -48,7 +48,7 @@ export interface AuthUser {
 export interface ActiveMembership {
   membershipId: string;
   organisationId: string;
-  roles: string[];
+  role: string;
   status: string;
   isDefault: boolean;
 }
@@ -71,7 +71,7 @@ export interface AvailableOrganisation {
     logoDot: string | null;
     fontFamilySans: string | null;
   } | null;
-  roles: string[];
+  role: string;
   isDefault: boolean;
   lastAccessedAt: string | null;
   membershipId: string;
@@ -155,10 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       if (res.ok) {
         const data = (await res.json()) as AuthMeResponse;
         const membership = data.activeMembership;
-        // Populate roles from activeMembership (authoritative) or fall back to empty
+        // Populate role from activeMembership (authoritative, ADR-0029) or
+        // fall back to EMPLOYEE.
         setUser({
           ...data.user,
-          roles: membership?.roles ?? [],
+          role: membership?.role ?? 'EMPLOYEE',
         });
         setActiveMembership(membership);
         setAvailableOrganisations(data.availableOrganisations ?? []);

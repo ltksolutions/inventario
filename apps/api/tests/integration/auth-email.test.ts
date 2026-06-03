@@ -347,10 +347,10 @@ describe('Email auth flows', () => {
       expect(meRes.statusCode).toBe(200);
       const body = meRes.json<{
         user: { _id: string; email: string };
-        activeMembership: { roles: string[] } | null;
+        activeMembership: { role: string } | null;
       }>();
       expect(body.user.email).toBe(BASE_ORG.email);
-      expect(body.activeMembership?.roles ?? body.user).toBeTruthy();
+      expect(body.activeMembership?.role).toBe('ADMIN');
       expect(typeof body.user._id).toBe('string');
     });
   });

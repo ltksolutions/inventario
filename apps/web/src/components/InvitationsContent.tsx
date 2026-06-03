@@ -21,7 +21,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { FormEvent, JSX } from 'react';
 
-import { useCanAdminUsers, useMe } from '@/lib/api-hooks';
+import { useCanAdminUsers } from '@/lib/api-hooks';
+import { useAuth } from '@/lib/auth-context';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -29,13 +30,12 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 // Types
 // ---------------------------------------------------------------------------
 
-const ALL_ROLES = ['ADMIN', 'ASSET_MANAGER', 'TEAM_MANAGER', 'EMPLOYEE', 'EXTERNAL'] as const;
+const ALL_ROLES = ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE', 'EXTERNAL'] as const;
 type Role = (typeof ALL_ROLES)[number];
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrátor',
   ASSET_MANAGER: 'Správca majetku',
-  TEAM_MANAGER: 'Vedúci tímu',
   EMPLOYEE: 'Zamestnanec',
   EXTERNAL: 'Externý',
 };
@@ -43,7 +43,7 @@ const ROLE_LABELS: Record<Role, string> = {
 interface PendingInvitation {
   _id: string;
   email: string;
-  roles: Role[];
+  role: Role;
   invitedBy: string;
   invitedAt: string;
   expiresAt: string;
@@ -59,10 +59,10 @@ interface InvitationsResponse {
 // ---------------------------------------------------------------------------
 
 export function InvitationsContent(): JSX.Element {
-  const meQuery = useMe();
+  const { user, isLoading } = useAuth();
   const canAdmin = useCanAdminUsers();
 
-  if (meQuery.isLoading) {
+  if (isLoading) {
     return (
       <div className="flex h-48 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-text-muted" aria-hidden="true" />
@@ -81,8 +81,7 @@ export function InvitationsContent(): JSX.Element {
     );
   }
 
-  const currentUserRoles = meQuery.data?.roles ?? [];
-  const isAdmin = currentUserRoles.includes('ADMIN');
+  const isAdmin = user?.role === 'ADMIN';
 
   return <InvitationsPanel isAdmin={isAdmin} />;
 }
@@ -101,7 +100,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
 
   // Send form state
   const [email, setEmail] = useState('');
-  const [selectedRoles, setSelectedRoles] = useState<Role[]>(['EMPLOYEE']);
+  const [selectedRole, setSelectedRole] = useState<Role>('EMPLOYEE');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [sending, setSending] = useState(false);
@@ -165,7 +164,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         credentials: 'include',
         body: JSON.stringify({
           email: email.toLowerCase().trim(),
-          roles: selectedRoles,
+          role: selectedRole,
           ...(firstName.trim() ? { firstName: firstName.trim() } : {}),
           ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
         }),
@@ -176,7 +175,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         setEmail('');
         setFirstName('');
         setLastName('');
-        setSelectedRoles(['EMPLOYEE']);
+        setSelectedRole('EMPLOYEE');
         void load(q);
         return;
       }
@@ -241,12 +240,10 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
   };
 
   // -------------------------------------------------------------------------
-  // Role toggle helper
+  // Role select helper (ADR-0029: single role)
   // -------------------------------------------------------------------------
-  const toggleRole = (role: Role): void => {
-    setSelectedRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
-    );
+  const selectRole = (role: Role): void => {
+    setSelectedRole(role);
   };
 
   // -------------------------------------------------------------------------
@@ -333,13 +330,13 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
             <div className="mt-2 flex flex-wrap gap-2">
               {ALL_ROLES.map((role) => {
                 const disabled = role === 'ADMIN' && !isAdmin;
-                const selected = selectedRoles.includes(role);
+                const selected = selectedRole === role;
                 return (
                   <button
                     key={role}
                     type="button"
                     disabled={disabled}
-                    onClick={() => toggleRole(role)}
+                    onClick={() => selectRole(role)}
                     title={
                       disabled ? 'Iba Administrátor môže pozvať ďalšieho Administrátora' : undefined
                     }
@@ -354,14 +351,11 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
                 );
               })}
             </div>
-            {selectedRoles.length === 0 && (
-              <p className="mt-1 text-xs text-red-500">Vyberte aspoň jednu rolu.</p>
-            )}
           </div>
 
           <button
             type="submit"
-            disabled={sending || selectedRoles.length === 0}
+            disabled={sending}
             className="flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             {sending ? (
@@ -473,7 +467,7 @@ function InvitationRow({
 }): JSX.Element {
   const expiresAt = new Date(inv.expiresAt);
   const isExpired = expiresAt < new Date();
-  const roleLabel = inv.roles.map((r) => ROLE_LABELS[r as Role] ?? r).join(', ');
+  const roleLabel = ROLE_LABELS[inv.role] ?? inv.role;
 
   return (
     <tr className="hover:bg-surface-subtle">

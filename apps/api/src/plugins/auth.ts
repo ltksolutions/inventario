@@ -30,6 +30,12 @@
  *   app.requireRole([...]) — enforces RBAC against membership.roles
  */
 
+import {
+  roleSatisfies,
+  highestRole,
+  UserRole as UserRoleEnum,
+  USER_ROLE_VALUES,
+} from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { ObjectId } from 'mongodb';
 
@@ -103,11 +109,12 @@ declare module 'fastify' {
 
     /**
      * Current user document. Populated by `loadCurrentUser`.
-     * NOTE: after K6, roles on this document are the deprecated legacy
-     * array. Authoritative roles come from `request.activeMembership.roles`.
-     * Use `request.currentUser` only for identity fields (email, name, etc.).
+     * NOTE: after K6, the authoritative role comes from
+     * `request.activeMembership.role`. `currentUser.role` is backfilled
+     * per-request from the active membership for service-layer convenience.
+     * The legacy `currentUser.roles` array is NOT used for RBAC.
      */
-    currentUser: WithId<User>;
+    currentUser: WithId<User> & { role: UserRole };
 
     /**
      * Active membership for this request (ADR-0015 K6).
@@ -120,6 +127,11 @@ declare module 'fastify' {
     requireAuth: (request: FastifyRequest) => Promise<void>;
     loadCurrentUser: (request: FastifyRequest) => Promise<void>;
     requireRole: (allowed: readonly UserRole[]) => preHandlerAsyncHookHandler;
+    /**
+     * Hierarchical RBAC (ADR-0029): allow if the membership role is at least
+     * `required` level. `requireMinRole('ASSET_MANAGER')` lets ADMIN through.
+     */
+    requireMinRole: (required: UserRole) => preHandlerAsyncHookHandler;
   }
 }
 
@@ -179,7 +191,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     if (!(userDoc['isActive'] as boolean))
       throw new UnauthorizedError('User account is deactivated.');
 
-    request.currentUser = userDoc as unknown as WithId<User>;
+    request.currentUser = userDoc as unknown as WithId<User> & { role: UserRole };
 
     // ----- GDPR čl. 18 enforcement: restricted users are read-only -----
     //
@@ -260,18 +272,16 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
 
     request.activeMembership = membership;
 
-    // ADR-0015 compat (roles): like organisationId above, `roles` was
-    // removed from User docs by the memberships migration — authoritative
-    // roles live on the Membership. Service-layer RBAC helpers still read
-    // `actor.roles` (e.g. loans hasManagerRole, cancelLoanRequest admin
-    // check), which would be empty/undefined on a migrated user and
-    // silently deny manager/admin actions. Backfill from the resolved
-    // membership so every module sees the authoritative per-tenant roles.
-    (request.currentUser as unknown as { roles: Membership['roles'] }).roles = membership.roles;
+    // ADR-0015 / ADR-0029 compat (role): authoritative role lives on the
+    // Membership. Service-layer RBAC helpers read `actor.role` (loans
+    // roleSatisfies, cancelLoanRequest admin check). Backfill from the
+    // resolved membership so every module sees the authoritative per-tenant
+    // role. The legacy `User.roles` array is left untouched and unused for RBAC.
+    (request.currentUser as unknown as { role: Membership['role'] }).role = membership.role;
   });
 
   // -------------------------------------------------------------------------
-  // requireRole — RBAC from activeMembership.roles
+  // requireRole / requireMinRole — RBAC from activeMembership.role (ADR-0029)
   // -------------------------------------------------------------------------
 
   fastify.decorate('requireRole', (allowed: readonly UserRole[]) => {
@@ -286,21 +296,48 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
         throw new Error('requireRole called without prior loadCurrentUser — fix preHandler chain.');
       }
 
-      // Roles from membership are authoritative (not from JWT or User.roles).
-      const userRoles = request.activeMembership.roles;
-      const hasAnyAllowedRole = userRoles.some((role) => allowedSet.has(role));
-
-      if (!hasAnyAllowedRole) {
+      // Exact-role match (ADR-0029): membership has a single authoritative role.
+      // Used where the EXACT role/type matters (e.g. EMPLOYEE vs EXTERNAL),
+      // NOT hierarchical access — for hierarchy use requireMinRole.
+      const userRole = request.activeMembership.role;
+      if (!allowedSet.has(userRole)) {
         request.log.warn(
           {
             userId: String(request.currentUser._id),
-            userRoles,
+            userRole,
             requiredRoles: Array.from(allowedSet),
             path: request.url,
           },
           'RBAC: insufficient role',
         );
         throw new ForbiddenError(`Action requires one of: ${Array.from(allowedSet).join(', ')}`);
+      }
+    };
+
+    return handler;
+  });
+
+  fastify.decorate('requireMinRole', (required: UserRole) => {
+    const handler: preHandlerAsyncHookHandler = async (request) => {
+      if (!request.activeMembership) {
+        throw new Error(
+          'requireMinRole called without prior loadCurrentUser — fix preHandler chain.',
+        );
+      }
+
+      // Hierarchical check (ADR-0029): ADMIN satisfies ASSET_MANAGER etc.
+      const userRole = request.activeMembership.role;
+      if (!roleSatisfies(userRole, required)) {
+        request.log.warn(
+          {
+            userId: String(request.currentUser._id),
+            userRole,
+            requiredMinRole: required,
+            path: request.url,
+          },
+          'RBAC: insufficient role level',
+        );
+        throw new ForbiddenError(`Action requires at least role: ${required}`);
       }
     };
 
@@ -331,15 +368,16 @@ function synthesizeMembership(
   user: WithId<User>,
 ): WithId<Membership> {
   const now = new Date().toISOString();
-  // Use roles from JWT claims (set at token issuance time from user.roles).
-  // This is safe during the transition because pre-K5 tokens carry user.roles.
-  const roles = (payload.roles ?? user.roles ?? ['EMPLOYEE']) as Membership['roles'];
+  // Derive a single role (ADR-0029) from the token claims. New tokens carry
+  // `role`; legacy tokens carry `roles[]` (pick the highest). Fall back to the
+  // legacy User.roles array, then EMPLOYEE.
+  const role = resolveTokenRole(payload, user);
 
   return {
     _id: new ObjectId() as unknown as Membership['_id'],
     userId: payload.sub,
     organisationId: payload.org,
-    roles,
+    role,
     organizationalUnit: null,
     teams: [],
     status: 'ACTIVE',
@@ -357,4 +395,25 @@ function synthesizeMembership(
     deletedAt: null,
     deletedBy: null,
   } as unknown as WithId<Membership>;
+}
+
+/**
+ * Resolve a single UserRole from JWT claims (ADR-0029).
+ * Tolerates both the new `role` claim and the legacy `roles[]` claim so
+ * tokens issued before the cutover keep working (no forced re-login).
+ */
+function resolveTokenRole(payload: InventarioJwtPayload, user: WithId<User>): UserRole {
+  const single = (payload as unknown as { role?: unknown }).role;
+  if (typeof single === 'string' && (USER_ROLE_VALUES as readonly string[]).includes(single)) {
+    return single as UserRole;
+  }
+  const legacyClaim = (payload as unknown as { roles?: unknown }).roles;
+  if (Array.isArray(legacyClaim) && legacyClaim.length > 0) {
+    return highestRole(legacyClaim as UserRole[]);
+  }
+  const legacyUser = (user as unknown as { roles?: unknown }).roles;
+  if (Array.isArray(legacyUser) && legacyUser.length > 0) {
+    return highestRole(legacyUser as UserRole[]);
+  }
+  return UserRoleEnum.EMPLOYEE;
 }

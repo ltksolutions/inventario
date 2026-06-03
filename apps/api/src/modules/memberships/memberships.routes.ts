@@ -57,11 +57,7 @@ void MembershipIdParamsSchema; // Referenced in future typed routes
  */
 const PatchMembershipBodySchema = z
   .object({
-    roles: z
-      .array(
-        z.enum(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as [UserRole, ...UserRole[]]),
-      )
-      .min(1, 'Membership musí mať aspoň jednu rolu.'),
+    role: z.enum(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as [UserRole, ...UserRole[]]),
     status: z.enum(['ACTIVE', 'SUSPENDED']),
     mustChangePassword: z.boolean(),
     notifications: z.object({
@@ -92,9 +88,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.get('/v1/members', async (request, reply) => {
     await fastify.requireAuth(request);
     await fastify.loadCurrentUser(request);
-    await fastify
-      .requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as UserRole[])
-      .call(fastify, request, reply);
+    await fastify.requireMinRole('EMPLOYEE' as UserRole).call(fastify, request, reply);
 
     const { ObjectId: ObjId } = await import('mongodb');
     const limit = Math.min(Number((request.query as Record<string, unknown>)['limit'] ?? 200), 500);
@@ -141,7 +135,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           lastName: user['lastName'] as string,
           isActive: user['isActive'] as boolean,
           membershipId: String(m['_id']),
-          roles: m['roles'],
+          role: m['role'],
         };
       })
       .filter(Boolean);
@@ -159,7 +153,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.get('/v1/memberships', async (request, reply) => {
     await fastify.requireAuth(request);
     await fastify.loadCurrentUser(request);
-    await fastify.requireRole(['ADMIN'] as UserRole[]).call(fastify, request, reply);
+    await fastify.requireMinRole('ADMIN' as UserRole).call(fastify, request, reply);
 
     const q = request.query as Record<string, unknown>;
     const limit = Math.min(Number(q['limit'] ?? 50), 200);
@@ -208,7 +202,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     }
 
     const actorId = String(request.currentUser._id);
-    const isAdmin = request.activeMembership.roles.includes('ADMIN' as UserRole);
+    const isAdmin = request.activeMembership.role === ('ADMIN' as UserRole);
     const isSelf = membership.userId === actorId;
 
     if (!isAdmin && !isSelf) {
@@ -227,7 +221,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.patch('/v1/memberships/:id', async (request, reply) => {
     await fastify.requireAuth(request);
     await fastify.loadCurrentUser(request);
-    await fastify.requireRole(['ADMIN'] as UserRole[]).call(fastify, request, reply);
+    await fastify.requireMinRole('ADMIN' as UserRole).call(fastify, request, reply);
 
     const { id } = request.params as { id: string };
     if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
@@ -247,10 +241,10 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
     const actorId = String(request.currentUser._id);
 
-    // K16: assertNotLastAdmin — ak sa menia roles a cieľový user je ADMIN,
+    // K16: assertNotLastAdmin — ak sa mení role a cieľový user je ADMIN,
     // skontroluje, že v org zostane aspoň jeden iný ADMIN.
-    if (patch.roles !== undefined && !patch.roles.includes('ADMIN' as UserRole)) {
-      await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.roles);
+    if (patch.role !== undefined && patch.role !== ('ADMIN' as UserRole)) {
+      await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.role);
     }
 
     const now = new Date().toISOString();
@@ -276,7 +270,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         targetUserId: existing.userId,
         membershipId: id,
         changedFields: Object.keys(patch),
-        rolesAfter: patch.roles ?? existing.roles,
+        roleAfter: patch.role ?? existing.role,
       },
       createdAt: now,
     });
@@ -308,7 +302,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     }
 
     const actorId = String(request.currentUser._id);
-    const isAdmin = request.activeMembership.roles.includes('ADMIN' as UserRole);
+    const isAdmin = request.activeMembership.role === ('ADMIN' as UserRole);
     const isSelf = existing.userId === actorId;
 
     // RBAC: ADMIN môže odstraňovať kohokovek; user môže len seba samého (opustenie org)
@@ -319,7 +313,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     }
 
     // K16: assertNotLastAdmin — chráni pred odstránením posledného ADMINa
-    await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.roles);
+    await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.role);
 
     const now = new Date().toISOString();
     const deleted = await repo.softDelete(id, {
@@ -344,7 +338,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       metadata: {
         targetUserId: existing.userId,
         membershipId: id,
-        rolesAtDeletion: existing.roles,
+        roleAtDeletion: existing.role,
       },
       createdAt: now,
     });
@@ -431,7 +425,7 @@ function toPublic(membership: Record<string, unknown>): Record<string, unknown> 
     _id: String(membership['_id']),
     userId: membership['userId'],
     organisationId: membership['organisationId'],
-    roles: membership['roles'],
+    role: membership['role'],
     organizationalUnit: membership['organizationalUnit'] ?? null,
     teams: membership['teams'] ?? [],
     status: membership['status'],

@@ -536,7 +536,7 @@ const passkeysRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         user,
         org,
         membershipId,
-        (defaultMembership['roles'] as string[]) ?? [],
+        (defaultMembership['role'] as string) ?? 'EMPLOYEE',
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
 

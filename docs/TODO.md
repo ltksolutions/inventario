@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-03 (post-deploy fixy: pozvánky URL + CI logo upload + resend tlačidlo)       |
+| **Posledná aktualizácia** | 2026-06-03 (ADR-0029 single hierarchical role K1-K7 done)                            |
 | **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                      |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
@@ -160,6 +160,14 @@ SPDX-License-Identifier: CC-BY-4.0
   - [ ] **Fáza 4 — testy + docs (~0.5 dňa):** B9 frontend testy + openapi regen · B10 milestone/session + user-guide „Nastavenie loga a farieb"
 - **Pozn.:** nie je blocker pre pilot (default brand funguje), ale **logo na protokoloch/štítkoch je viditeľná pilotná bolesť**. Po dokončení SFZ nastaviť `logoUrl` (PNG, nie SVG). FREE pilot dostane logo; farby vyžadujú dočasné povýšenie plánu.
 - **Zdieľa:** `loadLogo()` (ADR-0022) — featura ho len odomkne tým, že `logoUrl` sa dá nastaviť.
+
+### 18. TECH-DEBT (ADR-0029): PATCH /v1/users/:id — legacy User.roles
+
+- **Stav:** Otvorené (P2 tech-debt)
+- **Kontext:** `users.service.ts`, `users.routes.ts`, `users.repository.ts` pracujú na legacy `User.roles[]` (pole na User dokumente). `PATCH /v1/users/:id` (admin mena rôl) je zastaraný spôsob správy rôl — reálna správa ide cez `PATCH /v1/memberships/:id` (Membership.role). RBAC už číta len Membership.role, takže User.roles je RBAC-irelevantné.
+- **Čo treba:** Buď (a) napojiť PATCH /v1/users/:id na membership miesto User.roles, alebo (b) odstraniť endpoint pred GA a presmerovať UI na PATCH /v1/memberships/:id.
+- **Model:** Sonnet
+- **Blocker:** NIE — SFZ pilot môže fungovať so zastaraným endpointom (RBAC je správne, len UI admin stránka "Používatelia" siàha na wrong miesto)
 
 ---
 

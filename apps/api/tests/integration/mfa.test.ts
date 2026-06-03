@@ -101,7 +101,7 @@ async function provisionEmailUser(
   await app.mongo.db.collection('memberships').insertOne({
     userId: String(insertRes.insertedId),
     organisationId,
-    roles: [UserRole.EMPLOYEE],
+    role: UserRole.EMPLOYEE,
     organizationalUnit: null,
     teams: [],
     status: 'ACTIVE',
@@ -124,9 +124,12 @@ async function provisionEmailUser(
     .collection('organisations')
     .findOne({ _id: new ObjectId(organisationId) } as never)) as never;
 
-  const cookie = await app.inventarioJwt.issueAccessToken(user as never, org, undefined, [
+  const cookie = await app.inventarioJwt.issueAccessToken(
+    user as never,
+    org,
+    undefined,
     UserRole.EMPLOYEE,
-  ]);
+  );
   return { user, password, cookie };
 }
 

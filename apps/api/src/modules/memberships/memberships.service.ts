@@ -43,7 +43,7 @@ export class MembershipsService {
    *
    * @param organisationId  - tenant scope
    * @param targetUserId    - userId membership, ktorá sa má odobrať/zmeniť
-   * @param targetRoles     - súčasné role target membership (pred zmenou)
+   * @param targetRole      - súčasná rola target membership (pred zmenou)
    * @param session         - aktívna MongoDB ClientSession (pre transakčnú atomicitu)
    *
    * Vyhodí BadRequestError('LAST_ADMIN: ...') ak by operácia zanechala
@@ -52,11 +52,11 @@ export class MembershipsService {
   async assertNotLastAdmin(
     organisationId: string,
     targetUserId: string,
-    targetRoles: readonly UserRole[],
+    targetRole: UserRole,
     session?: ClientSession,
   ): Promise<void> {
     // Ak target membership nie je ADMIN, check nie je potrebný
-    if (!targetRoles.includes('ADMIN' as UserRole)) {
+    if (targetRole !== ('ADMIN' as UserRole)) {
       return;
     }
 
@@ -97,7 +97,7 @@ export class MembershipsService {
     );
 
     // Ak nemá aktívnu membership alebo nie je ADMIN → OK, môže odísť
-    if (!membership || !membership.roles.includes('ADMIN' as UserRole)) {
+    if (!membership || membership.role !== ('ADMIN' as UserRole)) {
       return;
     }
 

@@ -155,8 +155,8 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.decorate('loansService', service);
 
-  const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
-  const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
+  const canRead = fastify.requireMinRole('EMPLOYEE');
+  const canWrite = fastify.requireMinRole('ASSET_MANAGER');
 
   // --- GET /v1/loan-requests -----------------------------------------------
   app.get(

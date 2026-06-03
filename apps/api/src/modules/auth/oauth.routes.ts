@@ -236,15 +236,15 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         return reply.redirect(`${FRONTEND_BASE_URL}/login?error=${result.errorCode}`);
       }
 
-      const { user, org, membershipId, roles, isNew, wasInvite } = result;
+      const { user, org, membershipId, role, isNew, wasInvite } = result;
 
       // Issue tokens — always include membershipId (K5 mid claim) and the
-      // per-tenant roles from the resolved membership (ADR-0015).
+      // per-tenant role from the resolved membership (ADR-0015 + ADR-0029).
       const accessToken = await fastify.inventarioJwt.issueAccessToken(
         user,
         org,
         membershipId,
-        roles,
+        role,
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
@@ -364,7 +364,7 @@ function registerRefreshRoute(fastify: Parameters<FastifyPluginAsync>[0]): void 
       user,
       org,
       String(defaultMembership['_id']),
-      (defaultMembership['roles'] as string[]) ?? [],
+      (defaultMembership['role'] as string) ?? 'EMPLOYEE',
     );
     setAuthCookies(
       reply,
@@ -511,7 +511,7 @@ type ProvisionResult =
       user: WithId<User>;
       org: WithId<Organisation>;
       membershipId: string;
-      roles: string[];
+      role: string;
       isNew: boolean;
       wasInvite: boolean;
     }
@@ -574,7 +574,7 @@ async function provisionOrFindUser(args: {
       user: existingUser,
       org,
       membershipId: String(defaultMembership['_id']),
-      roles: (defaultMembership['roles'] as string[]) ?? [],
+      role: (defaultMembership['role'] as string) ?? 'EMPLOYEE',
       isNew: false,
       wasInvite: false,
     };
@@ -726,7 +726,7 @@ async function provisionOrFindUser(args: {
   const membershipInsert = await db.collection('memberships').insertOne({
     userId: userId.toString(),
     organisationId: orgId.toString(),
-    roles: [UserRole.ADMIN],
+    role: UserRole.ADMIN,
     organizationalUnit: null,
     teams: [],
     status: 'ACTIVE',
@@ -751,7 +751,7 @@ async function provisionOrFindUser(args: {
     user: newUser,
     org: newOrg,
     membershipId: String(membershipInsert.insertedId),
-    roles: [UserRole.ADMIN],
+    role: UserRole.ADMIN,
     isNew: true,
     wasInvite: false,
   };
@@ -881,7 +881,7 @@ async function acceptInviteViaOAuth(args: {
     const membershipInsert = await membershipsCol.insertOne({
       userId: String(user._id),
       organisationId: newInv['organisationId'],
-      roles: newInv['roles'],
+      role: newInv['role'],
       organizationalUnit: null,
       teams: [],
       status: 'ACTIVE',
@@ -918,7 +918,7 @@ async function acceptInviteViaOAuth(args: {
       user,
       org,
       membershipId: String(membershipInsert.insertedId),
-      roles: (newInv['roles'] as string[]) ?? [],
+      role: (newInv['role'] as string) ?? 'EMPLOYEE',
       isNew: !invitedUserId,
       wasInvite: true,
     };
@@ -987,7 +987,7 @@ async function acceptInviteViaOAuth(args: {
     user: activatedUser,
     org,
     membershipId: '',
-    roles: [],
+    role: 'EMPLOYEE',
     isNew: false,
     wasInvite: true,
   };

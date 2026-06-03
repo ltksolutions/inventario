@@ -73,13 +73,12 @@ const NAV_ITEMS: readonly NavItem[] = [
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrátor',
   ASSET_MANAGER: 'Správca majetku',
-  TEAM_MANAGER: 'Vedúci tímu',
   EMPLOYEE: 'Zamestnanec',
   EXTERNAL: 'Externý',
 };
 
-function formatRoles(roles: readonly string[]): string {
-  return roles.map((role) => ROLE_LABELS[role] ?? role).join(' · ');
+function formatRole(role: string): string {
+  return ROLE_LABELS[role] ?? role;
 }
 
 export function AppShell({ children }: { children: ReactNode }): JSX.Element {
@@ -101,7 +100,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   }, [drawerOpen]);
 
   const displayName = user?.displayName ?? user?.email ?? 'Používateľ';
-  const roles = user?.roles ?? [];
+  const role = user?.role ?? 'EMPLOYEE';
 
   // Current org name
   const currentOrg = availableOrganisations.find(
@@ -111,8 +110,8 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   const currentLogoUrl = currentOrg?.brandKit?.logoUrl ?? null;
 
   // Filter nav items by role
-  const isAdmin = roles.includes('ADMIN');
-  const isManager = roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+  const isAdmin = role === 'ADMIN';
+  const isManager = role === 'ADMIN' || role === 'ASSET_MANAGER';
   const visibleNavItems = NAV_ITEMS.filter(
     (item) => (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager),
   );
@@ -121,7 +120,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
     <div className="min-h-screen bg-surface-page">
       <Header
         userName={displayName}
-        roles={roles}
+        role={role}
         currentOrgName={currentOrgName}
         currentLogoUrl={currentLogoUrl}
         availableOrganisations={availableOrganisations}
@@ -151,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
 
 interface HeaderProps {
   userName: string;
-  roles: readonly string[];
+  role: string;
   currentOrgName: string;
   currentLogoUrl: string | null; // ADR-0028: tenant logo
   availableOrganisations: ReturnType<typeof useAuth>['availableOrganisations'];
@@ -162,7 +161,7 @@ interface HeaderProps {
 
 function Header({
   userName,
-  roles,
+  role,
   currentOrgName,
   currentLogoUrl,
   availableOrganisations,
@@ -211,9 +210,7 @@ function Header({
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden min-w-0 text-right sm:block">
             <p className="truncate text-sm font-medium text-brand-primary-fg">{userName}</p>
-            {roles.length > 0 && (
-              <p className="truncate text-xs text-brand-primary-fg">{formatRoles(roles)}</p>
-            )}
+            {role && <p className="truncate text-xs text-brand-primary-fg">{formatRole(role)}</p>}
           </div>
           <LogoutButton />
         </div>

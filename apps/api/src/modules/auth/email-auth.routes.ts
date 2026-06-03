@@ -253,7 +253,7 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       await db.collection('memberships').insertOne({
         userId: userId.toString(),
         organisationId: orgId.toString(),
-        roles: [UserRole.ADMIN],
+        role: UserRole.ADMIN,
         organizationalUnit: null,
         teams: [],
         status: 'ACTIVE',
@@ -434,7 +434,7 @@ const emailAuthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         user,
         org,
         membershipId,
-        membership['roles'] as string[],
+        membership['role'] as string,
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 

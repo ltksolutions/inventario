@@ -22,7 +22,7 @@ function validInviteBody(overrides: Record<string, unknown> = {}): Record<string
   const stamp = randomBytes(4).toString('hex');
   return {
     email: `accept-${stamp}@example.com`,
-    roles: [UserRole.EMPLOYEE],
+    role: UserRole.EMPLOYEE,
     firstName: 'Ján',
     lastName: 'Novák',
     ...overrides,
@@ -85,19 +85,19 @@ describe('GET /v1/auth/invitations/:token', () => {
   it('returns 200 with preview data for valid token', async () => {
     const { token } = await createInvite(app, adminToken, {
       email: 'preview@example.com',
-      roles: [UserRole.EMPLOYEE],
+      role: UserRole.EMPLOYEE,
     });
     const res = await app.inject({ method: 'GET', url: `/v1/auth/invitations/${token}` });
     expect(res.statusCode).toBe(200);
     const body = res.json<{
       email: string;
-      roles: string[];
+      role: string;
       organisation: { displayName: string };
       inviter: { displayName: string };
       expiresAt: string;
     }>();
     expect(body.email).toBe('preview@example.com');
-    expect(body.roles).toContain(UserRole.EMPLOYEE);
+    expect(body.role).toBe(UserRole.EMPLOYEE);
     expect(body.organisation.displayName).toBeTruthy();
     expect(body.inviter.displayName).toBeTruthy();
     expect(new Date(body.expiresAt).getTime()).toBeGreaterThan(Date.now());

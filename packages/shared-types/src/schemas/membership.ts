@@ -31,10 +31,12 @@ export const MembershipSchema = BaseDocumentSchema.merge(SoftDeleteSchema).exten
   /** Reference to the Organisation (tenant). */
   organisationId: ObjectIdSchema,
 
-  /** Per-tenant roles. Moved from User.roles. */
-  roles: z
-    .array(z.enum(USER_ROLE_VALUES as [UserRole, ...UserRole[]]) as z.ZodType<UserRole>)
-    .min(1, 'Membership musí mať aspoň jednu rolu.'),
+  /**
+   * Per-tenant rola (ADR-0029). JEDNA hodnota, nie pole — roly tvoria
+   * lineárnu hierarchiu (ADMIN > ASSET_MANAGER > EMPLOYEE/EXTERNAL).
+   * Predtým `roles: UserRole[]`; migrácia odvodí jednu rolu cez highestRole().
+   */
+  role: z.enum(USER_ROLE_VALUES as [UserRole, ...UserRole[]]) as z.ZodType<UserRole>,
 
   /** Per-tenant organizational unit. Moved from User.organizationalUnit. */
   organizationalUnit: z
@@ -118,10 +120,10 @@ export type CreateMembershipInput = z.infer<typeof CreateMembershipSchema>;
 
 /**
  * PATCH payload — only mutable per-tenant fields.
- * roles, organizationalUnit, teams, status, mustChangePassword.
+ * role, organizationalUnit, teams, status, mustChangePassword.
  */
 export const UpdateMembershipSchema = MembershipSchema.pick({
-  roles: true,
+  role: true,
   organizationalUnit: true,
   teams: true,
   status: true,

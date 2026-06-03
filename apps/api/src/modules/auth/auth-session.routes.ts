@@ -99,12 +99,12 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         updatedBy: userId,
       });
 
-      // Issue new JWT with updated org + mid + roles
+      // Issue new JWT with updated org + mid + role
       const newAccessToken = await fastify.inventarioJwt.issueAccessToken(
         request.currentUser,
         targetOrg,
         String(targetMembership._id),
-        targetMembership.roles,
+        targetMembership.role,
       );
       const newRefreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
 
@@ -204,7 +204,7 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           organisationName: org?.['displayName'] ?? 'Unknown',
           slug: org?.['slug'] ?? '',
           brandKit: org?.['brandKit'] ?? null,
-          roles: m.roles,
+          role: m.role,
           isDefault: m.isDefault,
           lastAccessedAt: m.lastAccessedAt,
           membershipId: String(m._id),
@@ -228,7 +228,7 @@ const authSessionRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         ? {
             membershipId: String(activeMembership._id),
             organisationId: activeMembership.organisationId,
-            roles: activeMembership.roles,
+            role: activeMembership.role,
             status: activeMembership.status,
             isDefault: activeMembership.isDefault,
           }

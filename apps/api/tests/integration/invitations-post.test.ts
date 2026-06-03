@@ -24,7 +24,7 @@ function validInviteBody(overrides: Record<string, unknown> = {}): Record<string
   const stamp = randomBytes(4).toString('hex');
   return {
     email: `invite-${stamp}@example.com`,
-    roles: [UserRole.EMPLOYEE],
+    role: UserRole.EMPLOYEE,
     firstName: 'Jana',
     lastName: 'Nováková',
     ...overrides,
@@ -74,13 +74,13 @@ describe('POST /v1/invitations', () => {
       const body = res.json<{
         _id: string;
         email: string;
-        roles: string[];
+        role: string;
         invitedBy: string;
         invitedAt: string;
         expiresAt: string;
       }>();
       expect(body._id).toMatch(/^[a-f0-9]{24}$/);
-      expect(body.roles).toEqual([UserRole.EMPLOYEE]);
+      expect(body.role).toBe(UserRole.EMPLOYEE);
       expect(body.invitedBy).toBe(adminId);
       expect(new Date(body.expiresAt).getTime()).toBeGreaterThan(Date.now());
     });
@@ -90,7 +90,7 @@ describe('POST /v1/invitations', () => {
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${managerToken}` },
-        payload: validInviteBody({ roles: [UserRole.EMPLOYEE] }),
+        payload: validInviteBody({ role: UserRole.EMPLOYEE }),
       });
       expect(res.statusCode).toBe(201);
     });
@@ -171,7 +171,7 @@ describe('POST /v1/invitations', () => {
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${managerToken}` },
-        payload: validInviteBody({ roles: [UserRole.ADMIN] }),
+        payload: validInviteBody({ role: UserRole.ADMIN }),
       });
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toMatch(/Only ADMIN/i);
@@ -182,7 +182,7 @@ describe('POST /v1/invitations', () => {
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: validInviteBody({ roles: [UserRole.ADMIN] }),
+        payload: validInviteBody({ role: UserRole.ADMIN }),
       });
       expect(res.statusCode).toBe(201);
     });
@@ -300,12 +300,12 @@ describe('POST /v1/invitations', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('returns 400 for empty roles array', async () => {
+    it('returns 400 for missing role', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: validInviteBody({ roles: [] }),
+        payload: { email: 'test@example.com' },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -315,7 +315,7 @@ describe('POST /v1/invitations', () => {
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: validInviteBody({ roles: ['SUPER_USER'] }),
+        payload: validInviteBody({ role: 'SUPER_USER' }),
       });
       expect(res.statusCode).toBe(400);
     });

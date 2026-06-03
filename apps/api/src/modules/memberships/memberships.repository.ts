@@ -155,7 +155,7 @@ export class MembershipsRepository {
    * Count active ADMIN memberships in a tenant, optionally excluding
    * one userId. Used by LAST_ADMIN_PROTECTION in K16.
    *
-   * "Active ADMIN" = status ACTIVE, deletedAt null, roles contains ADMIN.
+   * "Active ADMIN" = status ACTIVE, deletedAt null, role is ADMIN.
    */
   async countActiveAdmins(
     organisationId: string,
@@ -164,7 +164,7 @@ export class MembershipsRepository {
   ): Promise<number> {
     const filter: Record<string, unknown> = {
       organisationId,
-      roles: 'ADMIN',
+      role: 'ADMIN',
       status: 'ACTIVE',
       deletedAt: null,
     };

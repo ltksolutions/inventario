@@ -74,7 +74,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 const CreateInvitationSchema = z.object({
   email: z.string().email().toLowerCase().trim(),
-  roles: z.array(z.nativeEnum(UserRole)).min(1),
+  role: z.nativeEnum(UserRole),
   firstName: z.string().min(1).max(100).trim().optional(),
   lastName: z.string().min(1).max(100).trim().optional(),
 });
@@ -130,14 +130,15 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid input');
       }
-      const { email, roles, firstName, lastName } = parsed.data;
+      const { email, role, firstName, lastName } = parsed.data;
       const inviter = request.currentUser;
       const org = request.organisation;
       const orgId = request.organisationId;
       const inviterId = String(inviter._id);
 
-      // Role privilege check: ASSET_MANAGER cannot grant ADMIN
-      if (!inviter.roles.includes(UserRole.ADMIN) && roles.includes(UserRole.ADMIN)) {
+      // Role privilege check: only ADMIN can grant ADMIN (ADR-0029: inviter
+      // role is the single authoritative membership role).
+      if (inviter.role !== UserRole.ADMIN && role === UserRole.ADMIN) {
         throw new BadRequestError('Only ADMIN can invite another ADMIN.');
       }
 
@@ -213,7 +214,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       const insertedId = await invRepo.create({
         email,
         organisationId: orgId,
-        roles,
+        role,
         firstName: firstName ?? null,
         lastName: lastName ?? null,
         invitedUserId,
@@ -240,7 +241,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         organisationId: orgId,
         metadata: {
           invitedEmail: email,
-          roles,
+          role,
           invitedUserId,
           variant: emailVariant,
         },
@@ -248,7 +249,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       });
 
       // Send appropriate email
-      const roleLabels = roles.map((r) => ROLE_LABELS[r] ?? r).join(', ');
+      const roleLabels = ROLE_LABELS[role] ?? role;
       try {
         if (emailVariant === 'rejoin') {
           await fastify.emailService.send({
@@ -275,14 +276,14 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       }
 
       fastify.log.info(
-        { invitedEmail: email, invitedBy: inviterId, roles, variant: emailVariant },
+        { invitedEmail: email, invitedBy: inviterId, role, variant: emailVariant },
         'Invitation created',
       );
 
       return reply.code(201).send({
         _id: insertedId,
         email,
-        roles,
+        role,
         invitedBy: inviterId,
         invitedAt: now,
         expiresAt,
@@ -404,8 +405,8 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     const org = request.organisation;
     const inviter = request.currentUser;
     const email = existing.email;
-    const roles: UserRole[] = existing.roles as UserRole[];
-    const roleLabels = roles.map((r) => ROLE_LABELS[r] ?? r).join(', ');
+    const role = existing.role as UserRole;
+    const roleLabels = ROLE_LABELS[role] ?? role;
     const invitedUserId =
       ((existing as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
     const isRejoin = !!(await fastify.mongo.db.collection('memberships').findOne({
@@ -518,7 +519,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
     return reply.send({
       email: inv.email,
-      roles: inv.roles,
+      role: inv.role,
       firstName: inv.firstName ?? null,
       lastName: inv.lastName ?? null,
       organisation: {
@@ -615,7 +616,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       const membership = await membRepo.create({
         userId,
         organisationId: inv.organisationId,
-        roles: inv.roles,
+        role: inv.role,
         organizationalUnit: null,
         teams: [],
         status: 'ACTIVE',
@@ -652,7 +653,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         userDoc as never,
         org as never,
         String(membership._id),
-        inv.roles,
+        inv.role,
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
       setAuthCookies(
@@ -702,7 +703,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         passwordResetToken: null,
         passwordResetExpiresAt: null,
         passwordHash,
-        roles: inv.roles,
+        roles: [inv.role],
         isActive: true,
         lastLoginAt: now,
         mfaEnabled: false,
@@ -724,7 +725,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       const membership = await membRepo.create({
         userId,
         organisationId: inv.organisationId,
-        roles: inv.roles,
+        role: inv.role,
         organizationalUnit: null,
         teams: [],
         status: 'ACTIVE',
@@ -760,7 +761,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         userDoc,
         org as never,
         String(membership._id),
-        inv.roles,
+        inv.role,
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
       setAuthCookies(
@@ -781,7 +782,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       organisationId: inv.organisationId,
       metadata: {
         via: invitedUserId ? 'existing-user' : 'password',
-        roles: inv.roles,
+        role: inv.role,
         isRejoin,
         invitationId: String(inv._id),
       },

@@ -24,13 +24,12 @@ import { useAuth } from '@/lib/auth-context';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
-const ALL_ROLES = ['ADMIN', 'ASSET_MANAGER', 'TEAM_MANAGER', 'EMPLOYEE', 'EXTERNAL'] as const;
+const ALL_ROLES = ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE', 'EXTERNAL'] as const;
 type Role = (typeof ALL_ROLES)[number];
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrátor',
   ASSET_MANAGER: 'Správca majetku',
-  TEAM_MANAGER: 'Vedúci tímu',
   EMPLOYEE: 'Zamestnanec',
   EXTERNAL: 'Externý',
 };
@@ -38,7 +37,7 @@ const ROLE_LABELS: Record<Role, string> = {
 interface MemberRow {
   _id: string;
   userId: string;
-  roles: Role[];
+  role: Role;
   status: string;
   isDefault: boolean;
   userEmail: string | null;
@@ -57,7 +56,7 @@ interface MembersResponse {
 
 export function MembersContent(): JSX.Element {
   const { user } = useAuth();
-  const isAdmin = user?.roles.includes('ADMIN') ?? false;
+  const isAdmin = user?.role === 'ADMIN';
 
   if (!isAdmin) {
     return (
@@ -85,7 +84,7 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
 
   // Edit dialog
   const [editTarget, setEditTarget] = useState<MemberRow | null>(null);
-  const [editRoles, setEditRoles] = useState<Role[]>([]);
+  const [editRole, setEditRole] = useState<Role>('EMPLOYEE');
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -117,18 +116,12 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
 
   const openEdit = (m: MemberRow): void => {
     setEditTarget(m);
-    setEditRoles([...m.roles]);
+    setEditRole(m.role);
     setEditError('');
   };
 
-  const toggleRole = (role: Role): void => {
-    setEditRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
-    );
-  };
-
   const handleSave = async (): Promise<void> => {
-    if (!editTarget || editRoles.length === 0) return;
+    if (!editTarget) return;
     setSaving(true);
     setEditError('');
     try {
@@ -136,7 +129,7 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ roles: editRoles }),
+        body: JSON.stringify({ role: editRole }),
       });
       if (res.ok) {
         setEditTarget(null);
@@ -174,7 +167,7 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
     }
   };
 
-  const adminCount = members.filter((m) => m.roles.includes('ADMIN')).length;
+  const adminCount = members.filter((m) => m.role === 'ADMIN').length;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
@@ -221,7 +214,7 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
             </thead>
             <tbody className="divide-y divide-border-subtle bg-surface-card">
               {members.map((m) => {
-                const isLastAdmin = m.roles.includes('ADMIN') && adminCount === 1;
+                const isLastAdmin = m.role === 'ADMIN' && adminCount === 1;
                 const isSelf = m.userId === currentUserId;
                 return (
                   <tr key={m._id} className="hover:bg-surface-subtle">
@@ -233,16 +226,9 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
                       <p className="text-xs text-text-muted">{m.userEmail ?? '–'}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {m.roles.map((r) => (
-                          <span
-                            key={r}
-                            className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-text-secondary"
-                          >
-                            {ROLE_LABELS[r] ?? r}
-                          </span>
-                        ))}
-                      </div>
+                      <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-text-secondary">
+                        {ROLE_LABELS[m.role] ?? m.role}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -308,9 +294,9 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
                 <button
                   key={role}
                   type="button"
-                  onClick={() => toggleRole(role)}
+                  onClick={() => setEditRole(role)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                    editRoles.includes(role)
+                    editRole === role
                       ? 'border-brand-primary bg-brand-primary text-brand-primary-fg'
                       : 'border-border-default bg-surface-page text-text-primary hover:bg-surface-subtle'
                   }`}
@@ -319,9 +305,6 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
                 </button>
               ))}
             </div>
-            {editRoles.length === 0 && (
-              <p className="mt-1 text-xs text-red-500">Vyberte aspoň jednu rolu.</p>
-            )}
 
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -334,7 +317,7 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
               <button
                 type="button"
                 onClick={() => void handleSave()}
-                disabled={saving || editRoles.length === 0}
+                disabled={saving}
                 className="flex items-center gap-2 rounded-lg bg-brand-primary px-3 py-2 text-sm font-semibold text-brand-primary-fg transition hover:opacity-90 disabled:opacity-60"
               >
                 {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}

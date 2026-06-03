@@ -36,7 +36,7 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 
 interface InvitePreview {
   email: string;
-  roles: string[];
+  role: string;
   firstName: string | null;
   lastName: string | null;
   organisation: {
@@ -57,7 +57,6 @@ interface InvitePreview {
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrátor',
   ASSET_MANAGER: 'Správca majetku',
-  TEAM_MANAGER: 'Vedúci tímu',
   EMPLOYEE: 'Zamestnanec',
   EXTERNAL: 'Externý používateľ',
 };
@@ -214,7 +213,7 @@ export function AcceptInvitePage(): JSX.Element {
   // Render helpers
   // -------------------------------------------------------------------------
 
-  const roleLabel = preview?.roles.map((r) => ROLE_LABELS[r] ?? r).join(', ') ?? '';
+  const roleLabel = preview?.role ? (ROLE_LABELS[preview.role] ?? preview.role) : '';
 
   // -------------------------------------------------------------------------
   // Loading state

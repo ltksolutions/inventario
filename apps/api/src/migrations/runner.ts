@@ -25,6 +25,7 @@ import { migrate_2026_05_31_remove_team_manager_role } from './2026-05-31-remove
 import { migrate_2026_05_31b_loan_request_beneficiary } from './2026-05-31b-loan-request-beneficiary.js';
 import { migrate_2026_06_01_asset_public_token } from './2026-06-01-asset-public-token.js';
 import { migrate_2026_06_01b_drop_residual_email_index } from './2026-06-01b-drop-residual-email-index.js';
+import { migrate_2026_06_03_single_role } from './2026-06-03-single-role.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -90,6 +91,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     description:
       'Drop residual global email unique index on users (2026-05-29c missed the actual name).',
     run: migrate_2026_06_01b_drop_residual_email_index,
+  },
+  {
+    key: '2026-06-03-single-role',
+    description:
+      'ADR-0029: Convert memberships + invitations roles[] → single role (highestRole). User.roles left as legacy.',
+    run: migrate_2026_06_03_single_role,
   },
 ];
 

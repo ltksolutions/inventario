@@ -49,11 +49,28 @@ export interface MeResponse {
   lastName: string;
   displayName: string;
   accountType: string;
+  /** @deprecated legacy User.roles (GET /v1/me). Not used for RBAC — use useAuth().user.role. */
   roles: string[];
   isActive: boolean;
   lastLoginAt: string | null;
   preferences: Record<string, unknown>;
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Role hierarchy (ADR-0029) — small local copy mirroring shared-types.
+// ---------------------------------------------------------------------------
+
+const ROLE_LEVEL: Record<string, number> = {
+  ADMIN: 3,
+  ASSET_MANAGER: 2,
+  EMPLOYEE: 1,
+  EXTERNAL: 1,
+};
+
+/** Does `actual` role satisfy at least the `required` level? (ADR-0029) */
+function roleSatisfies(actual: string | undefined, required: string): boolean {
+  return (ROLE_LEVEL[actual ?? 'EMPLOYEE'] ?? 1) >= (ROLE_LEVEL[required] ?? 1);
 }
 
 /**
@@ -968,9 +985,8 @@ export function useUpdateUser(): UseMutationResult<
  * role-gating helpers.
  */
 export function useCanAdminUsers(): boolean {
-  const me = useMe();
-  const roles = me.data?.roles ?? [];
-  return roles.includes('ADMIN');
+  const { user } = useAuth();
+  return user?.role === 'ADMIN';
 }
 
 /**
@@ -978,7 +994,7 @@ export function useCanAdminUsers(): boolean {
  * (UserRole enum). Listed here as a const tuple so `Role` is a narrow
  * union type useful in role-gating hooks.
  */
-export const USER_ROLES = ['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN'] as const;
+export const USER_ROLES = ['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as const;
 export type Role = (typeof USER_ROLES)[number];
 
 /**
@@ -993,20 +1009,17 @@ export type Role = (typeof USER_ROLES)[number];
  */
 export function useCanEditAssets(): boolean {
   const { user } = useAuth();
-  const roles = user?.roles ?? [];
-  return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+  return roleSatisfies(user?.role, 'ASSET_MANAGER');
 }
 
 export function useCanManageTaxonomy(): boolean {
   const { user } = useAuth();
-  const roles = user?.roles ?? [];
-  return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+  return roleSatisfies(user?.role, 'ASSET_MANAGER');
 }
 
 export function useCanDeleteTaxonomy(): boolean {
   const { user } = useAuth();
-  const roles = user?.roles ?? [];
-  return roles.includes('ADMIN');
+  return user?.role === 'ADMIN';
 }
 
 // ---------------------------------------------------------------------------
@@ -1345,8 +1358,7 @@ export function useCancelLoanRequest(): UseMutationResult<void, Error, { id: str
 /** Whether current user can manage loans (approve/reject/return) */
 export function useCanManageLoans(): boolean {
   const { user } = useAuth();
-  const roles = user?.roles ?? [];
-  return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+  return roleSatisfies(user?.role, 'ASSET_MANAGER');
 }
 
 // ---------------------------------------------------------------------------
@@ -1360,7 +1372,7 @@ export interface MemberPickerItem {
   lastName: string;
   isActive: boolean;
   membershipId: string;
-  roles: string[];
+  role: string;
 }
 
 /**
@@ -1669,8 +1681,7 @@ export function useReconcileStock(itemId: string): UseMutationResult<ReconcileRe
  */
 export function useCanManageStock(): boolean {
   const { user } = useAuth();
-  const roles = user?.roles ?? [];
-  return roles.includes('ASSET_MANAGER') || roles.includes('ADMIN');
+  return roleSatisfies(user?.role, 'ASSET_MANAGER');
 }
 
 // ---------------------------------------------------------------------------

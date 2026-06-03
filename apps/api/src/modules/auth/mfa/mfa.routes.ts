@@ -465,7 +465,7 @@ const mfaRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         user,
         org,
         fvMembership ? String(fvMembership['_id']) : undefined,
-        (fvMembership?.['roles'] as string[]) ?? [],
+        (fvMembership?.['role'] as string) ?? 'EMPLOYEE',
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 
@@ -580,7 +580,7 @@ const mfaRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         user,
         org,
         chMembership ? String(chMembership['_id']) : undefined,
-        (chMembership?.['roles'] as string[]) ?? [],
+        (chMembership?.['role'] as string) ?? 'EMPLOYEE',
       );
       const refreshToken = await fastify.inventarioJwt.issueRefreshToken(String(user._id), request);
 

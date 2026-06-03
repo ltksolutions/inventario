@@ -41,10 +41,8 @@ export const InvitationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).exten
   /** Target tenant. */
   organisationId: ObjectIdSchema,
 
-  /** Roles to grant on accept. */
-  roles: z
-    .array(z.enum(USER_ROLE_VALUES as [UserRole, ...UserRole[]]) as z.ZodType<UserRole>)
-    .min(1),
+  /** Rola na priradenie pri prijatí pozvánky (ADR-0029). JEDNA hodnota. */
+  role: z.enum(USER_ROLE_VALUES as [UserRole, ...UserRole[]]) as z.ZodType<UserRole>,
 
   /** Optional pre-fill for the new-user accept page. */
   firstName: z.string().min(1).max(100).nullable().default(null),
@@ -93,9 +91,7 @@ export type Invitation = z.infer<typeof InvitationSchema>;
  */
 export const CreateInvitationSchema = z.object({
   email: EmailSchema,
-  roles: z
-    .array(z.enum(USER_ROLE_VALUES as [UserRole, ...UserRole[]]) as z.ZodType<UserRole>)
-    .min(1),
+  role: z.enum(USER_ROLE_VALUES as [UserRole, ...UserRole[]]) as z.ZodType<UserRole>,
   firstName: z.string().min(1).max(100).nullable().default(null),
   lastName: z.string().min(1).max(100).nullable().default(null),
 });
