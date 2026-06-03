@@ -1,39 +1,36 @@
 # NEXT — aktuálny stav + ďalší krok
 
-Posledná session: `docs/sessions/2026-06-03-post-deploy-fixes.md`
-(users-list cross-tenant fix + ADR-0030)
+Posledná session: docs/sessions/2026-06-03-post-deploy-fixes.md
+(ADR-0030 D1-D7 kompletný)
 
 ## Aktuálny stav
 
-Production LIVE ✅. Dnešné fixy nasadené a overené:
+Production LIVE. ADR-0030 Accepted + implementovaný:
 
-- rejoin invite E11000 → 500 opravený (reactivate membership)
-- GET /v1/users cross-tenant fix — členovia sa rezolvujú cez memberships collection
-  (jan.letko@icloud.com sa teraz správne zobrazuje v Používateľoch LTK)
-
-**ADR-0030 schválený** (Proposed → ideme implementovať). Registrácia = e-mail +
-Google + Apple + Microsoft; Entra ako per-tenant doménová reštrikcia; SFZ dátová
-migrácia bez odhlásenia členov.
+- D1 Apple Sign-In backend (stub routes, form_post callback, provisioning)
+- D2 entraTenantId reštrikcia (tid z id_token, nie Graph /me)
+- D3 admin UI Prihlasovanie a domény (PATCH /v1/organisations/current)
+- D4 registračná obrazovka — 4 neutrálne možnosti (Google/Apple/Microsoft/E-mail)
+- D5 SFZ migrácia — no-op (prod DB je už na správnom modeli)
+- D6 testy (D2+D3 pokrytie)
+- D7 docs (ADR-0004 superseded, ADR-0030 Accepted, session/NEXT/TODO)
 
 ## Ďalší krok
 
-**ADR-0030 D1 — Backend Apple Sign-In** (Sonnet):
-dokončiť `apple` provider cez Arctic (`form_post` callback), odstrániť 503
-z registrácie aj loginu. Apple Developer účet potrebný (sandbox testovanie).
+Fáza 0 SFZ pilot onboarding — teraz je čas otestovať vlastnú registráciu:
 
-Poradie ďalších blokov: D2 (entraTenantId reštrikcia + autoJoinDomains do flow) →
-D3 (admin UI „Prihlasovanie a domény") → D4 (frontend registrácia) → D5 (SFZ
-migrácia) → D6 (testy) → D7 (docs). Viď ADR-0030.
+1. Otvoriť app.inventario.estate/register — overiť že 4 provider buttons sú viditeľné
+2. Zaregistrovať testovací org cez e-mail alebo Google
+3. Skontrolovať /settings/auth — nové UI Prihlasovanie a domény
+4. Pozvať SFZ (keď bude organizačne pripravené)
 
-⚠️ **Pred D2/D5:** `tid` čítať z id_token claimu, NIE z Graph `/me`. SFZ login
-regresiu overiť pred deployom.
+Apple Sign-In bude plne funkčný po schválení Apple Developer enrollmentu
+(LTK Solutions enrollment in progress). Vtedy doplniť env vars do Vercel.
 
 ## Na horizonte (v TODO.md)
 
-- **ADR-0030 D1–D7** — registračné identity + Entra doména (práve začíname)
-- **P1 tech-debt:** Unique index `memberships_userId_organisationId_unique` → pridať
-  `partialFilterExpression: { deletedAt: null }` (migrácia + reindex na prod)
-- ADR-0029 K8 — replikácia shared-types zmien do SFZ Asset-Management repa
+- P1 tech-debt: memberships partial index (partialFilterExpression: { deletedAt: null })
+- ADR-0029 K8 — replikácia shared-types do SFZ Asset-Management repa
 - ADR-0028 B1–B10 — per-tenant branding implementácia
 - ADR-0015 Slice #9 K1–K4 — cross-tenant memberships impl
 - Forced MFA smoke-test s kolegom

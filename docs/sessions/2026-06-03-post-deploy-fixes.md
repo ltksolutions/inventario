@@ -268,3 +268,82 @@ pre Google self-serve (drobný tech-debt).
 ---
 
 **Commity:** 2 (1× fix, 1× docs ADR) | **Status:** Production LIVE ✅ | **Next:** ADR-0030 D1
+
+---
+
+# Session 2026-06-03 — ADR-0030 implementácia D1–D7
+
+| Atribút      | Hodnota                                   |
+| ------------ | ----------------------------------------- |
+| **Dátum**    | 2026-06-03 (večer)                        |
+| **Fáza**     | Production LIVE — ADR-0030 implementation |
+| **Model**    | Sonnet 4.6 (D1–D6) + Haiku (D7 docs)      |
+| **Výsledok** | 5 commitov, všetky testy zelené           |
+
+## Čo bolo implementované
+
+### D1 — Backend Apple Sign-In
+
+- `apple-auth.routes.ts` (nový plugin): `GET /v1/auth/login/apple` + `POST /v1/auth/callback/apple` (`form_post`)
+- Keď `APPLE_*` env vars chýbajú — stub 503 routes (nie 404), jasná správa
+- `pemToUint8Array()` konverzia PEM → Uint8Array pre Arctic Apple API
+- Plný provisioning flow: self-serve registrácia + invite-accept + cross-tenant
+- `registration.routes.ts`: Apple 503 nahradený delegovaním na `/v1/auth/login/apple`
+- `oauth-state.ts`: provider union rozšírený o `'apple'`
+- `server.ts`: `appleAuthRoutes` zaregistrované
+- `turbo.json`: Apple + Google + MS + FRONTEND_BASE_URL env vars do `globalEnv`
+- `.env.example`: OAuth sekcia s Apple setup inštrukciami
+- `apple-auth.test.ts`: integračné testy (stub 503, schema validácia)
+- **Commit:** `feat(api): Apple Sign-In backend — ADR-0030 D1`
+
+### D2 — `entraTenantId` reštrikcia + `tid` z id_token
+
+- `ProviderUserInfo` rozšírený o `entraTid: string | null`
+- MS callback číta `tid` z id_token via `decodeJwtPayload()` (NIE Graph `/me`)
+- `provisionOrFindUser`: blokuje keď `org.entraTenantId` nastavený a `tid` nesedí
+- `acceptInviteViaOAuth`: rovnaká reštrikcia pri invite-accept
+- `entra-domain-restriction.test.ts`: 10 nových testov
+- **Commit:** `feat(api): ADR-0030 D2 — entraTenantId restriction + tid from id_token`
+
+### D3 — Admin UI "Prihlasovanie a domény"
+
+- `OrganisationSelfServicePatch` typ (repository) — rozširuje `OrganisationUpdatePatch` o `entraTenantId`
+- `OrganisationsRepository.updateSelf()` — nová metóda akceptujúca `entraTenantId`
+- `UpdateOwnOrganisationBodySchema` rozšírená o `allowedAuthProviders`, `memberJoinPolicy`, `autoJoinDomains`, `entraTenantId`
+- `AuthSettingsContent.tsx` (nový komponent): 4 provider checkboxy, policy radio, domain input, Entra UUID input
+- `/settings/auth/page.tsx` (nová stránka)
+- `AppShell.tsx`: nav item „Prihlasovanie" s `KeyRound` ikonou (adminOnly)
+- D3 testy v `entra-domain-restriction.test.ts`: PATCH allowedAuthProviders, memberJoinPolicy, entraTenantId, clear, empty array 400, EMPLOYEE 403
+- **Commit:** `feat: ADR-0030 D3 — admin UI Prihlasovanie a domény`
+
+### D4 — Frontend registračná obrazovka
+
+- `RegisterPage.tsx`: `Provider` type rozšírený o `'apple'`, grid 3→2 cols, 4 tlačidlá (Google/Apple/Microsoft/E-mail), `PROVIDER_LABELS` + `PROVIDER_SUBMIT_LABELS` mapy
+- **Commit:** (súčasť D4-D6 commitu)
+
+### D5 — SFZ migrácia
+
+- Overené cez Atlas MCP na prod: LTK Solutions org má `entraTenantId: null`, `allowedAuthProviders: [všetky 4]`, `memberJoinPolicy: INVITE_ONLY` — **migrácia nie je potrebná**, stav je správny
+- SFZ tenant ešte nie je vytvorený; keď príde čas, admin nastaví `entraTenantId` cez nové UI (D3)
+
+### D6 — Testy
+
+- D3 testy pre `PATCH /v1/organisations/current` s novými poliami
+- Celkový počet testov: zelené
+
+### D7 — Docs (toto)
+
+- ADR-0004: superseded note rozšírený o ADR-0030
+- ADR-0030: status `Proposed` → `✅ Accepted`
+- Session doc + NEXT.md + TODO.md aktualizácia
+
+## Poznámky / naučené
+
+- **Apple Arctic API:** `pkcs8PrivateKey` je `Uint8Array`, nie `string` — treba konverziu PEM → bytes. `hasIdToken()` neexistuje v Arctic v3; `idToken()` vráti string priamo (hodí error ak chýba).
+- **Microsoft `tid`:** Arctic/MS Graph cesta — `tid` sa musí čítať z id_token claimu (nie Graph `/me`; Graph `/me` `tid` priamo nevracia). Kľúčový ADR-0030 riziko splnené.
+- **D5 bol no-op:** Prod DB je už na správnom modeli (LTK Solutions = único tenant, správne nastavený). SFZ onboarding bude cez nové UI.
+- **`Filesystem MCP` sa odpojil** počas session — riešenie: `tool_search` na reload.
+
+---
+
+**Commity:** 5 | **Status:** Production LIVE ✅ | ADR-0030 ✅ Accepted + implementovaný D1–D7

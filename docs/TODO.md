@@ -171,7 +171,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### 20. ADR-0030 — Registračné identity + Entra ako per-tenant doménová reštrikcia
 
-- **Stav:** Proposed → schválené (ideme na D1); ADR [`docs/decisions/0030-registration-providers-and-entra-domain.md`](./decisions/0030-registration-providers-and-entra-domain.md)
+- **Stav:** DONE 2026-06-03 (D1-D7 kompletné); ADR [`docs/decisions/0030-registration-providers-and-entra-domain.md`](./decisions/0030-registration-providers-and-entra-domain.md)
 - **Kontext:** Reziduum z Entra-only začiatku (ADR-0004). Backend je už z ~80 % na cieľovom modeli (MS OAuth cez `organizations`, registrácia berie 4 providery, org-create má INVITE_ONLY + všetky providery). Reálne chýba: Apple (503), zapojenie `entraTenantId` ako doménovej reštrikcie do auth flow, admin UI, neutrálny frontend framing.
 - **Rozhodnutia:** registrácia = e-mail + Google + Apple + Microsoft (rovnocenné, bez Entra framingu) · Entra → per-tenant doménová politika cez existujúce polia (`allowedAuthProviders`, `memberJoinPolicy`, `autoJoinDomains`, `entraTenantId`) — aditívne, žiadne nové polia · pozvánka má vždy prednosť (INVITE_ONLY default) · SFZ migrácia = dátová úprava 1 Organisation dokumentu bez odhlásenia členov · SAML/OIDC enterprise SSO = mimo rozsahu
 - **Model:** Sonnet (D1–D6), Haiku (D7 docs)
