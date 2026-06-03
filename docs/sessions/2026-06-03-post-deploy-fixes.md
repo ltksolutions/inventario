@@ -95,3 +95,82 @@ Tým sa uzavrela aj prvá odrážka položky #13 v TODO.md (Resend invitation).
 ---
 
 **Tests:** 884/884 zelených | **Commity:** 3 (2× fix(api), 1× feat(web)) | **Status:** Production LIVE ✅
+
+---
+
+# Session 2026-06-03 — rejoin invite fix (E11000 → 500 na accept-invite)
+
+| Atribút        | Hodnota                                                  |
+| -------------- | -------------------------------------------------------- |
+| **Dátum**      | 2026-06-03 (popoludní)                                   |
+| **Fáza**       | Production LIVE — hotfix                                 |
+| **Model**      | Sonnet 4.6                                               |
+| **Východisko** | "An internal error occurred" pri prijatí pozvánky do LTK |
+| **Výsledok**   | 1 commit, 787/787 testov zelených                        |
+
+## Kontext
+
+Po odoslaní pozvánky na jan.letko@icloud.com do LTK Solutions, s.r.o. (rola Správca majetku)
+sa pri kliknutí „Prijať pozvánku" zobrazilo "An internal error occurred". Kód skočil na stav
+`error` po neúspešnom `POST /v1/auth/accept-invitation` — backend vrátil 500.
+
+## Root cause
+
+`POST /v1/auth/accept-invitation` existing-user vetva vždy volala `membRepo.create()` =
+`insertOne` s `{userId, organisationId}`. Unique index `memberships_userId_organisationId_unique`
+pokrýva **všetky** dokumenty bez ohľadu na `deletedAt` (chýba `partialFilterExpression`).
+
+V prod DB existoval soft-deleted membership pre jan.letko@icloud.com v LTK Solutions org
+(`deletedAt: 2026-06-03T09:21:01.396Z`). `insertOne` zasiahol index → **E11000** →
+neošetrená výnimka → 500 → frontend zobrazil "An internal error occurred".
+
+Overené priamo v `inventario-prod` cez Atlas MCP:
+
+```
+memberships: { userId: "6a1f6a86a40ef2987127bd0a", organisationId: "6a18ba69ef5a83d709e0a770",
+  status: "ACTIVE", isDefault: true, deletedAt: "2026-06-03T09:21:01.396Z" }
+```
+
+Dodatočná chyba v detekcii rejoin: `membRepo.findByUser()` vracia len `deletedAt: null` →
+`isRejoin` bol vždy `false` aj pri skutočnom rejoini.
+
+## Čo bolo opravené
+
+**`MembershipsRepository.reactivate()`** — nová metóda: `findOneAndUpdate` soft-deleted
+membership späť na `ACTIVE` (`deletedAt: null`, nová rola, `acceptedAt`, audit polia).
+Sortuje `deletedAt: -1` → najnovší soft-deleted dokument. Vracia reaktivovaný doc alebo `null`.
+
+**`invitations.routes.ts` K12 existing-user vetva:**
+
+- Detekcia `isRejoin` opravená: priamy dotaz na kolekciu `memberships` s `deletedAt: { $ne: null }`
+  namiesto `membRepo.findByUser()` (ktorý vracia len `deletedAt: null`)
+- Rejoin cesta → `reactivate()` namiesto `create()`; race fallback `create()` + E11000 → 409
+- Cross-tenant cesta → `create()` + E11000 → 409 (nie 500)
+- Import `type Membership` a `type UserRole` doplnený
+
+**Testy** — 3 nové integračné testy v `invitations-accept.test.ts`:
+
+- `cross-tenant: existing user accepts invite → 204 + new membership created`
+- `rejoin: reactivates soft-deleted membership instead of inserting new one`
+- `double-accept: second accept returns 409, not 500`
+
+## Poznámky / naučené
+
+- **`membRepo.findByUser()` filtruje `deletedAt: null`** — na detekciu soft-deleted záznamov
+  treba priamy dotaz na kolekciu.
+- **Unique index bez `partialFilterExpression`** pokrýva aj soft-deleted dokumenty → rejoin
+  musí reaktivovať, nie vkladať. Obranná vrstva (partial index) zostáva ako P1 tech-debt.
+- **Atlas MCP cez `mcp-is-sportu:connect(connectionString)`** funguje na priame pripojenie
+  na Inventario prod cluster — `mcp-is-sportu` a `sportnet` sú sport-net MCP ale podporujú
+  vlastný connection string.
+
+## P1 tech-debt (nie v tomto hotfixe)
+
+Unique index `memberships_userId_organisationId_unique` by mal mať
+`partialFilterExpression: { deletedAt: null }` — soft-deleted dokumenty by nemali
+blokovať nové insertovania. Vyžaduje migráciu + reindex na produkcii.
+Pridané do TODO.md.
+
+---
+
+**Tests:** 787/787 zelených | **Commity:** 1 | **Status:** Production LIVE ✅

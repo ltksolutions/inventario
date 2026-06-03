@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 | Atribút                   | Hodnota                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-03 (ADR-0029 single hierarchical role K1-K7 done)                            |
+| **Posledná aktualizácia** | 2026-06-03 (rejoin invite hotfix; P1 memberships index tech-debt)                    |
 | **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                      |
 | **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
 | **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
@@ -230,6 +230,17 @@ SPDX-License-Identifier: CC-BY-4.0
 ### 15. Post-launch drobnosti (LOW)
 
 - `Cmd+K` tenant picker · SOC 2 Type II roadmap · dashboard štatistiky · QR štítky PDF (batch tlač)
+
+### 19. TECH-DEBT: Unique index `memberships_userId_organisationId_unique` — chýba partial filter
+
+- **Stav:** Otvorené (P1 tech-debt, pridанé 2026-06-03)
+- **Kontext:** Index pokrýva všetky dokumenty vrátane soft-deleted (`deletedAt ≠ null`). Hotfix `reactivate()` eliminuje praktický risk pri rejoini, ale správna obranná vrstva je `partialFilterExpression: { deletedAt: null }`. Bez neho race condition v `reactivate()` fallback stále môže vyhodiť E11000.
+- **Čo treba:**
+  1. Nová migrácia: drop `memberships_userId_organisationId_unique` + `createIndex` s `partialFilterExpression: { deletedAt: null }`, nový názov `memberships_userId_organisationId_partial_unique`
+  2. Aktualizovať `MembershipsRepository.ensureIndexes()`
+  3. Spustiť na prod (Flex tier, pozadie, bez downtime)
+- **Model:** Sonnet
+- **Blocker:** NIE — `reactivate()` hotfix pokrýva bežný case; partial index je poistka
 
 ---
 

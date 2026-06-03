@@ -1,35 +1,26 @@
 # NEXT — aktuálny stav + ďalší krok
 
-Posledná session: `docs/sessions/2026-06-03-adr-0029-single-role.md`
+Posledná session: `docs/sessions/2026-06-03-post-deploy-fixes.md` (rejoin invite fix)
 
 ## Aktuálny stav
 
-**ADR-0029 (single hierarchical role) — K1–K7 DONE, čaká na Janíku:**
+Production LIVE ✅. Posledný hotfix: rejoin invite E11000 → 500 opravený.
+Pozvánka pre jan.letko@icloud.com do LTK Solutions je stále PENDING (expiruje 10.6.)
+— po deployi Vercel kliknúť na link v e-maili a prijať.
 
-Všetky kódové zmeny zapísané na disk. Janika musí spustiť:
+## Ďalší krok
 
-```bash
-pnpm --filter @inventario/shared-types build
-pnpm --filter @inventario/api openapi:export:offline
-# regen apps/web/api-types.ts z nového OpenAPI
-pnpm typecheck
-pnpm test
-```
+Fáza 0 SFZ pilot onboarding — otestovať vlastnú registráciu pred pozvaním SFZ:
 
-Ak niečo padne → pošlite výstup, opravím.
-
-## Ďalší krok (po zelených testoch)
-
-1. **Commit + push** (GitHub Desktop): `feat: single hierarchical role per membership (ADR-0029)`
-2. **K8** — replikácia do SFZ Asset-Management repa (shared-types zmeny)
-3. **Tech-debt (TODO P2)**: `users.service.ts` — PATCH /v1/users/:id je zastaraný
-   (správa rolí = PATCH /v1/memberships/:id); premigrovat alebo odstraniť pred GA
+1. Kliknúť na link v e-maili a prijať pozvánku do LTK Solutions (verifikácia hotfixu)
+2. Následne ADR-0022 K5–K8 alebo ADR-0029 K8 podľa priority
 
 ## Na horizonte (v TODO.md)
 
-- ADR-0022 K5–K8 (loan protocol PDF gen) — ďalší blok
-- ADR-0027 (QR label printing — Avery PDF + ZPL)
-- ADR-0015 Slice #9 K1–K4 (cross-tenant memberships impl)
-- SFZ pilot onboarding (self-serve registration test)
+- **P1 tech-debt:** Unique index `memberships_userId_organisationId_unique` → pridať
+  `partialFilterExpression: { deletedAt: null }` (migrácia + reindex na prod)
+- ADR-0029 K8 — replikácia shared-types zmien do SFZ Asset-Management repa
+- ADR-0028 B1–B10 — per-tenant branding implementácia
+- ADR-0015 Slice #9 K1–K4 — cross-tenant memberships impl
 - Forced MFA smoke-test s kolegom
 - Pre-go-live blocky (legal review, Atlas allowlist, DR test, pentest)
