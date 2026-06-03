@@ -174,3 +174,97 @@ Pridané do TODO.md.
 ---
 
 **Tests:** 787/787 zelených | **Commity:** 1 | **Status:** Production LIVE ✅
+
+---
+
+# Session 2026-06-03 — users-list cross-tenant fix + ADR-0030 (registračné identity + Entra doména)
+
+| Atribút        | Hodnota                                                        |
+| -------------- | -------------------------------------------------------------- |
+| **Dátum**      | 2026-06-03 (podvečer)                                          |
+| **Fáza**       | Production LIVE — cross-tenant fix + auth architektúra (ADR)   |
+| **Model**      | Sonnet 4.6 (fix) + Opus 4.8 (ADR)                              |
+| **Východisko** | jan.letko@icloud.com nebol v Používateľoch LTK; Entra reziduum |
+| **Výsledok**   | 2 commity (fix + ADR), všetky testy zelené                     |
+
+## 1. fix: GET /v1/users cross-tenant (members cez memberships collection)
+
+**Bug:** Po prijatí pozvánky sa jan.letko@icloud.com nezobrazil v admin zozname
+Používatelia v LTK Solutions (0 používateľov napriek aktívnemu členstvu).
+
+**Root cause:** `UsersService.list()` → `UsersRepository.list()` filtroval kolekciu
+`users` podľa `organisationId`. Cross-tenant pozvaný user má na User dokumente
+`organisationId` svojho **pôvodného** orgu (alebo žiadny), nie tenantu kam bol
+pozvaný. Membership existoval správne (LTK org, rola ASSET_MANAGER), ale filter
+na `users.organisationId` ho minul. Rovnaká rodina legacy patternu ako tech-debt #18.
+
+**Fix:**
+
+- `MembershipsRepository.findUserIdsByOrganisation(orgId)` — vráti `userId[]`
+  aktívnych nezmazaných členov orgu
+- `UsersRepository.listByUserIds({ userIds, ... })` — filtruje podľa `_id: { $in }`
+  namiesto `organisationId`
+- `UsersService.list()` — najprv vyrieši member userIds cez memberships, potom
+  `listByUserIds()`
+- `test-fixtures`: `insertTestUser()` aj `provisionUser()` auto-vytvárajú membership;
+  `insertTestMembership()` je idempotentná (vráti existujúci ak `{userId, organisationId}`
+  už je) — kritické na odstránenie 34 kaskádových E11000 v testoch po tom, čo
+  `provisionUser` začal membership vytvárať
+- `passkeys.test.ts`: manuálne `insertOne` membership bloky nahradené idempotentnou
+  `insertTestMembership`
+- `invitations-accept.test.ts`: cross-tenant a double-accept testy provisioned
+  v separátnom orgu (`seedTestTenant`); rejoin test soft-deletuje membership cez
+  `updateOne` namiesto druhého insertu
+
+**Testy:** 2 nové (cross-tenant user viditeľný, foreign-org user neviditeľný).
+
+**Commit:** `fix: GET /v1/users resolves members via memberships collection (cross-tenant fix)`
+
+## 2. docs: ADR-0030 — registračné identity + Entra ako per-tenant doménová reštrikcia
+
+**Kontext:** Reziduum zo začiatku projektu (Entra-only, ADR-0004). Registračná
+obrazovka navodzuje „Microsoft = firemná Entra"; Apple chýba (503); `entraTenantId`
+je mŕtve pole, ktoré sa pri logine na nič nepoužíva. SFZ je de-facto viazané na Entru.
+
+**Kľúčové zistenie z kódu:** backend je už z ~80 % na želanom modeli. Microsoft
+OAuth ide cez multi-tenant `organizations` endpoint (akékoľvek MS konto, bez väzby
+na adresár). Registračný endpoint berie všetky 4 providery. Org sa vytvára s
+`INVITE_ONLY` + všetky providery povolené. Schéma už má `entraTenantId`,
+`customDomain`, `allowedAuthProviders`, `memberJoinPolicy`, `autoJoinDomains`.
+Reálne chýba len: Apple, zapojenie `entraTenantId` ako doménovej reštrikcie do
+auth flow, admin UI, a neutrálny frontend framing.
+
+**Tri-cestné rozlíšenie (SSO otázka):** (1) MS OAuth `organizations`/`common` =
+už máme, akékoľvek MS konto — to je registračné „Microsoft"; (2) Entra `tid`
+reštrikcia = dnešný SFZ stav → presúva sa do per-tenant nastavenia; (3) SAML/OIDC
+enterprise SSO = mimo rozsahu, samostatný neskorší projekt.
+
+**Rozhodnutia:** registrácia = e-mail + Google + Apple + Microsoft (rovnocenné,
+bez Entra framingu); Entra → per-tenant doménová politika cez existujúce polia
+(aditívna zmena, žiadne nové polia); pozvánka má vždy prednosť (INVITE_ONLY default);
+SFZ migrácia = dátová úprava jedného Organisation dokumentu bez odhlásenia členov.
+
+**Plán:** D1–D7 (prevažne Sonnet) — D1 Apple, D2 entraTenantId+autoJoinDomains do
+flow, D3 admin UI „Prihlasovanie a domény", D4 frontend registrácia, D5 SFZ migrácia,
+D6 testy, D7 docs. Status **Proposed → schválené Janikou** (ideme na D1).
+
+**Riziká vypichnuté:** SFZ login regresiu overiť pred deployom; `tid` čítať z
+id_token claimu (nie Graph `/me`); `accountType: ENTRA_ID` sa dnes nastavuje aj
+pre Google self-serve (drobný tech-debt).
+
+**Commit:** `docs: ADR-0030 registration providers + Entra as per-tenant domain restriction`
+
+## Poznámky / naučené
+
+- **Cross-tenant viditeľnosť ide cez memberships, nie users.organisationId.** Akýkoľvek
+  zoznam „členov orgu" musí rezolvovať cez memberships collection (ADR-0015 model:
+  User globálny, Membership viaže na org).
+- **Auto-membership v `provisionUser` = idempotentné fixtures všade.** Keď fixture
+  začne vytvárať membership, všetky priame `insertOne` membership v testoch musia ísť
+  cez idempotentnú helper, inak E11000 kaskáda.
+- **`create_file` nepíše na reálny disk** — len `filesystem:write_file`. ADR-0030 sa
+  najprv „vytvoril" do sandboxu (neviditeľný v GitHub Desktop), musel sa prepísať.
+
+---
+
+**Commity:** 2 (1× fix, 1× docs ADR) | **Status:** Production LIVE ✅ | **Next:** ADR-0030 D1

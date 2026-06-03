@@ -12,12 +12,12 @@ SPDX-License-Identifier: CC-BY-4.0
 > [`docs/sessions/NEXT.md`](./sessions/NEXT.md). Testovanie sa rieši priebežne pri každej
 > položke (workflow pravidlo: testy s každou zmenou) — preto tu nie je samostatná „testovacia" sekcia.
 
-| Atribút                   | Hodnota                                                                              |
-| ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-03 (rejoin invite hotfix; P1 memberships index tech-debt)                    |
-| **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                      |
-| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
-| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
+| Atribút                   | Hodnota                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-03 (ADR-0030 registračné identity + Entra doména; users-list cross-tenant fix) |
+| **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                        |
+| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr            |
+| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs   |
 
 ---
 
@@ -168,6 +168,23 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Čo treba:** Buď (a) napojiť PATCH /v1/users/:id na membership miesto User.roles, alebo (b) odstraniť endpoint pred GA a presmerovať UI na PATCH /v1/memberships/:id.
 - **Model:** Sonnet
 - **Blocker:** NIE — SFZ pilot môže fungovať so zastaraným endpointom (RBAC je správne, len UI admin stránka "Používatelia" siàha na wrong miesto)
+
+### 20. ADR-0030 — Registračné identity + Entra ako per-tenant doménová reštrikcia
+
+- **Stav:** Proposed → schválené (ideme na D1); ADR [`docs/decisions/0030-registration-providers-and-entra-domain.md`](./decisions/0030-registration-providers-and-entra-domain.md)
+- **Kontext:** Reziduum z Entra-only začiatku (ADR-0004). Backend je už z ~80 % na cieľovom modeli (MS OAuth cez `organizations`, registrácia berie 4 providery, org-create má INVITE_ONLY + všetky providery). Reálne chýba: Apple (503), zapojenie `entraTenantId` ako doménovej reštrikcie do auth flow, admin UI, neutrálny frontend framing.
+- **Rozhodnutia:** registrácia = e-mail + Google + Apple + Microsoft (rovnocenné, bez Entra framingu) · Entra → per-tenant doménová politika cez existujúce polia (`allowedAuthProviders`, `memberJoinPolicy`, `autoJoinDomains`, `entraTenantId`) — aditívne, žiadne nové polia · pozvánka má vždy prednosť (INVITE_ONLY default) · SFZ migrácia = dátová úprava 1 Organisation dokumentu bez odhlásenia členov · SAML/OIDC enterprise SSO = mimo rozsahu
+- **Model:** Sonnet (D1–D6), Haiku (D7 docs)
+- **Rozsah — 7 blokov (detail v ADR-0030 „Implementačný plán“):**
+  - [ ] **D1** — backend Apple Sign-In (Arctic `form_post`, odstrániť 503 z registrácie aj loginu)
+  - [ ] **D2** — auth flow: `entraTenantId` reštrikcia (`tid` z id_token claimu, NIE Graph `/me`) + `autoJoinDomains` do accept-invite/login
+  - [ ] **D3** — admin UI „Prihlasovanie a domény" (allowedAuthProviders, memberJoinPolicy, autoJoinDomains, entraTenantId)
+  - [ ] **D4** — frontend registračná obrazovka: 4 neutrálne možnosti, odstrániť Entra framing
+  - [ ] **D5** — SFZ migrácia + overenie firemného MS prihlásenia členov cez nový model
+  - [ ] **D6** — testy (Apple flow, tid reštrikcia, domain auto-join opt-in, invite prednosť, SFZ scenár)
+  - [ ] **D7** — docs: ADR-0004 superseded note, user-guide „Povolenie firemnej domény", milestone/session
+- **Riziká:** SFZ login regresiu overiť pred deployom · `tid` z id_token (nie Graph) · `accountType: ENTRA_ID` sa dnes mätúco nastavuje aj pre Google self-serve (drobný tech-debt)
+- **Blocker:** NIE pre pilot (default funguje), ale rieši reálnu pilotnú bolesť (Entra dnes de-facto povinné pre SFZ)
 
 ---
 
