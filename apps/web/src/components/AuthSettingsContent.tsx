@@ -285,6 +285,7 @@ export function AuthSettingsContent(): JSX.Element {
                       <label
                         key={policy}
                         htmlFor={inputId}
+                        aria-label={info.label}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
                           selected
                             ? 'border-brand-primary bg-brand-primary/5'
