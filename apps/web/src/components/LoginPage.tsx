@@ -46,6 +46,7 @@ export function LoginPage(): JSX.Element {
   const errorKey = params.get('error') ?? '';
   const verified = params.get('verified') === 'true';
   const passwordReset = params.get('passwordReset') === 'true';
+  const nextUrl = params.get('next') ?? '';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,25 +97,45 @@ export function LoginPage(): JSX.Element {
 
       if (res.ok) {
         await refresh();
-        router.push('/');
+        router.push(nextUrl || '/');
         return;
       }
 
-      // MFA required — store session token and redirect to challenge page
+      // MFA required
       if (res.status === 202) {
-        const body = (await res.json()) as { mfaRequired?: boolean; mfaSessionToken?: string };
+        const body = (await res.json()) as {
+          mfaRequired?: boolean;
+          mfaSetupRequired?: boolean;
+          mfaSessionToken?: string;
+          mfaSetupToken?: string;
+        };
         if (body.mfaRequired && body.mfaSessionToken) {
           sessionStorage.setItem('mfa_session_token', body.mfaSessionToken);
-          // Use full navigation instead of SPA push — guarantees sessionStorage
-          // is committed before the MFA challenge page mounts (Next.js router.push
-          // can trigger prefetch/render before storage write is visible).
           window.location.href = '/login/mfa';
+          return;
+        }
+        if (body.mfaSetupRequired && body.mfaSetupToken) {
+          sessionStorage.setItem('mfa_setup_token', body.mfaSetupToken);
+          window.location.href = '/login/mfa-setup';
           return;
         }
       }
 
       const body = (await res.json()) as { message?: string };
-      setFormError(body.message ?? 'Nesprávny e-mail alebo heslo.');
+      const msg = body.message ?? '';
+
+      // Špeciálny prípad: user nemá membership (čaká na pozvánku)
+      // ale next= smeruje na accept-invite — presmeruj tam priamo
+      if (
+        (res.status === 401 || res.status === 403) &&
+        msg.toLowerCase().includes('organizácia') &&
+        nextUrl.includes('/accept-invite')
+      ) {
+        window.location.href = nextUrl;
+        return;
+      }
+
+      setFormError(msg || 'Nesprávny e-mail alebo heslo.');
     } catch {
       setFormError('Sieťová chyba. Skúste znova.');
     } finally {
