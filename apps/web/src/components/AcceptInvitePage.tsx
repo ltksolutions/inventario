@@ -338,12 +338,20 @@ export function AcceptInvitePage(): JSX.Element {
                         ako <strong>{user.email}</strong>. Odhláste sa a prihláste sa správnym
                         účtom.
                       </p>
-                      <Link
-                        href={`/login?next=${encodeURIComponent(`/accept-invite?token=${token}`)}`}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void fetch(`${API_BASE}/v1/auth/logout`, {
+                            method: 'POST',
+                            credentials: 'include',
+                          }).finally(() => {
+                            window.location.href = `/login?next=${encodeURIComponent(`/accept-invite?token=${token}`)}`;
+                          });
+                        }}
                         className="mt-3 inline-block rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
                       >
-                        Prihlásiť sa iným účtom
-                      </Link>
+                        Odhlásiť sa a pokračovať
+                      </button>
                     </div>
                   )}
                 </>
