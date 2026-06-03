@@ -261,9 +261,9 @@ const UpdateOrganisationBodySchema = z
 // PATCH /current body schema (tenant self-service)
 // ---------------------------------------------------------------------------
 //
-// Uvedome SAFE subset — tenant ADMIN smie meniť len identitu+billing svojej
-// vlastnej org. plan / status / slug / customDomain / authProviders sú
-// platform-operator concerns a do tohto endpointu NEpatria.
+// ADR-0030 D3: rozšírené o auth domain settings — tenant ADMIN môže
+// konfigurovať vlastnú provider politiku, doménové obmedzenie a Entra tenant ID.
+// plan / status / slug / customDomain zostávajú platform-operator concerns.
 
 const UpdateOwnOrganisationBodySchema = z
   .object({
@@ -271,10 +271,25 @@ const UpdateOwnOrganisationBodySchema = z
     primaryContactEmail: z.string().email('Neplatná e-mailová adresa.').nullable(),
     billing: BillingBodySchema.nullable(),
     brandKit: BrandKitBodySchema.nullable(), // ADR-0028 v2: preset+logo všetkým plánom; preset expanzia v service
+    // ADR-0030 D3: auth domain settings
+    allowedAuthProviders: z
+      .array(z.enum(['GOOGLE', 'APPLE', 'MICROSOFT', 'EMAIL']))
+      .min(1, 'Aspoň jeden spôsob prihlásenia musí byť povolený.'),
+    memberJoinPolicy: z.enum(['INVITE_ONLY', 'DOMAIN_RESTRICTED', 'OPEN']),
+    autoJoinDomains: z.array(
+      z
+        .string()
+        .regex(
+          /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/,
+          'Doména musí byť platné FQDN (napr. sfz.sk).',
+        )
+        .toLowerCase(),
+    ),
+    entraTenantId: z.string().uuid('entraTenantId musí byť platný UUID.').nullable(),
   })
   .partial()
   .describe(
-    'Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding).',
+    'Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména).',
   );
 
 // ---------------------------------------------------------------------------
