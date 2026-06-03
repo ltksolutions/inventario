@@ -37,6 +37,7 @@ import {
   AccountType,
   AuthProvider,
   UserRole,
+  type Membership,
   type Organisation,
   type User,
 } from '@inventario/shared-types';
@@ -607,33 +608,97 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       userId = invitedUserId;
 
       // Check whether this is a rejoin (soft-deleted membership exists)
-      const allMemberships = await membRepo.findByUser(userId);
-      isRejoin = allMemberships.some(
-        (m) => m.organisationId === inv.organisationId && m.deletedAt !== null,
-      );
+      // findByUser returns only deletedAt:null — check raw collection for soft-deleted
+      const softDeleted = await fastify.mongo.db
+        .collection('memberships')
+        .findOne({ userId, organisationId: inv.organisationId, deletedAt: { $ne: null } });
+      isRejoin = !!softDeleted;
 
-      // Create Membership in target org (no User changes needed)
-      const membership = await membRepo.create({
-        userId,
-        organisationId: inv.organisationId,
-        role: inv.role,
-        organizationalUnit: null,
-        teams: [],
-        status: 'ACTIVE',
-        isDefault: false, // existing users keep their current default
-        invitedBy: inv.invitedBy,
-        invitedAt: inv.createdAt,
-        acceptedAt: now,
-        mustChangePassword: false,
-        lastAccessedAt: now,
-        notifications: { email: true, push: false },
-        createdAt: now,
-        updatedAt: now,
-        createdBy: userId,
-        updatedBy: userId,
-        deletedAt: null,
-        deletedBy: null,
-      });
+      // Rejoin: reactivate the soft-deleted membership instead of inserting a new
+      // one — a plain insertOne would hit the unique index {userId, organisationId}
+      // which covers ALL documents regardless of deletedAt, causing E11000 → 500.
+      let membership: WithId<Membership> | { _id: unknown };
+      if (isRejoin) {
+        const reactivated = await membRepo.reactivate({
+          userId,
+          organisationId: inv.organisationId,
+          role: inv.role,
+          acceptedAt: now,
+          invitedBy: inv.invitedBy,
+          invitedAt: inv.createdAt,
+          updatedAt: now,
+          updatedBy: userId,
+        });
+        if (!reactivated) {
+          // Race condition: reactivate found nothing — fall through to create
+          try {
+            membership = await membRepo.create({
+              userId,
+              organisationId: inv.organisationId,
+              role: inv.role,
+              organizationalUnit: null,
+              teams: [],
+              status: 'ACTIVE',
+              isDefault: false,
+              invitedBy: inv.invitedBy,
+              invitedAt: inv.createdAt,
+              acceptedAt: now,
+              mustChangePassword: false,
+              lastAccessedAt: now,
+              notifications: { email: true, push: false },
+              createdAt: now,
+              updatedAt: now,
+              createdBy: userId,
+              updatedBy: userId,
+              deletedAt: null,
+              deletedBy: null,
+            });
+          } catch (err: unknown) {
+            if ((err as { code?: number }).code === 11000) {
+              throw Object.assign(new Error('ALREADY_MEMBER'), {
+                statusCode: 409,
+                name: 'ConflictError',
+              });
+            }
+            throw err;
+          }
+        } else {
+          membership = reactivated;
+        }
+      } else {
+        // Cross-tenant: user exists but has no membership in this org yet
+        try {
+          membership = await membRepo.create({
+            userId,
+            organisationId: inv.organisationId,
+            role: inv.role,
+            organizationalUnit: null,
+            teams: [],
+            status: 'ACTIVE',
+            isDefault: false, // existing users keep their current default
+            invitedBy: inv.invitedBy,
+            invitedAt: inv.createdAt,
+            acceptedAt: now,
+            mustChangePassword: false,
+            lastAccessedAt: now,
+            notifications: { email: true, push: false },
+            createdAt: now,
+            updatedAt: now,
+            createdBy: userId,
+            updatedBy: userId,
+            deletedAt: null,
+            deletedBy: null,
+          });
+        } catch (err: unknown) {
+          if ((err as { code?: number }).code === 11000) {
+            throw Object.assign(new Error('ALREADY_MEMBER'), {
+              statusCode: 409,
+              name: 'ConflictError',
+            });
+          }
+          throw err;
+        }
+      }
 
       // Mark invitation ACCEPTED
       await invRepo.accept(String(inv._id), {

@@ -19,7 +19,7 @@
 
 import { ObjectId, type ClientSession, type Collection, type Db, type WithId } from 'mongodb';
 
-import type { Membership, UpdateMembershipInput } from '@inventario/shared-types';
+import type { Membership, UpdateMembershipInput, UserRole } from '@inventario/shared-types';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -177,6 +177,60 @@ export class MembershipsRepository {
   // -------------------------------------------------------------------------
   // Write paths
   // -------------------------------------------------------------------------
+
+  /**
+   * Reactivate a soft-deleted membership for a user returning to an org
+   * (rejoin / cross-tenant re-invite path).
+   *
+   * Finds the most-recently soft-deleted membership for {userId, organisationId}
+   * and restores it: clears deletedAt/deletedBy, sets status ACTIVE, updates
+   * role, acceptedAt, and audit fields. Returns the updated document, or null
+   * if no soft-deleted membership exists (caller should fall through to create).
+   *
+   * This is the correct operation for the rejoin path — avoids E11000 on the
+   * unique index {userId, organisationId} which covers all documents regardless
+   * of deletedAt value.
+   */
+  async reactivate(
+    params: {
+      userId: string;
+      organisationId: string;
+      role: UserRole;
+      acceptedAt: string;
+      invitedBy: string;
+      invitedAt: string;
+      updatedAt: string;
+      updatedBy: string;
+    },
+    session?: ClientSession,
+  ): Promise<WithId<Membership> | null> {
+    const result = await this.col.findOneAndUpdate(
+      {
+        userId: params.userId,
+        organisationId: params.organisationId,
+        deletedAt: { $ne: null },
+      } as never,
+      {
+        $set: {
+          status: 'ACTIVE',
+          role: params.role,
+          acceptedAt: params.acceptedAt,
+          invitedBy: params.invitedBy,
+          invitedAt: params.invitedAt,
+          deletedAt: null,
+          deletedBy: null,
+          updatedAt: params.updatedAt,
+          updatedBy: params.updatedBy,
+        },
+      },
+      {
+        sort: { deletedAt: -1 },
+        returnDocument: 'after',
+        ...(session ? { session } : {}),
+      },
+    );
+    return result ?? null;
+  }
 
   /**
    * Insert a new membership. The unique index on {userId, organisationId}
