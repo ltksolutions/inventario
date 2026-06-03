@@ -318,17 +318,34 @@ export function AcceptInvitePage(): JSX.Element {
                     </p>
                     <p className="mt-0.5 text-xs text-text-muted">{user.email}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleExistingUserAccept()}
-                    disabled={state === 'confirming'}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {state === 'confirming' && (
-                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                    )}
-                    Prijať pozvánku
-                  </button>
+                  {user.email.toLowerCase() === preview.email.toLowerCase() ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleExistingUserAccept()}
+                      disabled={state === 'confirming'}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      {state === 'confirming' && (
+                        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                      )}
+                      Prijať pozvánku
+                    </button>
+                  ) : (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-medium text-amber-900">Nesprávny účet</p>
+                      <p className="mt-1 text-xs text-amber-800">
+                        Táto pozvánka je pre <strong>{preview.email}</strong>, ale ste prihlásený
+                        ako <strong>{user.email}</strong>. Odhláste sa a prihláste sa správnym
+                        účtom.
+                      </p>
+                      <Link
+                        href={`/login?next=${encodeURIComponent(`/accept-invite?token=${token}`)}`}
+                        className="mt-3 inline-block rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                      >
+                        Prihlásiť sa iným účtom
+                      </Link>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="rounded-lg border border-border-subtle bg-surface-subtle p-4">
