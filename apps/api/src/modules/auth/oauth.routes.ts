@@ -441,6 +441,8 @@ export interface ProviderUserInfo {
   firstName: string;
   lastName: string;
   displayName: string;
+  /** Microsoft Entra tenant ID from id_token `tid` claim. Null for Google/Apple. */
+  entraTid: string | null;
 }
 
 async function exchangeCodeAndGetUserInfo(
@@ -473,9 +475,24 @@ async function exchangeCodeAndGetUserInfo(
       firstName: data.given_name ?? data.name?.split(' ')[0] ?? data.email.split('@')[0] ?? 'user',
       lastName: data.family_name ?? data.name?.split(' ').slice(1).join(' ') ?? '',
       displayName: data.name ?? data.email,
+      entraTid: null,
     };
   } else {
-    // Microsoft Graph
+    // Microsoft: read tid from id_token claim (NOT from Graph /me — Graph does not
+    // reliably return tid). Arctic's validateAuthorizationCode returns tokens with
+    // idToken() available when openid scope is requested.
+    //
+    // ADR-0030 D2: tid is used for per-tenant Entra domain restriction.
+    // We decode without re-verifying signature (Arctic already verified it).
+    let entraTid: string | null = null;
+    try {
+      const idTokenPayload = decodeJwtPayload(tokens.idToken());
+      entraTid = (idTokenPayload['tid'] as string | undefined) ?? null;
+    } catch {
+      // Non-fatal: idToken not present or tid missing — domain restriction won't apply
+    }
+
+    // Microsoft Graph — for user profile info
     const res = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -497,8 +514,23 @@ async function exchangeCodeAndGetUserInfo(
       firstName: data.givenName ?? email.split('@')[0] ?? 'user',
       lastName: data.surname ?? '',
       displayName: data.displayName ?? email,
+      entraTid,
     };
   }
+}
+
+/**
+ * Decode a JWT payload without verifying the signature.
+ * Used to extract `tid` from Microsoft id_token after Arctic has already
+ * validated the signature during token exchange.
+ */
+function decodeJwtPayload(jwt: string): Record<string, unknown> {
+  const parts = jwt.split('.');
+  if (parts.length < 2 || !parts[1]) throw new Error('Invalid JWT structure');
+  return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8')) as Record<
+    string,
+    unknown
+  >;
 }
 
 // ---------------------------------------------------------------------------
@@ -561,6 +593,18 @@ async function provisionOrFindUser(args: {
     const allowedProviders: string[] = org.allowedAuthProviders ?? [];
     if (allowedProviders.length > 0 && !allowedProviders.includes(authProviderEnum)) {
       return { success: false, errorCode: 'provider_not_allowed' };
+    }
+
+    // ADR-0030 D2: entraTenantId restriction for Microsoft logins.
+    // If the org has entraTenantId set, the Microsoft id_token tid must match.
+    // This restricts existing-user logins to the org's Entra directory.
+    if (
+      provider === 'microsoft' &&
+      org.entraTenantId &&
+      providerUser.entraTid &&
+      providerUser.entraTid !== org.entraTenantId
+    ) {
+      return { success: false, errorCode: 'entra_tenant_mismatch' };
     }
 
     // Touch lastLoginAt
@@ -795,6 +839,17 @@ async function acceptInviteViaOAuth(args: {
     })) as WithId<Organisation> | null;
     if (!org) return { success: false, errorCode: 'org_not_found' };
     if (org.status !== 'ACTIVE') return { success: false, errorCode: 'org_inactive' };
+
+    // ADR-0030 D2: entraTenantId restriction at invite-accept.
+    // If org has entraTenantId set and user logs in via Microsoft, tid must match.
+    if (
+      authProviderEnum === AuthProvider.MICROSOFT &&
+      org.entraTenantId &&
+      providerUser.entraTid &&
+      providerUser.entraTid !== org.entraTenantId
+    ) {
+      return { success: false, errorCode: 'entra_tenant_mismatch' };
+    }
 
     const invitedUserId = newInv['invitedUserId'] as string | null;
 
