@@ -282,9 +282,9 @@ export function AuthSettingsContent(): JSX.Element {
                     const selected = settings.memberJoinPolicy === policy;
                     const inputId = `policy-${policy}`;
                     return (
-                      <div
+                      <label
                         key={policy}
-                        onClick={() => setSettings({ ...settings, memberJoinPolicy: policy })}
+                        htmlFor={inputId}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
                           selected
                             ? 'border-brand-primary bg-brand-primary/5'
@@ -300,11 +300,15 @@ export function AuthSettingsContent(): JSX.Element {
                           onChange={() => setSettings({ ...settings, memberJoinPolicy: policy })}
                           className="mt-0.5 accent-brand-primary"
                         />
-                        <label htmlFor={inputId} className="cursor-pointer">
-                          <p className="text-sm font-medium text-text-primary">{info.label}</p>
-                          <p className="text-xs text-text-secondary">{info.description}</p>
-                        </label>
-                      </div>
+                        <span>
+                          <span className="block text-sm font-medium text-text-primary">
+                            {info.label}
+                          </span>
+                          <span className="block text-xs text-text-secondary">
+                            {info.description}
+                          </span>
+                        </span>
+                      </label>
                     );
                   },
                 )}
