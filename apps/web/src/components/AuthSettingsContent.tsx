@@ -280,9 +280,11 @@ export function AuthSettingsContent(): JSX.Element {
                   (policy) => {
                     const info = POLICY_LABELS[policy];
                     const selected = settings.memberJoinPolicy === policy;
+                    const inputId = `policy-${policy}`;
                     return (
-                      <label
+                      <div
                         key={policy}
+                        onClick={() => setSettings({ ...settings, memberJoinPolicy: policy })}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
                           selected
                             ? 'border-brand-primary bg-brand-primary/5'
@@ -290,6 +292,7 @@ export function AuthSettingsContent(): JSX.Element {
                         }`}
                       >
                         <input
+                          id={inputId}
                           type="radio"
                           name="memberJoinPolicy"
                           value={policy}
@@ -297,11 +300,11 @@ export function AuthSettingsContent(): JSX.Element {
                           onChange={() => setSettings({ ...settings, memberJoinPolicy: policy })}
                           className="mt-0.5 accent-brand-primary"
                         />
-                        <div>
+                        <label htmlFor={inputId} className="cursor-pointer">
                           <p className="text-sm font-medium text-text-primary">{info.label}</p>
                           <p className="text-xs text-text-secondary">{info.description}</p>
-                        </div>
-                      </label>
+                        </label>
+                      </div>
                     );
                   },
                 )}
