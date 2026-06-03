@@ -24,7 +24,7 @@ export interface OAuthStatePayload {
   /** PKCE code verifier — stored here so callback can complete the exchange. */
   codeVerifier: string;
   /** Which provider initiated this flow. */
-  provider: 'google' | 'microsoft';
+  provider: 'google' | 'microsoft' | 'apple';
   /** Optional: redirect destination after successful auth. */
   redirectAfter?: string;
   /** Optional: pending org registration data (from /register page). */

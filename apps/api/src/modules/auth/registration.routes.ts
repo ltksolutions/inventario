@@ -97,12 +97,41 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       const dpaAcceptedAt = new Date().toISOString();
 
       // -----------------------------------------------------------------------
-      // Apple — not yet implemented (K4)
+      // Apple — deleguje na GET /v1/auth/login/apple s pendingOrg params
       // -----------------------------------------------------------------------
       if (provider === 'apple') {
-        return reply
-          .code(503)
-          .send({ error: 'Apple Sign-In is not yet available. Use Google, Microsoft, or email.' });
+        if (!OAUTH_STATE_SECRET || !OAUTH_REDIRECT_BASE_URL) {
+          return reply.code(503).send({ error: 'OAuth is not configured on this server.' });
+        }
+        const { APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY } = fastify.config;
+        if (!APPLE_CLIENT_ID || !APPLE_TEAM_ID || !APPLE_KEY_ID || !APPLE_PRIVATE_KEY) {
+          return reply.code(503).send({ error: 'Apple Sign-In is not configured on this server.' });
+        }
+
+        // Build the login URL — apple-auth.routes.ts handles state + redirect.
+        // We pass org info as query params so the GET handler can build pendingOrg.
+        // Frontend navigates to this URL (same pattern as Google/Microsoft).
+        const params = new URLSearchParams({
+          orgName,
+          contactEmail,
+          dpaAcceptedAt,
+          redirectAfter: '/onboarding',
+          ...(ico !== undefined ? { ico } : {}),
+        });
+
+        // Derive API base from OAUTH_REDIRECT_BASE_URL
+        const apiBase = OAUTH_REDIRECT_BASE_URL.replace(/\/v1\/auth\/callback.*$/, '');
+        const appleLoginUrl = `${apiBase}/v1/auth/login/apple?${params.toString()}`;
+
+        fastify.log.info(
+          { orgName, contactEmail },
+          'Apple Sign-In registration — redirecting to login/apple',
+        );
+
+        return reply.code(200).send({
+          type: 'oauth',
+          authUrl: appleLoginUrl,
+        });
       }
 
       // -----------------------------------------------------------------------

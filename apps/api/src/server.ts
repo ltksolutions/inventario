@@ -33,6 +33,7 @@ import assetTypesRoutes from './modules/asset-types/asset-types.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
 import publicAssetsRoutes from './modules/assets/public-assets.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
+import appleAuthRoutes from './modules/auth/apple-auth.routes.js';
 import authSessionRoutes from './modules/auth/auth-session.routes.js';
 import emailAuthRoutes from './modules/auth/email-auth.routes.js';
 import mfaRoutes from './modules/auth/mfa/mfa.routes.js';
@@ -158,6 +159,7 @@ export async function buildServer(
   await app.register(inventarioJwtPlugin);
   await app.register(authPlugin);
   await app.register(oauthRoutes);
+  await app.register(appleAuthRoutes);
   await app.register(authSessionRoutes);
   await app.register(emailAuthRoutes);
   await app.register(registrationRoutes);
