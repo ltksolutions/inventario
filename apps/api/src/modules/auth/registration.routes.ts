@@ -364,7 +364,9 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       const scopes =
         provider === 'google'
           ? ['openid', 'profile', 'email']
-          : ['openid', 'profile', 'email', 'offline_access'];
+          : // Microsoft: User.Read needed for the Graph /me call after token
+            // exchange (see oauth.routes.ts buildAuthorizationUrl).
+            ['openid', 'profile', 'email', 'offline_access', 'User.Read'];
       const authUrl = resolved.provider.createAuthorizationURL(
         statePayload.state,
         statePayload.codeVerifier,

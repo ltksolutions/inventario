@@ -418,7 +418,11 @@ function buildAuthorizationUrl(
   const scopes =
     providerName === 'google'
       ? ['openid', 'profile', 'email']
-      : ['openid', 'profile', 'email', 'offline_access'];
+      : // Microsoft: User.Read is required so the post-exchange call to
+        // Graph /me succeeds even when the app registration lacks the
+        // delegated permission (Graph returns 403 otherwise). Requesting
+        // it as a scope lets Microsoft grant it at consent time.
+        ['openid', 'profile', 'email', 'offline_access', 'User.Read'];
   return provider.createAuthorizationURL(state, codeVerifier, scopes);
 }
 
