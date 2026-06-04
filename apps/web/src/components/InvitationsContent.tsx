@@ -44,9 +44,33 @@ interface PendingInvitation {
   _id: string;
   email: string;
   role: Role;
+  status?: string;
   invitedBy: string;
   invitedAt: string;
   expiresAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Error message mapping — API error codes/messages → Slovak UI strings
+// ---------------------------------------------------------------------------
+
+function mapApiError(raw: string | undefined): string {
+  if (!raw) return 'Nastala neočakávaná chyba. Skúste znova.';
+  const r = raw.toLowerCase();
+  if (r.includes('already_member') || r.includes('already a member'))
+    return 'Tento používateľ je už členom organizácie.';
+  if (r.includes('only pending') || r.includes('can be resent'))
+    return 'Opätovné odoslanie je možné len pre čakajúce pozvánky.';
+  if (r.includes('invitation not found') || r.includes('not found'))
+    return 'Pozvánka nebola nájdená. Možno už bola použitá alebo odvolaná.';
+  if (r.includes('already sent') || r.includes('already exists'))
+    return 'Pozvánka pre tento e-mail už existuje.';
+  if (r.includes('expired')) return 'Platnosť pozvánky vypršala. Odošlite novú.';
+  if (r.includes('cannot invite yourself') || r.includes('yourself'))
+    return 'Nemôžete pozvať sami seba.';
+  if (r.includes('domain') || r.includes('not allowed'))
+    return 'Táto e-mailová doména nie je povolená pre vašu organizáciu.';
+  return raw;
 }
 
 interface InvitationsResponse {
@@ -129,8 +153,8 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         return;
       }
       const body = (await res.json()) as InvitationsResponse;
-      setInvitations(body.data);
-      setTotal(body.pagination.total);
+      setInvitations(body.data.filter((inv) => inv.status === 'PENDING' || !inv.status));
+      setTotal(body.data.filter((inv) => inv.status === 'PENDING' || !inv.status).length);
     } catch {
       setFetchError('Sieťová chyba. Skúste znova.');
     } finally {
@@ -181,7 +205,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
       }
 
       const body = (await res.json()) as { message?: string };
-      setSendError(body.message ?? 'Nastala chyba pri odosielaní pozvánky.');
+      setSendError(mapApiError(body.message));
     } catch {
       setSendError('Sieťová chyba. Skúste znova.');
     } finally {
@@ -204,7 +228,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         void load(q);
       } else {
         const body = (await res.json()) as { message?: string };
-        setFetchError(body.message ?? 'Nepodarilo sa odvolať pozvánku.');
+        setFetchError(mapApiError(body.message));
       }
     } catch {
       setFetchError('Sieťová chyba. Skúste znova.');
@@ -230,7 +254,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         void load(q);
       } else {
         const body = (await res.json()) as { message?: string };
-        setFetchError(body.message ?? 'Nepodarilo sa znovu odoslať pozvánku.');
+        setFetchError(mapApiError(body.message));
       }
     } catch {
       setFetchError('Sieťová chyba. Skúste znova.');
