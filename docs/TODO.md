@@ -186,9 +186,9 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Riziká:** SFZ login regresiu overiť pred deployom · `tid` z id_token (nie Graph) · `accountType: ENTRA_ID` sa dnes mätúco nastavuje aj pre Google self-serve (drobný tech-debt)
 - **Blocker:** NIE pre pilot (default funguje), ale rieši reálnu pilotnú bolesť (Entra dnes de-facto povinné pre SFZ)
 
-### 22. ADR-0031 — Per-tenant OAuth credentials (Microsoft) so šifrovaním at-rest
+### 22. ADR-0031 — Per-tenant OAuth credentials (Microsoft) so šifrovaním at-rest ✅ DONE 2026-06-04
 
-- **Stav:** Proposed — ADR [`docs/decisions/0031-per-tenant-oauth-credentials.md`](./decisions/0031-per-tenant-oauth-credentials.md)
+- **Stav:** DONE 2026-06-04 (E1–E8 kompletné); ADR [`docs/decisions/0031-per-tenant-oauth-credentials.md`](./decisions/0031-per-tenant-oauth-credentials.md)
 - **Kontext:** OAuth credentials sú dnes globálne (jedna platformová Microsoft app pre všetkých tenantov, z env premenných, boot-time `providers` mapa). Problémy: consent ide cez LTK app nie cez tenant app; jeden `MICROSOFT_CLIENT_SECRET` únik = blast radius cez všetky tenanty; žiadna tenant izolácia secretu. Pre SFZ pilot stačí platformová app, ale pri ďalších tenantoch s vlastným IT je to blokujúce.
 - **Rozhodnutia:** per-tenant `oauthCredentials` (nullable) na Organisation · `clientSecret` šifrovaný AES-256-GCM (vzor `mfa-crypto`, nový `OAUTH_SECRET_ENCRYPTION_KEY`) · write-only cez API (read path strip, `hasSecret` boolean) · OAuth provider sa stavia per-request (koniec boot-time mapy) · env fallback pre tenantov bez vlastnej app (SFZ pilot sa nerozbije) · tenant routing pri logine cez `?org=<slug>` hint · Microsoft only (Google slot pripravený, Apple mimo rozsahu) · KMS mimo rozsahu (voliteľný budúci backend kľúča)
 - **Model:** Sonnet (E1–E7), Haiku (E8 docs); E4 tenant routing prípadne Opus ak sa otvorí návrhová otázka

@@ -1,31 +1,33 @@
 # NEXT — aktuálny stav + ďalší krok
 
-Posledná session: docs/sessions/2026-06-03-post-deploy-fixes.md
-(ADR-0030 D1-D7 kompletný + CI fixes)
+Posledná session: docs/sessions/2026-06-04-adr-0031.md (ADR-0031 E1-E8 kompletný)
 
 ## Aktuálny stav
 
-Production LIVE. ADR-0030 Accepted + implementovaný (D1-D7).
-Vercel build zelený (commit 1ab4477).
+Production LIVE. ADR-0031 Accepted + implementovaný (E1-E8):
 
-Registračná stránka:
+- E1 shared-types: OrgOAuthCredentialsSchema + oauthCredentials na Organisation
+- E2 oauth-crypto.ts (AES-256-GCM), OAUTH_SECRET_ENCRYPTION_KEY config
+- E3 resolveProviderCredentials + per-request Arctic provider (koniec boot-time mapy)
+- E4 orgSlug v OAuth state + AcceptInvitePage posiela org slug hint
+- E5 PATCH microsoftOAuth API — šifrovanie pri zápise, read path strip (hasSecret)
+- E6 admin UI Microsoft aplikácia v /settings/auth
+- E7 testy (crypto, resolver, PATCH, read path, SFZ fallback)
+- E8 docs (user-guide, ADR-0030 nadväznosť, ADR-0031 Accepted, TODO)
 
-- 4 provider buttons (Google / Apple / Microsoft / E-mail), grid 2x2
-- Label zmenený: Kontaktný e-mail → Fakturačný e-mail organizácie
+Ešte treba nastaviť vo Vercel pre inventario-api:
 
-Admin UI /settings/auth:
-
-- allowedAuthProviders, memberJoinPolicy, autoJoinDomains, entraTenantId
-
-Apple Sign-In: stub routes (503). Aktivuje sa po Apple Developer enrollment LTK Solutions.
+- OAUTH_SECRET_ENCRYPTION_KEY = openssl rand -hex 32 (nový, odlišný od MFA kľúča)
+- MICROSOFT_CLIENT_ID + MICROSOFT_CLIENT_SECRET (platformová LTK app pre fallback)
 
 ## Ďalší krok
 
-Fáza 0 SFZ pilot onboarding:
+Fáza 0 SFZ pilot onboarding — ďalší krok:
 
-1. Otvoriť app.inventario.estate/register — otestovať registráciu vlastného org
-2. Skontrolovať /settings/auth — nové UI Prihlasovanie a domény
-3. Pozvať SFZ keď bude organizačne pripravené
+1. Nastaviť OAUTH_SECRET_ENCRYPTION_KEY vo Vercel (inventario-api)
+2. Nastaviť MICROSOFT_CLIENT_ID + SECRET (platformová app LTK Solutions v Azure)
+3. Prihlásiť sa cez Microsoft na app.inventario.estate/login
+4. V /settings/auth nastaviť SFZ vlastnú Microsoft app (keď bude pripravená)
 
 ## Na horizonte (v TODO.md)
 
