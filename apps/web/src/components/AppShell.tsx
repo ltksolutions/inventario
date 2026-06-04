@@ -53,6 +53,7 @@ interface NavItem {
   icon: typeof Home;
   adminOnly?: boolean;
   managerOnly?: boolean;
+  platformOnly?: boolean; // zobrazí sa len platform operátorovi (office@ltk.solutions)
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
@@ -63,7 +64,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/my-loans', label: 'Moje výpožičky', icon: Library },
   { href: '/ciselniky', label: 'Číselníky', icon: ListChecks },
   { href: '/users', label: 'Používatelia', icon: Users, adminOnly: true },
-  { href: '/admin/tenants', label: 'Tenanti', icon: ShieldCheck, adminOnly: true },
+  { href: '/admin/tenants', label: 'Tenanti', icon: ShieldCheck, platformOnly: true },
   { href: '/settings/organisation', label: 'Organizácia', icon: Building2, adminOnly: true },
   { href: '/settings/auth', label: 'Prihlasovanie', icon: KeyRound, adminOnly: true },
   { href: '/settings/members', label: 'Členovia', icon: Users, adminOnly: true },
@@ -114,8 +115,13 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   // Filter nav items by role
   const isAdmin = role === 'ADMIN';
   const isManager = role === 'ADMIN' || role === 'ASSET_MANAGER';
+  // Platform operator: hardcoded email check (dočasné — nahradí sa User.isPlatformOperator flagom, ADR-0031)
+  const isPlatformOperator = user?.email === 'office@ltk.solutions';
   const visibleNavItems = NAV_ITEMS.filter(
-    (item) => (!item.adminOnly || isAdmin) && (!item.managerOnly || isManager),
+    (item) =>
+      (!item.adminOnly || isAdmin) &&
+      (!item.managerOnly || isManager) &&
+      (!item.platformOnly || isPlatformOperator),
   );
 
   return (
