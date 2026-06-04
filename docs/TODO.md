@@ -186,6 +186,24 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Riziká:** SFZ login regresiu overiť pred deployom · `tid` z id_token (nie Graph) · `accountType: ENTRA_ID` sa dnes mätúco nastavuje aj pre Google self-serve (drobný tech-debt)
 - **Blocker:** NIE pre pilot (default funguje), ale rieši reálnu pilotnú bolesť (Entra dnes de-facto povinné pre SFZ)
 
+### 22. ADR-0031 — Per-tenant OAuth credentials (Microsoft) so šifrovaním at-rest
+
+- **Stav:** Proposed — ADR [`docs/decisions/0031-per-tenant-oauth-credentials.md`](./decisions/0031-per-tenant-oauth-credentials.md)
+- **Kontext:** OAuth credentials sú dnes globálne (jedna platformová Microsoft app pre všetkých tenantov, z env premenných, boot-time `providers` mapa). Problémy: consent ide cez LTK app nie cez tenant app; jeden `MICROSOFT_CLIENT_SECRET` únik = blast radius cez všetky tenanty; žiadna tenant izolácia secretu. Pre SFZ pilot stačí platformová app, ale pri ďalších tenantoch s vlastným IT je to blokujúce.
+- **Rozhodnutia:** per-tenant `oauthCredentials` (nullable) na Organisation · `clientSecret` šifrovaný AES-256-GCM (vzor `mfa-crypto`, nový `OAUTH_SECRET_ENCRYPTION_KEY`) · write-only cez API (read path strip, `hasSecret` boolean) · OAuth provider sa stavia per-request (koniec boot-time mapy) · env fallback pre tenantov bez vlastnej app (SFZ pilot sa nerozbije) · tenant routing pri logine cez `?org=<slug>` hint · Microsoft only (Google slot pripravený, Apple mimo rozsahu) · KMS mimo rozsahu (voliteľný budúci backend kľúča)
+- **Model:** Sonnet (E1–E7), Haiku (E8 docs); E4 tenant routing prípadne Opus ak sa otvorí návrhová otázka
+- **Rozsah — 8 blokov (detail v ADR-0031 „Implementačný plán“):**
+  - [ ] **E1** — shared-types: `OrgOAuthProviderCredentialsSchema` + `OrgOAuthCredentialsSchema`, `oauthCredentials` na Organisation, OpenAPI regen
+  - [ ] **E2** — `oauth-crypto.ts` (AES-256-GCM), `OAUTH_SECRET_ENCRYPTION_KEY` do config + `.env.example` + `turbo.json globalEnv`
+  - [ ] **E3** — `resolveProviderCredentials()` + per-request Arctic inštancia, refactor `oauth.routes.ts` z boot-time mapy
+  - [ ] **E4** — tenant routing: `?org=<slug>` hint, `orgId`+`source` do OAuth state, callback stavia identickú inštanciu
+  - [ ] **E5** — API: `oauthCredentials` do `OrganisationSelfServicePatch` + šifrovanie pri zápise + read path strip
+  - [ ] **E6** — Admin UI sekcia „Microsoft aplikácia" v `/settings/auth` (clientId, write-only secret, tenantMode, stav, odstránenie)
+  - [ ] **E7** — testy (crypto round-trip, tenant→fallback resolúcia, login cez per-tenant app, read path strip, SFZ fallback)
+  - [ ] **E8** — docs: user-guide „Vlastná Microsoft aplikácia" (Azure setup), milestone/session, nadväznosť note do ADR-0030
+- **Riziká:** rotácia `OAUTH_SECRET_ENCRYPTION_KEY` = re-encrypt migračný skript · redirect URI mismatch v tenant Azure App · callback musí postaviť identickú Arctic inštanciu (orgId+source v state) · bez `?org` hintu spadne na platformovú app (mätúce pri tenante s entraTenantId)
+- **Blocker:** NIE pre pilot (env fallback drží SFZ login); rieši škálovanie na tenantov s vlastným Entra/IT
+
 ---
 
 ## 🟢 P3 — Compliance Fáza 2 dokumenty

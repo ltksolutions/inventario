@@ -162,35 +162,12 @@ export function LoginPage(): JSX.Element {
     setFormError('');
 
     try {
-      // For SSO login of an existing user we use the same /v1/auth/register
-      // endpoint with provider only (no orgName / dpaAccepted). If the OAuth
-      // callback finds an existing authProviders entry it logs them in;
-      // otherwise it creates a new org. This is the "login or register" flow.
-      const res = await fetch(`${API_BASE}/v1/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          orgName: 'My Organisation',
-          contactEmail: 'placeholder@example.com',
-          provider,
-          dpaAccepted: true,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setFormError(body.error ?? 'SSO zlyhalo. Skúste znova.');
-        return;
-      }
-
-      const body = (await res.json()) as { authUrl?: string };
-      if (body.authUrl) {
-        window.location.href = body.authUrl;
-      }
+      // Pre SSO login presmerujeme prehliadač priamo na backend endpoint.
+      // GET /v1/auth/login/:provider redirectuje na OAuth provider (Google/Microsoft).
+      // Callback spracuje autentifikáciu a presmeruje späť na frontend.
+      window.location.href = `${API_BASE}/v1/auth/login/${provider}`;
     } catch {
       setFormError('Sieťová chyba. Skúste znova.');
-    } finally {
       setSsoLoading(null);
     }
   };
