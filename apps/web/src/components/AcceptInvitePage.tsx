@@ -204,8 +204,12 @@ export function AcceptInvitePage(): JSX.Element {
     // Redirect directly to the OAuth login endpoint with invitationToken as
     // a query param. The backend embeds it in the signed state cookie and
     // the callback accepts the pending invite automatically — no POST needed.
+    // ADR-0031 E4: add org slug so callback builds provider from tenant credentials.
     const loginUrl = new URL(`${API_BASE}/v1/auth/login/${provider}`);
     loginUrl.searchParams.set('invitationToken', token);
+    if (preview?.organisation.slug) {
+      loginUrl.searchParams.set('org', preview.organisation.slug);
+    }
     window.location.href = loginUrl.toString();
   };
 

@@ -30,12 +30,12 @@
  */
 
 import { AccountType, AuthProvider, MemberJoinPolicy, UserRole } from '@inventario/shared-types';
-import { Google, MicrosoftEntraId } from 'arctic';
 import fp from 'fastify-plugin';
 
 import { UnauthorizedError } from '../../plugins/error-handler.js';
 
 import { setAuthCookies } from './cookie-helpers.js';
+import { type OAuthProviderName, resolveArcticProvider } from './oauth-provider-resolver.js';
 import {
   OAUTH_STATE_COOKIE,
   OAuthStateError,
@@ -46,6 +46,7 @@ import {
 } from './oauth-state.js';
 
 import type { Organisation, User } from '@inventario/shared-types';
+import type { Google, MicrosoftEntraId } from 'arctic';
 import type { FastifyPluginAsync } from 'fastify';
 import type { Db, WithId } from 'mongodb';
 
@@ -54,15 +55,7 @@ import type { Db, WithId } from 'mongodb';
 // ---------------------------------------------------------------------------
 
 const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
-  const {
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    MICROSOFT_CLIENT_ID,
-    MICROSOFT_CLIENT_SECRET,
-    OAUTH_STATE_SECRET,
-    OAUTH_REDIRECT_BASE_URL,
-    FRONTEND_BASE_URL,
-  } = fastify.config;
+  const { OAUTH_STATE_SECRET, OAUTH_REDIRECT_BASE_URL, FRONTEND_BASE_URL } = fastify.config;
 
   // -------------------------------------------------------------------------
   // POST /v1/auth/logout + POST /v1/auth/refresh
@@ -78,21 +71,11 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     return;
   }
 
-  // Build provider instances (only if credentials are configured)
-  const providers = buildProviders({
-    google:
-      GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET
-        ? { clientId: GOOGLE_CLIENT_ID, clientSecret: GOOGLE_CLIENT_SECRET }
-        : null,
-    microsoft:
-      MICROSOFT_CLIENT_ID && MICROSOFT_CLIENT_SECRET
-        ? { clientId: MICROSOFT_CLIENT_ID, clientSecret: MICROSOFT_CLIENT_SECRET }
-        : null,
-    redirectBase: OAUTH_REDIRECT_BASE_URL,
-  });
-
   // -------------------------------------------------------------------------
   // GET /v1/auth/login/:provider
+  //
+  // ADR-0031 E3: provider credentials resolved per-request from org (if slug
+  // hint provided via ?org=<slug>) or platform env fallback.
   // -------------------------------------------------------------------------
 
   fastify.get<{
@@ -105,6 +88,8 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       dpaAcceptedAt?: string;
       /** K18.3: invite token — when present, callback will accept the invite. */
       invitationToken?: string;
+      /** ADR-0031 E4: tenant slug hint for per-tenant app resolution. */
+      org?: string;
     };
   }>('/v1/auth/login/:provider', async (request, reply) => {
     const { provider } = request.params;
@@ -113,19 +98,42 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       return reply.code(400).send({ error: `Unknown provider: ${provider}` });
     }
 
-    const p = providers[provider];
-    if (!p) {
+    const {
+      redirectAfter,
+      orgName,
+      contactEmail,
+      ico,
+      dpaAcceptedAt,
+      invitationToken,
+      org: orgSlug,
+    } = request.query;
+
+    // Resolve org for per-tenant credentials (ADR-0031 E3)
+    let orgDoc: WithId<Organisation> | null = null;
+    if (orgSlug) {
+      orgDoc = (await fastify.mongo.db
+        .collection<Organisation>('organisations')
+        .findOne({ slug: orgSlug, deletedAt: null })) as WithId<Organisation> | null;
+    }
+
+    const resolved = resolveArcticProvider(
+      orgDoc,
+      provider as OAuthProviderName,
+      fastify.config,
+      fastify.config.OAUTH_SECRET_ENCRYPTION_KEY,
+      OAUTH_REDIRECT_BASE_URL,
+    );
+
+    if (!resolved) {
       return reply.code(503).send({ error: `Provider ${provider} is not configured.` });
     }
 
-    const { redirectAfter, orgName, contactEmail, ico, dpaAcceptedAt, invitationToken } =
-      request.query;
-
     // Build state payload (carries PKCE verifier + metadata across redirect)
     const statePayload = generateOAuthState({
-      provider,
+      provider: provider as OAuthProviderName,
       ...(redirectAfter !== undefined && { redirectAfter }),
       ...(invitationToken !== undefined && { invitationToken }),
+      ...(orgSlug !== undefined && { orgSlug }),
       ...(orgName && contactEmail && dpaAcceptedAt
         ? {
             pendingOrg: {
@@ -139,7 +147,7 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     });
 
     const authUrl = buildAuthorizationUrl(
-      p,
+      resolved.provider,
       statePayload.state,
       statePayload.codeVerifier,
       provider,
@@ -157,6 +165,9 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
   // -------------------------------------------------------------------------
   // GET /v1/auth/callback/:provider
+  //
+  // ADR-0031 E3: rebuild provider from statePayload.orgSlug to guarantee
+  // the same credentials as login redirect (critical for token exchange).
   // -------------------------------------------------------------------------
 
   fastify.get<{
@@ -204,8 +215,23 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       return reply.redirect(`${FRONTEND_BASE_URL}/login?error=oauth_provider_mismatch`);
     }
 
-    const p = providers[provider as 'google' | 'microsoft'];
-    if (!p) {
+    // ADR-0031 E3: rebuild provider from orgSlug in state (same credentials as login)
+    let orgDoc: WithId<Organisation> | null = null;
+    if (statePayload.orgSlug) {
+      orgDoc = (await fastify.mongo.db
+        .collection<Organisation>('organisations')
+        .findOne({ slug: statePayload.orgSlug, deletedAt: null })) as WithId<Organisation> | null;
+    }
+
+    const resolved = resolveArcticProvider(
+      orgDoc,
+      provider as OAuthProviderName,
+      fastify.config,
+      fastify.config.OAUTH_SECRET_ENCRYPTION_KEY,
+      OAUTH_REDIRECT_BASE_URL,
+    );
+
+    if (!resolved) {
       return reply.redirect(`${FRONTEND_BASE_URL}/login?error=oauth_not_configured`);
     }
 
@@ -213,7 +239,7 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     let providerUser: ProviderUserInfo;
     try {
       providerUser = await exchangeCodeAndGetUserInfo(
-        p,
+        resolved.provider,
         provider as 'google' | 'microsoft',
         code,
         statePayload.codeVerifier,
@@ -376,40 +402,6 @@ function registerRefreshRoute(fastify: Parameters<FastifyPluginAsync>[0]): void 
 
     return reply.code(204).send();
   });
-}
-
-// ---------------------------------------------------------------------------
-// Provider construction
-// ---------------------------------------------------------------------------
-
-interface ProviderCredentials {
-  clientId: string;
-  clientSecret: string;
-}
-
-type ProviderMap = {
-  google: Google | null;
-  microsoft: MicrosoftEntraId | null;
-};
-
-function buildProviders(opts: {
-  google: ProviderCredentials | null;
-  microsoft: ProviderCredentials | null;
-  redirectBase: string;
-}): ProviderMap {
-  return {
-    google: opts.google
-      ? new Google(opts.google.clientId, opts.google.clientSecret, `${opts.redirectBase}/google`)
-      : null,
-    microsoft: opts.microsoft
-      ? new MicrosoftEntraId(
-          'organizations', // multi-tenant: accepts any Entra ID / Microsoft account
-          opts.microsoft.clientId,
-          opts.microsoft.clientSecret,
-          `${opts.redirectBase}/microsoft`,
-        )
-      : null,
-  };
 }
 
 // ---------------------------------------------------------------------------

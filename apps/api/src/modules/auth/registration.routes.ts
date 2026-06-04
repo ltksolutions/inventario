@@ -30,7 +30,6 @@
 import { randomBytes } from 'node:crypto';
 
 import { AccountType, AuthProvider, MemberJoinPolicy, UserRole } from '@inventario/shared-types';
-import { Google, MicrosoftEntraId } from 'arctic';
 import argon2 from 'argon2';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
@@ -38,6 +37,7 @@ import { z } from 'zod';
 import { BadRequestError } from '../../plugins/error-handler.js';
 import { MembershipsRepository } from '../memberships/memberships.repository.js';
 
+import { resolveArcticProvider } from './oauth-provider-resolver.js';
 import {
   OAUTH_STATE_COOKIE,
   generateOAuthState,
@@ -76,14 +76,7 @@ const RegisterSchema = z
 const IS_TEST = process.env['NODE_ENV'] === 'test';
 
 const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
-  const {
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    MICROSOFT_CLIENT_ID,
-    MICROSOFT_CLIENT_SECRET,
-    OAUTH_STATE_SECRET,
-    OAUTH_REDIRECT_BASE_URL,
-  } = fastify.config;
+  const { OAUTH_STATE_SECRET, OAUTH_REDIRECT_BASE_URL } = fastify.config;
 
   fastify.post(
     '/v1/auth/register',
@@ -344,24 +337,16 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         return reply.code(503).send({ error: 'OAuth is not configured on this server.' });
       }
 
-      // Build the provider
-      let oauthProvider: Google | MicrosoftEntraId | null = null;
-      if (provider === 'google' && GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
-        oauthProvider = new Google(
-          GOOGLE_CLIENT_ID,
-          GOOGLE_CLIENT_SECRET,
-          `${OAUTH_REDIRECT_BASE_URL}/google`,
-        );
-      } else if (provider === 'microsoft' && MICROSOFT_CLIENT_ID && MICROSOFT_CLIENT_SECRET) {
-        oauthProvider = new MicrosoftEntraId(
-          'organizations',
-          MICROSOFT_CLIENT_ID,
-          MICROSOFT_CLIENT_SECRET,
-          `${OAUTH_REDIRECT_BASE_URL}/microsoft`,
-        );
-      }
+      // ADR-0031 E3: per-request provider resolution (no tenant org yet for new registrations)
+      const resolved = resolveArcticProvider(
+        null, // new org — no tenant yet, use platform env fallback
+        provider as 'google' | 'microsoft',
+        fastify.config,
+        fastify.config.OAUTH_SECRET_ENCRYPTION_KEY,
+        OAUTH_REDIRECT_BASE_URL,
+      );
 
-      if (!oauthProvider) {
+      if (!resolved) {
         return reply.code(503).send({ error: `Provider ${provider} is not configured.` });
       }
 
@@ -380,7 +365,7 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         provider === 'google'
           ? ['openid', 'profile', 'email']
           : ['openid', 'profile', 'email', 'offline_access'];
-      const authUrl = oauthProvider.createAuthorizationURL(
+      const authUrl = resolved.provider.createAuthorizationURL(
         statePayload.state,
         statePayload.codeVerifier,
         scopes,

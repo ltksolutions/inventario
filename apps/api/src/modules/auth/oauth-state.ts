@@ -40,6 +40,12 @@ export interface OAuthStatePayload {
    * token instead of creating a new user or requiring a pendingOrg.
    */
   invitationToken?: string;
+  /**
+   * Optional: org slug hint for per-tenant provider resolution (ADR-0031 E4).
+   * When present, the callback loads the org by slug and uses its credentials
+   * to build the Arctic provider instance (ensuring callback uses same app as login).
+   */
+  orgSlug?: string;
   /** Unix timestamp when the state was issued (for TTL check). */
   issuedAt: number;
 }
