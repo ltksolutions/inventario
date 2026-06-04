@@ -264,6 +264,33 @@ const UpdateOrganisationBodySchema = z
 // ADR-0030 D3: rozšírené o auth domain settings — tenant ADMIN môže
 // konfigurovať vlastnú provider politiku, doménové obmedzenie a Entra tenant ID.
 // plan / status / slug / customDomain zostávajú platform-operator concerns.
+//
+// ADR-0031 E5: rozšírené o oauthCredentials — tenant ADMIN môže nahradiť
+// vlastnú Microsoft app (clientId + clientSecret). Secret písaný cez API
+// je plaintext; service ho zašifruje a uloží ako clientSecretEncrypted.
+// Prázdny clientSecret = "nemeniť". Read path strip — API NIKDY nevracia
+// clientSecretEncrypted.
+
+// Microsoft OAuth credentials sub-schema (write path)
+const MicrosoftOAuthCredentialsPatchSchema = z
+  .object({
+    /** App (client) ID z Azure Portal. Nie je tajný. */
+    clientId: z.string().min(1).max(200),
+    /**
+     * Plaintext client secret (z Azure Portal → Certificates & Secrets).
+     * Prázdny string alebo undefined = "nemeniť existujúci secret".
+     * Service ho zašifruje pred uložením. API HO NIKDY NEVRACIA.
+     */
+    clientSecret: z.string().max(500).optional(),
+    /**
+     * Entra audience mode:
+     *   'organizations' (default) = akékoľvek firemné/školské MS konto
+     *   'common'                  = firemné aj osobné MS kontá
+     *   konkrétny UUID             = len jeden Entra adresár
+     */
+    tenantMode: z.string().max(64).nullable().optional(),
+  })
+  .strict();
 
 const UpdateOwnOrganisationBodySchema = z
   .object({
@@ -286,6 +313,10 @@ const UpdateOwnOrganisationBodySchema = z
         .toLowerCase(),
     ),
     entraTenantId: z.string().uuid('entraTenantId musí byť platný UUID.').nullable(),
+    // ADR-0031 E5: per-tenant Microsoft OAuth credentials (write path)
+    // clientSecret je plaintext — service ho zašifruje pred uložením.
+    // null = odstrániť vlastnú app (späť na platformový fallback).
+    microsoftOAuth: MicrosoftOAuthCredentialsPatchSchema.nullable().optional(),
   })
   .partial()
   .describe(

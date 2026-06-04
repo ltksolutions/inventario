@@ -45,6 +45,7 @@ import {
 } from '@inventario/shared-types';
 
 import { contrastRatio, meetsWcagAA } from '../../lib/contrast.js';
+import { encryptClientSecret } from '../../lib/oauth-crypto.js';
 import { seedTenantDefaults } from '../../lib/seed-tenant-defaults.js';
 import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
@@ -436,9 +437,78 @@ export class OrganisationsService {
         throw new NotFoundError('Organisation', organisationId);
       }
 
+      // -----------------------------------------------------------------------
+      // ADR-0031 E5: Microsoft OAuth credentials — šifrovanie pri zápise
+      // -----------------------------------------------------------------------
+      //
+      // `microsoftOAuth` je write-only field v tele requestu:
+      //   null          = odstrániť vlastnú app (späť na platformový fallback)
+      //   { clientId, clientSecret?, tenantMode? } = nastaviť/aktualizovať
+      //
+      // clientSecret je plaintext — zašifrujeme ho pred uložením.
+      // Prázdny/undefined clientSecret = zachovať existujúci zašifrovaný secret.
+      const patchRaw = patch as Record<string, unknown>;
+      if ('microsoftOAuth' in patchRaw) {
+        const msOAuth = patchRaw['microsoftOAuth'] as
+          | {
+              clientId?: string;
+              clientSecret?: string;
+              tenantMode?: string | null;
+            }
+          | null
+          | undefined;
+
+        if (msOAuth === null) {
+          // Odstrániť vlastnú app
+          const existingCreds = before.oauthCredentials ?? null;
+          patchRaw['oauthCredentials'] = existingCreds
+            ? { ...existingCreds, microsoft: null }
+            : null;
+        } else if (msOAuth && msOAuth.clientId) {
+          const keyHex = process.env['OAUTH_SECRET_ENCRYPTION_KEY'];
+          if (!keyHex) {
+            throw new BadRequestError(
+              'Per-tenant OAuth credentials nie sú dostupné — OAUTH_SECRET_ENCRYPTION_KEY nie je nastavený.',
+            );
+          }
+
+          // Existujúci zašifrovaný secret ako fallback keď nový nepríšiel
+          const existingEncrypted =
+            before.oauthCredentials?.microsoft?.clientSecretEncrypted ?? null;
+
+          let clientSecretEncrypted: string;
+          if (msOAuth.clientSecret) {
+            // Nový plaintext secret — zašifruj
+            clientSecretEncrypted = encryptClientSecret(msOAuth.clientSecret, keyHex);
+          } else if (existingEncrypted) {
+            // Zachovať existujúci
+            clientSecretEncrypted = existingEncrypted;
+          } else {
+            throw new BadRequestError(
+              'clientSecret je povinný pri prvých nastavení Microsoft OAuth.',
+            );
+          }
+
+          const now2 = new Date().toISOString();
+          const existingCreds = before.oauthCredentials ?? { microsoft: null, google: null };
+          patchRaw['oauthCredentials'] = {
+            ...existingCreds,
+            microsoft: {
+              clientId: msOAuth.clientId,
+              clientSecretEncrypted,
+              tenantMode: msOAuth.tenantMode ?? 'organizations',
+              configuredAt: now2,
+              configuredBy: actorId,
+            },
+          };
+        }
+        // Odstrániť microsoftOAuth z patchu (nie je to DB pole)
+        delete patchRaw['microsoftOAuth'];
+      }
+
       const now = new Date().toISOString();
       const fullPatch: OrganisationSelfServicePatch = {
-        ...(patch as OrganisationSelfServicePatch),
+        ...(patchRaw as OrganisationSelfServicePatch),
         updatedAt: now,
         updatedBy: actorId,
       };
@@ -826,9 +896,34 @@ export class OrganisationsService {
 // ---------------------------------------------------------------------------
 
 function toApiShape(doc: WithId<Organisation>): Record<string, unknown> {
+  // ADR-0031 E5: strip clientSecretEncrypted from oauthCredentials read path.
+  // API never returns the encrypted secret — replace with hasSecret boolean.
+  const { oauthCredentials, ...rest } = doc as Record<string, unknown> & {
+    oauthCredentials?: {
+      microsoft?: { clientSecretEncrypted?: string; [k: string]: unknown } | null;
+      google?: { clientSecretEncrypted?: string; [k: string]: unknown } | null;
+    } | null;
+  };
+
+  let safeOAuthCredentials: Record<string, unknown> | null = null;
+  if (oauthCredentials) {
+    const stripSecret = (
+      slot: { clientSecretEncrypted?: string; [k: string]: unknown } | null | undefined,
+    ) => {
+      if (!slot) return null;
+      const { clientSecretEncrypted, ...safeSlot } = slot;
+      return { ...safeSlot, hasSecret: Boolean(clientSecretEncrypted) };
+    };
+    safeOAuthCredentials = {
+      microsoft: stripSecret(oauthCredentials.microsoft),
+      google: stripSecret(oauthCredentials.google),
+    };
+  }
+
   return {
-    ...doc,
-    _id: String(doc._id),
+    ...rest,
+    _id: String((doc as { _id: unknown })._id),
+    oauthCredentials: safeOAuthCredentials,
   };
 }
 
