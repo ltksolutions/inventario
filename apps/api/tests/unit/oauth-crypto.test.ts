@@ -39,8 +39,13 @@ describe('oauth-crypto', () => {
   it('decryption of tampered ciphertext throws', () => {
     const encrypted = encryptClientSecret('secret', TEST_KEY);
     const parts = encrypted.split(':');
-    // Flip last char of ciphertext
-    const tampered = `${parts[0]}:${parts[1]}:${parts[2]!.slice(0, -1)}f`;
+    // Flip the last ciphertext char to a guaranteed-different hex digit.
+    // (Naive "replace with 'f'" is flaky: if the char already is 'f' the
+    //  string is unchanged and the GCM tag still validates ~1/16 of runs.)
+    const ct = parts[2]!;
+    const lastChar = ct.slice(-1);
+    const flipped = lastChar === '0' ? '1' : '0';
+    const tampered = `${parts[0]}:${parts[1]}:${ct.slice(0, -1)}${flipped}`;
     expect(() => decryptClientSecret(tampered, TEST_KEY)).toThrow();
   });
 
