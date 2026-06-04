@@ -202,6 +202,8 @@ const registrationRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           protocolSettings: null,
           // ADR-0027: tlač QR štítkov — default PDF_SHEET, tenant zmení cez Settings
           labelPrinting: null,
+          // ADR-0031: per-tenant OAuth credentials
+          oauthCredentials: null,
           allowedAuthProviders: [
             AuthProvider.GOOGLE,
             AuthProvider.APPLE,

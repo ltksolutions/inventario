@@ -124,6 +124,8 @@ export async function resolveTestTenantId(app: FastifyInstance): Promise<string>
     protocolSettings: null,
     // ADR-0027: QR štítky
     labelPrinting: null,
+    // ADR-0031: per-tenant OAuth credentials
+    oauthCredentials: null,
     createdAt: now,
     updatedAt: now,
     createdBy: 'SYSTEM' as const,
@@ -190,6 +192,8 @@ export async function seedTestTenant(
     protocolSettings: null,
     // ADR-0027: QR štítky
     labelPrinting: null,
+    // ADR-0031: per-tenant OAuth credentials
+    oauthCredentials: null,
     createdAt: now,
     updatedAt: now,
     createdBy: 'SYSTEM' as const,

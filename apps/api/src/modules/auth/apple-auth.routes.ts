@@ -475,6 +475,8 @@ async function provisionOrFindAppleUser(args: {
     inventoryNumberFormat: null,
     protocolSettings: null,
     labelPrinting: null,
+    // ADR-0031: per-tenant OAuth credentials
+    oauthCredentials: null,
     allowedAuthProviders: [
       AuthProvider.GOOGLE,
       AuthProvider.APPLE,

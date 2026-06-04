@@ -241,6 +241,8 @@ export class OrganisationsService {
       protocolSettings: null,
       // ADR-0027: tlač QR štítkov — tenant nakonfiguruje cez Settings (default PDF_SHEET)
       labelPrinting: null,
+      // ADR-0031: per-tenant OAuth credentials — null = použi platformovú app z env
+      oauthCredentials: null,
       createdAt: now,
       updatedAt: now,
       createdBy: 'SYSTEM',

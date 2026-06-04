@@ -279,6 +279,65 @@ export const OrganisationLabelSettingsSchema = z
 
 export type OrganisationLabelSettings = z.infer<typeof OrganisationLabelSettingsSchema>;
 
+/**
+ * Per-provider OAuth credentials uložené per-tenant (ADR-0031).
+ *
+ * `clientId` je plaintext (nie je tajný — objavuje sa v auth redirect URL).
+ * `clientSecretEncrypted` je vždy šifrovaný AES-256-GCM (formát `iv:tag:ciphertext`);
+ * do DB sa NIKDY nedostane plaintext. Cez API sa `clientSecretEncrypted` NEVRACIA
+ * — read path strip; klient dostane len `clientId`, `tenantMode`, `configuredAt`
+ * a boolean `hasSecret` (pridava service vrstva).
+ *
+ * `tenantMode` je Entra audience parameter:
+ *   'organizations' (default) = akékoľvek firemné/školské konto
+ *   'common'                  = firemné aj osobné MS kontá
+ *   konkrétny UUID             = len jeden Entra adresár
+ * Pre Google je ignorované.
+ */
+export const OrgOAuthProviderCredentialsSchema = z
+  .object({
+    /** App (client) ID z tenantovho App Registration. Nie je tajné. */
+    clientId: z.string().min(1).max(200),
+    /**
+     * Client secret zašifrovaný AES-256-GCM (formát iv:tag:ciphertext).
+     * NIKDY plaintext. Pri čítaní cez API sa NEVRACIA.
+     */
+    clientSecretEncrypted: z.string().min(1),
+    /**
+     * Entra audience / tenant mode.
+     * 'organizations' | 'common' | konkrétny tenant UUID.
+     * Pre Google ignorované.
+     */
+    tenantMode: z.string().max(64).nullable().default(null),
+    /** Kedy boli credentials naposledy nastavené (audit). */
+    configuredAt: z.string().datetime(),
+    /** UserId admina, ktorý ich nastavil (audit). */
+    configuredBy: ObjectIdSchema.nullable().default(null),
+  })
+  .strict();
+
+export type OrgOAuthProviderCredentials = z.infer<typeof OrgOAuthProviderCredentialsSchema>;
+
+/**
+ * Per-tenant OAuth credentials pre všetkých OAuth providerov (ADR-0031).
+ *
+ * `microsoft` slot: tenant môže pridať vlastnú Azure App Registration,
+ *   aby consent a audit loginov šiel cez jeho app (nie platformovú LTK app).
+ * `google` slot: pripravený pre budúcnosť — zatiaľ sa neimplementuje UI/flow.
+ * Apple zámerne chýba — Apple používa team/key/p8 model, iný tvar; mimo rozsahu.
+ *
+ * Null = tenant nemá vlastnú app → backend použije platformovú app z env premenných
+ * (bezšvový fallback, SFZ pilot nerekvijuje ziadnu zmenu).
+ */
+export const OrgOAuthCredentialsSchema = z
+  .object({
+    microsoft: OrgOAuthProviderCredentialsSchema.nullable().default(null),
+    google: OrgOAuthProviderCredentialsSchema.nullable().default(null),
+  })
+  .strict();
+
+export type OrgOAuthCredentials = z.infer<typeof OrgOAuthCredentialsSchema>;
+
 export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).extend({
   /**
    * Tenant display name. Free-form, shown in UI alongside the wordmark.
@@ -463,6 +522,19 @@ export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).ext
 
   /** UserId who accepted the DPA. */
   dpaAcceptedBy: ObjectIdSchema.nullable().default(null),
+
+  // -----------------------------------------------------------------
+  // Per-tenant OAuth credentials (ADR-0031)
+  // -----------------------------------------------------------------
+
+  /**
+   * Per-tenant OAuth app credentials. Null = použi platformovú app z env premenných
+   * (bezšvový fallback pre tenantov bez vlastnej Azure/Google app registrácie).
+   *
+   * `clientSecretEncrypted` sa cez API NEVRACIA — service vrstva ho odstráni
+   * a nahradi booleaním `hasSecret`. Viď ADR-0031.
+   */
+  oauthCredentials: OrgOAuthCredentialsSchema.nullable().default(null),
 });
 
 export type Organisation = z.infer<typeof OrganisationSchema>;

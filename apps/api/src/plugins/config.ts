@@ -127,6 +127,21 @@ const envSchema = z.object({
     .optional(),
 
   // ---------------------------------------------------------------------
+  // OAuth client secret encryption (ADR-0031)
+  // ---------------------------------------------------------------------
+  //
+  // 32-byte (64 hex chars) symmetric key for AES-256-GCM encryption of
+  // per-tenant OAuth client secrets at rest. Separate from
+  // MFA_SECRET_ENCRYPTION_KEY (principle of least privilege).
+  // Generate with: openssl rand -hex 32
+  // If unset, saving per-tenant OAuth credentials returns 503; the
+  // platform env fallback (MICROSOFT_CLIENT_ID etc.) still works.
+  OAUTH_SECRET_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/i, 'OAUTH_SECRET_ENCRYPTION_KEY must be 64 hex chars (32 bytes)')
+    .optional(),
+
+  // ---------------------------------------------------------------------
   // WebAuthn / Passkeys (ADR-0016, Slice #8)
   // ---------------------------------------------------------------------
   //
