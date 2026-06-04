@@ -181,7 +181,7 @@ export function AcceptInvitePage(): JSX.Element {
       });
 
       if (res.ok) {
-        router.push('/dashboard?invited=accepted');
+        router.push('/?invited=accepted');
         return;
       }
 
