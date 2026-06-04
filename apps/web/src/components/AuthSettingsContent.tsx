@@ -4,19 +4,9 @@
 'use client';
 
 /**
- * AuthSettingsContent — ADR-0030 D3.
+ * AuthSettingsContent — ADR-0030 D3 + ADR-0031 E6.
  *
  * /settings/auth — Prihlasovanie a domény (ADMIN only).
- *
- * Umožňuje tenant adminovi konfigurovať:
- *   - allowedAuthProviders: ktoré spôsoby prihlásenia sú povolené pre členov
- *   - memberJoinPolicy: INVITE_ONLY / DOMAIN_RESTRICTED / OPEN
- *   - autoJoinDomains: firemné domény pre DOMAIN_RESTRICTED policy
- *   - entraTenantId: Entra ID adresár pre obmedzenie Microsoft loginov
- *
- * Všetky zmeny sa ukladajú cez PATCH /v1/organisations/current.
- * Pozvánka má vždy prednosť — doménové nastavenia len zužujú kto smie
- * pozvánku prijať a akým kontom (ADR-0030).
  */
 
 import { KeyRound, Loader2, Save, ShieldCheck } from 'lucide-react';
@@ -33,15 +23,30 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 type AuthProvider = 'GOOGLE' | 'APPLE' | 'MICROSOFT' | 'EMAIL';
 type MemberJoinPolicy = 'INVITE_ONLY' | 'DOMAIN_RESTRICTED' | 'OPEN';
 
+interface MicrosoftOAuthState {
+  /** clientId from Azure — plaintext, not secret */
+  clientId: string;
+  /** New plaintext secret to set. Empty = keep existing. */
+  clientSecret: string;
+  tenantMode: string;
+  /** Whether a secret is already stored (read from API) */
+  hasSecret: boolean;
+}
+
 interface OrgAuthSettings {
   allowedAuthProviders: AuthProvider[];
   memberJoinPolicy: MemberJoinPolicy;
   autoJoinDomains: string[];
   entraTenantId: string | null;
+  /** null = no per-tenant Microsoft app configured (uses platform fallback) */
+  microsoftOAuthConfigured: boolean;
+  microsoftClientId: string | null;
+  microsoftTenantMode: string | null;
+  microsoftHasSecret: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Provider labels
+// Labels
 // ---------------------------------------------------------------------------
 
 const PROVIDER_LABELS: Record<AuthProvider, string> = {
@@ -81,6 +86,16 @@ export function AuthSettingsContent(): JSX.Element {
   // Domain input state
   const [domainInput, setDomainInput] = useState('');
 
+  // Microsoft OAuth edit state (separate from settings to handle write-only secret)
+  const [msOAuth, setMsOAuth] = useState<MicrosoftOAuthState>({
+    clientId: '',
+    clientSecret: '',
+    tenantMode: 'organizations',
+    hasSecret: false,
+  });
+  const [msOAuthEnabled, setMsOAuthEnabled] = useState(false);
+  const [removingMsOAuth, setRemovingMsOAuth] = useState(false);
+
   const loadSettings = async (): Promise<void> => {
     setLoading(true);
     try {
@@ -89,6 +104,18 @@ export function AuthSettingsContent(): JSX.Element {
       });
       if (!res.ok) throw new Error('Nepodarilo sa načítať nastavenia.');
       const data = (await res.json()) as Record<string, unknown>;
+
+      const oauthCreds = data['oauthCredentials'] as {
+        microsoft?: {
+          clientId?: string;
+          tenantMode?: string | null;
+          hasSecret?: boolean;
+        } | null;
+      } | null;
+
+      const msConfig = oauthCreds?.microsoft ?? null;
+      const hasMsApp = Boolean(msConfig?.clientId);
+
       setSettings({
         allowedAuthProviders: (data['allowedAuthProviders'] as AuthProvider[]) ?? [
           'GOOGLE',
@@ -99,7 +126,21 @@ export function AuthSettingsContent(): JSX.Element {
         memberJoinPolicy: (data['memberJoinPolicy'] as MemberJoinPolicy) ?? 'INVITE_ONLY',
         autoJoinDomains: (data['autoJoinDomains'] as string[]) ?? [],
         entraTenantId: (data['entraTenantId'] as string | null) ?? null,
+        microsoftOAuthConfigured: hasMsApp,
+        microsoftClientId: msConfig?.clientId ?? null,
+        microsoftTenantMode: msConfig?.tenantMode ?? null,
+        microsoftHasSecret: msConfig?.hasSecret ?? false,
       });
+
+      if (hasMsApp) {
+        setMsOAuth({
+          clientId: msConfig?.clientId ?? '',
+          clientSecret: '',
+          tenantMode: msConfig?.tenantMode ?? 'organizations',
+          hasSecret: msConfig?.hasSecret ?? false,
+        });
+        setMsOAuthEnabled(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nastala chyba.');
     } finally {
@@ -115,7 +156,7 @@ export function AuthSettingsContent(): JSX.Element {
     if (!settings) return;
     const current = settings.allowedAuthProviders;
     if (current.includes(provider)) {
-      if (current.length <= 1) return; // musí ostať aspoň jeden
+      if (current.length <= 1) return;
       setSettings({ ...settings, allowedAuthProviders: current.filter((p) => p !== provider) });
     } else {
       setSettings({ ...settings, allowedAuthProviders: [...current, provider] });
@@ -126,7 +167,6 @@ export function AuthSettingsContent(): JSX.Element {
     if (!settings) return;
     const domain = domainInput.trim().toLowerCase();
     if (!domain) return;
-    // Jednoduchá validácia — backend validuje presnejšie
     if (
       !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)
     ) {
@@ -152,22 +192,69 @@ export function AuthSettingsContent(): JSX.Element {
     setError('');
     setSuccess(false);
     setSaving(true);
+
     try {
+      // Build microsoftOAuth patch
+      let microsoftOAuthPatch: Record<string, unknown> | null | undefined = undefined;
+
+      if (removingMsOAuth) {
+        // Odstrániť vlastnú app
+        microsoftOAuthPatch = null;
+      } else if (msOAuthEnabled) {
+        if (!msOAuth.clientId.trim()) {
+          setError('App (client) ID je povinné.');
+          setSaving(false);
+          return;
+        }
+        if (!msOAuth.hasSecret && !msOAuth.clientSecret.trim()) {
+          setError('Client secret je povinný pri prvom nastavení Microsoft aplikácie.');
+          setSaving(false);
+          return;
+        }
+        microsoftOAuthPatch = {
+          clientId: msOAuth.clientId.trim(),
+          ...(msOAuth.clientSecret.trim() ? { clientSecret: msOAuth.clientSecret.trim() } : {}),
+          tenantMode: msOAuth.tenantMode || 'organizations',
+        };
+      }
+
+      const body: Record<string, unknown> = {
+        allowedAuthProviders: settings.allowedAuthProviders,
+        memberJoinPolicy: settings.memberJoinPolicy,
+        autoJoinDomains: settings.autoJoinDomains,
+        entraTenantId: settings.entraTenantId || null,
+      };
+
+      if (microsoftOAuthPatch !== undefined) {
+        body['microsoftOAuth'] = microsoftOAuthPatch;
+      }
+
       const res = await fetch(`${API_BASE}/v1/organisations/current`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          allowedAuthProviders: settings.allowedAuthProviders,
-          memberJoinPolicy: settings.memberJoinPolicy,
-          autoJoinDomains: settings.autoJoinDomains,
-          entraTenantId: settings.entraTenantId || null,
-        }),
+        body: JSON.stringify(body),
       });
+
       if (!res.ok) {
-        const body = (await res.json()) as { message?: string };
-        throw new Error(body.message ?? 'Nastala chyba pri ukladaní.');
+        const resBody = (await res.json()) as { message?: string };
+        throw new Error(resBody.message ?? 'Nastala chyba pri ukladaní.');
       }
+
+      // Reset secret field after save, update hasSecret
+      if (microsoftOAuthPatch === null) {
+        setMsOAuthEnabled(false);
+        setRemovingMsOAuth(false);
+        setMsOAuth({
+          clientId: '',
+          clientSecret: '',
+          tenantMode: 'organizations',
+          hasSecret: false,
+        });
+      } else if (microsoftOAuthPatch) {
+        setMsOAuth((prev) => ({ ...prev, clientSecret: '', hasSecret: true }));
+      }
+
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -227,7 +314,6 @@ export function AuthSettingsContent(): JSX.Element {
               </h2>
               <p className="mt-0.5 text-xs text-text-secondary">
                 Vyberte, akými kontami sa môžu členovia prihlásiť. Aspoň jeden musí ostať povolený.
-                Pri registrácii novej organizácie sú dostupné všetky štyri rovnocenne.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {(['GOOGLE', 'APPLE', 'MICROSOFT', 'EMAIL'] as AuthProvider[]).map((provider) => {
@@ -383,8 +469,7 @@ export function AuthSettingsContent(): JSX.Element {
           </h2>
           <p className="mb-3 text-xs text-text-secondary">
             Ak je vyplnené, Microsoft prihlásenie členov sa obmedzí na konkrétny firemný Entra
-            adresár (overenie <code className="font-mono">tid</code> claimu). Bez tohto nastavenia
-            je Microsoft login otvorený pre akékoľvek Microsoft konto. UUID nájdete v{' '}
+            adresár (overenie <code className="font-mono">tid</code> claimu). UUID nájdete v{' '}
             <a
               href="https://portal.azure.com"
               target="_blank"
@@ -411,6 +496,171 @@ export function AuthSettingsContent(): JSX.Element {
               ⚠ Po nastavení sa len členovia z tohto Entra adresára budú môcť prihlásiť cez
               Microsoft. Overte správnosť UUID pred uložením.
             </p>
+          )}
+        </div>
+
+        {/* Microsoft aplikácia (ADR-0031 E6) */}
+        <div className="rounded-xl border border-border-subtle bg-surface-card p-6">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-text-primary">
+                Microsoft aplikácia (vlastná)
+              </h2>
+              <p className="mt-0.5 text-xs text-text-secondary">
+                Voliteľné: použiť vlastnú Azure App Registration pre Microsoft prihlásenie členov.
+                Consent, audit a bezpečnostná izolácia sú potom vo vašom Azure adresári, nie v
+                platformovej aplikácii Inventario.
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              {settings.microsoftOAuthConfigured ? (
+                <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+                  Aktívna
+                </span>
+              ) : (
+                <span className="rounded-full bg-surface-subtle px-2.5 py-1 text-xs font-medium text-text-muted">
+                  Platformová app
+                </span>
+              )}
+            </div>
+          </div>
+
+          {!msOAuthEnabled && !removingMsOAuth ? (
+            <button
+              type="button"
+              onClick={() => setMsOAuthEnabled(true)}
+              className="rounded-lg border border-brand-primary px-3 py-2 text-sm font-medium text-brand-primary transition hover:bg-brand-primary/5"
+            >
+              {settings.microsoftOAuthConfigured
+                ? 'Upraviť aplikáciu'
+                : '+ Nastaviť vlastnú aplikáciu'}
+            </button>
+          ) : removingMsOAuth ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-medium text-red-800">
+                Vlastná Microsoft aplikácia bude odstránená.
+              </p>
+              <p className="mt-1 text-xs text-red-700">
+                Po uložení sa Microsoft prihlásenie vráti na platformovú aplikáciu Inventario.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRemovingMsOAuth(false)}
+                className="mt-2 text-xs text-red-600 hover:underline"
+              >
+                Zrušiť odstránenie
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="ms-client-id"
+                  className="block text-xs font-medium text-text-primary"
+                >
+                  App (client) ID
+                </label>
+                <p className="mb-1 text-xs text-text-muted">
+                  Z Azure Portal → App registrations → Overview. Nie je tajné.
+                </p>
+                <input
+                  id="ms-client-id"
+                  type="text"
+                  value={msOAuth.clientId}
+                  onChange={(e) => setMsOAuth({ ...msOAuth, clientId: e.target.value })}
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  className="w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 font-mono text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="ms-client-secret"
+                  className="block text-xs font-medium text-text-primary"
+                >
+                  Client secret{' '}
+                  {msOAuth.hasSecret && (
+                    <span className="font-normal text-text-muted">
+                      (nastavený — vyplňte len ak chcete zmeniť)
+                    </span>
+                  )}
+                </label>
+                <p className="mb-1 text-xs text-text-muted">
+                  Z Azure Portal → App registrations → Certificates &amp; secrets. Ukladá sa
+                  zašifrovaný, nikdy nie je viditeľný spätne.
+                </p>
+                <input
+                  id="ms-client-secret"
+                  type="password"
+                  autoComplete="new-password"
+                  value={msOAuth.clientSecret}
+                  onChange={(e) => setMsOAuth({ ...msOAuth, clientSecret: e.target.value })}
+                  placeholder={msOAuth.hasSecret ? '••••••••••••••••••••' : 'Vložte client secret'}
+                  className="w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 font-mono text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="ms-tenant-mode"
+                  className="block text-xs font-medium text-text-primary"
+                >
+                  Tenant mode
+                </label>
+                <select
+                  id="ms-tenant-mode"
+                  value={msOAuth.tenantMode}
+                  onChange={(e) => setMsOAuth({ ...msOAuth, tenantMode: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                >
+                  <option value="organizations">organizations — firemné/školské kontá</option>
+                  <option value="common">common — firemné aj osobné MS kontá</option>
+                  <option value={settings.entraTenantId ?? ''} disabled={!settings.entraTenantId}>
+                    {settings.entraTenantId
+                      ? `${settings.entraTenantId} — len váš Entra adresár`
+                      : 'konkrétny UUID (nastavte Entra Tenant ID vyššie)'}
+                  </option>
+                </select>
+              </div>
+
+              <p className="text-xs text-text-muted">
+                Redirect URI pre túto aplikáciu:{' '}
+                <code className="font-mono">
+                  {API_BASE.replace('/v1', '')}/v1/auth/callback/microsoft
+                </code>
+                . Musí byť nakonfigurovaná v Azure App Registration.
+              </p>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMsOAuthEnabled(false);
+                    setMsOAuth({
+                      clientId: settings.microsoftClientId ?? '',
+                      clientSecret: '',
+                      tenantMode: settings.microsoftTenantMode ?? 'organizations',
+                      hasSecret: settings.microsoftHasSecret,
+                    });
+                  }}
+                  className="text-sm text-text-muted hover:text-text-primary"
+                >
+                  Zrušiť
+                </button>
+                {settings.microsoftOAuthConfigured && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRemovingMsOAuth(true);
+                      setMsOAuthEnabled(false);
+                    }}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Odstrániť vlastnú aplikáciu
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
