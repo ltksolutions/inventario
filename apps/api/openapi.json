@@ -451,6 +451,30 @@
                     "type": "string",
                     "format": "uuid",
                     "nullable": true
+                  },
+                  "microsoftOAuth": {
+                    "type": "object",
+                    "properties": {
+                      "clientId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "clientSecret": {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "tenantMode": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "clientId"
+                    ],
+                    "additionalProperties": false,
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
