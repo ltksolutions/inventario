@@ -244,7 +244,18 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Baseline testov pred Slice #10:** 825 → target ~848 po K19+K20
 - **Pozn.:** nie je blocker pre launch ani SFZ pilot. Pred spustením Fázy 1 overiť, že endpointy v tool catalogu stále sedia (API sa medzičasom mohlo vyvíjať) a prečítať aktuálny ADR-0017.
 
-### 15. Post-launch drobnosti (LOW)
+### 21. Multi-language frontend (i18n)
+
+- **Stav:** Otvorené (P4 — podľa dopytu)
+- **Kontext:** Všetok UI text je hardcoded Slovak strings priamo v komponentoch. Nie je bloker pre SFZ pilot ani launch — SFZ je SK-only tenant. Riešiť až pri reálnej potrebe druhého jazyka.
+- **Navrhované riešenie:** `next-intl` (de facto štandard pre Next.js 15 App Router, TypeScript-safe kľúče, Server Components podpora). Alternatíva `react-i18next` — menej integrované s App Routerom.
+- **Rozsah keď čas priďde:**
+  - Extrakcia všetkých hardcoded strings zo ~30 komponentov do `messages/sk.json`
+  - Pridať `messages/en.json` (EN preklady)
+  - Next.js middleware pre locale detection
+  - URL stratégia: subpath-less (preferované pre B2B SaaS) vs `/sk/...`
+- **Model:** Sonnet (mechanická extrakcia + wiring), Haiku (preklady)
+- **Blocker:** NIE — spustiť keď priďde prvý nesk-tenant alebo keď SFZ požiada o EN verziu
 
 - `Cmd+K` tenant picker · SOC 2 Type II roadmap · dashboard štatistiky · QR štítky PDF (batch tlač)
 
