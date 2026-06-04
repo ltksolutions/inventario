@@ -135,6 +135,7 @@ export function RegisterPage(): JSX.Element {
                 id="orgName"
                 type="text"
                 required
+                autoComplete="organization"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 placeholder="Slovenský futbalový zväz"
@@ -148,6 +149,7 @@ export function RegisterPage(): JSX.Element {
                 id="contactEmail"
                 type="email"
                 required
+                autoComplete="email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
                 placeholder="admin@vasaorg.sk"
@@ -160,6 +162,7 @@ export function RegisterPage(): JSX.Element {
               <input
                 id="ico"
                 type="text"
+                autoComplete="off"
                 value={ico}
                 onChange={(e) => setIco(e.target.value)}
                 placeholder="12345678"
@@ -195,6 +198,7 @@ export function RegisterPage(): JSX.Element {
                   type="password"
                   required
                   minLength={12}
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
