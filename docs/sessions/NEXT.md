@@ -1,33 +1,33 @@
 # NEXT — aktuálny stav + ďalší krok
 
-Posledná session: docs/sessions/2026-06-04-adr-0031.md (ADR-0031 E1-E8 kompletný)
+Posledná session: docs/sessions/2026-06-04-microsoft-oauth-golive.md (MS OAuth go-live + User.Read fix)
 
 ## Aktuálny stav
 
-Production LIVE. ADR-0031 Accepted + implementovaný (E1-E8):
+Production LIVE. ADR-0031 implementovaný (E1–E8) aj **nasadzovaný do reálu** — prebieha
+živé testovanie Microsoft prihlásenia pre SFZ pilot.
 
-- E1 shared-types: OrgOAuthCredentialsSchema + oauthCredentials na Organisation
-- E2 oauth-crypto.ts (AES-256-GCM), OAUTH_SECRET_ENCRYPTION_KEY config
-- E3 resolveProviderCredentials + per-request Arctic provider (koniec boot-time mapy)
-- E4 orgSlug v OAuth state + AcceptInvitePage posiela org slug hint
-- E5 PATCH microsoftOAuth API — šifrovanie pri zápise, read path strip (hasSecret)
-- E6 admin UI Microsoft aplikácia v /settings/auth
-- E7 testy (crypto, resolver, PATCH, read path, SFZ fallback)
-- E8 docs (user-guide, ADR-0030 nadväznosť, ADR-0031 Accepted, TODO)
+Hotové dnes:
 
-Ešte treba nastaviť vo Vercel pre inventario-api:
+- Nová Azure App Registration (platformová, multitenant) — staré dev appky (API + CLI) na zmazanie
+- `User.Read` scope doplnený do Microsoft OAuth (fix 403 z Graph /me) — commitnuté
+- `openapi.json` regen (stale po ADR-0031 E7 PATCH microsoftOAuth) — commit `8c5ada8`
+- SFZ org v `/settings/auth`: `@futbalsfz.sk` auto-join doména + `entraTenantId` bcd6945a-… nastavené
 
-- OAUTH_SECRET_ENCRYPTION_KEY = openssl rand -hex 32 (nový, odlišný od MFA kľúča)
-- MICROSOFT_CLIENT_ID + MICROSOFT_CLIENT_SECRET (platformová LTK app pre fallback)
+Konfigurácia SFZ (vrstvy sú nezávislé — viď session doc):
+
+- `autoJoinDomains` = join policy (bez pozvánky)
+- `entraTenantId` = security guard na `tid` claim (uzamknutie na SFZ adresár)
+- vlastná Microsoft app = prázdna → platformová app (env fallback) drží pilot
 
 ## Ďalší krok
 
-Fáza 0 SFZ pilot onboarding — ďalší krok:
-
-1. Nastaviť OAUTH_SECRET_ENCRYPTION_KEY vo Vercel (inventario-api)
-2. Nastaviť MICROSOFT_CLIENT_ID + SECRET (platformová app LTK Solutions v Azure)
-3. Prihlásiť sa cez Microsoft na app.inventario.estate/login
-4. V /settings/auth nastaviť SFZ vlastnú Microsoft app (keď bude pripravená)
+1. **Push** čakajúceho commitu (GitHub Desktop) → CI zelené (openapi `--check` + scope už v commite)
+   - pred pushom: `pnpm --filter @inventario/api typecheck` + `test`
+2. Po auto-deployi zopakovať Microsoft login na `app.inventario.estate/login`
+3. Ak prejde → SFZ pilot login funguje. Ak `entra_tenant_mismatch` → overiť, že
+   `bcd6945a-5a57-4c2b-9ebb-d62712ad4b55` je reálne Directory (tenant) ID adresára futbalsfz.sk
+4. Po úspešnom teste: zmazať obe staré Azure app registrácie (API + CLI)
 
 ## Na horizonte (v TODO.md)
 

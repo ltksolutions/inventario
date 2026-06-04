@@ -12,12 +12,12 @@ SPDX-License-Identifier: CC-BY-4.0
 > [`docs/sessions/NEXT.md`](./sessions/NEXT.md). Testovanie sa rieši priebežne pri každej
 > položke (workflow pravidlo: testy s každou zmenou) — preto tu nie je samostatná „testovacia" sekcia.
 
-| Atribút                   | Hodnota                                                                                |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-03 (ADR-0030 registračné identity + Entra doména; users-list cross-tenant fix) |
-| **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                        |
-| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr            |
-| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs   |
+| Atribút                   | Hodnota                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| **Posledná aktualizácia** | 2026-06-04 (ADR-0031 Microsoft OAuth go-live; User.Read scope fix; openapi regen)    |
+| **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                      |
+| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
+| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
 
 ---
 
@@ -203,6 +203,7 @@ SPDX-License-Identifier: CC-BY-4.0
   - [ ] **E8** — docs: user-guide „Vlastná Microsoft aplikácia" (Azure setup), milestone/session, nadväznosť note do ADR-0030
 - **Riziká:** rotácia `OAUTH_SECRET_ENCRYPTION_KEY` = re-encrypt migračný skript · redirect URI mismatch v tenant Azure App · callback musí postaviť identickú Arctic inštanciu (orgId+source v state) · bez `?org` hintu spadne na platformovú app (mätúce pri tenante s entraTenantId)
 - **Blocker:** NIE pre pilot (env fallback drží SFZ login); rieši škálovanie na tenantov s vlastným Entra/IT
+- **Go-live (2026-06-04):** nasadzovanie do reálu — nová Azure app (platformová, multitenant), `User.Read` scope doplnený (fix 403 z Graph /me), openapi regen. Živý Microsoft login test prebieha. Session [`2026-06-04-microsoft-oauth-golive.md`](./sessions/2026-06-04-microsoft-oauth-golive.md)
 
 ---
 
