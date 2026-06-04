@@ -418,14 +418,47 @@
                     },
                     "additionalProperties": false,
                     "nullable": true
+                  },
+                  "allowedAuthProviders": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "GOOGLE",
+                        "APPLE",
+                        "MICROSOFT",
+                        "EMAIL"
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "memberJoinPolicy": {
+                    "type": "string",
+                    "enum": [
+                      "INVITE_ONLY",
+                      "DOMAIN_RESTRICTED",
+                      "OPEN"
+                    ]
+                  },
+                  "autoJoinDomains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
+                    }
+                  },
+                  "entraTenantId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
-                "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding)."
+                "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména)."
               }
             }
           },
-          "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding)."
+          "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména)."
         },
         "security": [
           {
