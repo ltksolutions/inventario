@@ -36,6 +36,7 @@ import auditPlugin from './modules/audit/audit.plugin.js';
 import appleAuthRoutes from './modules/auth/apple-auth.routes.js';
 import authSessionRoutes from './modules/auth/auth-session.routes.js';
 import emailAuthRoutes from './modules/auth/email-auth.routes.js';
+import linkProviderRoutes from './modules/auth/link-provider.routes.js';
 import mfaRoutes from './modules/auth/mfa/mfa.routes.js';
 import oauthRoutes from './modules/auth/oauth.routes.js';
 import passkeysRoutes from './modules/auth/passkeys/passkeys.routes.js';
@@ -163,6 +164,7 @@ export async function buildServer(
   await app.register(authSessionRoutes);
   await app.register(emailAuthRoutes);
   await app.register(registrationRoutes);
+  await app.register(linkProviderRoutes);
   await app.register(mfaRoutes);
   await app.register(passkeysRoutes);
 

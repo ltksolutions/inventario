@@ -35,6 +35,7 @@ import fp from 'fastify-plugin';
 import { UnauthorizedError } from '../../plugins/error-handler.js';
 
 import { setAuthCookies } from './cookie-helpers.js';
+import { createLinkToken } from './link-provider.routes.js';
 import { type OAuthProviderName, resolveArcticProvider } from './oauth-provider-resolver.js';
 import {
   OAUTH_STATE_COOKIE,
@@ -259,6 +260,55 @@ const oauthRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!result.success) {
+        const code = result.errorCode;
+
+        // Password path: /link-account?token=<t>&hint=<masked>
+        if (code.startsWith('link_required&')) {
+          return reply.redirect(
+            `${FRONTEND_BASE_URL}/link-account?${code.slice('link_required&'.length)}`,
+          );
+        }
+
+        // Magic-link path: send email then redirect /link-account?method=email&hint=<masked>
+        if (code.startsWith('link_required_magic&')) {
+          const params = new URLSearchParams(code.slice('link_required_magic&'.length));
+          const userId = params.get('userId') ?? '';
+          const linkProvider = params.get('provider') as AuthProvider;
+          const linkProviderId = params.get('providerId') ?? '';
+          const linkProviderEmail = decodeURIComponent(params.get('providerEmail') ?? '');
+          const hint = params.get('hint') ?? '';
+
+          // Create magic-link token and send email (best-effort)
+          try {
+            const { createLinkToken: clt } = await import('./link-provider.routes.js');
+            const linkResult = await clt(fastify.mongo.db, {
+              userId,
+              newProvider: linkProvider,
+              newProviderId: linkProviderId,
+              newProviderEmail: linkProviderEmail,
+              hasPassword: false,
+            });
+
+            const apiBase = OAUTH_REDIRECT_BASE_URL.replace(/\/v1\/auth\/callback.*$/, '');
+            const verifyUrl = `${apiBase}/v1/auth/link-provider/verify?token=${linkResult.token}`;
+
+            await fastify.emailService.sendLinkProviderEmail(
+              linkProviderEmail,
+              verifyUrl,
+              provider,
+            );
+          } catch (emailErr) {
+            fastify.log.error(
+              { err: emailErr },
+              'Failed to send magic-link email for account linking',
+            );
+          }
+
+          return reply.redirect(
+            `${FRONTEND_BASE_URL}/link-account?method=email&hint=${encodeURIComponent(hint)}`,
+          );
+        }
+
         return reply.redirect(`${FRONTEND_BASE_URL}/login?error=${result.errorCode}`);
       }
 
@@ -632,6 +682,54 @@ async function provisionOrFindUser(args: {
       authProviderEnum,
       providerUser,
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Account Linking — email-based fallback
+  //
+  // No providerId match, no invitationToken, no pendingOrg. Before giving up
+  // with invite_required, check if a user with the same email already exists.
+  // If so, issue a short-lived link_token so the user can prove ownership of
+  // the existing account (password or magic-link) without needing an invite.
+  //
+  // Security: we only do this when providerUser.emailVerified is true.
+  // Microsoft Entra always returns emailVerified=true. For Google we gate on
+  // the email_verified claim. This prevents account takeover via unverified
+  // provider emails.
+  // -------------------------------------------------------------------------
+  if (!statePayload.pendingOrg && providerUser.emailVerified) {
+    const emailMatch = (await usersCol.findOne({
+      email: providerUser.email,
+      deletedAt: null,
+    })) as WithId<User> | null;
+
+    if (emailMatch) {
+      const hasPassword = Boolean(emailMatch.passwordHash);
+      const linkResult = await createLinkToken(db, {
+        userId: String(emailMatch._id),
+        newProvider: authProviderEnum,
+        newProviderId: providerUser.providerId,
+        newProviderEmail: providerUser.email,
+        hasPassword,
+      });
+
+      if (hasPassword) {
+        // Password path: redirect frontend to /link-account with token
+        return {
+          success: false,
+          errorCode: `link_required&token=${linkResult.token}&hint=${encodeURIComponent(linkResult.maskedEmail)}`,
+        };
+      } else {
+        // Magic-link path: send email, redirect frontend to /link-account?method=email
+        // Email sending is best-effort — we pass fastify via closure trick
+        // (fastify is captured in the outer provisionOrFindUser scope via args)
+        // We signal magic_link via a special errorCode and the caller sends the email.
+        return {
+          success: false,
+          errorCode: `link_required_magic&hint=${encodeURIComponent(linkResult.maskedEmail)}&userId=${String(emailMatch._id)}&provider=${authProviderEnum}&providerId=${providerUser.providerId}&providerEmail=${encodeURIComponent(providerUser.email)}`,
+        };
+      }
+    }
   }
 
   // New user — must have pendingOrg (self-serve registration)
