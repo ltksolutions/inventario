@@ -1,12 +1,15 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Typy lokalít — fyzické miesta, kde sa majetok môže nachádzať.
- *
- * Hodnoty sú zámerne zaokrúhlené na 6 hlavných typov — neskôr možno doplniť
- * granulárnejšie členenie (kabinet, polica, zóna), to však zostáva v `name`
- * alebo voľne v `description` jednotlivej lokality.
  */
 export const LocationType = {
-  /** Hlavný sklad (centrála). */
+  /** Hlavné sídlo organizácie (centrála). */
+  HEADQUARTERS: 'HEADQUARTERS',
+  /** Pobočka — vedľajšia prevádzka alebo regionálne pracovisko. */
+  BRANCH: 'BRANCH',
+  /** Hlavný sklad. */
   WAREHOUSE: 'WAREHOUSE',
   /** Kancelária. */
   OFFICE: 'OFFICE',

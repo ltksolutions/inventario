@@ -46,6 +46,8 @@ import {
  */
 
 const LOCATION_TYPE_LABELS: Record<string, string> = {
+  HEADQUARTERS: 'Sídlo',
+  BRANCH: 'Pobočka',
   WAREHOUSE: 'Hlavný sklad',
   OFFICE: 'Kancelária',
   STADIUM: 'Štadión / areál',

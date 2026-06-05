@@ -652,6 +652,8 @@ function CategoriesTab(): JSX.Element {
 // ---------------------------------------------------------------------------
 
 const LOCATION_TYPE_LABELS: Record<string, string> = {
+  HEADQUARTERS: 'Sídlo',
+  BRANCH: 'Pobočka',
   WAREHOUSE: 'Sklad',
   OFFICE: 'Kancelária',
   STADIUM: 'Štadión',
@@ -661,6 +663,8 @@ const LOCATION_TYPE_LABELS: Record<string, string> = {
 };
 
 const LOCATION_TYPE_VALUES = [
+  'HEADQUARTERS',
+  'BRANCH',
   'WAREHOUSE',
   'OFFICE',
   'STADIUM',
