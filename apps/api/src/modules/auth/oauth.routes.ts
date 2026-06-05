@@ -32,6 +32,7 @@
 import { AccountType, AuthProvider, MemberJoinPolicy, UserRole } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 
+import { seedTenantDefaults } from '../../lib/seed-tenant-defaults.js';
 import { UnauthorizedError } from '../../plugins/error-handler.js';
 
 import { setAuthCookies } from './cookie-helpers.js';
@@ -885,6 +886,14 @@ async function provisionOrFindUser(args: {
     deletedBy: null,
   });
   void ObjId2; // suppress unused import warning
+
+  // Seed default číselníky (typy, stavy, kategórie) — best-effort
+  try {
+    await seedTenantDefaults(db, orgId.toString(), userId.toString());
+  } catch (seedErr) {
+    // Non-fatal — tenant môže číselníky vytvoriť manuálne
+    void seedErr;
+  }
 
   return {
     success: true,

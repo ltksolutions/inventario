@@ -26,6 +26,7 @@ import { migrate_2026_05_31b_loan_request_beneficiary } from './2026-05-31b-loan
 import { migrate_2026_06_01_asset_public_token } from './2026-06-01-asset-public-token.js';
 import { migrate_2026_06_01b_drop_residual_email_index } from './2026-06-01b-drop-residual-email-index.js';
 import { migrate_2026_06_03_single_role } from './2026-06-03-single-role.js';
+import { migrate_2026_06_05_seed_missing_defaults } from './2026-06-05-seed-missing-defaults.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -97,6 +98,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     description:
       'ADR-0029: Convert memberships + invitations roles[] → single role (highestRole). User.roles left as legacy.',
     run: migrate_2026_06_03_single_role,
+  },
+  {
+    key: '2026-06-05-seed-missing-defaults',
+    description:
+      'Backfill default číselníky (asset_types, asset_conditions, categories) pre tenantov bez nich (napr. SFZ org vytvorená manuálne).',
+    run: migrate_2026_06_05_seed_missing_defaults,
   },
 ];
 
