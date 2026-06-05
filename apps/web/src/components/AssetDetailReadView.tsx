@@ -222,7 +222,7 @@ export function AssetDetailReadView({
 
       {/* Description + tags */}
       {(asset.description || asset.tags.length > 0) && (
-        <Section title="Popis a štítky">
+        <Section title="Popis a tagy">
           {asset.description ? (
             <p className="text-sm leading-relaxed text-text-primary">{asset.description}</p>
           ) : null}

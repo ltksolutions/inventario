@@ -353,7 +353,7 @@ export function AssetDetailEditForm({
                 onCreate={async (label) => {
                   const result = await createLocation.mutateAsync({
                     name: label,
-                    type: 'OTHER',
+                    type: 'EXTERNAL',
                   });
                   return { id: result._id, label: result.name };
                 }}
@@ -413,7 +413,7 @@ export function AssetDetailEditForm({
         </Field>
       </Section>
 
-      <Section title="Popis a štítky">
+      <Section title="Popis a tagy">
         <Field label="Popis">
           <textarea
             rows={4}
@@ -423,7 +423,7 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-        <Field label="Štítky">
+        <Field label="Tagy">
           <Controller
             name="tags"
             control={control}

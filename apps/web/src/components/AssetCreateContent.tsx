@@ -376,11 +376,11 @@ export function AssetCreateContent(): JSX.Element {
           </Field>
         </Section>
 
-        <Section title="Popis a štítky">
+        <Section title="Popis a tagy">
           <Field label="Popis">
             <textarea rows={4} {...register('description')} className={inputCls()} />
           </Field>
-          <Field label="Štítky">
+          <Field label="Tagy">
             <Controller
               name="tags"
               control={control}

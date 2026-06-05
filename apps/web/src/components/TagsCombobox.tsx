@@ -47,7 +47,7 @@ export function TagsCombobox({
   value,
   onChange,
   suggestions = [],
-  placeholder = 'Pridať štítok…',
+  placeholder = 'Pridať tag…',
   disabled = false,
   className,
 }: TagsComboboxProps): JSX.Element {
@@ -152,7 +152,7 @@ export function TagsCombobox({
             {!disabled && (
               <button
                 type="button"
-                aria-label={`Odstrániť štítok ${tag}`}
+                aria-label={`Odstrániť tag ${tag}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTag(tag);
@@ -199,7 +199,10 @@ export function TagsCombobox({
               )}
               tabIndex={-1}
               onMouseEnter={() => setActiveIndex(idx)}
-              onClick={() => addTag(s)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                addTag(s);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
@@ -218,7 +221,10 @@ export function TagsCombobox({
                 aria-selected={false}
                 className="cursor-pointer border-t border-border-subtle px-3 py-1.5 text-sm font-medium text-brand-primary hover:bg-surface-subtle"
                 tabIndex={-1}
-                onClick={() => addTag(inputValue)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  addTag(inputValue);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
