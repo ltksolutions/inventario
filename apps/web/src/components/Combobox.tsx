@@ -300,7 +300,10 @@ export function Combobox({
                     !isRenaming && 'cursor-pointer hover:bg-surface-subtle',
                   )}
                   onMouseEnter={() => setActiveIndex(idx)}
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    // mousedown fires before blur on the search input, preventing
+                    // a race where the input blur causes a re-render before click fires.
+                    e.preventDefault();
                     if (!isRenaming) selectOption(option.id);
                   }}
                   onKeyDown={(e) => {
@@ -394,7 +397,13 @@ export function Combobox({
                   activeIndex === createIndex && 'bg-surface-subtle',
                 )}
                 onMouseEnter={() => setActiveIndex(createIndex)}
-                onClick={() => void handleCreate()}
+                onMouseDown={(e) => {
+                  // Use mousedown instead of click so this fires before the search
+                  // input's blur event, which could cause a re-render and unmount
+                  // the list before the click event fires.
+                  e.preventDefault();
+                  void handleCreate();
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
