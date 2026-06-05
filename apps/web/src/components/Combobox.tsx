@@ -111,23 +111,24 @@ export function Combobox({
 
   function openDropdown(e?: ReactMouseEvent): void {
     if (disabled) return;
-    // Stop propagation so clicks on list items don't re-open the dropdown
-    // after selectOption → closeDropdown bubbles up to this trigger.
     e?.stopPropagation();
-    setOpen((prev) => !prev);
+    setOpen(true);
     setQuery('');
   }
 
-  function closeDropdown(): void {
+  function closeDropdown(returnFocus = true): void {
     setOpen(false);
     setQuery('');
     setRenamingId(null);
-    triggerRef.current?.focus();
+    // Only return focus when closing via keyboard (Escape) — not on mouse click,
+    // because focus() on the button inside a <label> wrapper can re-trigger
+    // the label's click handler and reopen the dropdown.
+    if (returnFocus) triggerRef.current?.focus();
   }
 
   function selectOption(optionId: string): void {
     onChange(optionId);
-    closeDropdown();
+    closeDropdown(false);
   }
 
   function clearSelection(e: ReactMouseEvent): void {
@@ -141,7 +142,7 @@ export function Combobox({
     try {
       const result = await onCreate(queryTrimmed);
       if (result) onChange(result.id);
-      closeDropdown();
+      closeDropdown(false);
     } finally {
       setCreateLoading(false);
     }
@@ -198,7 +199,15 @@ export function Combobox({
   }
 
   return (
-    <div data-combobox-root className="relative" onKeyDown={handleKeyDown} role="presentation">
+    <div
+      data-combobox-root
+      className="relative"
+      onKeyDown={handleKeyDown}
+      role="presentation"
+      // Prevent the parent <label> element from re-triggering the button
+      // when clicks inside the dropdown bubble up.
+      onClick={(e) => e.preventDefault()}
+    >
       {/* Trigger */}
       <button
         ref={triggerRef}
