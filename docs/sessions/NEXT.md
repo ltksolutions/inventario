@@ -22,12 +22,13 @@ Konfigurácia SFZ (vrstvy sú nezávislé — viď session doc):
 
 ## Ďalší krok
 
-1. **Push** čakajúceho commitu (GitHub Desktop) → CI zelené (openapi `--check` + scope už v commite)
-   - pred pushom: `pnpm --filter @inventario/api typecheck` + `test`
-2. Po auto-deployi zopakovať Microsoft login na `app.inventario.estate/login`
-3. Ak prejde → SFZ pilot login funguje. Ak `entra_tenant_mismatch` → overiť, že
-   `bcd6945a-5a57-4c2b-9ebb-d62712ad4b55` je reálne Directory (tenant) ID adresára futbalsfz.sk
-4. Po úspešnom teste: zmazať obe staré Azure app registrácie (API + CLI)
+Microsoft login **funguje** ✅ — SFZ pilot má funkčné prihlásenie cez Microsoft.
+
+Ostatok cleanup:
+
+- Zmazať obe staré Azure app registrácie (API `7927aaa3-…` + CLI `40b94818-…`)
+- V Atlas upratať `authProviders[0].providerId` na user dokumente (už opravené manuálne — `0c437485-acfb-485b-a713-213897049c2f`)
+- `.env.local` mŕtve premenné `ENTRA_CLI_CLIENT_ID` + `ENTRA_API_CLIENT_ID` — neškodné, upratať pri príležitosti
 
 ## Na horizonte (v TODO.md)
 
