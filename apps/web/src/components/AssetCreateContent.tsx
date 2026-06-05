@@ -329,7 +329,7 @@ export function AssetCreateContent(): JSX.Element {
                   onCreate={async (label) => {
                     const result = await createLocation.mutateAsync({
                       name: label,
-                      type: 'OTHER',
+                      type: 'EXTERNAL',
                     });
                     return { id: result._id, label: result.name };
                   }}

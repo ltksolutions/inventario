@@ -143,6 +143,9 @@ export function Combobox({
       const result = await onCreate(queryTrimmed);
       if (result) onChange(result.id);
       closeDropdown(false);
+    } catch (err) {
+      // Keep dropdown open so the user can retry or see the error.
+      console.error('[Combobox] onCreate failed:', err);
     } finally {
       setCreateLoading(false);
     }
