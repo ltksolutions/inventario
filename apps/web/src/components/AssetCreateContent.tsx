@@ -35,6 +35,7 @@ import {
   useRenameLocation,
 } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
+import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 const STATUS_LABELS: Record<string, string> = {
   AVAILABLE: 'Dostupné',
@@ -69,6 +70,7 @@ export function AssetCreateContent(): JSX.Element {
   const canEdit = useCanEditAssets();
   const canManage = useCanManageTaxonomy();
   const createAsset = useCreateAsset();
+  const orgQuery = useCurrentOrganisation();
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
   const assetTypesQuery = useAssetTypes({ limit: 200 });
@@ -194,6 +196,27 @@ export function AssetCreateContent(): JSX.Element {
           Inventárne číslo bude vygenerované automaticky serverom.
         </p>
       </header>
+
+      {!orgQuery.isLoading && !orgQuery.data?.inventoryNumberFormat && (
+        <div
+          role="alert"
+          className="mb-6 flex items-start gap-3 rounded-xl border border-warning-fg bg-warning-bg p-4 text-sm text-warning-fg"
+        >
+          <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Nie je nastavený formát inventárneho čísla.</p>
+            <p className="mt-0.5">
+              Pred pridaním majetku musí administrátor nastaviť prefix a formát číslovania.{' '}
+              <Link
+                href="/settings/organisation"
+                className="font-semibold underline underline-offset-2 hover:opacity-80"
+              >
+                Prejdí na Nastavenía → Organizácia
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
         <Section title="Identifikácia">

@@ -91,6 +91,13 @@ export interface OrganisationSummary {
     zplDpi: 203 | 300;
     zplDarkness: number;
   } | null;
+  /** Formát inventárneho čísla (ADR-0021). Null = nie je nastavený. */
+  inventoryNumberFormat: {
+    prefix: string;
+    padding: number;
+    includeYear: boolean;
+    resetYearly: boolean;
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -170,6 +177,13 @@ export interface UpdateCurrentOrganisationInput {
   } | null;
   /** Brand kit (ADR-0028 v2). Preset + logo + font — všetky plány. */
   brandKit?: BrandKit | null;
+  /** Formát inventárneho čísla (ADR-0021). */
+  inventoryNumberFormat?: {
+    prefix: string;
+    padding: number;
+    includeYear: boolean;
+    resetYearly: boolean;
+  } | null;
 }
 
 export function useUpdateCurrentOrganisation(): UseMutationResult<

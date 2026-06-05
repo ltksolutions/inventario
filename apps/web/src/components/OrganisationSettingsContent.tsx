@@ -142,6 +142,12 @@ function OrganisationSettingsPanel(): JSX.Element {
   const [foundPhone, setFoundPhone] = useState('');
   const [foundMessage, setFoundMessage] = useState('');
 
+  // Inventory number format state (ADR-0021)
+  const [invPrefix, setInvPrefix] = useState('');
+  const [invPadding, setInvPadding] = useState(4);
+  const [invIncludeYear, setInvIncludeYear] = useState(true);
+  const [invResetYearly, setInvResetYearly] = useState(true);
+
   // Branding state (ADR-0028 v2): presetId + font enum
   const [presetId, setPresetId] = useState<string | null>(null);
   const [fontFamilySans, setFontFamilySans] = useState<FontOptionId>('system-ui');
@@ -172,6 +178,11 @@ function OrganisationSettingsPanel(): JSX.Element {
     setFoundEmail(org.foundContactInfo?.email ?? '');
     setFoundPhone(org.foundContactInfo?.phone ?? '');
     setFoundMessage(org.foundContactInfo?.message ?? '');
+    // inventoryNumberFormat hydration (ADR-0021)
+    setInvPrefix(org.inventoryNumberFormat?.prefix ?? '');
+    setInvPadding(org.inventoryNumberFormat?.padding ?? 4);
+    setInvIncludeYear(org.inventoryNumberFormat?.includeYear ?? true);
+    setInvResetYearly(org.inventoryNumberFormat?.resetYearly ?? true);
     // brandKit hydration (ADR-0028 v2)
     setPresetId(org.brandKit?.presetId ?? null);
     const f = org.brandKit?.fontFamilySans;
@@ -274,6 +285,10 @@ function OrganisationSettingsPanel(): JSX.Element {
       setFormError('DIČ musí mať presne 10 číslic.');
       return;
     }
+    if (invPrefix.trim() && !/^[A-Z]{1,5}$/.test(invPrefix.trim())) {
+      setFormError('Prefix inventárneho čísla musí byť 1–5 veľkých ASCII písmen (napr. "SFZ").');
+      return;
+    }
 
     update.mutate(
       {
@@ -289,6 +304,14 @@ function OrganisationSettingsPanel(): JSX.Element {
               }
             : null,
         brandKit: buildBrandKit(),
+        inventoryNumberFormat: invPrefix.trim()
+          ? {
+              prefix: invPrefix.trim().toUpperCase(),
+              padding: invPadding,
+              includeYear: invIncludeYear,
+              resetYearly: invResetYearly,
+            }
+          : null,
       },
       {
         onSuccess: () => {
@@ -373,6 +396,78 @@ function OrganisationSettingsPanel(): JSX.Element {
               className={inputCls() + ' resize-none'}
             />
           </Field>
+        </Section>
+
+        {/* Inventárne číslované (ADR-0021) */}
+        <Section title="Inventárne číslované">
+          <p className="-mt-1 text-xs text-text-secondary">
+            Formát inventárneho čísla sa generuje automaticky pri pridaní majetku. Príklad: prefix
+            „SFZ“, padding 4, rok zapnutý → „SFZ-2026-0001“.
+          </p>
+          <Field
+            label="Prefix"
+            required
+            hint='1–5 veľkých ASCII písmen. Napr. "SFZ", "INV", "MOB".'
+          >
+            <input
+              type="text"
+              value={invPrefix}
+              onChange={(e) => setInvPrefix(e.target.value.toUpperCase())}
+              placeholder="SFZ"
+              maxLength={5}
+              className={inputCls()}
+            />
+          </Field>
+          <Field
+            label="Počet cifier"
+            hint="Počet cifier poradia (doplnených nulami). Napr. 4 → 0001."
+          >
+            <select
+              value={invPadding}
+              onChange={(e) => setInvPadding(Number(e.target.value))}
+              className={inputCls()}
+            >
+              {[3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={n}>
+                  {n} cifier (napr. {'0'.repeat(n - 1)}1)
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Zahrnúť rok">
+            <label className="flex items-center gap-2 text-sm text-text-primary">
+              <input
+                type="checkbox"
+                checked={invIncludeYear}
+                onChange={(e) => setInvIncludeYear(e.target.checked)}
+                className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              />
+              <span>Rok zaradenia súčasťou čísla (napr. SFZ-2026-0001)</span>
+            </label>
+          </Field>
+          {invIncludeYear && (
+            <Field label="Reset poradia každý rok">
+              <label className="flex items-center gap-2 text-sm text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={invResetYearly}
+                  onChange={(e) => setInvResetYearly(e.target.checked)}
+                  className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+                <span>Nový rok začína od 0001</span>
+              </label>
+            </Field>
+          )}
+          {invPrefix.trim() && (
+            <div className="rounded-lg bg-surface-subtle px-4 py-3 text-sm text-text-secondary">
+              Náhľad:{' '}
+              <span className="font-mono font-semibold text-text-primary">
+                {invPrefix.trim().toUpperCase()}
+                {invIncludeYear ? `-${new Date().getFullYear()}` : ''}-
+                {String(1).padStart(invPadding, '0')}
+              </span>
+            </div>
+          )}
         </Section>
 
         {/* Branding (ADR-0028 v2) */}
