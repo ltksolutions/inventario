@@ -1734,6 +1734,28 @@ export function useRenameLocation(): UseMutationResult<
   });
 }
 
+export function useUpdateLocation(): UseMutationResult<
+  GenericRecord,
+  Error,
+  { id: string; name?: string; type?: string; description?: string | null }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }) => {
+      const { data, error } = await apiClient.PATCH('/v1/locations/{id}', {
+        params: { path: { id } },
+        body: patch as never,
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to update location');
+      }
+      return data as unknown as GenericRecord;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['locations'] }),
+  });
+}
+
 // Asset types + conditions use generic fetch (not in openapi spec yet)
 const genericPatch = apiClient.PATCH as (
   path: string,

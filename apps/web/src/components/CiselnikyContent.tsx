@@ -19,7 +19,7 @@
  *   - Zmazať: ADMIN only (backend FK protection)
  */
 
-import { AlertCircle, Check, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
@@ -44,7 +44,7 @@ import {
   useRenameAssetCondition,
   useRenameAssetType,
   useRenameCategory,
-  useRenameLocation,
+  useUpdateLocation,
 } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
 
@@ -660,50 +660,271 @@ const LOCATION_TYPE_LABELS: Record<string, string> = {
   IN_TRANSIT: 'V preprave',
 };
 
+const LOCATION_TYPE_VALUES = [
+  'WAREHOUSE',
+  'OFFICE',
+  'STADIUM',
+  'TRAINING_CENTER',
+  'EXTERNAL',
+  'IN_TRANSIT',
+] as const;
+
+interface LocationDialogProps {
+  mode: 'create' | 'edit';
+  initial?: { id: string; name: string; type: string };
+  onClose: () => void;
+  onCreate?: (name: string, type: string) => Promise<void>;
+  onUpdate?: (id: string, name: string, type: string) => Promise<void>;
+}
+
+function LocationDialog({
+  mode,
+  initial,
+  onClose,
+  onCreate,
+  onUpdate,
+}: LocationDialogProps): JSX.Element {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [type, setType] = useState(initial?.type ?? 'OFFICE');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(): Promise<void> {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setLoading(true);
+    setError(null);
+    try {
+      if (mode === 'create') {
+        await onCreate?.(trimmed, type);
+      } else {
+        await onUpdate?.(initial!.id, trimmed, type);
+      }
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nepodarilo sa uložiť.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inputCls =
+    'w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <button
+        type="button"
+        aria-label="Zatvoriť dialog"
+        className="absolute inset-0"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-border-subtle bg-surface-card p-6 shadow-xl">
+        <div className="mb-4 flex items-start justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">
+            {mode === 'create' ? 'Nová lokalita' : 'Upraviť lokalitu'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Zatvoriť"
+            className="rounded p-1 text-text-muted hover:text-text-primary"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-text-secondary">Názov *</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void submit();
+                }
+                if (e.key === 'Escape') onClose();
+              }}
+              ref={(el) => el?.focus()}
+              className={inputCls}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-text-secondary">Typ lokality *</span>
+            <select value={type} onChange={(e) => setType(e.target.value)} className={inputCls}>
+              {LOCATION_TYPE_VALUES.map((t) => (
+                <option key={t} value={t}>
+                  {LOCATION_TYPE_LABELS[t] ?? t}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {error ? (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-fg bg-danger-bg p-3 text-sm text-danger-fg">
+            <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        ) : null}
+
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle"
+          >
+            Zrušiť
+          </button>
+          <button
+            type="button"
+            disabled={loading || !name.trim()}
+            onClick={() => void submit()}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+          >
+            {mode === 'create' ? <Plus aria-hidden="true" className="h-4 w-4" /> : null}
+            {loading ? 'Ukladám…' : mode === 'create' ? 'Vytvoriť' : 'Uložiť'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface LocationEditTarget {
+  id: string;
+  name: string;
+  type: string;
+}
+
 function LocationsTab(): JSX.Element {
   const query = useLocations({ limit: 200 });
   const canManage = useCanManageTaxonomy();
   const canDelete = useCanDeleteTaxonomy();
   const create = useCreateLocation();
-  const rename = useRenameLocation();
+  const update = useUpdateLocation();
   const del = useDeleteLocation();
 
   const [addOpen, setAddOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<LocationEditTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TaxonomyRow | null>(null);
 
-  const rows: TaxonomyRow[] = (query.data?.data ?? []).map((l) => ({
-    id: l._id,
-    name: l.name,
-    slug: l.slug,
-    extra: LOCATION_TYPE_LABELS[l.type] ?? l.type,
-  }));
+  const locations = query.data?.data ?? [];
+
+  if (query.isLoading) return <ListSkeleton />;
+  if (query.isError)
+    return (
+      <ErrorPanel message="Lokality sa nepodarilo načítať. Skontroluj pripojenie a skús znova." />
+    );
 
   return (
     <>
-      <TaxonomyTable
-        rows={rows}
-        isLoading={query.isLoading}
-        isError={query.isError}
-        extraHeader="Typ"
-        emptyLabel="Zatiaľ žiadne lokality."
-        addLabel="Pridať lokalitu"
-        canManage={canManage}
-        canDelete={canDelete}
-        onAdd={() => setAddOpen(true)}
-        onRename={async (id, name) => {
-          await rename.mutateAsync({ id, name });
-        }}
-        onDelete={(row) => setDeleteTarget(row)}
-      />
+      {canManage && (
+        <div className="mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" />
+            Pridať lokalitu
+          </button>
+        </div>
+      )}
+
+      {locations.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-default bg-surface-card p-10 text-center">
+          <p className="text-sm font-medium text-text-primary">Zatiaľ žiadne lokality.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <tr>
+                <th scope="col" className="px-4 py-3">
+                  Názov
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Typ
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Slug
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  <span className="sr-only">Akcie</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {locations.map((loc) => (
+                <tr key={loc._id} className="hover:bg-surface-subtle">
+                  <td className="px-4 py-3 font-medium text-text-primary">{loc.name}</td>
+                  <td className="px-4 py-3 text-text-secondary">
+                    {LOCATION_TYPE_LABELS[loc.type] ?? loc.type}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-text-muted">{loc.slug}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="inline-flex gap-1.5">
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditTarget({ id: loc._id, name: loc.name, type: loc.type })
+                          }
+                          aria-label={`Upraviť ${loc.name}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          <Settings2 aria-hidden="true" className="h-3.5 w-3.5" />
+                          Upraviť
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeleteTarget({ id: loc._id, name: loc.name, slug: loc.slug })
+                          }
+                          aria-label={`Vymazať ${loc.name}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-danger-fg transition hover:bg-danger-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+                          Vymazať
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {addOpen && (
-        <AddInlineDialog
-          title="Nová lokalita"
-          onSubmit={async (name) => {
-            await create.mutateAsync({ name, type: 'WAREHOUSE' });
-          }}
+        <LocationDialog
+          mode="create"
           onClose={() => setAddOpen(false)}
+          onCreate={async (name, type) => {
+            await create.mutateAsync({ name, type });
+          }}
         />
       )}
+
+      {editTarget && (
+        <LocationDialog
+          mode="edit"
+          initial={editTarget}
+          onClose={() => setEditTarget(null)}
+          onUpdate={async (id, name, type) => {
+            await update.mutateAsync({ id, name, type });
+          }}
+        />
+      )}
+
       {deleteTarget && (
         <ConfirmDeleteDialog
           title={`Vymazať lokalitu ${deleteTarget.name}?`}
