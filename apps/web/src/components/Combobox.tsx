@@ -109,9 +109,12 @@ export function Combobox({
     el?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
-  function openDropdown(): void {
+  function openDropdown(e?: ReactMouseEvent): void {
     if (disabled) return;
-    setOpen(true);
+    // Stop propagation so clicks on list items don't re-open the dropdown
+    // after selectOption → closeDropdown bubbles up to this trigger.
+    e?.stopPropagation();
+    setOpen((prev) => !prev);
     setQuery('');
   }
 
@@ -206,7 +209,7 @@ export function Combobox({
         aria-controls={listId}
         aria-label={ariaLabel}
         disabled={disabled}
-        onClick={openDropdown}
+        onClick={(e) => openDropdown(e)}
         className={cn(
           'flex w-full items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary',
           'focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
