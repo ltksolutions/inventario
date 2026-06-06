@@ -21,7 +21,7 @@
  * Domena VYLUCNE z appBaseUrl - NIKDY z Host hlavicky.
  */
 
-import { UpdateAssetSchema } from '@inventario/shared-types';
+import { TRACKING_MODE_VALUES, UpdateAssetSchema } from '@inventario/shared-types';
 import QRCode from 'qrcode';
 import { z } from 'zod';
 
@@ -72,6 +72,9 @@ const ApiCreateAssetBodySchema = z
     internalNotes: z.string().max(5000).nullable().default(null),
     isLoanable: z.boolean().default(true),
     requiresApproval: z.boolean().default(true),
+    trackingMode: z
+      .enum(TRACKING_MODE_VALUES as unknown as [string, ...string[]])
+      .default('SERIALIZED'),
   })
   .describe('Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server');
 

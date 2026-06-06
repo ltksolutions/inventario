@@ -1424,6 +1424,7 @@ export interface CreateAssetInput {
   tags?: string[] | undefined;
   isLoanable?: boolean | undefined;
   requiresApproval?: boolean | undefined;
+  trackingMode?: 'SERIALIZED' | 'BULK' | undefined;
 }
 
 export function useCreateAsset(): UseMutationResult<AssetDetail, Error, CreateAssetInput> {

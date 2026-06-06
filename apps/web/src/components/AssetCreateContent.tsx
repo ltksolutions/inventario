@@ -63,6 +63,7 @@ interface FormValues {
   tags: string[];
   isLoanable: boolean;
   requiresApproval: boolean;
+  trackingMode: 'SERIALIZED' | 'BULK';
 }
 
 export function AssetCreateContent(): JSX.Element {
@@ -108,6 +109,7 @@ export function AssetCreateContent(): JSX.Element {
       tags: [],
       isLoanable: true,
       requiresApproval: false,
+      trackingMode: 'SERIALIZED' as const,
     },
   });
 
@@ -165,6 +167,7 @@ export function AssetCreateContent(): JSX.Element {
       tags: values.tags,
       isLoanable: values.isLoanable,
       requiresApproval: values.requiresApproval,
+      trackingMode: values.trackingMode,
     };
     if (values.acquiredAt) input.acquiredAt = `${values.acquiredAt}T00:00:00.000Z`;
 
@@ -220,6 +223,19 @@ export function AssetCreateContent(): JSX.Element {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
         <Section title="Identifikácia">
+          <Field
+            label="Typ sledovania"
+            required
+            hint="Kusová položka má vlastné inventárne číslo. Množstevná položka sleduje množstvo kusov (lopty, kužele…). Nemenmé po uložení."
+          >
+            <select {...register('trackingMode')} className={inputCls()}>
+              <option value="SERIALIZED">Kusová — každý kus má vlastné inventárne číslo</option>
+              <option value="BULK">
+                Množstevná — hromadná zameniteľná položka (lopty, kužele…)
+              </option>
+            </select>
+          </Field>
+
           <Field label="Názov" required error={errors.name?.message}>
             <input
               type="text"

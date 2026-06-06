@@ -2110,6 +2110,14 @@
                   "requiresApproval": {
                     "type": "boolean",
                     "default": true
+                  },
+                  "trackingMode": {
+                    "type": "string",
+                    "enum": [
+                      "SERIALIZED",
+                      "BULK"
+                    ],
+                    "default": "SERIALIZED"
                   }
                 },
                 "required": [
