@@ -214,7 +214,7 @@ export class StockMovementsRepository {
           categoryId: 1,
           locationId: 1,
           lastReceiptQuantity: {
-            $ifNull: [{ $first: '$lastReceipts.quantity' }, null],
+            $ifNull: [{ $arrayElemAt: ['$lastReceipts.quantity', 0] }, null],
           },
         },
       },

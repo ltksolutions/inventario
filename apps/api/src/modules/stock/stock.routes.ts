@@ -134,6 +134,8 @@ const stockRoutes: FastifyPluginAsync = async (fastify) => {
         data: items.map((item) => ({
           ...item,
           _id: String(item._id),
+          categoryId: String(item.categoryId),
+          locationId: String(item.locationId),
         })),
         total: items.length,
       };
