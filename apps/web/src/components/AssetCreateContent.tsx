@@ -64,6 +64,7 @@ interface FormValues {
   isLoanable: boolean;
   requiresApproval: boolean;
   trackingMode: 'SERIALIZED' | 'BULK';
+  initialQuantity: number;
 }
 
 export function AssetCreateContent(): JSX.Element {
@@ -90,6 +91,7 @@ export function AssetCreateContent(): JSX.Element {
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
@@ -110,6 +112,7 @@ export function AssetCreateContent(): JSX.Element {
       isLoanable: true,
       requiresApproval: false,
       trackingMode: 'SERIALIZED' as const,
+      initialQuantity: 0,
     },
   });
 
@@ -168,6 +171,7 @@ export function AssetCreateContent(): JSX.Element {
       isLoanable: values.isLoanable,
       requiresApproval: values.requiresApproval,
       trackingMode: values.trackingMode,
+      ...(values.trackingMode === 'BULK' ? { initialQuantity: values.initialQuantity } : {}),
     };
     if (values.acquiredAt) input.acquiredAt = `${values.acquiredAt}T00:00:00.000Z`;
 
@@ -228,13 +232,50 @@ export function AssetCreateContent(): JSX.Element {
             required
             hint="Kusová položka má vlastné inventárne číslo. Množstevná položka sleduje množstvo kusov (lopty, kužele…). Nemenmé po uložení."
           >
-            <select {...register('trackingMode')} className={inputCls()}>
-              <option value="SERIALIZED">Kusová — každý kus má vlastné inventárne číslo</option>
-              <option value="BULK">
-                Množstevná — hromadná zameniteľná položka (lopty, kužele…)
-              </option>
-            </select>
+            <Controller
+              name="trackingMode"
+              control={control}
+              render={({ field }) => (
+                <SelectField
+                  label="Typ sledovania"
+                  options={[
+                    {
+                      value: 'SERIALIZED',
+                      label: 'Kusová — každý kus má vlastné inventárne číslo',
+                    },
+                    {
+                      value: 'BULK',
+                      label: 'Množstevná — hromadná zameniteľná položka (lopty, kužele…)',
+                    },
+                  ]}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </Field>
+
+          {watch('trackingMode') === 'BULK' && (
+            <Field
+              label="Počiatočné množstvo na sklade"
+              required
+              hint="Zadaj počačný počet kusov. Neskôr môžeš množstvo meniť cez Sklad → Pohyby."
+              error={errors.initialQuantity?.message}
+            >
+              <input
+                type="number"
+                min="0"
+                step="1"
+                {...register('initialQuantity', {
+                  required:
+                    watch('trackingMode') === 'BULK' ? 'Počiatočné množstvo je povinné.' : false,
+                  min: { value: 0, message: 'Množstvo musí byť 0 alebo viac.' },
+                  valueAsNumber: true,
+                })}
+                className={inputCls()}
+              />
+            </Field>
+          )}
 
           <Field label="Názov" required error={errors.name?.message}>
             <input
