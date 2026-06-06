@@ -12,12 +12,12 @@ SPDX-License-Identifier: CC-BY-4.0
 > [`docs/sessions/NEXT.md`](./sessions/NEXT.md). Testovanie sa rieši priebežne pri každej
 > položke (workflow pravidlo: testy s každou zmenou) — preto tu nie je samostatná „testovacia" sekcia.
 
-| Atribút                   | Hodnota                                                                              |
-| ------------------------- | ------------------------------------------------------------------------------------ |
-| **Posledná aktualizácia** | 2026-06-04 (ADR-0031 Microsoft OAuth go-live; User.Read scope fix; openapi regen)    |
-| **Stav projektu**         | Production LIVE ✅ — ADR-0028 v2 uzavretý; SFZ pilot pripravený                      |
-| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr          |
-| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs |
+| Atribút                   | Hodnota                                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-06 (testovanie formulárov; combobox fix; location types; org settings; trackingMode) |
+| **Stav projektu**         | Production LIVE ✅ — SFZ pilot aktívne testovaný                                             |
+| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr                  |
+| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs         |
 
 ---
 
@@ -35,6 +35,19 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] frontend: `/scan/[token]` route + QR na detaile + Settings foundContactInfo (K5)
   - [x] whitelist test pre `PublicAssetViewSchema` (K6)
   - [x] openapi regen (K7)
+
+### 23. BULK asset create — RECEIPT pohyb pri vytvorení (P0, ~1h)
+
+- **Stav:** Otvorené (2026-06-06)
+- **Kontext:** `ApiCreateAssetBodySchema` + `CreateAssetSchema` majú `initialQuantity`, frontend posiela hodnotu, ale `assets.service.ts` `create()` ho ignoruje — `quantityOnHand` zostane `null` a nevytvorí sa `StockMovement` RECEIPT záznam.
+- **Čo treba:**
+  1. `assets.routes.ts` — injektnúť `StockMovementsRepository` do `AssetsService` konštruktu (pridať `new StockMovementsRepository(fastify.mongo.db)` a odovzdať ako 7. argument)
+  2. `assets.service.ts` — revertovať `_stockMovementsRepo` removal, obnoviť import, a po inserte BULK assetu v transakcii:
+     - `stockMovementsRepo.insert({ type: 'RECEIPT', quantity: initialQty, balanceAfter: initialQty, locationId, ... }, session)`
+     - `repo.update(tenantId, assetId, { quantityOnHand: initialQty, updatedAt: now, updatedBy: userId }, session)`
+  3. Testy: BULK create s `initialQuantity: 5` → `quantityOnHand: 5`, RECEIPT záznam v `stock_movements`
+- **Model:** Sonnet
+- **Blocker:** ÁNO — bez tohto BULK majetok nefunguje správne (množstvo je vždy 0)
 
 ### 2. email_unique index — reziduálny globálny index ✅ DONE (2026-06-01)
 

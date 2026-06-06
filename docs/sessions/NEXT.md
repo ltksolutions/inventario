@@ -1,41 +1,37 @@
-# NEXT — aktuálny stav + ďalší krok
+# NEXT
 
-Posledná session: docs/sessions/2026-06-04-microsoft-oauth-golive.md (MS OAuth go-live + User.Read fix)
+## Aktuálny stav (2026-06-06)
 
-## Aktuálny stav
+Prebehlo testovanie formulárov na `app.inventario.estate` (SFZ tenant). Väčšina kritických bugov opravená. Pridávanie majetku funguje keď je nastavený `inventoryNumberFormat`.
 
-Production LIVE. ADR-0031 implementovaný (E1–E8) aj **nasadzovaný do reálu** — prebieha
-živé testovanie Microsoft prihlásenia pre SFZ pilot.
+## Čo treba spraviť ako ďalšie
 
-Hotové dnes:
+### 1. RECEIPT pohyb pri vytvorení BULK majetku (P0, ~1h)
 
-- Nová Azure App Registration (platformová, multitenant) — staré dev appky (API + CLI) na zmazanie
-- `User.Read` scope doplnený do Microsoft OAuth (fix 403 z Graph /me) — commitnuté
-- `openapi.json` regen (stale po ADR-0031 E7 PATCH microsoftOAuth) — commit `8c5ada8`
-- SFZ org v `/settings/auth`: `@futbalsfz.sk` auto-join doména + `entraTenantId` bcd6945a-… nastavené
+**Problém:** Pri vytvorení BULK položky s `initialQuantity` sa `quantityOnHand` nenastaví a nevytvorí sa StockMovement RECEIPT záznam.
 
-Konfigurácia SFZ (vrstvy sú nezávislé — viď session doc):
+**Čo treba:**
 
-- `autoJoinDomains` = join policy (bez pozvánky)
-- `entraTenantId` = security guard na `tid` claim (uzamknutie na SFZ adresár)
-- vlastná Microsoft app = prázdna → platformová app (env fallback) drží pilot
+- `assets.routes.ts` — injektnúť `StockMovementsRepository` do `AssetsService` konštruktora
+- `assets.service.ts` — po inserte BULK assetu v transakcii:
+  1. `stockMovementsRepo.insert({ type: 'RECEIPT', quantity: initialQty, ... }, session)`
+  2. `repo.update(tenantId, assetId, { quantityOnHand: initialQty, ... }, session)`
+- Testy: BULK create → `quantityOnHand` = `initialQuantity`, RECEIPT záznam v `stock_movements`
 
-## Ďalší krok
+Viď TODO.md #P0.
 
-Microsoft login **funguje** ✅ — SFZ pilot má funkčné prihlásenie cez Microsoft.
+### 2. Otestovať pridanie majetku end-to-end (P0)
 
-Ostatok cleanup:
+- Najprv nastaviť `inventoryNumberFormat` v Organizácia → napr. prefix `SFZ`, padding 4, rok zapnutý
+- Pridať SERIALIZED majetok (notebook) → overiť inventárne číslo
+- Pridať BULK majetok (lopty) s počtom → overiť `quantityOnHand` v MongoDB
 
-- Zmazať obe staré Azure app registrácie (API `7927aaa3-…` + CLI `40b94818-…`)
-- V Atlas upratať `authProviders[0].providerId` na user dokumente (už opravené manuálne — `0c437485-acfb-485b-a713-213897049c2f`)
-- `.env.local` mŕtve premenné `ENTRA_CLI_CLIENT_ID` + `ENTRA_API_CLIENT_ID` — neškodné, upratať pri príležitosti
+### 3. Sklad stránka pre BULK majetok (P1)
 
-## Na horizonte (v TODO.md)
+- `WarehouseContent` / Sklad tab — zobraziť množstvo, pohyby
+- Vizuálne odlíšenie BULK vs SERIALIZED v zozname
 
-- P1 tech-debt: memberships partial index (partialFilterExpression: { deletedAt: null })
-- ADR-0029 K8 — replikácia shared-types do SFZ Asset-Management repa
-- ADR-0028 B1-B10 — per-tenant branding implementácia
-- ADR-0015 Slice #9 K1-K4 — cross-tenant memberships impl
-- Forced MFA smoke-test s kolegom
-- Pre-go-live blocky (legal review, Atlas allowlist, DR test, pentest)
-- Apple Sign-In aktivácia (po Apple Developer approval)
+## Referencie
+
+- Session doc: `docs/sessions/2026-06-06-testing-forms-ciselníky-org-settings.md`
+- TODO.md: pozri P0 sekciu
