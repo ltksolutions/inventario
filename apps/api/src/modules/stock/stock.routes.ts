@@ -129,24 +129,16 @@ const stockRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       const tenantId = String(request.currentUser.organisationId);
-      try {
-        const items = await stockRepo.listBulkItemsWithLastReceipt(tenantId);
-        return {
-          data: items.map((item) => ({
-            ...item,
-            _id: String(item._id),
-            categoryId: String(item.categoryId),
-            locationId: String(item.locationId),
-          })),
-          total: items.length,
-        };
-      } catch (err) {
-        request.log.error(
-          { err, tenantId, msg: err instanceof Error ? err.message : String(err) },
-          'GET /v1/stock failed in listBulkItemsWithLastReceipt',
-        );
-        throw err;
-      }
+      const items = await stockRepo.listBulkItemsWithLastReceipt(tenantId);
+      return {
+        data: items.map((item) => ({
+          ...item,
+          _id: String(item._id),
+          categoryId: String(item.categoryId),
+          locationId: String(item.locationId),
+        })),
+        total: items.length,
+      };
     },
   );
 

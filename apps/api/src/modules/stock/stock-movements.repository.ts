@@ -210,7 +210,7 @@ export class StockMovementsRepository {
           _id: 1,
           inventoryNumber: 1,
           name: 1,
-          quantityOnHand: 1,
+          quantityOnHand: { $ifNull: ['$quantityOnHand', 0] },
           categoryId: 1,
           locationId: 1,
           lastReceiptQuantity: {
