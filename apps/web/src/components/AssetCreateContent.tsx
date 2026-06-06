@@ -269,7 +269,7 @@ export function AssetCreateContent(): JSX.Element {
                 {...register('initialQuantity', {
                   required:
                     watch('trackingMode') === 'BULK' ? 'Počiatočné množstvo je povinné.' : false,
-                  min: { value: 0, message: 'Množstvo musí byť 0 alebo viac.' },
+                  min: { value: 1, message: 'Množstvo musí byť aspoň 1.' },
                   valueAsNumber: true,
                 })}
                 className={inputCls()}

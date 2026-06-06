@@ -49,19 +49,6 @@ export class StockMovementsRepository {
     this.collection = db.collection<StockMovement>('stock_movements');
   }
 
-  /**
-   * Vytvorí indexy ak ešte neexistujú. Idempotentné.
-   *
-   * Indexy:
-   *   - `organisationId_itemId_createdAt` — hlavný index pre
-   *     `listByItem` (filtruje na tenant + položku, radí podľa dátumu).
-   *   - `organisationId_itemId_type` — filter pohybov podľa typu
-   *     (napr. len LOAN_OUT pre danú položku).
-   *   - `organisationId_loanId` — lookup pohybov viazaných na zápožičku
-   *     (neskôr pri loans, keď budeme reconcilovat quantity po vrátení).
-   *   - `organisationId_createdAt` — globálny časový filter pre
-   *     reporting (napr. všetky pohyby tenanta za posledný mesiac).
-   */
   async ensureIndexes(): Promise<void> {
     await Promise.all([
       this.collection.createIndex(
@@ -83,15 +70,6 @@ export class StockMovementsRepository {
     ]);
   }
 
-  /**
-   * Vloží nový pohyb do ledgera. Vracia vložený dokument.
-   *
-   * Volaj vždy v rámci transakcie (spolu s `$inc` na
-   * `asset.quantityOnHand` a audit log insertom) — inak môžu ledger
-   * a cache divergovať. Volateľ nastaví všetky polia vrátane
-   * `organisationId` a `balanceAfter` pred volaním (service ich
-   * vypočíta v rámci transakcie).
-   */
   async insert(
     movement: Omit<StockMovement, '_id'>,
     session?: ClientSession,
@@ -115,10 +93,6 @@ export class StockMovementsRepository {
     return inserted;
   }
 
-  /**
-   * Nájde pohyb podľa `_id`. Vráti `null` ak neexistuje alebo patrí
-   * inému tenantovi.
-   */
   async findById(
     organisationId: string,
     id: string,
@@ -136,12 +110,6 @@ export class StockMovementsRepository {
     );
   }
 
-  /**
-   * Zoznam pohybov pre konkrétnu BULK položku, zoradených od
-   * najnovšieho. Tenant-scoped.
-   *
-   * `total` je celkový počet pohybov pre položku (pre paginovanie).
-   */
   async listByItem(
     organisationId: string,
     itemId: string,
@@ -177,15 +145,6 @@ export class StockMovementsRepository {
     return { items, total };
   }
 
-  /**
-   * Vypočíta skutočný zostatok položky ako `sum(quantity)` cez celý
-   * ledger. Vracia 0 ak žiadne pohyby neexistujú.
-   *
-   * Účel: **reconciliation** — overenie / rekonštrukcia konzistencie
-   * medzi ledgerom (zdrojom pravdy) a `asset.quantityOnHand` (cache).
-   * Nevolaj na každý request; použi pre diagnostiku alebo po obnove
-   * zo zálohy.
-   */
   async sumQuantityByItem(
     organisationId: string,
     itemId: string,
@@ -207,16 +166,7 @@ export class StockMovementsRepository {
 
   /**
    * Zoznam všetkých BULK položiek tenanta s ich aktuálnym zostatkom
-   * a kvantitatou posledného príjmu (RECEIPT) — pre skladový prehľad.
-   *
-   * Aggregácia:
-   *   1. Získa všetky assets tenanta s trackingMode === 'BULK'
-   *   2. Pre každú položku $lookup-ne posledný RECEIPT pohyb
-   *      (sort createdAt desc, limit 1)
-   *   3. Vráti: _id, inventoryNumber, name, quantityOnHand,
-   *      categoryId, locationId, lastReceiptQuantity (null ak žiadny)
-   *
-   * Používa sa len na čítanie (bez transakcie).
+   * a množstvom posledného príjmu (RECEIPT) — pre skladový prehľad.
    */
   async listBulkItemsWithLastReceipt(organisationId: string): Promise<BulkItemOverview[]> {
     const tenantId = requireTenantId(organisationId);
@@ -231,6 +181,7 @@ export class StockMovementsRepository {
         },
       },
       // Krok 2: join na posledný RECEIPT pohyb
+      // Poznámka: premenné z `let` sa referencujú ako $$itemId / $$orgId
       {
         $lookup: {
           from: 'stock_movements',
@@ -240,8 +191,8 @@ export class StockMovementsRepository {
               $match: {
                 $expr: {
                   $and: [
-                    { $eq: ['$itemId', '$itemId'] },
-                    { $eq: ['$organisationId', '$orgId'] },
+                    { $eq: ['$itemId', '$$itemId'] },
+                    { $eq: ['$organisationId', '$$orgId'] },
                     { $eq: ['$type', 'RECEIPT'] },
                   ],
                 },
@@ -253,7 +204,7 @@ export class StockMovementsRepository {
           as: 'lastReceipts',
         },
       },
-      // Krok 3: projektácia — len polia, ktoré UI potrebuje
+      // Krok 3: projektácia
       {
         $project: {
           _id: 1,
@@ -267,7 +218,7 @@ export class StockMovementsRepository {
           },
         },
       },
-      // Krok 4: zoradiť podľa inventorného čísla
+      // Krok 4: zoradiť podľa inventárneho čísla
       { $sort: { inventoryNumber: 1 } },
     ];
 
