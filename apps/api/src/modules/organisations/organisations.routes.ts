@@ -298,6 +298,25 @@ const UpdateOwnOrganisationBodySchema = z
     primaryContactEmail: z.string().email('Neplatná e-mailová adresa.').nullable(),
     billing: BillingBodySchema.nullable(),
     brandKit: BrandKitBodySchema.nullable(), // ADR-0028 v2: preset+logo všetkým plánom; preset expanzia v service
+    // ADR-0021: lost & found kontakt zobrazený na verejnej scan stránke
+    foundContactInfo: z
+      .object({
+        email: z.string().email().nullable().default(null),
+        phone: z.string().max(30).nullable().default(null),
+        message: z.string().max(500).nullable().default(null),
+      })
+      .nullable(),
+    // ADR-0021: formát inventárneho čísla
+    inventoryNumberFormat: z
+      .object({
+        prefix: z
+          .string()
+          .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "SFZ").'),
+        padding: z.number().int().min(1).max(8).default(4),
+        includeYear: z.boolean().default(true),
+        resetYearly: z.boolean().default(true),
+      })
+      .nullable(),
     // ADR-0030 D3: auth domain settings
     allowedAuthProviders: z
       .array(z.enum(['GOOGLE', 'APPLE', 'MICROSOFT', 'EMAIL']))
