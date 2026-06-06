@@ -33,6 +33,7 @@ import type { AuditLogService } from '../audit/audit.service.js';
 import type { CategoriesRepository } from '../categories/categories.repository.js';
 import type { LocationsRepository } from '../locations/locations.repository.js';
 import type { OrganisationsRepository } from '../organisations/organisations.repository.js';
+import type { StockMovementsRepository } from '../stock/stock-movements.repository.js';
 import type { Asset, CreateAssetInput, UpdateAssetInput, User } from '@inventario/shared-types';
 import type { FastifyRequest } from 'fastify';
 import type { ClientSession, MongoClient, WithId } from 'mongodb';
@@ -78,6 +79,7 @@ export class AssetsService {
     private readonly categoriesRepo: CategoriesRepository,
     private readonly locationsRepo: LocationsRepository,
     private readonly orgsRepo: OrganisationsRepository,
+    private readonly stockMovementsRepo: StockMovementsRepository,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -230,6 +232,40 @@ export class AssetsService {
         },
         session,
       );
+
+      // ----- Step 4 (BULK only): počiatočný RECEIPT pohyb -----
+      // ADR-0020: `quantityOnHand` je cache odvodená z StockMovement ledgera.
+      // Pri vytvorení BULK položky vytvoríme RECEIPT pohyb s počiatočným
+      // množstvom v tej istej transakcii ako insert assetu. Tým sa zaručí
+      // konzistencia ledgera a cache od prvej sekundy.
+      // Pre SERIALIZED položky je `quantityOnHand` null (krok preskočíme).
+      const initialQty = (input as CreateAssetInput & { initialQuantity?: number }).initialQuantity;
+      if (doc.trackingMode === 'BULK' && initialQty !== undefined && initialQty > 0) {
+        await this.stockMovementsRepo.insert(
+          {
+            organisationId: tenantId,
+            itemId: String(insertedDoc._id),
+            type: 'RECEIPT',
+            quantity: initialQty,
+            balanceAfter: initialQty,
+            locationId: input.locationId,
+            reason: 'Počiatočný príem pri vytvorení položky.',
+            note: null,
+            loanId: null,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: userId,
+            updatedBy: userId,
+          },
+          session,
+        );
+        await this.repo.update(
+          tenantId,
+          String(insertedDoc._id),
+          { quantityOnHand: initialQty, updatedAt: now, updatedBy: userId },
+          session,
+        );
+      }
 
       return insertedDoc;
     });

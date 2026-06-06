@@ -28,6 +28,7 @@ import { z } from 'zod';
 import { CategoriesRepository } from '../categories/categories.repository.js';
 import { LocationsRepository } from '../locations/locations.repository.js';
 import { OrganisationsRepository } from '../organisations/organisations.repository.js';
+import { StockMovementsRepository } from '../stock/stock-movements.repository.js';
 
 import { AssetsRepository } from './assets.repository.js';
 import { AssetsService } from './assets.service.js';
@@ -101,6 +102,7 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
   const categoriesRepo = new CategoriesRepository(fastify.mongo.db);
   const locationsRepo = new LocationsRepository(fastify.mongo.db);
   const orgsRepo = new OrganisationsRepository(fastify.mongo.db);
+  const stockMovementsRepo = new StockMovementsRepository(fastify.mongo.db);
   const service = new AssetsService(
     repo,
     fastify.auditLog,
@@ -108,6 +110,7 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
     categoriesRepo,
     locationsRepo,
     orgsRepo,
+    stockMovementsRepo,
   );
 
   await repo.ensureIndexes();
