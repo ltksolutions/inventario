@@ -28,6 +28,7 @@ import { migrate_2026_06_01b_drop_residual_email_index } from './2026-06-01b-dro
 import { migrate_2026_06_03_single_role } from './2026-06-03-single-role.js';
 import { migrate_2026_06_05_seed_missing_defaults } from './2026-06-05-seed-missing-defaults.js';
 import { migrate_2026_06_05b_location_type_enum_expand } from './2026-06-05b-location-type-enum-expand.js';
+import { migrate_2026_06_07_memberships_partial_index } from './2026-06-07-memberships-partial-index.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -111,6 +112,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     description:
       'Expand LocationType enum with HEADQUARTERS and BRANCH — no DB data changes needed, enum is additive.',
     run: migrate_2026_06_05b_location_type_enum_expand,
+  },
+  {
+    key: '2026-06-07-memberships-partial-index',
+    description:
+      'ADR-0029: Recreate memberships_userId_organisationId_unique with partialFilterExpression: { deletedAt: null } so soft-deleted records do not block rejoins.',
+    run: migrate_2026_06_07_memberships_partial_index,
   },
 ];
 
