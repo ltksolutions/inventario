@@ -207,11 +207,16 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                 {/* Tab content */}
                 <div className="p-5 lg:p-6">
                   {activeTab === 'overview' && (
-                    <AssetDetailReadView
-                      asset={assetQuery.data}
-                      categoriesById={categoriesById}
-                      locationsById={locationsById}
-                    />
+                    <>
+                      {assetQuery.data.status === 'BORROWED' && (
+                        <ActiveBorrowerBlock assetId={assetId} />
+                      )}
+                      <AssetDetailReadView
+                        asset={assetQuery.data}
+                        categoriesById={categoriesById}
+                        locationsById={locationsById}
+                      />
+                    </>
                   )}
                   {activeTab === 'stock' && assetQuery.data && (
                     <StockPanel asset={assetQuery.data} />
@@ -505,6 +510,39 @@ function QrCard({
         >
           Stiahnuť PNG na tlač →
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Active borrower block (shown on Detail tab when status === BORROWED)
+// ---------------------------------------------------------------------------
+
+function ActiveBorrowerBlock({ assetId }: { assetId: string }): JSX.Element | null {
+  const loansQuery = useLoansForAsset(assetId);
+  const activeLoan = (loansQuery.data ?? []).find((l) => l.status === 'ACTIVE');
+
+  if (loansQuery.isLoading || !activeLoan) return null;
+
+  return (
+    <div className="mb-6 flex items-start gap-3 rounded-xl border border-warning-fg/30 bg-warning-bg px-4 py-3">
+      <User className="mt-0.5 h-5 w-5 shrink-0 text-warning-fg" aria-hidden="true" />
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-warning-fg">Aktuálne zapožičané</p>
+        {activeLoan.borrowerDisplayName && (
+          <p className="mt-0.5 truncate text-sm text-text-primary">
+            {activeLoan.borrowerDisplayName}
+          </p>
+        )}
+        {activeLoan.purpose && (
+          <p className="mt-0.5 truncate text-xs text-text-secondary">{activeLoan.purpose}</p>
+        )}
+        <p className="mt-0.5 text-xs text-text-muted">
+          Od {new Date(activeLoan.createdAt).toLocaleDateString('sk-SK')}
+          {activeLoan.dueAt &&
+            ` · Plánované vrátenie: ${new Date(activeLoan.dueAt).toLocaleDateString('sk-SK')}`}
+        </p>
       </div>
     </div>
   );

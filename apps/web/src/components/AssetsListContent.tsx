@@ -17,7 +17,13 @@ import { TRACKING_MODE_FILTER_OPTIONS } from './TrackingModeBadge';
 import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
-import { useAssets, useCanEditAssets, useCategories, useLocations, useLoans } from '@/lib/api-hooks';
+import {
+  useAssets,
+  useCanEditAssets,
+  useCategories,
+  useLocations,
+  useLoans,
+} from '@/lib/api-hooks';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 /**

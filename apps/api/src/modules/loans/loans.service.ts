@@ -195,7 +195,12 @@ export class LoansService {
     });
 
     const nameMap = await this.buildBorrowerNameMap(items.map((l) => String(l.borrowerId)));
-    return paginatedResponse(items.map((l) => loanToApiShape(l, nameMap.get(String(l.borrowerId)))), total, limit, skip);
+    return paginatedResponse(
+      items.map((l) => loanToApiShape(l, nameMap.get(String(l.borrowerId)))),
+      total,
+      limit,
+      skip,
+    );
   }
 
   async listMyLoans(
@@ -1133,7 +1138,8 @@ export class LoansService {
       .toArray();
     const map = new Map<string, string>();
     for (const doc of docs) {
-      const displayName = (doc['displayName'] as string | undefined) ?? (doc['email'] as string | undefined) ?? '';
+      const displayName =
+        (doc['displayName'] as string | undefined) ?? (doc['email'] as string | undefined) ?? '';
       if (displayName) map.set(String(doc['_id']), displayName);
     }
     return map;
@@ -1256,7 +1262,12 @@ function loanRequestToApiShape(doc: WithId<LoanRequest>): Record<string, unknown
 function loanToApiShape(doc: WithId<Loan>, borrowerDisplayName?: string): Record<string, unknown> {
   const isOverdue =
     doc.status === 'ACTIVE' && doc.dueAt != null && new Date().toISOString() > doc.dueAt;
-  return { ...doc, _id: String(doc._id), isOverdue, borrowerDisplayName: borrowerDisplayName ?? null };
+  return {
+    ...doc,
+    _id: String(doc._id),
+    isOverdue,
+    borrowerDisplayName: borrowerDisplayName ?? null,
+  };
 }
 
 function paginatedResponse<T>(
