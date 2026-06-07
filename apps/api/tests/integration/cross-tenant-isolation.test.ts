@@ -337,15 +337,18 @@ describe('Cross-tenant isolation', () => {
 
   describe('audit log scope', () => {
     it('audit entries created by tenant A actions carry tenant A organisationId', async () => {
+      // NOTE (ADR-0029 / #18): roles are no longer managed via PATCH /v1/users/:id.
+      // Use isActive flip instead — it still generates an audit log entry and
+      // lets us verify that the entry carries the correct organisationId.
       const target = await insertTestUser(app, {
         organisationId: tenantAId,
-        roles: [UserRole.EMPLOYEE],
+        isActive: true,
       });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ASSET_MANAGER] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(200);
       const auditDocs = await app.mongo.db
