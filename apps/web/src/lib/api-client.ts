@@ -74,7 +74,32 @@ async function tryRefresh(): Promise<boolean> {
 // Middleware
 // ---------------------------------------------------------------------------
 
+/**
+ * WeakMap storing a pre-flight clone of each outgoing Request.
+ *
+ * Problem: `onResponse` is called AFTER `fetch()` has consumed the
+ * request body (ReadableStream). Calling `request.clone()` at that
+ * point throws `TypeError: Body is disturbed or locked`.
+ *
+ * Fix: clone the request in `onRequest` — before the body is read —
+ * and store it here. `onResponse` retrieves the clone for the retry.
+ * WeakMap ensures entries are GC-d when the Request object itself is
+ * collected (no memory leak).
+ */
+const pendingClones = new WeakMap<Request, Request>();
+
 const silentRefreshMiddleware: Middleware = {
+  // Save a clone of the request BEFORE fetch() consumes its body.
+  onRequest({ request }) {
+    try {
+      pendingClones.set(request, request.clone());
+    } catch {
+      // Body already disturbed (shouldn't happen in onRequest, but be safe).
+    }
+    // Return undefined — don't modify the request.
+    return undefined;
+  },
+
   async onResponse({ request, response }) {
     // Only intercept 401s in the browser. Server-side fetches have no
     // cookies to refresh and no window to redirect.
@@ -87,6 +112,7 @@ const silentRefreshMiddleware: Middleware = {
       request.url.includes('/v1/auth/login') ||
       request.url.includes('/v1/auth/logout')
     ) {
+      pendingClones.delete(request);
       window.location.href = '/login';
       return response;
     }
@@ -94,16 +120,25 @@ const silentRefreshMiddleware: Middleware = {
     // Attempt silent refresh.
     const refreshed = await tryRefresh();
     if (!refreshed) {
+      pendingClones.delete(request);
       window.location.href = '/login';
       return response;
     }
 
-    // Retry the original request. The browser automatically attaches the
-    // new inv_access cookie (set by the refresh endpoint) because
-    // credentials:'include' is in the client options.
-    //
-    // Clone the request: a consumed Request body can only be read once.
-    return fetch(request.clone());
+    // Retry using the pre-flight clone (body still readable).
+    // The browser automatically attaches the new inv_access cookie
+    // (set by the refresh endpoint) because credentials:'include' is
+    // in the client options.
+    const clonedRequest = pendingClones.get(request);
+    pendingClones.delete(request);
+
+    if (!clonedRequest) {
+      // Fallback: no clone available — can't retry, send to login.
+      window.location.href = '/login';
+      return response;
+    }
+
+    return fetch(clonedRequest);
   },
 };
 
