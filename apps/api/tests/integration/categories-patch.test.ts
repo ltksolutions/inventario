@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
 import {
+  insertTestAsset,
   insertTestCategory,
   provisionUser,
   resolveTestTenantId,
@@ -312,62 +313,29 @@ describe('PATCH /v1/categories/:id', () => {
       expect(res.json<{ name: string }>().name).toBe('Original');
     });
 
-    it('rejects assetTypeSlug in invalid slug format', async () => {
-      const cat = await insertTestCategory(app);
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/categories/${cat._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { assetTypeSlug: 'TOTALLY_FAKE' },
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('rejects assetTypeSlug not present in the asset_types číselník', async () => {
-      const cat = await insertTestCategory(app);
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/categories/${cat._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { assetTypeSlug: 'neexistujuci-typ' },
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('changes assetTypeSlug on a root category and cascades to children', async () => {
-      const root = await insertTestCategory(app, {
-        name: 'Root',
-        slug: 'root-cascade',
-        assetTypeSlug: 'it-majetok',
-      });
-      const child = await insertTestCategory(app, {
-        name: 'Child',
-        slug: 'child-cascade',
-        parentId: root._id,
-        assetTypeSlug: 'it-majetok',
-      });
-
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/categories/${root._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { assetTypeSlug: 'sportova-vystroj' },
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.json<{ assetTypeSlug: string }>().assetTypeSlug).toBe('sportova-vystroj');
-
-      const childDoc = await app.mongo.db
-        .collection('categories')
-        .findOne({ slug: 'child-cascade' });
-      expect(childDoc?.['assetTypeSlug']).toBe('sportova-vystroj');
-      void child;
-    });
-
-    it('rejects changing assetTypeSlug on a child category (inherits from parent)', async () => {
-      const root = await insertTestCategory(app, { name: 'R', slug: 'root-inherit' });
+    it('rejects promoting a child category to root while assets reference it', async () => {
+      const root = await insertTestCategory(app, { name: 'R', slug: 'root-promote' });
       const child = await insertTestCategory(app, {
         name: 'C',
-        slug: 'child-inherit',
+        slug: 'child-promote',
+        parentId: root._id,
+      });
+      await insertTestAsset(app, { categoryId: child._id });
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/categories/${child._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { parentId: null },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('allows promoting a child category to root when no assets reference it', async () => {
+      const root = await insertTestCategory(app, { name: 'R2', slug: 'root-promote-ok' });
+      const child = await insertTestCategory(app, {
+        name: 'C2',
+        slug: 'child-promote-ok',
         parentId: root._id,
       });
 
@@ -375,9 +343,10 @@ describe('PATCH /v1/categories/:id', () => {
         method: 'PATCH',
         url: `/v1/categories/${child._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { assetTypeSlug: 'sportova-vystroj' },
+        payload: { parentId: null },
       });
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(200);
+      expect(res.json<{ parentId: string | null }>().parentId).toBeNull();
     });
   });
 
@@ -404,7 +373,6 @@ describe('PATCH /v1/categories/:id', () => {
         name: 'Old',
         slug: 'old-ts-cat',
         parentId: null,
-        assetTypeSlug: 'it-majetok',
         description: null,
         icon: null,
         color: null,

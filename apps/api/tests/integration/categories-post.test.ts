@@ -66,7 +66,6 @@ describe('POST /v1/categories', () => {
       const body = validCreateCategoryBody({
         name: 'Notebooky',
         slug: 'notebooky',
-        assetTypeSlug: 'it-majetok',
       });
 
       const res = await app.inject({
@@ -82,7 +81,6 @@ describe('POST /v1/categories', () => {
         name: string;
         slug: string;
         parentId: string | null;
-        assetTypeSlug: string;
         isActive: boolean;
       }>();
 
@@ -90,23 +88,16 @@ describe('POST /v1/categories', () => {
       expect(result.name).toBe('Notebooky');
       expect(result.slug).toBe('notebooky');
       expect(result.parentId).toBeNull();
-      expect(result.assetTypeSlug).toBe('it-majetok');
       expect(result.isActive).toBe(true);
     });
 
-    it('creates a child category referencing an existing parent and inherits its assetTypeSlug', async () => {
-      const parent = await insertTestCategory(app, {
-        name: 'Šport',
-        slug: 'sport',
-        assetTypeSlug: 'sportova-vystroj',
-      });
+    it('creates a child category referencing an existing parent', async () => {
+      const parent = await insertTestCategory(app, { name: 'Šport', slug: 'sport' });
 
       const body = validCreateCategoryBody({
         name: 'Dresy',
         slug: 'dresy',
         parentId: parent._id,
-        // Klientska hodnota sa pri podkategórii ignoruje — dedí sa z rodiča.
-        assetTypeSlug: 'it-majetok',
       });
 
       const res = await app.inject({
@@ -117,9 +108,8 @@ describe('POST /v1/categories', () => {
       });
 
       expect(res.statusCode).toBe(201);
-      const result = res.json<{ parentId: string; assetTypeSlug: string }>();
+      const result = res.json<{ parentId: string }>();
       expect(result.parentId).toBe(parent._id);
-      expect(result.assetTypeSlug).toBe('sportova-vystroj');
     });
 
     it('persists the category so GET returns it', async () => {
@@ -239,28 +229,6 @@ describe('POST /v1/categories', () => {
         url: '/v1/categories',
         headers: { cookie: `inv_access=${adminToken}` },
         payload: validCreateCategoryBody({ slug: 'has spaces' }),
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('rejects assetTypeSlug not present in the asset_types číselník', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/v1/categories',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: validCreateCategoryBody({ assetTypeSlug: 'neexistujuci-typ' }),
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('rejects a root category without assetTypeSlug', async () => {
-      const body = validCreateCategoryBody();
-      delete body['assetTypeSlug'];
-      const res = await app.inject({
-        method: 'POST',
-        url: '/v1/categories',
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: body,
       });
       expect(res.statusCode).toBe(400);
     });

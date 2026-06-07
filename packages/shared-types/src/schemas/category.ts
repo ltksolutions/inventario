@@ -8,16 +8,16 @@ import {
 } from './common.js';
 
 /**
- * Kategória majetku — hierarchická taxonómia (strom).
+ * Kategória majetku — hierarchická taxonómia (strom), JEDINÝ číselník
+ * klasifikácie majetku (zlúčenie s "Typmi majetku", 2026-06-08).
  *
- * Každá kategória patrí pod práve jeden typ majetku (`assetTypeSlug` →
- * per-tenant kolekcia `asset_types`). Vo formulároch sa kategórie
- * ponúkajú filtrované podľa zvoleného typu. Deti DEDIA typ z root
- * rodiča — typ sa nastavuje len na root úrovni.
+ * ROOT kategórie (parentId = null) plnia rolu typov majetku — slúžia
+ * len na zoskupenie. Majetok sa zaraďuje výhradne do PODkategórií
+ * (vynucuje AssetsService).
  *
- * Príklad hierarchie (typ: it-majetok):
- *   IT
- *   ├── Notebooky
+ * Príklad hierarchie:
+ *   IT majetok            ← root = "typ"
+ *   ├── Notebooky         ← sem sa zaraďuje majetok
  *   │   ├── Pracovné notebooky
  *   │   └── Vývojárske notebooky
  *   ├── Mobily
@@ -37,18 +37,8 @@ export const CategorySchema = BaseDocumentSchema.merge(SoftDeleteSchema)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug musí byť lowercase s pomlčkami.')
       .max(200),
 
-    /** ID nadradenej kategórie (null pre root kategórie). */
+    /** ID nadradenej kategórie (null pre root kategórie = "typy majetku"). */
     parentId: ObjectIdSchema.nullable().default(null),
-
-    /**
-     * Slug typu majetku z per-tenant číselníka `asset_types`.
-     * Root kategória ho má nastavený explicitne, deti ho dedia z rodiča
-     * (server ho pri create/update odvodzuje a kaskáduje).
-     */
-    assetTypeSlug: z
-      .string()
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'assetTypeSlug musí byť lowercase slug s pomlčkami.')
-      .max(200),
 
     /** Voliteľný popis. */
     description: z.string().max(1000).nullable().default(null),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AssetStatus } from '../../src/enums/asset-status.js';
-import { AssetCondition, AssetType } from '../../src/enums/asset-type.js';
+import { AssetCondition } from '../../src/enums/asset-type.js';
 import { TrackingMode } from '../../src/enums/tracking-mode.js';
 import {
   AssetSchema,
@@ -24,7 +24,6 @@ const validAssetInput = {
   serialNumber: 'PN-ABC123',
   name: 'Lenovo ThinkPad X1 Carbon Gen 11',
   description: null,
-  type: AssetType.IT,
   categoryId: '507f1f77bcf86cd799439012',
   status: AssetStatus.AVAILABLE,
   condition: AssetCondition.EXCELLENT,
@@ -61,22 +60,6 @@ describe('AssetSchema', () => {
     const result = AssetSchema.safeParse({
       ...validAssetInput,
       inventoryNumber: 'lt-2024-008',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('akceptuje ľubovoľný neprázdny type slug (per-tenant kolekcia)', () => {
-    const result = AssetSchema.safeParse({
-      ...validAssetInput,
-      type: 'UNKNOWN',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('odmieta prázdny type string', () => {
-    const result = AssetSchema.safeParse({
-      ...validAssetInput,
-      type: '',
     });
     expect(result.success).toBe(false);
   });
@@ -160,7 +143,6 @@ describe('CreateAssetSchema', () => {
     const input = {
       inventoryNumber: 'LT-2024-009',
       name: 'Test',
-      type: AssetType.IT,
       categoryId: '507f1f77bcf86cd799439012',
       condition: AssetCondition.NEW,
       locationId: '507f1f77bcf86cd799439013',
@@ -178,7 +160,6 @@ describe('CreateAssetSchema', () => {
     const result = CreateAssetSchema.safeParse({
       inventoryNumber: 'LT-2024-009',
       name: 'Test',
-      type: AssetType.IT,
       categoryId: '507f1f77bcf86cd799439012',
       status: AssetStatus.BORROWED,
       condition: AssetCondition.NEW,
@@ -192,7 +173,6 @@ describe('CreateAssetSchema', () => {
     const result = CreateAssetSchema.safeParse({
       inventoryNumber: 'LT-2024-009',
       name: 'Test',
-      type: AssetType.IT,
       categoryId: '507f1f77bcf86cd799439012',
       condition: AssetCondition.NEW,
       locationId: '507f1f77bcf86cd799439013',

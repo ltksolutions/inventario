@@ -202,8 +202,12 @@ export interface CategorySummary {
   _id: string;
   name: string;
   slug: string;
-  /** Slug typu majetku z číselníka asset_types (kategória patrí pod typ). */
-  assetTypeSlug: string;
+  /**
+   * ID nadradenej kategórie; null = root. Root kategórie plnia rolu
+   * "typov majetku" (zlúčený číselník) — majetok sa zaraďuje len do
+   * podkategórií.
+   */
+  parentId: string | null;
   isActive: boolean;
   [key: string]: unknown;
 }
@@ -222,17 +226,8 @@ export const useCategories = makeListHook<CategorySummary>('categories', '/v1/ca
 export const useLocations = makeListHook<LocationSummary>('locations', '/v1/locations');
 
 // ---------------------------------------------------------------------------
-// Asset Types + Asset Conditions — dynamic per-tenant collections
+// Asset Conditions — dynamic per-tenant collection
 // ---------------------------------------------------------------------------
-
-export interface AssetTypeEntrySummary {
-  _id: string;
-  name: string;
-  slug: string;
-  isActive: boolean;
-  sortOrder: number;
-  [key: string]: unknown;
-}
 
 export interface AssetConditionEntrySummary {
   _id: string;
@@ -241,33 +236,6 @@ export interface AssetConditionEntrySummary {
   isActive: boolean;
   sortOrder: number;
   [key: string]: unknown;
-}
-
-export function useAssetTypes(
-  options: ListQueryOptions = {},
-): UseQueryResult<ListResponse<AssetTypeEntrySummary>, Error> {
-  const { limit = 200, skip = 0 } = options;
-  const { isAuthenticated } = useAuth();
-
-  return useQuery<ListResponse<AssetTypeEntrySummary>, Error>({
-    queryKey: ['asset-types', { limit, skip }],
-    enabled: isAuthenticated,
-    queryFn: async () => {
-      const fetchAssetTypes = apiClient.GET as (
-        path: string,
-        opts: unknown,
-      ) => Promise<{ data: unknown; error: unknown }>;
-      const { data, error } = await fetchAssetTypes('/v1/asset-types', {
-        params: { query: { limit, skip } },
-      });
-      if (error) {
-        const e = error as unknown as { message?: unknown };
-        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load asset types');
-      }
-      if (!data) throw new Error('Empty response from /v1/asset-types');
-      return data as unknown as ListResponse<AssetTypeEntrySummary>;
-    },
-  });
 }
 
 export function useAssetConditions(
@@ -311,18 +279,16 @@ export function useAssetConditions(
  *
  * Most fields are intentionally optional even though the backend's
  * Zod schema accepts them: the UI sends a minimal payload (name +
- * assetTypeSlug + maybe description/parentId), and the backend default
- * does the rest. Once the categories edit form lands we'll expose
- * the remaining knobs (color, icon, approvers, maxLoanDays) — until
- * then this hook keeps the call site small.
+ * maybe description/parentId), and the backend default does the rest.
+ * Once the categories edit form lands we'll expose the remaining knobs
+ * (color, icon, approvers, maxLoanDays) — until then this hook keeps
+ * the call site small.
  *
- * `assetTypeSlug` is required for ROOT categories (no parentId); for
- * child categories the server inherits the parent's type and ignores
- * the provided value.
+ * `parentId` null/absent = nová ROOT kategória (plní rolu "typu
+ * majetku" v zlúčenom číselníku).
  */
 export interface CreateCategoryInput {
   name: string;
-  assetTypeSlug?: string | undefined;
   description?: string | null | undefined;
   parentId?: string | null | undefined;
   slug?: string | undefined;
@@ -339,7 +305,6 @@ export interface CategoryDetail {
   name: string;
   slug: string;
   parentId: string | null;
-  assetTypeSlug: string;
   description: string | null;
   icon: string | null;
   color: string | null;
@@ -380,11 +345,6 @@ export function useCreateCategory(): UseMutationResult<CategoryDetail, Error, Cr
         description:
           input.description == null || input.description === '' ? null : input.description,
       };
-      // assetTypeSlug: required for root categories; for children the
-      // server inherits the parent's type, so omit when not provided.
-      if (input.assetTypeSlug !== undefined && input.assetTypeSlug !== '') {
-        body['assetTypeSlug'] = input.assetTypeSlug;
-      }
       if (input.slug !== undefined && input.slug !== '') {
         body['slug'] = input.slug;
       }
@@ -632,7 +592,6 @@ export interface AssetDetail {
   serialNumber: string | null;
   name: string;
   description: string | null;
-  type: string;
   categoryId: string;
   status: string;
   condition: string;
@@ -1423,7 +1382,6 @@ export function useMembers(): UseQueryResult<ListResponse<MemberPickerItem>, Err
 
 export interface CreateAssetInput {
   name: string;
-  type: string;
   categoryId: string;
   locationId: string;
   status?: string | undefined;
@@ -1771,7 +1729,7 @@ export function useUpdateLocation(): UseMutationResult<
   });
 }
 
-// Asset types + conditions use generic fetch (not in openapi spec yet)
+// Asset conditions use generic fetch (not in openapi spec yet)
 const genericPatch = apiClient.PATCH as (
   path: string,
   opts: unknown,
@@ -1781,44 +1739,6 @@ const genericPost = apiClient.POST as (
   path: string,
   opts: unknown,
 ) => Promise<{ data: unknown; error: unknown }>;
-
-export function useCreateAssetTypes(): UseMutationResult<
-  GenericRecord,
-  Error,
-  { name: string; slug?: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input) => {
-      const { data, error } = await genericPost('/v1/asset-types', { body: input });
-      if (error) {
-        const e = error as unknown as { message?: unknown };
-        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to create asset type');
-      }
-      return data as GenericRecord;
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-types'] }),
-  });
-}
-
-export function useRenameAssetType(): UseMutationResult<
-  GenericRecord,
-  Error,
-  { id: string; name: string }
-> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, name }) => {
-      const { data, error } = await genericPatch(`/v1/asset-types/${id}`, { body: { name } });
-      if (error) {
-        const e = error as unknown as { message?: unknown };
-        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to rename asset type');
-      }
-      return data as GenericRecord;
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-types'] }),
-  });
-}
 
 export function useCreateAssetConditions(): UseMutationResult<
   GenericRecord,
@@ -1866,20 +1786,6 @@ const genericDelete = apiClient.DELETE as (
   path: string,
   opts?: unknown,
 ) => Promise<{ data: unknown; error: unknown }>;
-
-export function useDeleteAssetType(): UseMutationResult<void, Error, { id: string }> {
-  const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string }>({
-    mutationFn: async ({ id }) => {
-      const { error } = await genericDelete(`/v1/asset-types/${id}`);
-      if (error) {
-        const e = error as unknown as { message?: unknown };
-        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to delete asset type');
-      }
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-types'] }),
-  });
-}
 
 export function useDeleteAssetCondition(): UseMutationResult<void, Error, { id: string }> {
   const queryClient = useQueryClient();

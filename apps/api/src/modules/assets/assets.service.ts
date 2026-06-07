@@ -394,6 +394,15 @@ export class AssetsService {
     if (!doc) {
       throw new BadRequestError(`Referenced ${kind} ${id} does not exist.`);
     }
+
+    // Zlúčený číselník (2026-06-08): root kategórie plnia rolu "typov
+    // majetku" a slúžia len na zoskupenie — majetok musí byť zaradený
+    // do PODkategórie.
+    if (kind === 'category' && (doc as { parentId?: string | null }).parentId == null) {
+      throw new BadRequestError(
+        `Category "${(doc as { name?: string }).name ?? id}" is a root category (asset type) and only groups subcategories. Assign the asset to one of its subcategories.`,
+      );
+    }
   }
 
   // -------------------------------------------------------------------------

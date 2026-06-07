@@ -29,7 +29,6 @@ import {
 
 import { runPendingMigrations } from './migrations/runner.js';
 import assetConditionsRoutes from './modules/asset-conditions/asset-conditions.routes.js';
-import assetTypesRoutes from './modules/asset-types/asset-types.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
 import publicAssetsRoutes from './modules/assets/public-assets.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
@@ -181,7 +180,6 @@ export async function buildServer(
   await app.register(assetsRoutes);
   await app.register(publicAssetsRoutes);
   await app.register(assetConditionsRoutes);
-  await app.register(assetTypesRoutes);
   await app.register(categoriesRoutes);
   await app.register(locationsRoutes);
   await app.register(loanRequestsRoutes);

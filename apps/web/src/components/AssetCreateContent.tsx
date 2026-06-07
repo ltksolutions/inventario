@@ -19,21 +19,18 @@ import type { JSX, ReactNode } from 'react';
 
 import {
   useAssetConditions,
-  useAssetTypes,
   useCanEditAssets,
   useCanManageTaxonomy,
   useCategories,
   useCreateAsset,
   useCreateAssetConditions,
-  useCreateAssetTypes,
-  useCreateCategory,
   useCreateLocation,
   useLocations,
   useRenameAssetCondition,
-  useRenameAssetType,
   useRenameCategory,
   useRenameLocation,
 } from '@/lib/api-hooks';
+import { buildCategoryOptions } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
@@ -49,7 +46,6 @@ const STATUS_LABELS: Record<string, string> = {
 interface FormValues {
   name: string;
   description: string;
-  typeSlug: string | null;
   categoryId: string | null;
   status: string;
   conditionSlug: string | null;
@@ -75,15 +71,11 @@ export function AssetCreateContent(): JSX.Element {
   const orgQuery = useCurrentOrganisation();
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
-  const assetTypesQuery = useAssetTypes({ limit: 200 });
   const assetConditionsQuery = useAssetConditions({ limit: 200 });
-  const createCategory = useCreateCategory();
   const createLocation = useCreateLocation();
-  const createAssetType = useCreateAssetTypes();
   const createAssetCondition = useCreateAssetConditions();
   const renameCategory = useRenameCategory();
   const renameLocation = useRenameLocation();
-  const renameAssetType = useRenameAssetType();
   const renameAssetCondition = useRenameAssetCondition();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -92,13 +84,11 @@ export function AssetCreateContent(): JSX.Element {
     control,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
       name: '',
       description: '',
-      typeSlug: null,
       categoryId: null,
       status: 'AVAILABLE',
       conditionSlug: null,
@@ -128,22 +118,13 @@ export function AssetCreateContent(): JSX.Element {
     );
   }
 
-  // Kategórie sú odvodené od zvoleného typu majetku — ponúkame len tie,
-  // ktoré patria pod aktuálne vybraný typ (category.assetTypeSlug).
-  const selectedTypeSlug = watch('typeSlug');
-  const categories = (categoriesQuery.data?.data ?? [])
-    .filter((c) => selectedTypeSlug !== null && c.assetTypeSlug === selectedTypeSlug)
-    .map((c) => ({
-      id: c._id,
-      label: c.name,
-    }));
+  // Zlúčený číselník: jeden hierarchický výber kategórie. Root uzly
+  // (= bývalé "typy majetku") len zoskupujú — ponúkame iba podkategórie,
+  // s labelom obsahujúcim cestu (napr. "IT majetok › Notebooky").
+  const categories = buildCategoryOptions(categoriesQuery.data?.data ?? []);
   const locations = (locationsQuery.data?.data ?? []).map((l) => ({
     id: l._id,
     label: l.name,
-  }));
-  const assetTypes = (assetTypesQuery.data?.data ?? []).map((t) => ({
-    id: t.slug,
-    label: t.name,
   }));
   const assetConditions = (assetConditionsQuery.data?.data ?? []).map((c) => ({
     id: c.slug,
@@ -153,14 +134,13 @@ export function AssetCreateContent(): JSX.Element {
   function onSubmit(values: FormValues): void {
     setSubmitError(null);
 
-    if (!values.typeSlug || !values.categoryId || !values.locationId || !values.conditionSlug) {
+    if (!values.categoryId || !values.locationId || !values.conditionSlug) {
       setSubmitError('Vyplňte všetky povinné polia.');
       return;
     }
 
     const input: CreateAssetInput = {
       name: values.name.trim(),
-      type: values.typeSlug,
       categoryId: values.categoryId,
       locationId: values.locationId,
       status: values.status,
@@ -294,46 +274,11 @@ export function AssetCreateContent(): JSX.Element {
             />
           </Field>
 
-          <Field label="Typ majetku" required>
-            <Controller
-              name="typeSlug"
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Combobox
-                  value={field.value}
-                  onChange={(value) => {
-                    field.onChange(value);
-                    // Zmena typu invaliduje výber kategórie — kategórie sa
-                    // ponúkajú odvodene od typu.
-                    setValue('categoryId', null);
-                  }}
-                  options={assetTypes}
-                  canCreate={canManage}
-                  canRename={canManage}
-                  onCreate={async (label) => {
-                    const result = await createAssetType.mutateAsync({ name: label });
-                    return { id: result.slug as string, label: result.name as string };
-                  }}
-                  onRename={async (slug, newLabel) => {
-                    const entry = assetTypesQuery.data?.data.find((t) => t.slug === slug);
-                    if (entry) await renameAssetType.mutateAsync({ id: entry._id, name: newLabel });
-                  }}
-                  loading={assetTypesQuery.isLoading}
-                />
-              )}
-            />
-          </Field>
-
           <Field
             label="Kategória"
             required
             error={errors.categoryId?.message}
-            hint={
-              selectedTypeSlug
-                ? undefined
-                : 'Najprv vyberte typ majetku — kategórie sa ponúkajú podľa typu.'
-            }
+            hint="Hierarchický výber: skupina › podkategória. Nové kategórie sa spravujú v Číselníkoch."
           >
             <Controller
               name="categoryId"
@@ -344,15 +289,8 @@ export function AssetCreateContent(): JSX.Element {
                   value={field.value}
                   onChange={field.onChange}
                   options={categories}
-                  canCreate={canManage && selectedTypeSlug !== null}
+                  canCreate={false}
                   canRename={canManage}
-                  onCreate={async (label) => {
-                    const result = await createCategory.mutateAsync({
-                      name: label,
-                      assetTypeSlug: selectedTypeSlug ?? undefined,
-                    });
-                    return { id: result._id, label: result.name };
-                  }}
                   onRename={async (id, newLabel) => {
                     await renameCategory.mutateAsync({ id, name: newLabel });
                   }}

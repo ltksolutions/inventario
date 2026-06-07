@@ -44,18 +44,10 @@
  *   ParentLookup callback that calls `repo.findById` inside the
  *   transaction.
  *
- * Asset type binding (`assetTypeSlug`):
- *   Every category belongs to exactly one asset type from the per-tenant
- *   `asset_types` collection, referenced by slug. Rules:
- *     - ROOT category (parentId = null): `assetTypeSlug` is REQUIRED on
- *       create and must reference an existing, non-deleted asset type
- *       within the tenant.
- *     - CHILD category: inherits `assetTypeSlug` from its parent. Any
- *       client-supplied value is ignored/overridden.
- *     - PATCH assetTypeSlug: allowed only on root categories (children
- *       inherit). The change cascades to ALL descendants.
- *     - PATCH parentId (reparent): the node (and its whole subtree)
- *       adopts the new parent's `assetTypeSlug`.
+ * Zlúčený číselník (2026-06-08):
+ *   Kategórie sú JEDINÝ klasifikačný číselník — root kategórie plnia
+ *   rolu bývalých "typov majetku" a slúžia len na zoskupenie. Majetok
+ *   sa zaraďuje výhradne do podkategórií (vynucuje AssetsService).
  */
 
 import {
@@ -69,7 +61,6 @@ import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 import { computeShallowDiff } from '../assets/assets-diff.js';
 
 import type { CategoriesRepository, CategoryUpdatePatch } from './categories.repository.js';
-import type { AssetTypesRepository } from '../asset-types/asset-types.repository.js';
 import type { AssetsRepository } from '../assets/assets.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
 import type { Category, CreateCategoryInput, User } from '@inventario/shared-types';
@@ -110,13 +101,8 @@ export interface ListCategoriesServiceParams {
  * is responsible for normalizing `request.body.slug === ''` to undefined if
  * needed; the service treats `undefined` as "derive me one".
  */
-export type CreateCategoryServiceInput = Omit<CreateCategoryInput, 'slug' | 'assetTypeSlug'> & {
+export type CreateCategoryServiceInput = Omit<CreateCategoryInput, 'slug'> & {
   slug?: string | undefined;
-  /**
-   * Required for ROOT categories (validated against asset_types).
-   * Ignored for child categories — the parent's slug is inherited.
-   */
-  assetTypeSlug?: string | undefined;
 };
 
 /**
@@ -156,7 +142,6 @@ export class CategoriesService {
     private readonly auditLog: AuditLogService,
     private readonly mongoClient: MongoClient,
     private readonly assetsRepo: AssetsRepository,
-    private readonly assetTypesRepo: AssetTypesRepository,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -233,17 +218,12 @@ export class CategoriesService {
       // ----- Step 1: resolve slug (client-provided OR auto-derived) -----
       const resolvedSlug = await this.resolveSlugForCreate(tenantId, input, session);
 
-      // ----- Step 2: parent existence check + assetTypeSlug resolution -----
-      //   Child: inherits assetTypeSlug from the parent (client value
-      //   ignored). Root: assetTypeSlug is required and must reference an
-      //   existing, non-deleted asset type within the tenant.
-      let resolvedAssetTypeSlug: string;
+      // ----- Step 2: parent existence check (if applicable) -----
       if (input.parentId !== null) {
         const parent = await this.repo.findById(tenantId, input.parentId, session);
         if (!parent) {
           throw new BadRequestError(`Parent category ${input.parentId} does not exist.`);
         }
-        resolvedAssetTypeSlug = parent.assetTypeSlug;
 
         // ----- Step 2b: depth check (no cycle possible — the new node
         //               doesn't exist yet, so it can't be in any chain) -----
@@ -253,12 +233,6 @@ export class CategoriesService {
           this.makeParentLookup(tenantId, session),
         );
         this.assertHierarchyOk(hierarchyResult);
-      } else {
-        resolvedAssetTypeSlug = await this.resolveRootAssetTypeSlug(
-          tenantId,
-          input.assetTypeSlug,
-          session,
-        );
       }
 
       // ----- Step 3: build document with audit fields -----
@@ -267,7 +241,6 @@ export class CategoriesService {
         ...input,
         organisationId: tenantId,
         slug: resolvedSlug,
-        assetTypeSlug: resolvedAssetTypeSlug,
         createdAt: now,
         updatedAt: now,
         createdBy: userId,
@@ -290,7 +263,7 @@ export class CategoriesService {
             snapshot: {
               name: insertedDoc.name,
               slug: insertedDoc.slug,
-              assetTypeSlug: insertedDoc.assetTypeSlug,
+              parentId: insertedDoc.parentId,
             },
           },
           description: `Created category "${insertedDoc.name}" (slug: ${insertedDoc.slug})`,
@@ -411,13 +384,6 @@ export class CategoriesService {
       //   guard against the trivial self-parent here in case the parentId
       //   exists — the hierarchy check would catch it too, but throwing
       //   early gives a clearer error message.
-      //
-      //   Asset type inheritance: a reparented node adopts the new
-      //   parent's assetTypeSlug (children inherit; client value is
-      //   overridden). Explicit assetTypeSlug changes are allowed only
-      //   on root categories and must reference an existing asset type.
-      const effectiveParentId = patch.parentId !== undefined ? patch.parentId : before.parentId;
-
       if (
         patch.parentId !== undefined &&
         patch.parentId !== before.parentId &&
@@ -437,19 +403,20 @@ export class CategoriesService {
           this.makeParentLookup(tenantId, session),
         );
         this.assertHierarchyOk(hierarchyResult);
+      }
 
-        // Child inherits the new parent's type — override whatever came in.
-        patch.assetTypeSlug = parent.assetTypeSlug;
-      } else if (
-        patch.assetTypeSlug !== undefined &&
-        patch.assetTypeSlug !== before.assetTypeSlug
-      ) {
-        if (effectiveParentId !== null) {
+      // ----- Step 3b: root → child demotion guard ----------------------
+      //   A root category being given a parent is fine UNLESS assets are
+      //   forbidden on roots and... actually the reverse: a CHILD category
+      //   being promoted to root would strand its assets (assets must live
+      //   on non-root nodes). Block promotion to root if assets reference it.
+      if (patch.parentId === null && before.parentId !== null) {
+        const assetCount = await this.assetsRepo.countByCategory(tenantId, id, session);
+        if (assetCount > 0) {
           throw new BadRequestError(
-            'assetTypeSlug can only be changed on a root category — children inherit the type from their parent.',
+            `Cannot move category "${before.name}" to root level: ${assetCount} asset${assetCount === 1 ? '' : 's'} reference${assetCount === 1 ? 's' : ''} it and assets must live in a subcategory. Reassign them first.`,
           );
         }
-        await this.assertAssetTypeExists(tenantId, patch.assetTypeSlug, session);
       }
 
       // ----- Step 4: apply patch with audit fields -----
@@ -463,20 +430,6 @@ export class CategoriesService {
       const after = await this.repo.update(tenantId, id, fullPatch, session);
       if (!after) {
         throw new NotFoundError('Category', id);
-      }
-
-      // ----- Step 4b: cascade assetTypeSlug to descendants -----
-      //   Runs when the stored type actually changed (explicit root
-      //   change, or inherited via reparent). Keeps the whole subtree
-      //   consistent with the invariant "children carry the root's type".
-      if (after.assetTypeSlug !== before.assetTypeSlug) {
-        await this.cascadeAssetTypeSlug(
-          tenantId,
-          id,
-          after.assetTypeSlug,
-          { updatedAt: now, updatedBy: userId },
-          session,
-        );
       }
 
       // ----- Step 5: diff + audit (only if real changes) -----
@@ -576,74 +529,6 @@ export class CategoriesService {
         session,
       );
     });
-  }
-
-  // -------------------------------------------------------------------------
-  // Asset type helpers
-  // -------------------------------------------------------------------------
-
-  /**
-   * Validate + return the assetTypeSlug for a ROOT category create.
-   * Throws 400 when missing or when the slug doesn't reference an
-   * existing, non-deleted asset type within the tenant.
-   */
-  private async resolveRootAssetTypeSlug(
-    tenantId: string,
-    assetTypeSlug: string | undefined,
-    session: ClientSession,
-  ): Promise<string> {
-    if (assetTypeSlug === undefined || assetTypeSlug === '') {
-      throw new BadRequestError(
-        'assetTypeSlug is required for a root category (children inherit it from their parent).',
-      );
-    }
-    await this.assertAssetTypeExists(tenantId, assetTypeSlug, session);
-    return assetTypeSlug;
-  }
-
-  /** Throw 400 unless the slug references an existing asset type in the tenant. */
-  private async assertAssetTypeExists(
-    tenantId: string,
-    assetTypeSlug: string,
-    session: ClientSession,
-  ): Promise<void> {
-    const entry = await this.assetTypesRepo.findBySlug(tenantId, assetTypeSlug, session);
-    if (!entry || entry.deletedAt !== null) {
-      throw new BadRequestError(
-        `Asset type "${assetTypeSlug}" does not exist. Create it first in Číselníky → Typy majetku.`,
-      );
-    }
-  }
-
-  /**
-   * Set `assetTypeSlug` on every descendant of `rootId` (BFS over the
-   * parentId tree). Runs inside the caller's transaction so the subtree
-   * never observes a mixed state. Depth is naturally bounded by
-   * MAX_HIERARCHY_DEPTH enforced on writes.
-   */
-  private async cascadeAssetTypeSlug(
-    tenantId: string,
-    rootId: string,
-    assetTypeSlug: string,
-    stamp: { updatedAt: string; updatedBy: string },
-    session: ClientSession,
-  ): Promise<void> {
-    const descendantIds: string[] = [];
-    let frontier: string[] = [rootId];
-
-    while (frontier.length > 0) {
-      const next: string[] = [];
-      for (const parentId of frontier) {
-        const children = await this.repo.findChildren(tenantId, parentId, session);
-        for (const child of children) {
-          descendantIds.push(String(child._id));
-          next.push(String(child._id));
-        }
-      }
-      frontier = next;
-    }
-
-    await this.repo.setAssetTypeSlugForIds(tenantId, descendantIds, assetTypeSlug, stamp, session);
   }
 
   // -------------------------------------------------------------------------

@@ -30,6 +30,7 @@ import { migrate_2026_06_05_seed_missing_defaults } from './2026-06-05-seed-miss
 import { migrate_2026_06_05b_location_type_enum_expand } from './2026-06-05b-location-type-enum-expand.js';
 import { migrate_2026_06_07_memberships_partial_index } from './2026-06-07-memberships-partial-index.js';
 import { migrate_2026_06_08_category_asset_type_slug } from './2026-06-08-category-asset-type-slug.js';
+import { migrate_2026_06_08b_merge_asset_types_into_categories } from './2026-06-08b-merge-asset-types-into-categories.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -125,6 +126,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     description:
       'Kategórie: statický enum assetType → assetTypeSlug (referencia na per-tenant asset_types). Remap, doseed typov, vynútenie dedenia, drop starého indexu.',
     run: migrate_2026_06_08_category_asset_type_slug,
+  },
+  {
+    key: '2026-06-08b-merge-asset-types-into-categories',
+    description:
+      'Zlúčenie číselníkov: asset_types → root kategórie (typy = root úroveň stromu), reparent starých roots, $unset categories.assetTypeSlug + assets.type.',
+    run: migrate_2026_06_08b_merge_asset_types_into_categories,
   },
 ];
 

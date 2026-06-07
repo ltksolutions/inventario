@@ -4,14 +4,12 @@
 'use client';
 
 /**
- * Číselníky — zjednotená správa taxonómie (kategórie, lokality, typy,
- * stavy) na jednej stránke so 4 záložkami.
+ * Číselníky — zjednotená správa taxonómie (kategórie, lokality, stavy)
+ * na jednej stránke s 3 záložkami.
  *
- * Combobox v asset formulári rieši rýchle pridanie za behu. Táto
- * stránka slúži na správu: prehľad, premenovanie, mazanie (s FK
- * protection a count naviazaných assetov).
- *
- * Kategórie sú zoskupené podľa typu majetku pre lepšiu prehľadnosť.
+ * Zlúčený číselník (2026-06-08): "Typy majetku" zanikli ako samostatný
+ * číselník — root kategórie plnia ich rolu (skupiny). Kategórie sú
+ * zoskupené podľa root skupiny; majetok sa zaraďuje len do podkategórií.
  *
  * RBAC:
  *   - Zobrazenie: všetci prihlásení
@@ -29,31 +27,27 @@ import type { JSX } from 'react';
 
 import {
   useAssetConditions,
-  useAssetTypes,
   useCanDeleteTaxonomy,
   useCanManageTaxonomy,
   useCategories,
   useCreateAssetConditions,
-  useCreateAssetTypes,
   useCreateLocation,
   useDeleteAssetCondition,
-  useDeleteAssetType,
   useDeleteCategory,
   useDeleteLocation,
   useLocations,
   useRenameAssetCondition,
-  useRenameAssetType,
   useRenameCategory,
   useUpdateLocation,
 } from '@/lib/api-hooks';
+import { categoryPath } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 
-type TabKey = 'categories' | 'locations' | 'types' | 'conditions';
+type TabKey = 'categories' | 'locations' | 'conditions';
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'categories', label: 'Kategórie' },
   { key: 'locations', label: 'Lokality' },
-  { key: 'types', label: 'Typy majetku' },
   { key: 'conditions', label: 'Stavy' },
 ];
 
@@ -65,8 +59,8 @@ export function CiselnikyContent(): JSX.Element {
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Číselníky</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Správa kategórií, lokalít, typov majetku a stavov. Hodnoty môžete pridávať aj priamo pri
-          zadávaní majetku.
+          Správa kategórií, lokalít a stavov. Kategórie tvoria strom — root skupiny zoskupujú,
+          majetok sa zaraďuje do podkategórií.
         </p>
       </header>
 
@@ -90,7 +84,6 @@ export function CiselnikyContent(): JSX.Element {
 
       {activeTab === 'categories' && <CategoriesTab />}
       {activeTab === 'locations' && <LocationsTab />}
-      {activeTab === 'types' && <TypesTab />}
       {activeTab === 'conditions' && <ConditionsTab />}
     </div>
   );
@@ -394,9 +387,8 @@ function AddInlineDialog({
 // ---------------------------------------------------------------------------
 
 /**
- * Paleta pre badge skupín typov — typy sú dynamické (per-tenant
- * číselník), takže farby prideľujeme cyklicky podľa poradia skupiny.
- * Ak má typ nastavenú vlastnú farbu (asset_types.color), má prednosť.
+ * Paleta pre badge root skupín — skupiny sú dynamické (root kategórie
+ * tenanta), takže farby prideľujeme cyklicky podľa poradia skupiny.
  */
 const TYPE_BADGE_PALETTE: Array<{ bg: string; text: string }> = [
   { bg: '#E6F1FB', text: '#0C447C' },
@@ -410,7 +402,6 @@ const TYPE_BADGE_PALETTE: Array<{ bg: string; text: string }> = [
 
 function CategoriesTab(): JSX.Element {
   const query = useCategories({ limit: 200 });
-  const typesQuery = useAssetTypes({ limit: 200 });
   const canManage = useCanManageTaxonomy();
   const canDelete = useCanDeleteTaxonomy();
   const rename = useRenameCategory();
@@ -422,37 +413,51 @@ function CategoriesTab(): JSX.Element {
   const [renameValue, setRenameValue] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
 
-  if (query.isLoading || typesQuery.isLoading) return <ListSkeleton />;
+  if (query.isLoading) return <ListSkeleton />;
   if (query.isError)
     return (
       <ErrorPanel message="Kategórie sa nepodarilo načítať. Skontroluj pripojenie a skús znova." />
     );
 
   const categories = query.data?.data ?? [];
-  const assetTypes = typesQuery.data?.data ?? [];
-  const typeBySlug = new Map(assetTypes.map((t) => [t.slug, t]));
+  const byId = new Map(categories.map((c) => [c._id, c]));
 
-  const allRows: TaxonomyRow[] = categories.map((c) => ({
-    id: c._id,
-    name: c.name,
-    slug: c.slug,
-    extra: c.assetTypeSlug,
-  }));
-
-  // Group by assetTypeSlug. Poradie skupín = sortOrder číselníka typov,
-  // neznáme slugy (nemali by nastať) na koniec.
-  const groupOrder: string[] = [];
-  const groups: Record<string, TaxonomyRow[]> = {};
-  for (const row of allRows) {
-    const key = row.extra ?? 'ine';
-    if (!groups[key]) {
-      groupOrder.push(key);
-      groups[key] = [];
+  // Zoskupenie podľa ROOT skupiny (root kategórie = bývalé "typy").
+  // V skupine je prvý riadok samotný root (na rename/delete), za ním
+  // jeho podstrom zoradený podľa cesty.
+  const roots = categories.filter((c) => c.parentId == null);
+  const rootIdOf = (c: (typeof categories)[number]): string => {
+    let current = c;
+    for (let i = 0; i < 10 && current.parentId != null; i++) {
+      const parent = byId.get(current.parentId);
+      if (!parent) break;
+      current = parent;
     }
-    groups[key]!.push(row);
+    return current._id;
+  };
+
+  const groups: Record<string, TaxonomyRow[]> = {};
+  for (const root of roots) {
+    groups[root._id] = [{ id: root._id, name: root.name, slug: root.slug, extra: null }];
   }
-  const typeOrder = new Map(assetTypes.map((t, i) => [t.slug, i]));
-  groupOrder.sort((a, b) => (typeOrder.get(a) ?? 999) - (typeOrder.get(b) ?? 999));
+  for (const c of categories) {
+    if (c.parentId == null) continue;
+    const row: TaxonomyRow = {
+      id: c._id,
+      name: categoryPath(c, byId),
+      slug: c.slug,
+      extra: null,
+    };
+    // Kategórie s nedohľadateľným rootom (nemali by nastať) sa preskočia.
+    groups[rootIdOf(c)]?.push(row);
+  }
+  for (const rootId of Object.keys(groups)) {
+    const [first, ...rest] = groups[rootId]!;
+    rest.sort((a, b) => a.name.localeCompare(b.name, 'sk'));
+    groups[rootId] = [first!, ...rest];
+  }
+  const groupOrder = roots.map((r) => r._id);
+  const allRows = categories;
 
   async function commitRename(id: string): Promise<void> {
     const trimmed = renameValue.trim();
@@ -496,15 +501,15 @@ function CategoriesTab(): JSX.Element {
         </div>
       ) : (
         <div className="space-y-6">
-          {groupOrder.map((typeKey, groupIndex) => {
-            const typeEntry = typeBySlug.get(typeKey);
-            const label = typeEntry?.name ?? typeKey;
+          {groupOrder.map((rootId, groupIndex) => {
+            const label = byId.get(rootId)?.name ?? rootId;
             const colors =
               TYPE_BADGE_PALETTE[groupIndex % TYPE_BADGE_PALETTE.length] ??
               ({ bg: '#F1EFE8', text: '#444441' } as const);
-            const groupRows = groups[typeKey] ?? [];
+            const groupRows = groups[rootId] ?? [];
+            const childCount = groupRows.length - 1; // prvý riadok = root skupina
             return (
-              <div key={typeKey}>
+              <div key={rootId}>
                 <div className="mb-2 flex items-center gap-2 border-b border-border-subtle pb-2">
                   <span
                     className="rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -513,7 +518,7 @@ function CategoriesTab(): JSX.Element {
                     {label}
                   </span>
                   <span className="text-xs text-text-muted">
-                    {groupRows.length} {pluralCount(groupRows.length)}
+                    {childCount} {pluralCount(childCount)}
                   </span>
                 </div>
 
@@ -933,69 +938,6 @@ function LocationsTab(): JSX.Element {
         <ConfirmDeleteDialog
           title={`Vymazať lokalitu ${deleteTarget.name}?`}
           description="Lokalita sa označí ako zmazaná. Ak ju referencuje nejaký majetok, mazanie zlyhá."
-          confirmLabel="Vymazať"
-          isPending={del.isPending}
-          error={del.error?.message ?? null}
-          onConfirm={() =>
-            del.mutate({ id: deleteTarget.id }, { onSuccess: () => setDeleteTarget(null) })
-          }
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab: Asset Types
-// ---------------------------------------------------------------------------
-
-function TypesTab(): JSX.Element {
-  const query = useAssetTypes({ limit: 200 });
-  const canManage = useCanManageTaxonomy();
-  const canDelete = useCanDeleteTaxonomy();
-  const create = useCreateAssetTypes();
-  const rename = useRenameAssetType();
-  const del = useDeleteAssetType();
-
-  const [addOpen, setAddOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<TaxonomyRow | null>(null);
-
-  const rows: TaxonomyRow[] = (query.data?.data ?? []).map((t) => ({
-    id: t._id,
-    name: t.name,
-    slug: t.slug,
-  }));
-
-  return (
-    <>
-      <TaxonomyTable
-        rows={rows}
-        isLoading={query.isLoading}
-        isError={query.isError}
-        emptyLabel="Zatiaľ žiadne typy majetku."
-        addLabel="Pridať typ"
-        canManage={canManage}
-        canDelete={canDelete}
-        onAdd={() => setAddOpen(true)}
-        onRename={async (id, name) => {
-          await rename.mutateAsync({ id, name });
-        }}
-        onDelete={(row) => setDeleteTarget(row)}
-      />
-      {addOpen && (
-        <AddInlineDialog
-          title="Nový typ majetku"
-          onSubmit={async (name) => {
-            await create.mutateAsync({ name });
-          }}
-          onClose={() => setAddOpen(false)}
-        />
-      )}
-      {deleteTarget && (
-        <ConfirmDeleteDialog
-          title={`Vymazať typ ${deleteTarget.name}?`}
-          description="Typ sa označí ako zmazaný. Ak ho referencuje nejaký majetok alebo kategória, mazanie zlyhá — najprv ich preraď, alebo typ len deaktivuj."
           confirmLabel="Vymazať"
           isPending={del.isPending}
           error={del.error?.message ?? null}

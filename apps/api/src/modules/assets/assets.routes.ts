@@ -58,7 +58,6 @@ const ApiCreateAssetBodySchema = z
     serialNumber: z.string().max(200).nullable().default(null),
     name: z.string().min(1).max(300).trim(),
     description: z.string().max(2000).nullable().default(null),
-    type: z.string(),
     categoryId: z.string().regex(/^[a-f\d]{24}$/i),
     condition: z.string(),
     locationId: z.string().regex(/^[a-f\d]{24}$/i),

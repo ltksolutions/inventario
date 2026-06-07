@@ -5,14 +5,14 @@
  * Default taxonomy values seeded for every new tenant.
  *
  * SINGLE SOURCE OF TRUTH — used by:
- *   - apps/api asset-types / asset-conditions services (`seedDefaults`)
+ *   - apps/api asset-conditions service (`seedDefaults`)
  *   - apps/api tenant onboarding (JIT provisioning + admin create)
- *   - apps/api migration that backfills existing tenants
+ *   - apps/api migrations that backfill existing tenants
  *
  * FORK CUSTOMIZATION:
- *   A fork that wants different out-of-the-box types/conditions (e.g. a
- *   municipality vs a sports club) just edits these two arrays. Every
- *   new tenant on that fork then gets the customized defaults
+ *   A fork that wants different out-of-the-box conditions/categories
+ *   (e.g. a municipality vs a sports club) just edits these arrays.
+ *   Every new tenant on that fork then gets the customized defaults
  *   automatically — no other code changes needed.
  *
  * Constraints:
@@ -20,10 +20,11 @@
  *   - `slug` must be unique within each array.
  *   - `sortOrder` controls display order in the Combobox + Číselníky page.
  *
- * Note: only TYPES and CONDITIONS are seeded as flat lists. CATEGORIES
- * are seeded as a hierarchy (see DEFAULT_CATEGORIES). Locations are
- * intentionally left empty — they are organisation-specific (physical
- * places) and the tenant builds them itself.
+ * Note: CONDITIONS are seeded as a flat list. CATEGORIES are seeded as
+ * a hierarchy (see DEFAULT_CATEGORIES) — roots play the role of "asset
+ * types". Locations are intentionally left empty — they are
+ * organisation-specific (physical places) and the tenant builds them
+ * itself.
  */
 
 export interface TaxonomyDefault {
@@ -32,7 +33,11 @@ export interface TaxonomyDefault {
   sortOrder: number;
 }
 
-/** Default asset types seeded for every new tenant. */
+/**
+ * @deprecated Typy majetku boli zlúčené do stromu kategórií (root
+ * kategórie = typy, 2026-06-08). Toto pole ostáva LEN pre historické
+ * migrácie (2026-05-29, 2026-06-08) — nič nové ho nesmie používať.
+ */
 export const DEFAULT_ASSET_TYPES: readonly TaxonomyDefault[] = [
   { name: 'IT majetok', slug: 'it-majetok', sortOrder: 0 },
   { name: 'Športová výstroj', slug: 'sportova-vystroj', sortOrder: 1 },
@@ -54,14 +59,11 @@ export const DEFAULT_ASSET_CONDITIONS: readonly TaxonomyDefault[] = [
 ] as const;
 
 /**
- * Default category seed — hierarchical (parent → children) so a new
- * tenant immediately sees that categories can nest. Each node carries
- * an `assetTypeSlug` referencing a slug from DEFAULT_ASSET_TYPES —
- * the asset type the category belongs to. Forms offer categories
- * filtered by the selected asset type.
- *
- * Children MUST carry the same `assetTypeSlug` as their root parent
- * (inheritance is enforced by the categories service).
+ * Default category seed — ONE hierarchical tree (zlúčený číselník,
+ * 2026-06-08). ROOT nodes play the role of former "asset types" and
+ * serve as grouping only; assets are placed exclusively into child
+ * nodes (AssetsService enforces non-root categoryId). Every root MUST
+ * therefore ship with at least one child.
  *
  * Kept deliberately generic + universal (works for a federation, a
  * municipality, a club, or a school) — a fork tailors these freely.
@@ -74,74 +76,70 @@ export const DEFAULT_ASSET_CONDITIONS: readonly TaxonomyDefault[] = [
 export interface CategoryDefaultNode {
   name: string;
   slug: string;
-  assetTypeSlug: string;
   sortOrder: number;
   children?: readonly CategoryDefaultNode[];
 }
 
 export const DEFAULT_CATEGORIES: readonly CategoryDefaultNode[] = [
   {
-    name: 'IT a výpočtová technika',
-    slug: 'it-a-vypoctova-technika',
-    assetTypeSlug: 'it-majetok',
+    name: 'IT majetok',
+    slug: 'it-majetok',
     sortOrder: 0,
     children: [
-      { name: 'Notebooky', slug: 'notebooky', assetTypeSlug: 'it-majetok', sortOrder: 0 },
-      {
-        name: 'Stolné počítače',
-        slug: 'stolne-pocitace',
-        assetTypeSlug: 'it-majetok',
-        sortOrder: 1,
-      },
-      {
-        name: 'Monitory a periférie',
-        slug: 'monitory-a-periferie',
-        assetTypeSlug: 'it-majetok',
-        sortOrder: 2,
-      },
+      { name: 'Notebooky', slug: 'notebooky', sortOrder: 0 },
+      { name: 'Stolné počítače', slug: 'stolne-pocitace', sortOrder: 1 },
+      { name: 'Monitory a periférie', slug: 'monitory-a-periferie', sortOrder: 2 },
+      { name: 'Mobilné telefóny', slug: 'mobilne-telefony', sortOrder: 3 },
+      { name: 'Tablety', slug: 'tablety', sortOrder: 4 },
     ],
   },
   {
-    name: 'Mobilné zariadenia',
-    slug: 'mobilne-zariadenia',
-    assetTypeSlug: 'komunikacia',
+    name: 'Športová výstroj',
+    slug: 'sportova-vystroj',
     sortOrder: 1,
     children: [
-      {
-        name: 'Mobilné telefóny',
-        slug: 'mobilne-telefony',
-        assetTypeSlug: 'komunikacia',
-        sortOrder: 0,
-      },
-      { name: 'Tablety', slug: 'tablety', assetTypeSlug: 'komunikacia', sortOrder: 1 },
+      { name: 'Dresy a oblečenie', slug: 'dresy-a-oblecenie', sortOrder: 0 },
+      { name: 'Lopty', slug: 'lopty', sortOrder: 1 },
+      { name: 'Ostatná výstroj', slug: 'ostatna-vystroj', sortOrder: 2 },
     ],
   },
   {
-    name: 'Audio a video technika',
-    slug: 'audio-a-video-technika',
-    assetTypeSlug: 'media-a-video',
+    name: 'Tréningové vybavenie',
+    slug: 'treningove-vybavenie',
     sortOrder: 2,
     children: [
-      { name: 'Kamery', slug: 'kamery', assetTypeSlug: 'media-a-video', sortOrder: 0 },
-      { name: 'Projektory', slug: 'projektory', assetTypeSlug: 'media-a-video', sortOrder: 1 },
+      { name: 'Tréningové pomôcky', slug: 'treningove-pomocky', sortOrder: 0 },
+      { name: 'Brány a siete', slug: 'brany-a-siete', sortOrder: 1 },
     ],
   },
   {
     name: 'Kancelárske vybavenie',
-    slug: 'kancelarske-vybavenie-kat',
-    assetTypeSlug: 'kancelarske-vybavenie',
+    slug: 'kancelarske-vybavenie',
     sortOrder: 3,
+    children: [
+      { name: 'Nábytok', slug: 'nabytok', sortOrder: 0 },
+      { name: 'Tlačiarne a technika', slug: 'tlaciarne-a-technika', sortOrder: 1 },
+    ],
   },
   {
-    name: 'Športové potreby',
-    slug: 'sportove-potreby',
-    assetTypeSlug: 'sportova-vystroj',
+    name: 'Médiá a video',
+    slug: 'media-a-video',
     sortOrder: 4,
+    children: [
+      { name: 'Kamery', slug: 'kamery', sortOrder: 0 },
+      { name: 'Projektory', slug: 'projektory', sortOrder: 1 },
+    ],
   },
   {
-    name: 'Ostatné',
-    slug: 'ostatne',
-    assetTypeSlug: 'ine',
+    name: 'Komunikácia',
+    slug: 'komunikacia',
     sortOrder: 5,
+    children: [{ name: 'Rádiostanice a headsety', slug: 'radiostanice-a-headsety', sortOrder: 0 }],
+  },
+  {
+    name: 'Iné',
+    slug: 'ine',
+    sortOrder: 6,
+    children: [{ name: 'Ostatné', slug: 'ostatne', sortOrder: 0 }],
   },
 ] as const;

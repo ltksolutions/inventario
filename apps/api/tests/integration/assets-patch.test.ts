@@ -234,9 +234,13 @@ describe('PATCH /v1/assets/:id', () => {
       expect(res.json<{ message: string }>().message).toMatch(/location.*does not exist/i);
     });
 
-    it('accepts PATCH that changes categoryId to a real category', async () => {
+    it('accepts PATCH that changes categoryId to a real subcategory', async () => {
       const asset = await insertTestAsset(app);
-      const newCategory = await insertTestCategory(app, { slug: 'patch-target-cat' });
+      const rootCategory = await insertTestCategory(app, { slug: 'patch-target-root' });
+      const newCategory = await insertTestCategory(app, {
+        slug: 'patch-target-cat',
+        parentId: rootCategory._id,
+      });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/assets/${asset._id}`,
@@ -245,6 +249,19 @@ describe('PATCH /v1/assets/:id', () => {
       });
       expect(res.statusCode).toBe(200);
       expect(res.json<{ categoryId: string }>().categoryId).toBe(newCategory._id);
+    });
+
+    it('rejects PATCH that moves an asset into a ROOT category (group only)', async () => {
+      const asset = await insertTestAsset(app);
+      const rootCategory = await insertTestCategory(app, { slug: 'patch-root-forbidden' });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/assets/${asset._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { categoryId: rootCategory._id },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ message: string }>().message).toMatch(/root category/i);
     });
 
     it('accepts PATCH that changes locationId to a real location', async () => {
@@ -297,7 +314,6 @@ describe('PATCH /v1/assets/:id', () => {
         serialNumber: null,
         name: 'Timestamp test',
         description: null,
-        type: 'IT',
         categoryId: '000000000000000000000001',
         condition: 'NEW',
         locationId: '000000000000000000000002',

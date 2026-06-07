@@ -2,16 +2,19 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * seedTenantDefaults — zoseeduje default číselníky (typy + stavy) pre tenanta.
+ * seedTenantDefaults — zoseeduje default číselníky pre tenanta.
  *
  * JEDEN ZDROJ PRAVDY pre onboarding nového tenanta. Volaný z:
  *   - JIT provisioning (organisations.service — prvý SSO login)
  *   - admin create (organisations.service — vytvorenie tenanta vopred)
- *   - migrácia 2026-05-29 (backfill existujúcich tenantov)
+ *   - migrácie (backfill existujúcich tenantov)
  *
- * Defaulty pochádzajú z @inventario/shared-types (DEFAULT_ASSET_TYPES,
- * DEFAULT_ASSET_CONDITIONS) — fork ich prepíše tam a každý nový tenant
+ * Defaulty pochádzajú z @inventario/shared-types (DEFAULT_ASSET_CONDITIONS,
+ * DEFAULT_CATEGORIES) — fork ich prepíše tam a každý nový tenant
  * automaticky dostane prispôsobené číselníky.
+ *
+ * Zlúčený číselník (2026-06-08): "typy majetku" už nie sú samostatná
+ * kolekcia — root kategórie v strome DEFAULT_CATEGORIES plnia ich rolu.
  *
  * Pracuje priamo s `Db` (nie cez service vrstvu), aby fungoval rovnako
  * v onboardingu aj v migrácii bez závislosti na audit/transaction wiringu.
@@ -20,28 +23,23 @@
  * takže opakované volanie nič nezduplikuje ani neprepíše existujúce
  * (napr. premenované) hodnoty.
  *
- * Seeduje typy + stavy (flat) a kategórie (hierarchické). NEseeduje
- * lokality — tých je organisation-specific (fyzické miesta) a tenant
- * si ich tvorí sám (cez Číselníky stránku alebo Combobox).
+ * Seeduje stavy (flat) a kategórie (hierarchické). NEseeduje lokality —
+ * tie sú organisation-specific (fyzické miesta) a tenant si ich tvorí
+ * sám (cez Číselníky stránku alebo Combobox).
  */
 
-import {
-  DEFAULT_ASSET_CONDITIONS,
-  DEFAULT_ASSET_TYPES,
-  DEFAULT_CATEGORIES,
-} from '@inventario/shared-types';
+import { DEFAULT_ASSET_CONDITIONS, DEFAULT_CATEGORIES } from '@inventario/shared-types';
 
 import type { CategoryDefaultNode, TaxonomyDefault } from '@inventario/shared-types';
 import type { Db } from 'mongodb';
 
 interface SeedResult {
-  typesInserted: number;
   conditionsInserted: number;
   categoriesInserted: number;
 }
 
 /**
- * Seed default asset types + conditions + categories for one tenant.
+ * Seed default asset conditions + categories for one tenant.
  *
  * @param db              Mongo database handle
  * @param organisationId  Tenant id (string form, matches stored docs)
@@ -54,14 +52,6 @@ export async function seedTenantDefaults(
 ): Promise<SeedResult> {
   const now = new Date().toISOString();
 
-  const typesInserted = await seedCollection(
-    db,
-    'asset_types',
-    DEFAULT_ASSET_TYPES,
-    organisationId,
-    createdBy,
-    now,
-  );
   const conditionsInserted = await seedCollection(
     db,
     'asset_conditions',
@@ -78,7 +68,7 @@ export async function seedTenantDefaults(
     now,
   );
 
-  return { typesInserted, conditionsInserted, categoriesInserted };
+  return { conditionsInserted, categoriesInserted };
 }
 
 async function seedCollection(
@@ -155,7 +145,6 @@ async function seedCategories(
       name: node.name,
       slug: node.slug,
       parentId,
-      assetTypeSlug: node.assetTypeSlug,
       description: null,
       icon: null,
       color: null,

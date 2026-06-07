@@ -68,8 +68,6 @@ export class CategoriesRepository {
    *     (URL routing scopes to tenant). Two tenants can each have a
    *     "it-vybavenie" slug without colliding.
    *   - `organisationId_parentId` — "list children of X within tenant"
-   *   - `organisationId_assetTypeSlug` — filter categories by asset
-   *     type slug within tenant (cascading type → category pickers)
    *   - `organisationId_isActive` — common filter for active-only
    *     pickers within tenant
    *   - `deletedAt` — soft-delete filter applied to every list query
@@ -83,10 +81,6 @@ export class CategoriesRepository {
       this.collection.createIndex(
         { organisationId: 1, parentId: 1 },
         { name: 'organisationId_parentId' },
-      ),
-      this.collection.createIndex(
-        { organisationId: 1, assetTypeSlug: 1 },
-        { name: 'organisationId_assetTypeSlug' },
       ),
       this.collection.createIndex(
         { organisationId: 1, isActive: 1 },
@@ -269,66 +263,6 @@ export class CategoriesRepository {
     const tenantId = requireTenantId(organisationId);
     return this.collection.countDocuments(
       tenantFilter<Category>(tenantId, { parentId } as Filter<Category>),
-      session ? { session } : undefined,
-    );
-  }
-
-  /**
-   * List direct (non-deleted) children of a category within the tenant.
-   * Used by the service to cascade `assetTypeSlug` inheritance down the
-   * subtree when a root's type changes or a node is reparented.
-   */
-  async findChildren(
-    organisationId: string,
-    parentId: string,
-    session?: ClientSession,
-  ): Promise<WithId<Category>[]> {
-    const tenantId = requireTenantId(organisationId);
-    return this.collection
-      .find(
-        tenantFilter<Category>(tenantId, { parentId } as Filter<Category>),
-        session ? { session } : undefined,
-      )
-      .toArray();
-  }
-
-  /**
-   * Bulk-set `assetTypeSlug` on the given category ids (cascade of type
-   * inheritance). Caller provides updatedAt/updatedBy stamps.
-   */
-  async setAssetTypeSlugForIds(
-    organisationId: string,
-    ids: readonly string[],
-    assetTypeSlug: string,
-    stamp: { updatedAt: string; updatedBy: string },
-    session?: ClientSession,
-  ): Promise<number> {
-    if (ids.length === 0) return 0;
-    const tenantId = requireTenantId(organisationId);
-    const objectIds = ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
-
-    const result = await this.collection.updateMany(
-      tenantFilter<Category>(tenantId, {
-        _id: { $in: objectIds },
-      } as unknown as Filter<Category>),
-      { $set: { assetTypeSlug, ...stamp } },
-      session ? { session } : undefined,
-    );
-    return result.modifiedCount;
-  }
-
-  /**
-   * Count non-deleted categories referencing an asset type slug within
-   * the tenant. Used by AssetTypesService delete FK protection.
-   */
-  async countByAssetTypeSlug(
-    organisationId: string,
-    assetTypeSlug: string,
-    session?: ClientSession,
-  ): Promise<number> {
-    const tenantId = requireTenantId(organisationId);
-    return this.collection.countDocuments(
-      tenantFilter<Category>(tenantId, { assetTypeSlug } as Filter<Category>),
       session ? { session } : undefined,
     );
   }

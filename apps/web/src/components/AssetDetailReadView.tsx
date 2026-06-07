@@ -8,6 +8,7 @@ import { TrackingModeBadge } from './TrackingModeBadge';
 import type { AssetDetail, CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
+import { categoryPath } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 
 /**
@@ -54,16 +55,6 @@ const CONDITION_LABELS: Record<string, string> = {
   FAIR: 'Použiteľné',
   POOR: 'Opotrebované',
   UNUSABLE: 'Nepoužiteľné',
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  IT: 'IT majetok',
-  SPORTS_GEAR: 'Športová výstroj',
-  TRAINING_EQUIPMENT: 'Tréningové vybavenie',
-  OFFICE_EQUIPMENT: 'Kancelárske vybavenie',
-  MEDIA: 'Médiá a video',
-  COMMUNICATION: 'Komunikácia',
-  OTHER: 'Iné',
 };
 
 function statusToneClasses(status: string): string {
@@ -190,12 +181,11 @@ export function AssetDetailReadView({
         </Row>
         <Row label="Kategória">
           {category ? (
-            category.name
+            categoryPath(category, categoriesById)
           ) : (
             <span className="font-mono text-xs text-text-muted">{asset.categoryId}</span>
           )}
         </Row>
-        <Row label="Typ majetku">{TYPE_LABELS[asset.type] ?? asset.type}</Row>
         <Row label="Sériové číslo">
           {asset.serialNumber ? (
             <span className="font-mono">{asset.serialNumber}</span>

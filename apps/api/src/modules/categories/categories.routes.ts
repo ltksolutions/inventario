@@ -25,7 +25,6 @@
 import { UpdateCategorySchema } from '@inventario/shared-types';
 import { z } from 'zod';
 
-import { AssetTypesRepository } from '../asset-types/asset-types.repository.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 
 import { CategoriesRepository } from './categories.repository.js';
@@ -60,8 +59,6 @@ const ListCategoriesQuerySchema = z.object({
     .string()
     .regex(/^([a-f\d]{24}|null)$/i, 'parentId musí byť 24 hex znakov alebo "null".')
     .optional(),
-  /** Filter by asset type slug (per-tenant číselník asset_types). */
-  assetTypeSlug: z.string().optional(),
   /** Filter to active categories only. */
   isActive: BooleanQueryParam.optional(),
 });
@@ -96,15 +93,6 @@ const ApiCreateCategoryBodySchema = z
       .regex(/^[a-f\d]{24}$/i, 'parentId musí byť 24 hex znakov.')
       .nullable()
       .default(null),
-    /**
-     * Slug typu majetku (číselník asset_types). Povinný pre ROOT
-     * kategórie; pri podkategórii sa ignoruje — dedí sa z rodiča.
-     */
-    assetTypeSlug: z
-      .string()
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'assetTypeSlug musí byť lowercase slug.')
-      .max(200)
-      .optional(),
     description: z.string().max(1000).nullable().default(null),
     icon: z.string().max(50).nullable().default(null),
     color: z
@@ -151,16 +139,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   // Asset repo handle so the service can count assets referencing a
   // category before allowing delete (slice #3 K9 FK protection).
   const assetsRepo = new AssetsRepository(fastify.mongo.db);
-  // Asset types repo handle so the service can validate assetTypeSlug
-  // references against the per-tenant číselník.
-  const assetTypesRepo = new AssetTypesRepository(fastify.mongo.db);
-  const service = new CategoriesService(
-    repo,
-    fastify.auditLog,
-    fastify.mongo.client,
-    assetsRepo,
-    assetTypesRepo,
-  );
+  const service = new CategoriesService(repo, fastify.auditLog, fastify.mongo.client, assetsRepo);
 
   await repo.ensureIndexes();
 
@@ -179,8 +158,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
         summary: 'List categories',
         description:
           'Returns a paginated list of categories, sorted by sortOrder then name. ' +
-          'Soft-deleted categories are excluded. Optional filters: parentId, ' +
-          'assetTypeSlug, isActive.',
+          'Soft-deleted categories are excluded. Optional filters: parentId, isActive.',
         security: [{ bearerAuth: [] }],
         querystring: ListCategoriesQuerySchema,
         response: {
@@ -189,15 +167,12 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { limit, skip, parentId, assetTypeSlug, isActive } = request.query;
+      const { limit, skip, parentId, isActive } = request.query;
 
       // Build filter from query params
       const filter: Record<string, unknown> = {};
       if (parentId !== undefined) {
         filter['parentId'] = parentId === 'null' ? null : parentId;
-      }
-      if (assetTypeSlug !== undefined) {
-        filter['assetTypeSlug'] = assetTypeSlug;
       }
       if (isActive !== undefined) {
         filter['isActive'] = isActive;

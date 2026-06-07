@@ -31,13 +31,7 @@
  *   data for tenant B alongside tenant A.
  */
 
-import {
-  UserRole,
-  AccountType,
-  highestRole,
-  DEFAULT_ASSET_TYPES,
-  type User,
-} from '@inventario/shared-types';
+import { UserRole, AccountType, highestRole, type User } from '@inventario/shared-types';
 import { ObjectId } from 'mongodb';
 
 import type { FastifyInstance } from 'fastify';
@@ -141,51 +135,7 @@ export async function resolveTestTenantId(app: FastifyInstance): Promise<string>
   };
 
   const result = await organisations.insertOne(doc);
-  const organisationId = String(result.insertedId);
-
-  // Seed default asset types (flat číselník) so category POST tests can
-  // reference assetTypeSlug without each test inserting types manually.
-  // Mirrors the slugs from DEFAULT_ASSET_TYPES; categories are NOT
-  // seeded here — list tests assert exact contents.
-  await seedTestAssetTypes(app, organisationId, now);
-
-  return organisationId;
-}
-
-/**
- * Insert the default asset types (it-majetok, sportova-vystroj, ...)
- * for a tenant. Idempotent per (organisationId, slug). Exported so
- * cross-tenant tests can seed types for secondary tenants too.
- */
-export async function seedTestAssetTypes(
-  app: FastifyInstance,
-  organisationId: string,
-  now: string = new Date().toISOString(),
-): Promise<void> {
-  const assetTypes = app.mongo.db.collection('asset_types');
-  for (const def of DEFAULT_ASSET_TYPES) {
-    await assetTypes.updateOne(
-      { organisationId, slug: def.slug },
-      {
-        $setOnInsert: {
-          organisationId,
-          name: def.name,
-          slug: def.slug,
-          icon: null,
-          color: null,
-          isActive: true,
-          sortOrder: def.sortOrder,
-          createdAt: now,
-          updatedAt: now,
-          createdBy: 'SYSTEM',
-          updatedBy: 'SYSTEM',
-          deletedAt: null,
-          deletedBy: null,
-        },
-      },
-      { upsert: true },
-    );
-  }
+  return String(result.insertedId);
 }
 
 /**
@@ -450,8 +400,6 @@ export interface InsertTestAssetOptions {
   status?: 'AVAILABLE' | 'BORROWED' | 'IN_REPAIR' | 'RETIRED' | 'LOST';
   /** Asset condition. Defaults to NEW. */
   condition?: string;
-  /** Asset type. Defaults to IT. */
-  type?: string;
   /** Category ID (24-hex string). Defaults to a fixed test sentinel. */
   categoryId?: string;
   /** Location ID (24-hex string). Defaults to a fixed test sentinel. */
@@ -496,7 +444,6 @@ export async function insertTestAsset(
     serialNumber: null,
     name: options.name ?? 'Test Asset',
     description: null,
-    type: options.type ?? 'IT',
     categoryId: options.categoryId ?? '000000000000000000000001',
     condition: options.condition ?? 'NEW',
     locationId: options.locationId ?? '000000000000000000000002',
@@ -549,7 +496,6 @@ export function validCreateAssetBody(
 ): Record<string, unknown> {
   return {
     name: 'Integration test asset',
-    type: 'IT',
     categoryId: '000000000000000000000001',
     condition: 'NEW',
     locationId: '000000000000000000000002',
@@ -568,14 +514,10 @@ export { UserRole, AccountType };
 // ---------------------------------------------------------------------------
 
 /**
- * Seed one category and one location so a test can POST/PATCH an asset
- * that references real FK targets. Returns their _ids ready to drop into
- * `validCreateAssetBody({ categoryId, locationId })`.
- *
- * Why: after slice #3 K7, the assets service validates that categoryId
- * and locationId point at non-deleted documents. The old sentinel IDs
- * (`000000000000000000000001`, etc) now fail with 400. Tests that need
- * to create an asset have to seed real references first.
+ * Seed a category tree (root group + child) and one location so a test
+ * can POST/PATCH an asset that references real FK targets. Returns the
+ * CHILD category id — assets must live in a subcategory (root categories
+ * only group; merged číselník 2026-06-08).
  *
  * Use this in `beforeEach` of any asset-creating test:
  *   const fk = await seedAssetFkRefs(app);
@@ -583,17 +525,22 @@ export { UserRole, AccountType };
  */
 export async function seedAssetFkRefs(
   app: FastifyInstance,
-): Promise<{ categoryId: string; locationId: string }> {
+): Promise<{ categoryId: string; rootCategoryId: string; locationId: string }> {
   const stamp = Date.now().toString().slice(-6);
+  const rootCategory = await insertTestCategory(app, {
+    slug: `fk-root-category-${stamp}`,
+    name: `FK Root Category ${stamp}`,
+  });
   const category = await insertTestCategory(app, {
     slug: `fk-category-${stamp}`,
     name: `FK Category ${stamp}`,
+    parentId: rootCategory._id,
   });
   const location = await insertTestLocation(app, {
     slug: `fk-location-${stamp}`,
     name: `FK Location ${stamp}`,
   });
-  return { categoryId: category._id, locationId: location._id };
+  return { categoryId: category._id, rootCategoryId: rootCategory._id, locationId: location._id };
 }
 
 // ---------------------------------------------------------------------------
@@ -610,10 +557,8 @@ export interface InsertTestCategoryOptions {
   name?: string;
   /** Slug. Defaults to a millisecond-timestamped variant to avoid collisions. */
   slug?: string;
-  /** Parent category ID. Defaults to null (root). */
+  /** Parent category ID. Defaults to null (root = skupina). */
   parentId?: string | null;
-  /** Asset type slug (číselník asset_types). Defaults to 'it-majetok'. */
-  assetTypeSlug?: string;
   /** Active flag. Defaults to true. */
   isActive?: boolean;
   /** Sort order. Defaults to 0. */
@@ -654,7 +599,6 @@ export async function insertTestCategory(
     name: options.name ?? `Test Category ${stamp}`,
     slug: options.slug ?? `test-category-${stamp}`,
     parentId: options.parentId ?? null,
-    assetTypeSlug: options.assetTypeSlug ?? 'it-majetok',
     description: options.description ?? null,
     icon: options.icon ?? null,
     color: options.color ?? null,
@@ -695,7 +639,6 @@ export function validCreateCategoryBody(
     name: `Test Category ${stamp}`,
     slug: `test-category-${stamp}`,
     parentId: null,
-    assetTypeSlug: 'it-majetok',
     description: null,
     icon: null,
     color: null,
@@ -817,59 +760,6 @@ export function validCreateLocationBody(
     description: null,
     managerId: null,
     isActive: true,
-    ...overrides,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// AssetType fixtures
-// ---------------------------------------------------------------------------
-
-export interface InsertTestAssetTypeOptions {
-  organisationId?: string;
-  name?: string;
-  slug?: string;
-  isActive?: boolean;
-  sortOrder?: number;
-}
-
-export async function insertTestAssetType(
-  app: FastifyInstance,
-  options: InsertTestAssetTypeOptions = {},
-): Promise<{ _id: string; name: string; slug: string }> {
-  const now = new Date().toISOString();
-  const stamp = Date.now().toString().slice(-6);
-  const organisationId = options.organisationId ?? (await resolveTestTenantId(app));
-
-  const doc = {
-    organisationId,
-    name: options.name ?? `Test Type ${stamp}`,
-    slug: options.slug ?? `test-type-${stamp}`,
-    icon: null,
-    color: null,
-    isActive: options.isActive ?? true,
-    sortOrder: options.sortOrder ?? 0,
-    createdAt: now,
-    updatedAt: now,
-    createdBy: 'test-creator',
-    updatedBy: 'test-creator',
-    deletedAt: null,
-    deletedBy: null,
-  };
-
-  const result = await app.mongo.db.collection('asset_types').insertOne(doc);
-  return { _id: String(result.insertedId), name: doc.name, slug: doc.slug };
-}
-
-export function validCreateAssetTypeBody(
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
-  const stamp = Date.now().toString().slice(-6);
-  return {
-    name: `Test Type ${stamp}`,
-    slug: `test-type-${stamp}`,
-    isActive: true,
-    sortOrder: 0,
     ...overrides,
   };
 }

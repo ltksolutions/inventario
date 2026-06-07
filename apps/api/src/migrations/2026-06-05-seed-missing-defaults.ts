@@ -53,7 +53,6 @@ export async function migrate_2026_06_05_seed_missing_defaults(
       {
         orgId,
         displayName: org['displayName'],
-        typesInserted: result.typesInserted,
         conditionsInserted: result.conditionsInserted,
         categoriesInserted: result.categoriesInserted,
       },

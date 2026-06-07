@@ -1,6 +1,5 @@
 export * from './asset.js';
 export * from './asset-condition-entry.js';
-export * from './asset-type-entry.js';
 export * from './attachment.js';
 export * from './audit-log.js';
 export * from './category.js';

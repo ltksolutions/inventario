@@ -38,7 +38,6 @@ function makeAsset(overrides: Partial<WithId<Asset>> = {}): WithId<Asset> {
     serialNumber: null,
     name: 'Test asset',
     description: null,
-    type: 'IT',
     categoryId: '000000000000000000000001',
     condition: 'NEW',
     locationId: '000000000000000000000002',

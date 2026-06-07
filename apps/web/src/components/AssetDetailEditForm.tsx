@@ -22,18 +22,15 @@ import type { JSX, ReactNode } from 'react';
 
 import {
   useAssetConditions,
-  useAssetTypes,
   useCanManageTaxonomy,
   useCreateAssetConditions,
-  useCreateAssetTypes,
-  useCreateCategory,
   useCreateLocation,
   useRenameAssetCondition,
-  useRenameAssetType,
   useRenameCategory,
   useRenameLocation,
   useUpdateAsset,
 } from '@/lib/api-hooks';
+import { buildCategoryOptions } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -62,7 +59,6 @@ function dateInputToISO(value: string): string | null {
 interface FormValues {
   name: string;
   description: string;
-  typeSlug: string | null;
   categoryId: string | null;
   status: string;
   conditionSlug: string | null;
@@ -96,22 +92,17 @@ export function AssetDetailEditForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const canManage = useCanManageTaxonomy();
   const updateAsset = useUpdateAsset();
-  const assetTypesQuery = useAssetTypes({ limit: 200 });
   const assetConditionsQuery = useAssetConditions({ limit: 200 });
-  const createCategory = useCreateCategory();
   const createLocation = useCreateLocation();
-  const createAssetType = useCreateAssetTypes();
   const createAssetCondition = useCreateAssetConditions();
   const renameCategory = useRenameCategory();
   const renameLocation = useRenameLocation();
-  const renameAssetType = useRenameAssetType();
   const renameAssetCondition = useRenameAssetCondition();
 
   const locationOptions = locations.map((l) => ({ id: l._id, label: l.name }));
-  const assetTypeOptions = (assetTypesQuery.data?.data ?? []).map((t) => ({
-    id: t.slug,
-    label: t.name,
-  }));
+  // Zlúčený číselník: jeden hierarchický výber kategórie (len non-root
+  // uzly, label s cestou "Skupina › Podkategória").
+  const categoryOptions = buildCategoryOptions(categories);
   const assetConditionOptions = (assetConditionsQuery.data?.data ?? []).map((c) => ({
     id: c.slug,
     label: c.name,
@@ -121,14 +112,11 @@ export function AssetDetailEditForm({
     register,
     control,
     handleSubmit,
-    watch,
-    setValue,
     formState: { errors, dirtyFields, isDirty },
   } = useForm<FormValues>({
     defaultValues: {
       name: asset.name,
       description: asset.description ?? '',
-      typeSlug: asset.type,
       categoryId: asset.categoryId,
       status: asset.status,
       conditionSlug: asset.condition,
@@ -145,13 +133,6 @@ export function AssetDetailEditForm({
     },
   });
 
-  // Kategórie sú odvodené od zvoleného typu majetku — ponúkame len tie,
-  // ktoré patria pod aktuálne vybraný typ (category.assetTypeSlug).
-  const selectedTypeSlug = watch('typeSlug');
-  const categoryOptions = categories
-    .filter((c) => selectedTypeSlug !== null && c.assetTypeSlug === selectedTypeSlug)
-    .map((c) => ({ id: c._id, label: c.name }));
-
   function onSubmit(values: FormValues): void {
     setSubmitError(null);
     const patch: AssetUpdatePatch = {};
@@ -161,7 +142,6 @@ export function AssetDetailEditForm({
       const trimmed = values.description.trim();
       patch.description = trimmed.length === 0 ? null : trimmed;
     }
-    if (dirtyFields.typeSlug && values.typeSlug) patch.type = values.typeSlug;
     if (dirtyFields.categoryId && values.categoryId) patch.categoryId = values.categoryId;
     if (dirtyFields.status) patch.status = values.status;
     if (dirtyFields.conditionSlug && values.conditionSlug) patch.condition = values.conditionSlug;
@@ -235,45 +215,10 @@ export function AssetDetailEditForm({
           />
         </Field>
 
-        <Field label="Typ majetku" required>
-          <Controller
-            name="typeSlug"
-            control={control}
-            rules={{ required: true }}
-            render={({ field }) => (
-              <Combobox
-                value={field.value}
-                onChange={(value) => {
-                  field.onChange(value);
-                  // Zmena typu invaliduje výber kategórie — kategórie sa
-                  // ponúkajú odvodene od typu.
-                  setValue('categoryId', null, { shouldDirty: true });
-                }}
-                options={assetTypeOptions}
-                canCreate={canManage}
-                canRename={canManage}
-                onCreate={async (label) => {
-                  const result = await createAssetType.mutateAsync({ name: label });
-                  return { id: result.slug as string, label: result.name as string };
-                }}
-                onRename={async (slug, newLabel) => {
-                  const entry = assetTypesQuery.data?.data.find((t) => t.slug === slug);
-                  if (entry) await renameAssetType.mutateAsync({ id: entry._id, name: newLabel });
-                }}
-                loading={assetTypesQuery.isLoading}
-              />
-            )}
-          />
-        </Field>
-
         <Field
           label="Kategória"
           required
-          hint={
-            selectedTypeSlug
-              ? undefined
-              : 'Najprv vyberte typ majetku — kategórie sa ponúkajú podľa typu.'
-          }
+          hint="Hierarchický výber: skupina › podkategória. Nové kategórie sa spravujú v Číselníkoch."
         >
           <Controller
             name="categoryId"
@@ -284,15 +229,8 @@ export function AssetDetailEditForm({
                 value={field.value}
                 onChange={field.onChange}
                 options={categoryOptions}
-                canCreate={canManage && selectedTypeSlug !== null}
+                canCreate={false}
                 canRename={canManage}
-                onCreate={async (label) => {
-                  const result = await createCategory.mutateAsync({
-                    name: label,
-                    assetTypeSlug: selectedTypeSlug ?? undefined,
-                  });
-                  return { id: result._id, label: result.name };
-                }}
                 onRename={async (id, newLabel) => {
                   await renameCategory.mutateAsync({ id, name: newLabel });
                 }}

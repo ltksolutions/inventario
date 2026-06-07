@@ -223,7 +223,6 @@ describe('Cross-tenant isolation', () => {
           name: 'A Elektronika',
           slug: 'elektronika',
           parentId: null,
-          assetTypeSlug: 'it-majetok',
           description: null,
           icon: null,
           color: null,

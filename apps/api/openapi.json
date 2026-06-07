@@ -2019,9 +2019,6 @@
                     "nullable": true,
                     "default": null
                   },
-                  "type": {
-                    "type": "string"
-                  },
                   "categoryId": {
                     "type": "string",
                     "pattern": "^[a-f\\d]{24}$"
@@ -2109,7 +2106,6 @@
                 },
                 "required": [
                   "name",
-                  "type",
                   "categoryId",
                   "condition",
                   "locationId",
@@ -2208,11 +2204,6 @@
                     "maxLength": 2000,
                     "nullable": true,
                     "default": null
-                  },
-                  "type": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200
                   },
                   "categoryId": {
                     "type": "string",
@@ -2845,325 +2836,13 @@
         }
       }
     },
-    "/v1/asset-types": {
-      "get": {
-        "summary": "List asset types",
-        "tags": [
-          "AssetTypes"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 500,
-              "default": 200
-            },
-            "in": "query",
-            "name": "limit",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0
-            },
-            "in": "query",
-            "name": "skip",
-            "required": false
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": {}
-                      }
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "integer",
-                          "minimum": 0
-                        },
-                        "limit": {
-                          "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        },
-                        "skip": {
-                          "type": "integer",
-                          "minimum": 0
-                        },
-                        "hasMore": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "total",
-                        "limit",
-                        "skip",
-                        "hasMore"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "pagination"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "Create asset type",
-        "tags": [
-          "AssetTypes"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200
-                  },
-                  "slug": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                    "maxLength": 200
-                  },
-                  "icon": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "nullable": true,
-                    "default": null
-                  },
-                  "color": {
-                    "type": "string",
-                    "pattern": "^#[0-9a-fA-F]{6}$",
-                    "nullable": true,
-                    "default": null
-                  },
-                  "isActive": {
-                    "type": "boolean",
-                    "default": true
-                  },
-                  "sortOrder": {
-                    "type": "integer",
-                    "default": 0
-                  }
-                },
-                "required": [
-                  "name"
-                ],
-                "additionalProperties": false
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {}
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/asset-types/{id}": {
-      "get": {
-        "summary": "Get asset type by ID",
-        "tags": [
-          "AssetTypes"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f\\d]{24}$"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {}
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "summary": "Update asset type",
-        "tags": [
-          "AssetTypes"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200
-                  },
-                  "slug": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                    "maxLength": 200
-                  },
-                  "icon": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "nullable": true,
-                    "default": null
-                  },
-                  "color": {
-                    "type": "string",
-                    "pattern": "^#[0-9a-fA-F]{6}$",
-                    "nullable": true,
-                    "default": null
-                  },
-                  "isActive": {
-                    "type": "boolean",
-                    "default": true
-                  },
-                  "sortOrder": {
-                    "type": "integer",
-                    "default": 0
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f\\d]{24}$"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {}
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete asset type (ADMIN only, FK protected)",
-        "tags": [
-          "AssetTypes"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f\\d]{24}$"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/categories": {
       "get": {
         "summary": "List categories",
         "tags": [
           "Categories"
         ],
-        "description": "Returns a paginated list of categories, sorted by sortOrder then name. Soft-deleted categories are excluded. Optional filters: parentId, assetTypeSlug, isActive.",
+        "description": "Returns a paginated list of categories, sorted by sortOrder then name. Soft-deleted categories are excluded. Optional filters: parentId, isActive.",
         "parameters": [
           {
             "schema": {
@@ -3193,14 +2872,6 @@
             },
             "in": "query",
             "name": "parentId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "assetTypeSlug",
             "required": false
           },
           {
@@ -3306,11 +2977,6 @@
                     "pattern": "^[a-f\\d]{24}$",
                     "nullable": true,
                     "default": null
-                  },
-                  "assetTypeSlug": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                    "maxLength": 200
                   },
                   "description": {
                     "type": "string",
@@ -3455,11 +3121,6 @@
                     "description": "MongoDB ObjectId (24 hex znakov)",
                     "nullable": true,
                     "default": null
-                  },
-                  "assetTypeSlug": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                    "maxLength": 200
                   },
                   "description": {
                     "type": "string",

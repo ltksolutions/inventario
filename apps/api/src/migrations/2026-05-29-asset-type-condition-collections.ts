@@ -76,14 +76,14 @@ export async function migrate_2026_05_29_asset_type_condition_collections(
   // of truth in @inventario/shared-types). Idempotent upsert on slug.
   for (const org of orgs) {
     const orgId = String(org._id);
-    const { typesInserted, conditionsInserted, categoriesInserted } = await seedTenantDefaults(
+    const { conditionsInserted, categoriesInserted } = await seedTenantDefaults(
       db,
       orgId,
       'SYSTEM',
     );
     logger.info(
-      { orgId, name: org.name, typesInserted, conditionsInserted, categoriesInserted },
-      'Seeded types + conditions + categories for tenant',
+      { orgId, name: org.name, conditionsInserted, categoriesInserted },
+      'Seeded conditions + categories for tenant',
     );
   }
 

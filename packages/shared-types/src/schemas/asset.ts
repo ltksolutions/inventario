@@ -34,7 +34,14 @@ export const AssetSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     serialNumber: z.string().max(200).nullable().default(null),
     name: z.string().min(1, 'Názov je povinný.').max(300).trim(),
     description: z.string().max(2000).nullable().default(null),
-    type: z.string().min(1).max(200),
+
+    /**
+     * Kategória — jediná klasifikácia majetku (hierarchický strom
+     * `categories`). Typ majetku = root predok kategórie; samostatné
+     * pole `type` bolo odstránené pri zlúčení číselníkov (2026-06-08).
+     * Majetok musí byť zaradený do PODkategórie (nie root uzla) —
+     * vynucuje AssetsService.
+     */
     categoryId: ObjectIdSchema,
 
     status: z.enum(Object.values(AssetStatus) as [string, ...string[]]) as z.ZodType<AssetStatus>,
