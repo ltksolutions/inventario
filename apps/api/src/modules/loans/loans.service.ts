@@ -1137,9 +1137,7 @@ export class LoansService {
       .map((id) => new ObjectId(id) as never);
     if (validObjectIds.length === 0) return new Map();
     const usersCol = this.getDb().collection('users');
-    const docs = await usersCol
-      .find({ _id: { $in: validObjectIds }, deletedAt: null })
-      .toArray();
+    const docs = await usersCol.find({ _id: { $in: validObjectIds }, deletedAt: null }).toArray();
     const map = new Map<string, string>();
     for (const doc of docs) {
       const displayName =
