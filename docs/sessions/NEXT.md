@@ -6,13 +6,15 @@
 
 E2E test prešiel (PROT-2026-000001 → SIGNED, PDF render OK). Pri teste opravené 2 prod bugy: (1) ProtocolCard — podpis druhej strany, keď je user oboma stranami (`f10ecdb`), (2) PDF render padal s JPEG logom tenanta — embedJpg podľa magic bytes + vercel.json includeFiles pre assets (`e9834c4`, `ed916b9`). `pnpm install` + `pnpm test` lokálne prebehli OK.
 
+Dodatočne: PDF layout fix (sivé pásy tabuľky + čas podpisu Europe/Bratislava, `0a4952f`) a **Dashboard blok „Čaká na vás"** (`9022e83`) — akčný prehľad žiadostí na schválenie/vydanie, protokolov na podpis a výpožičiek po termíne s priamymi odkazmi; manager aj employee variant. Všetko nasadené na prode.
+
 ## ĎALŠIA SESSION — začni tu
 
 ### Protokoly — drobnosti (P2)
 
 - Overiť `pnpm openapi:export:offline` (ručne dopĺňaný openapi.json — nové paths /v1/protocols a POST /v1/loans/:id/protocols)
 - Zvážiť e-mail notifikáciu „máš protokol na podpis" (EmailService existuje)
-- Test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu)
+- Test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu) — overí aj Dashboard blok „Čaká na vás" s reálnymi dátami
 
 ### Vizuálne odlíšenie BULK vs SERIALIZED (P1)
 

@@ -46,8 +46,18 @@ Flow PROT-2026-000001: `/protocols` zoznam s filtrami → preklik na `/loans/[id
 2. **`e9834c4` fix(api):** PDF render padal 500 — SFZ `brandKit.logoUrl` je **.jpg**, renderer volal natvrdo `embedPng()`. Formát sa určuje z magic bytes (JPEG = FF D8) → `embedJpg`/`embedPng`; `image/webp` vyhodený z povolených typov (pdf-lib ho nevie). Diagnóza cez Vercel runtime logy + read-only Mongo MCP (logoUrl).
 3. **`ed916b9` fix(api), preventívne:** assets (DejaVuSans.ttf, default logo) — `loadAsset()` s fallback cestami + `vercel.json functions.includeFiles` (bundling poistka).
 
+## Dodatočné úpravy v tej istej session
+
+- **`0a4952f` fix(api):** PDF — sivé pásy tabuľky boli kreslené pod baseline textu (viseli pod záhlavím); teraz centrované na text a nadväzujú na seba. Podpisový blok zobrazuje k dátumu aj **čas podpisu** v zóne Europe/Bratislava („Podpísané: 7. 6. 2026 o 20:40", `Intl.formatToParts`, deterministicky). Pozn.: zmena renderera ⇒ uložený `pdfSha256` starších SIGNED protokolov už nesedí s novým renderom (známy dôsledok on-demand renderu).
+- **`9022e83` feat(web):** Dashboard blok **„Čaká na vás"** (`PendingActionsPanel`) — manager: žiadosti na schválenie, schválené na vydanie, protokoly na jeho podpis, výpožičky po termíne, počet protokolov čakajúcich na druhú stranu; employee: vlastné veci. Priame odkazy na akciu, max 5 položiek/skupina, prázdny stav „Všetko vybavené". Bez nových API. Overené na prode (prázdny stav).
+
+## Workflow zmeny (pamäť)
+
+- **Push robím odteraz ja** (git MCP), po pushi overujem Vercel deploy.
+- **Režim kladenia otázok** — pred každou úlohou položiť doplňujúce otázky a počkať na odpovede; platí pre všetky projekty v tomto Cowork priestore. Pre globálnu platnosť si Janik môže pridať preferenciu do claude.ai Settings → Profile (Chat/Cowork) a `~/.claude/CLAUDE.md` (Code).
+
 ## Čo zostáva
 
 - Overiť `pnpm openapi:export:offline` (zhoda ručne dopĺňaného openapi.json)
-- Test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu)
+- Test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu) — otestuje aj blok „Čaká na vás" s reálnymi dátami
 - Voliteľné next: e-mail notifikácia preberajúcemu „máš protokol na podpis" (EmailService existuje), AMENDMENT flow UI
