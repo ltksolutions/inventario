@@ -326,6 +326,8 @@ function OrganisationSettingsPanel(): JSX.Element {
             }
           : null,
         protocolSettings: {
+          // paperSize zachovávame z existujúcich nastavení, aby $set neprišiel o hodnotu
+          paperSize: query.data?.protocolSettings?.paperSize ?? 'A4',
           numberFormat: protPrefix.trim()
             ? {
                 prefix: protPrefix.trim().toUpperCase(),

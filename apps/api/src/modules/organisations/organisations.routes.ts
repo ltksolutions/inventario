@@ -317,6 +317,23 @@ const UpdateOwnOrganisationBodySchema = z
         resetYearly: z.boolean().default(true),
       })
       .nullable(),
+    // ADR-0022: formát čísla preberacieho protokolu
+    protocolSettings: z
+      .object({
+        paperSize: z.enum(['A4', 'LETTER']).optional(),
+        numberFormat: z
+          .object({
+            prefix: z
+              .string()
+              .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "PROT").'),
+            padding: z.number().int().min(3).max(8),
+            initialSeq: z.number().int().min(1),
+          })
+          .nullable()
+          .optional(),
+      })
+      .nullable()
+      .optional(),
     // ADR-0030 D3: auth domain settings
     allowedAuthProviders: z
       .array(z.enum(['GOOGLE', 'APPLE', 'MICROSOFT', 'EMAIL']))
