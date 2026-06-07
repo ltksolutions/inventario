@@ -36,8 +36,18 @@ Backend protokolov (ADR-0022 K1–K8) už existoval — session dopĺňa chýbaj
 
 V sandboxe som spustila `pnpm install` cez npx — mount je Janikov reálny `node_modules`, install prelinkoval balíky na Linux binárky a nechal `_tmp_*` súbory v koreni repa (zmazané). **Pred ďalším lokálnym dev/build treba na Macu spustiť `pnpm install`** (prípadne potvrdiť wipe node_modules). Poučenie uložené do pamäte: pnpm install v sandboxe už nikdy.
 
+## E2E test na produkcii (Claude in Chrome, SFZ tenant) — ✅ PREŠIEL
+
+`pnpm install` + `pnpm test` lokálne OK (Janik). Workflow zmena: **push odteraz robím ja** (git MCP), po pushi overujem Vercel deploy.
+
+Flow PROT-2026-000001: `/protocols` zoznam s filtrami → preklik na `/loans/[id]` → podpis odovzdávajúceho → podpis preberajúceho → stav **Podpísaný** → PDF render OK. Pri teste nájdené a opravené 2 prod bugy:
+
+1. **`f10ecdb` fix(web):** keď je ten istý user obe strany protokolu (priama výpožička sebe), výber strany bral vždy handover — po prvom podpise tlačidlo zmizlo. Teraz sa vyberá prvá užívateľova nepodpísaná strana.
+2. **`e9834c4` fix(api):** PDF render padal 500 — SFZ `brandKit.logoUrl` je **.jpg**, renderer volal natvrdo `embedPng()`. Formát sa určuje z magic bytes (JPEG = FF D8) → `embedJpg`/`embedPng`; `image/webp` vyhodený z povolených typov (pdf-lib ho nevie). Diagnóza cez Vercel runtime logy + read-only Mongo MCP (logoUrl).
+3. **`ed916b9` fix(api), preventívne:** assets (DejaVuSans.ttf, default logo) — `loadAsset()` s fallback cestami + `vercel.json functions.includeFiles` (bundling poistka).
+
 ## Čo zostáva
 
-- Janik: `pnpm install` lokálne → `pnpm test` → vizuálny test flow (vydanie → detail → podpis oboch strán → PDF) → push
 - Overiť `pnpm openapi:export:offline` (zhoda ručne dopĺňaného openapi.json)
+- Test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu)
 - Voliteľné next: e-mail notifikácia preberajúcemu „máš protokol na podpis" (EmailService existuje), AMENDMENT flow UI

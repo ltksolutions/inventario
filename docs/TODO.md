@@ -131,6 +131,7 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] K6 — `POST /v1/protocols/:id/sign` (CLICK_TO_SIGN); DRAFT→SIGNED; pdfSha256 fixnutý ✅
   - [x] K7 — 15 integration testov (RBAC, cross-tenant, PDF, podpis, snapshot, stránkovanie) ✅
   - [x] K8 — milestone doc + session log ✅
+- **Web UI + E2E (2026-06-07):** detail výpožičky `/loans/[id]`, stránka `/protocols` + menu (managerOnly), CLICK_TO_SIGN modal, PDF/Tlač, backfill endpoint `POST /v1/loans/:id/protocols`, `GET /v1/protocols`. E2E otestované na prode (PROT-2026-000001 → SIGNED). Hotfixy: podpis druhej strany pri rovnakom userovi, JPEG logo v PDF (embedJpg podľa magic bytes). Session [`2026-06-07-loan-detail-protokoly-ui.md`](./sessions/2026-06-07-loan-detail-protokoly-ui.md)
 
 ### 8. Audit log retention job — automatická pseudonymizácia ✅ DONE (2026-06-01)
 
