@@ -321,13 +321,19 @@ export function ProtocolCard({
   };
 
   // Ktorou stranou je prihlásený používateľ — a môže ešte podpísať?
+  // Užívateľ môže byť OBE strany (priama výpožička sebe samému) — vyberáme
+  // prvú JEHO stranu, ktorá ešte nepodpísala, nie prvú jeho stranu vôbec.
+  const isHandoverParty = protocol.parties.handover.userId === currentUserId;
+  const isReceiveParty = protocol.parties.receive.userId === currentUserId;
   const mySide: 'handover' | 'receive' | null =
-    protocol.parties.handover.userId === currentUserId
-      ? 'handover'
-      : protocol.parties.receive.userId === currentUserId
-        ? 'receive'
-        : null;
-  const canSign = protocol.status === 'DRAFT' && mySide !== null && !protocol.signatures[mySide];
+    protocol.status !== 'DRAFT'
+      ? null
+      : isHandoverParty && !protocol.signatures.handover
+        ? 'handover'
+        : isReceiveParty && !protocol.signatures.receive
+          ? 'receive'
+          : null;
+  const canSign = mySide !== null;
 
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-card p-4 shadow-sm">
