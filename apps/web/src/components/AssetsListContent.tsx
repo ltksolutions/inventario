@@ -17,7 +17,7 @@ import { TRACKING_MODE_FILTER_OPTIONS } from './TrackingModeBadge';
 import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
-import { useAssets, useCanEditAssets, useCategories, useLocations } from '@/lib/api-hooks';
+import { useAssets, useCanEditAssets, useCategories, useLocations, useLoans } from '@/lib/api-hooks';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 /**
@@ -80,6 +80,11 @@ export function AssetsListContent(): JSX.Element {
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
 
+  // Aktívne výpožičky — potrebujeme vedieť, kto má daný majetok zapožičaný.
+  // Limit 500 je dostatočný pre pilotných nájomníkov; ak by rástol,
+  // stačí zvýšiť alebo presunúť logiku na server (filter assets by status).
+  const activeLoansQuery = useLoans({ status: 'ACTIVE', limit: 500 });
+
   // Build lookup maps once per query result. Memoising matters here:
   // the table would otherwise rebuild the lookup on every keystroke
   // in the search box.
@@ -91,6 +96,21 @@ export function AssetsListContent(): JSX.Element {
     () => buildIdMap<LocationSummary>(locationsQuery.data?.data ?? []),
     [locationsQuery.data],
   );
+
+  // Mapa assetId → meno vypožičiavateľa pre BORROWED položky.
+  // Jeden asset môže mať nanajvýš jednu aktívnu výpožičku, takže posledný
+  // záznam vyhráva (v praxi kolízia nenastane).
+  const borrowerByAssetId = useMemo(() => {
+    const loans = activeLoansQuery.data?.data ?? [];
+    const map = new Map<string, string>();
+    for (const loan of loans) {
+      if (!loan.borrowerDisplayName) continue;
+      for (const item of loan.items ?? []) {
+        if (item.assetId) map.set(item.assetId, loan.borrowerDisplayName);
+      }
+    }
+    return map;
+  }, [activeLoansQuery.data]);
 
   // Apply client-side filters to the current page's rows. See the
   // comment on the component for why this is intentional.
@@ -288,6 +308,7 @@ export function AssetsListContent(): JSX.Element {
           assets={filteredAssets}
           categoriesById={categoriesById}
           locationsById={locationsById}
+          borrowerByAssetId={borrowerByAssetId}
         />
       )}
 

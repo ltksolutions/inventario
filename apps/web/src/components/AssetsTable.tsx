@@ -3,6 +3,7 @@
 
 'use client';
 
+import { User } from 'lucide-react';
 import Link from 'next/link';
 
 import { TrackingModeBadge } from './TrackingModeBadge';
@@ -74,12 +75,14 @@ interface AssetsTableProps {
   assets: readonly AssetSummary[];
   categoriesById: ReadonlyMap<string, CategorySummary>;
   locationsById: ReadonlyMap<string, LocationSummary>;
+  borrowerByAssetId?: ReadonlyMap<string, string>;
 }
 
 export function AssetsTable({
   assets,
   categoriesById,
   locationsById,
+  borrowerByAssetId,
 }: AssetsTableProps): JSX.Element {
   return (
     <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
@@ -118,7 +121,7 @@ export function AssetsTable({
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-text-primary">{asset.name}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm">
+                <td className="px-4 py-3 text-sm">
                   <span
                     className={cn(
                       'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
@@ -127,6 +130,12 @@ export function AssetsTable({
                   >
                     {STATUS_LABELS[asset.status] ?? asset.status}
                   </span>
+                  {asset.status === 'BORROWED' && borrowerByAssetId?.get(asset._id) && (
+                    <span className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                      <User className="h-3 w-3 shrink-0" />
+                      {borrowerByAssetId.get(asset._id)}
+                    </span>
+                  )}
                 </td>
                 {/* Množstvo — len pre BULK */}
                 <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm">

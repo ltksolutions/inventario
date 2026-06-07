@@ -1077,6 +1077,8 @@ export interface LoanSummary {
   organisationId: string;
   requestId: string | null;
   borrowerId: string;
+  /** Meno vypožičiavateľa — enrichované z users collection pri načítaní loan. */
+  borrowerDisplayName: string | null;
   purpose: string;
   pickedUpAt: string;
   /** Null = výpožička bez termínu ("do odvolania", ADR-0025). */

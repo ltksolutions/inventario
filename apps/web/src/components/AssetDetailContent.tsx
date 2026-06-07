@@ -19,6 +19,7 @@ import {
   Pencil,
   RotateCcw,
   ShieldAlert,
+  User,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -598,6 +599,12 @@ function LoanTimelineItem({ loan, isLast }: { loan: LoanSummary; isLast: boolean
           <div>
             <p className="text-sm font-bold text-text-primary">{loan.purpose}</p>
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-text-secondary">
+              {loan.borrowerDisplayName && (
+                <span className="flex items-center gap-1 font-medium text-text-primary">
+                  <User className="h-3 w-3" />
+                  {loan.borrowerDisplayName}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatDate(loan.pickedUpAt)} – {formatDate(loan.dueAt)}

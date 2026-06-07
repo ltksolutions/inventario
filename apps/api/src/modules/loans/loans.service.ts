@@ -194,7 +194,8 @@ export class LoansService {
       skip,
     });
 
-    return paginatedResponse(items.map(loanToApiShape), total, limit, skip);
+    const nameMap = await this.buildBorrowerNameMap(items.map((l) => String(l.borrowerId)));
+    return paginatedResponse(items.map((l) => loanToApiShape(l, nameMap.get(String(l.borrowerId)))), total, limit, skip);
   }
 
   async listMyLoans(
@@ -209,7 +210,8 @@ export class LoansService {
     const doc = await this.loansRepo.findById(tenantId, id);
     if (!doc) throw new NotFoundError('Loan', id);
     assertCanReadLoan(doc, actor);
-    return loanToApiShape(doc);
+    const nameMap = await this.buildBorrowerNameMap([String(doc.borrowerId)]);
+    return loanToApiShape(doc, nameMap.get(String(doc.borrowerId)));
   }
 
   // -------------------------------------------------------------------------
@@ -1117,6 +1119,26 @@ export class LoansService {
     return String(inserted._id);
   }
 
+  /**
+   * Batch-resolve borrower display names from the users collection.
+   * Returns a Map<userId, displayName> for all found users.
+   * Missing users (deleted, not found) are silently omitted.
+   */
+  private async buildBorrowerNameMap(borrowerIds: string[]): Promise<Map<string, string>> {
+    const uniqueIds = [...new Set(borrowerIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return new Map();
+    const usersCol = this.getDb().collection('users');
+    const docs = await usersCol
+      .find({ _id: { $in: uniqueIds.map((id) => new ObjectId(id) as never) }, deletedAt: null })
+      .toArray();
+    const map = new Map<string, string>();
+    for (const doc of docs) {
+      const displayName = (doc['displayName'] as string | undefined) ?? (doc['email'] as string | undefined) ?? '';
+      if (displayName) map.set(String(doc['_id']), displayName);
+    }
+    return map;
+  }
+
   private async assertBeneficiaryIsActiveMember(
     tenantId: string,
     userId: string,
@@ -1231,10 +1253,10 @@ function loanRequestToApiShape(doc: WithId<LoanRequest>): Record<string, unknown
   return { ...doc, _id: String(doc._id) };
 }
 
-function loanToApiShape(doc: WithId<Loan>): Record<string, unknown> {
+function loanToApiShape(doc: WithId<Loan>, borrowerDisplayName?: string): Record<string, unknown> {
   const isOverdue =
     doc.status === 'ACTIVE' && doc.dueAt != null && new Date().toISOString() > doc.dueAt;
-  return { ...doc, _id: String(doc._id), isOverdue };
+  return { ...doc, _id: String(doc._id), isOverdue, borrowerDisplayName: borrowerDisplayName ?? null };
 }
 
 function paginatedResponse<T>(
