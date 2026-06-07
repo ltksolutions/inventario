@@ -1132,9 +1132,13 @@ export class LoansService {
   private async buildBorrowerNameMap(borrowerIds: string[]): Promise<Map<string, string>> {
     const uniqueIds = [...new Set(borrowerIds.filter(Boolean))];
     if (uniqueIds.length === 0) return new Map();
+    const validObjectIds = uniqueIds
+      .filter((id) => ObjectId.isValid(id) && String(new ObjectId(id)) === id)
+      .map((id) => new ObjectId(id) as never);
+    if (validObjectIds.length === 0) return new Map();
     const usersCol = this.getDb().collection('users');
     const docs = await usersCol
-      .find({ _id: { $in: uniqueIds.map((id) => new ObjectId(id) as never) }, deletedAt: null })
+      .find({ _id: { $in: validObjectIds }, deletedAt: null })
       .toArray();
     const map = new Map<string, string>();
     for (const doc of docs) {
