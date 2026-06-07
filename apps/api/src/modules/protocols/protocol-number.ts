@@ -4,22 +4,22 @@
 /**
  * Protocol number generator — transakčný, race-safe (ADR-0022 K3).
  *
- * Formát: `PROT-YYYY-NNNNNN` (regex schémy: `^PROT-\d{4}-\d{6}$`)
+ * Formát: `{prefix}-YYYY-{seq.padStart(padding, '0')}`, napr. `PROT-2026-000001`.
+ * Default: prefix `PROT`, padding 6, initialSeq 1.
  *
  * Counter je scoped na `(organisationId, year)` — každý tenant má
- * vlastnú sekvenciu, každý rok štartuje od 1.
+ * vlastnú sekvenciu, každý rok štartuje od initialSeq (default 1).
  *
  * Implementácia:
  *   - `counters` collection, dokument `{ _id: "prot:ORG_ID:YYYY", seq: N }`
- *   - `findOneAndUpdate` s `$inc: { seq: 1 }` + `upsert: true` + `returnDocument: 'after'`
- *   - Atomická operácia — bezpečná pri súbežných transakciách
+ *   - Inicializácia: `updateOne` s `$setOnInsert: { seq: initialSeq - 1 }` (upsert)
+ *   - Inkrementácia: `findOneAndUpdate` s `$inc: { seq: 1 }`, returnDocument: 'after'
+ *   - Atomická dvojica v rámci jednej transakcie → bezpečná pri súbežných requestoch
  *   - Volaná VNÚTRI existujúcej Mongo transakcie (session je povinný)
  *
  * Race guard:
  *   - Unique index `(organisationId, protocolNumber)` na `loan_protocols` collection
  *     (ensureIndexes v LoanProtocolsRepository, K4) je posledná línia obrany.
- *   - `$inc` + `upsert` na counters je atomický aj bez transakcie, ale
- *     odovzdávame session, aby bol counter a insert protokolu v jednej transakcii.
  */
 
 import type { ClientSession, Db } from 'mongodb';
@@ -34,6 +34,22 @@ interface ProtocolCounter {
 }
 
 // ---------------------------------------------------------------------------
+// Format config type (mirrors ProtocolNumberFormatSchema from shared-types)
+// ---------------------------------------------------------------------------
+
+export interface ProtocolNumberFormatConfig {
+  prefix: string;
+  padding: number;
+  initialSeq: number;
+}
+
+const DEFAULT_FORMAT: ProtocolNumberFormatConfig = {
+  prefix: 'PROT',
+  padding: 6,
+  initialSeq: 1,
+};
+
+// ---------------------------------------------------------------------------
 // Hlavná exportovaná funkcia
 // ---------------------------------------------------------------------------
 
@@ -45,38 +61,46 @@ interface ProtocolCounter {
  * @param db - Tenant database handle (fastify.mongo.db — NIE mongoClient.db()).
  * @param organisationId - Tenant ID (string).
  * @param session - Aktívna Mongo ClientSession (transakcia).
- * @param year - Rok protokolu. Default: UTC rok z `new Date()` (K4 predáva `issuedAt` rok).
- * @returns Číslo protokolu v tvare `PROT-2026-000042`.
+ * @param year - Rok protokolu. Default: UTC rok z `new Date()`.
+ * @param numberFormat - Per-tenant formát číselného radu. Null = systémový default.
+ * @returns Číslo protokolu v tvare `PROT-2026-000001`.
  */
 export async function generateProtocolNumber(
   db: Db,
   organisationId: string,
   session: ClientSession,
   year?: number,
+  numberFormat?: ProtocolNumberFormatConfig | null,
 ): Promise<string> {
   const protocolYear = year ?? new Date().getUTCFullYear();
+  const fmt = numberFormat ?? DEFAULT_FORMAT;
   const counterId = `prot:${organisationId}:${protocolYear}`;
 
   const countersCol = db.collection<ProtocolCounter>('counters');
 
+  // Inicializácia countera: ak counter ešte neexistuje, nastaví seq = initialSeq - 1
+  // tak, aby prvý $inc vrátil initialSeq. Ak counter existuje, $setOnInsert sa preskočí.
+  await countersCol.updateOne(
+    { _id: counterId },
+    { $setOnInsert: { seq: fmt.initialSeq - 1 } },
+    { upsert: true, session },
+  );
+
+  // Atómický inkrements — vždy vracia novú hodnotu.
   const result = await countersCol.findOneAndUpdate(
     { _id: counterId },
     { $inc: { seq: 1 } },
-    {
-      upsert: true,
-      returnDocument: 'after',
-      session,
-    },
+    { returnDocument: 'after', session },
   );
 
   if (!result) {
-    throw new Error(`generateProtocolNumber: counter upsert failed for ${counterId}`);
+    throw new Error(`generateProtocolNumber: counter update failed for ${counterId}`);
   }
 
   const seq = result.seq;
-  const paddedSeq = String(seq).padStart(6, '0');
+  const paddedSeq = String(seq).padStart(fmt.padding, '0');
 
-  return `PROT-${protocolYear}-${paddedSeq}`;
+  return `${fmt.prefix}-${protocolYear}-${paddedSeq}`;
 }
 
 /**

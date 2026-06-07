@@ -98,6 +98,15 @@ export interface OrganisationSummary {
     includeYear: boolean;
     resetYearly: boolean;
   } | null;
+  /** Nastavenia protokolov (ADR-0022). Null = systémové defaulty. */
+  protocolSettings: {
+    paperSize: 'A4' | 'LETTER';
+    numberFormat: {
+      prefix: string;
+      padding: number;
+      initialSeq: number;
+    } | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -183,6 +192,15 @@ export interface UpdateCurrentOrganisationInput {
     padding: number;
     includeYear: boolean;
     resetYearly: boolean;
+  } | null;
+  /** Nastavenia protokolov (ADR-0022). */
+  protocolSettings?: {
+    paperSize?: 'A4' | 'LETTER';
+    numberFormat?: {
+      prefix: string;
+      padding: number;
+      initialSeq: number;
+    } | null;
   } | null;
 }
 

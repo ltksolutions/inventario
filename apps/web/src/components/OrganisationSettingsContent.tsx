@@ -148,6 +148,11 @@ function OrganisationSettingsPanel(): JSX.Element {
   const [invIncludeYear, setInvIncludeYear] = useState(true);
   const [invResetYearly, setInvResetYearly] = useState(true);
 
+  // Protocol number format state (ADR-0022)
+  const [protPrefix, setProtPrefix] = useState('');
+  const [protPadding, setProtPadding] = useState(6);
+  const [protInitialSeq, setProtInitialSeq] = useState(1);
+
   // Branding state (ADR-0028 v2): presetId + font enum
   const [presetId, setPresetId] = useState<string | null>(null);
   const [fontFamilySans, setFontFamilySans] = useState<FontOptionId>('system-ui');
@@ -183,6 +188,10 @@ function OrganisationSettingsPanel(): JSX.Element {
     setInvPadding(org.inventoryNumberFormat?.padding ?? 4);
     setInvIncludeYear(org.inventoryNumberFormat?.includeYear ?? true);
     setInvResetYearly(org.inventoryNumberFormat?.resetYearly ?? true);
+    // protocolSettings.numberFormat hydration (ADR-0022)
+    setProtPrefix(org.protocolSettings?.numberFormat?.prefix ?? '');
+    setProtPadding(org.protocolSettings?.numberFormat?.padding ?? 6);
+    setProtInitialSeq(org.protocolSettings?.numberFormat?.initialSeq ?? 1);
     // brandKit hydration (ADR-0028 v2)
     setPresetId(org.brandKit?.presetId ?? null);
     const f = org.brandKit?.fontFamilySans;
@@ -289,6 +298,10 @@ function OrganisationSettingsPanel(): JSX.Element {
       setFormError('Prefix inventárneho čísla musí byť 1–5 veľkých ASCII písmen (napr. "SFZ").');
       return;
     }
+    if (protPrefix.trim() && !/^[A-Z]{1,5}$/.test(protPrefix.trim())) {
+      setFormError('Prefix čísla protokolu musí byť 1–5 veľkých ASCII písmen (napr. "PROT").');
+      return;
+    }
 
     update.mutate(
       {
@@ -312,6 +325,15 @@ function OrganisationSettingsPanel(): JSX.Element {
               resetYearly: invResetYearly,
             }
           : null,
+        protocolSettings: {
+          numberFormat: protPrefix.trim()
+            ? {
+                prefix: protPrefix.trim().toUpperCase(),
+                padding: protPadding,
+                initialSeq: protInitialSeq,
+              }
+            : null,
+        },
       },
       {
         onSuccess: () => {
@@ -398,8 +420,8 @@ function OrganisationSettingsPanel(): JSX.Element {
           </Field>
         </Section>
 
-        {/* Inventárne číslované (ADR-0021) */}
-        <Section title="Inventárne číslované">
+        {/* Inventárne číslovanie (ADR-0021) */}
+        <Section title="Inventárne číslovanie">
           <p className="-mt-1 text-xs text-text-secondary">
             Formát inventárneho čísla sa generuje automaticky pri pridaní majetku. Príklad: prefix
             „SFZ“, padding 4, rok zapnutý → „SFZ-2026-0001“.
@@ -465,6 +487,62 @@ function OrganisationSettingsPanel(): JSX.Element {
                 {invPrefix.trim().toUpperCase()}
                 {invIncludeYear ? `-${new Date().getFullYear()}` : ''}-
                 {String(1).padStart(invPadding, '0')}
+              </span>
+            </div>
+          )}
+        </Section>
+
+        {/* Číslovanie protokolov (ADR-0022) */}
+        <Section title="Číslovanie protokolov">
+          <p className="-mt-1 text-xs text-text-secondary">
+            Formát čísla preberacieho protokolu. Systémový default: prefix „PROT", 6 cifier, od 1.
+            Príklad: „PROT-2026-000001". Nechajte prázdne pre ponechanie systémového defaultu.
+          </p>
+          <Field label="Prefix" hint='1–5 veľkých ASCII písmen. Napr. "PROT", "SFZ", "PREV".'>
+            <input
+              type="text"
+              value={protPrefix}
+              onChange={(e) => setProtPrefix(e.target.value.toUpperCase())}
+              placeholder="PROT"
+              maxLength={5}
+              className={inputCls()}
+            />
+          </Field>
+          <Field
+            label="Počet cifier"
+            hint="Počet cifier poradia (doplnených nulami). Napr. 6 → 000001."
+          >
+            <select
+              value={protPadding}
+              onChange={(e) => setProtPadding(Number(e.target.value))}
+              className={inputCls()}
+            >
+              {[3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={n}>
+                  {n} cifier (napr. {'0'.repeat(n - 1)}1)
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field
+            label="Počiatočná hodnota sekvencie"
+            hint="Od akého čísla začína nový rok. Default 1. Zmena nemá efekt, ak protokoly v danom roku už existujú."
+          >
+            <input
+              type="number"
+              min={1}
+              max={999999}
+              value={protInitialSeq}
+              onChange={(e) => setProtInitialSeq(Math.max(1, Number(e.target.value)))}
+              className={inputCls()}
+            />
+          </Field>
+          {protPrefix.trim() && (
+            <div className="rounded-lg bg-surface-subtle px-4 py-3 text-sm text-text-secondary">
+              Náhľad:{' '}
+              <span className="font-mono font-semibold text-text-primary">
+                {protPrefix.trim().toUpperCase()}-{new Date().getFullYear()}-
+                {String(protInitialSeq).padStart(protPadding, '0')}
               </span>
             </div>
           )}

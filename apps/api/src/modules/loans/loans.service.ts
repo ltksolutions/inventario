@@ -1218,7 +1218,23 @@ export class LoansService {
 
     const db = this.getDb();
     const year = new Date(now).getUTCFullYear();
-    const protocolNumber = await generateProtocolNumber(db, tenantId, session, year);
+
+    // Načítame per-tenant formát čísla protokolu z org dokumentu (read v transakcii je OK).
+    const orgDoc = await db
+      .collection<{
+        protocolSettings?: {
+          numberFormat?: { prefix: string; padding: number; initialSeq: number } | null;
+        } | null;
+      }>('organisations')
+      .findOne(
+        {
+          _id: ObjectId.isValid(tenantId) ? (new ObjectId(tenantId) as never) : (tenantId as never),
+        },
+        { projection: { protocolSettings: 1 }, session },
+      );
+    const numberFormat = orgDoc?.protocolSettings?.numberFormat ?? null;
+
+    const protocolNumber = await generateProtocolNumber(db, tenantId, session, year, numberFormat);
 
     const protocolItems: LoanProtocol['items'] = loanItems.map((item) => ({
       assetId: item.assetId,

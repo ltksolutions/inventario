@@ -192,6 +192,37 @@ export const FoundContactInfoSchema = z
 export type FoundContactInfo = z.infer<typeof FoundContactInfoSchema>;
 
 /**
+ * Konfigurácia formátu čísla preberacieho protokolu — per tenant (ADR-0022).
+ *
+ * Formát: `{prefix}-{YYYY}-{seq.padStart(padding, '0')}`, napr. `PROT-2026-000001`.
+ * Null / chýbajúce pole = použi systémový default (prefix `PROT`, padding 6, seq od 1).
+ *
+ * `initialSeq` slúži len pri **prvom** protokole daného tenanta/roka — ak counter ešte
+ * neexistuje, sekvenciu inicializuje na túto hodnotu. Pri zmene konfigurácie v neskorším
+ * čase už existujúci counter neovplyvní.
+ */
+export const ProtocolNumberFormatSchema = z
+  .object({
+    /** Prefix čísla protokolu — 1–5 veľkých ASCII písmen (napr. "PROT", "SFZ"). */
+    prefix: z
+      .string()
+      .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "PROT").'),
+
+    /** Počet cifier poradia (zero-padded). 3–8. Default 6 → `000001`. */
+    padding: z.number().int().min(3).max(8).default(6),
+
+    /**
+     * Počiatočná hodnota sekvencie pre nový counter (nový rok / prvý protokol).
+     * Default 1. Napr. 100 → prvý protokol bude mať poradie 100.
+     * Zmena po vytvorení prvého protokolu v danom roku nemá efekt.
+     */
+    initialSeq: z.number().int().min(1).default(1),
+  })
+  .strict();
+
+export type ProtocolNumberFormat = z.infer<typeof ProtocolNumberFormatSchema>;
+
+/**
  * Konfigurácia preberacích protokolov — per tenant (ADR-0022).
  *
  * Používa sa pri vzniku `LoanProtocol` (fulfil / direct loan / return): hodnoty sa
@@ -206,6 +237,12 @@ export const OrganisationProtocolSettingsSchema = z
   .object({
     /** Veľkosť papiera pre generované protokoly. Default A4 (EU). */
     paperSize: z.enum(['A4', 'LETTER']).default('A4'),
+
+    /**
+     * Formát čísla protokolu. Null = systémový default (PROT, 6 cifier, od 1).
+     * Viď `ProtocolNumberFormatSchema`.
+     */
+    numberFormat: ProtocolNumberFormatSchema.nullable().default(null),
   })
   .strict();
 
