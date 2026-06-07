@@ -1,17 +1,22 @@
 # NEXT
 
-## Aktuálny stav (2026-06-07 — Cowork session)
+## Aktuálny stav (2026-06-07, koniec session)
 
-**P0 Sklad test DOKONČENÝ.** Príjem na sklad pre `SFZ-2026-00002` otestovaný na produkcii:
+**P0 Sklad test DOKONČENÝ** — RECEIPT flow overený end-to-end na produkcii (UI + DB + Reconciliation). StockPanel fix pre legacy `quantityOnHand` commitnutý (`e33a826`) a nasadený. TODO #23 uzavreté. Detaily: `docs/sessions/2026-06-07-sklad-test-receipt.md`.
 
-- RECEIPT +10 ks (BA centrála SFZ) zaúčtovaný, zostatok 1 → 11 ks
-- História pohybov v StockPanel sa načíta a invaliduje správne (2 pohyby)
-- Prehľad `/stock`: stav „V poriadku", 11 ks, ref. príjem 10 ks
-- Reconciliation: „Cache sedí — zostatok 11 ks" (ledger = cache)
+Nová infra: MongoDB MCP `inventario-prod` (read-only), GitHub Integration (tools overiť v novej session), Vercel MCP funkčný.
 
-**Fix (uncommitnuté, čaká na commit):** `apps/web/src/components/StockPanel.tsx` — legacy assety s `quantityOnHand == null` zobrazovali nekonečný Skeleton namiesto hodnoty. Teraz `?? 0` (zostatok card + InfoRow v dialógoch Príjem/Korekcia). Typecheck OK. → commit + push (GitHub Desktop), Vercel deploy auto.
+## ĎALŠIA SESSION — začni tu
 
-### Ďalej: Vizuálne odlíšenie BULK vs SERIALIZED (P1) — viď nižšie
+### Vizuálne odlíšenie BULK vs SERIALIZED (P1)
+
+- V zozname majetku (`/assets`) vizuálne odlíšiť BULK položky (badge/ikona)
+- Pri BULK v detaile zobraziť `quantityOnHand` prominentne
+
+### Pre-GA cleanup
+
+- `PATCH /v1/users/:id` — odstrániť/migrovať legacy `User.roles[]` endpoint (TODO #18)
+- Smoke test + DR test
 
 ---
 

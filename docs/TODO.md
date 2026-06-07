@@ -36,9 +36,10 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] whitelist test pre `PublicAssetViewSchema` (K6)
   - [x] openapi regen (K7)
 
-### 23. BULK asset create — RECEIPT pohyb pri vytvorení (P0, ~1h)
+### 23. BULK asset create — RECEIPT pohyb pri vytvorení ✅ DONE (2026-06-07)
 
-- **Stav:** Otvorené (2026-06-06)
+- **Stav:** ✅ implementované 2026-06-06, otestované na prode 2026-06-07 (príjem +10 ks na `SFZ-2026-00002`, ledger = cache = UI, Reconciliation OK; overené aj priamo v DB cez inventario-prod MCP)
+- **Session:** [`docs/sessions/2026-06-07-sklad-test-receipt.md`](./sessions/2026-06-07-sklad-test-receipt.md)
 - **Kontext:** `ApiCreateAssetBodySchema` + `CreateAssetSchema` majú `initialQuantity`, frontend posiela hodnotu, ale `assets.service.ts` `create()` ho ignoruje — `quantityOnHand` zostane `null` a nevytvorí sa `StockMovement` RECEIPT záznam.
 - **Čo treba:**
   1. `assets.routes.ts` — injektnúť `StockMovementsRepository` do `AssetsService` konštruktu (pridať `new StockMovementsRepository(fastify.mongo.db)` a odovzdať ako 7. argument)
