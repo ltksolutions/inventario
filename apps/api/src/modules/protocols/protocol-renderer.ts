@@ -453,9 +453,11 @@ function drawItemsTable(
   }
 
   // Záhlavie tabuľky
+  // Pás je centrovaný na baseline textu (baseline = y, text siaha ~6 pt nad ňu)
+  // a spodkom nadväzuje na prúžok prvého riadku (baseline - 10).
   page.drawRectangle({
     x: MARGIN.left,
-    y: y - TABLE_HEADER_H + 4,
+    y: y - 10,
     width: usableWidth,
     height: TABLE_HEADER_H,
     color: COLOR.lightGray,
@@ -474,13 +476,12 @@ function drawItemsTable(
 
   // Riadky
   items.forEach((item, rowIdx) => {
-    const rowY = y - TABLE_ROW_H + 4;
-
-    // Striedanie pozadia riadkov
+    // Striedanie pozadia riadkov — prúžok centrovaný na text riadku
+    // (baseline - 6 .. baseline + 12), prúžky na seba presne nadväzujú.
     if (rowIdx % 2 === 1) {
       page.drawRectangle({
         x: MARGIN.left,
-        y: rowY,
+        y: y - 6,
         width: usableWidth,
         height: TABLE_ROW_H,
         color: rgb(0.96, 0.96, 0.96),
@@ -564,11 +565,11 @@ function drawSignatureBlock(ctx: RenderContext, page: PDFPage): void {
     drawText(page, embedFont, name, x, sigBaseY + 38, FONT_SIZE.body, { color: COLOR.black });
 
     if (sig) {
-      // SIGNED — zobraz dátum a metódu podpisu
+      // SIGNED — zobraz dátum, čas a metódu podpisu
       drawText(
         page,
         embedFont,
-        `Podpísané: ${formatDate(sig.signedAt)}`,
+        `Podpísané: ${formatDateTime(sig.signedAt)}`,
         x,
         sigBaseY + 24,
         FONT_SIZE.small,
@@ -715,4 +716,28 @@ function formatDate(isoString: string): string {
   const month = d.getUTCMonth() + 1;
   const year = d.getUTCFullYear();
   return `${day}. ${month}. ${year}`;
+}
+
+/**
+ * Formátovač pre dátum + čas podpisu v zóne Europe/Bratislava.
+ *
+ * Modul-level konštanta (nie per-call) a skladanie z `formatToParts` —
+ * výstup je deterministický pre rovnaký vstup (invariant ADR-0022):
+ * explicitná timeZone, žiadne locale-závislé interpunkcie.
+ */
+const SIGNED_AT_FORMATTER = new Intl.DateTimeFormat('sk-SK', {
+  timeZone: 'Europe/Bratislava',
+  day: 'numeric',
+  month: 'numeric',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function formatDateTime(isoString: string): string {
+  const parts = SIGNED_AT_FORMATTER.formatToParts(new Date(isoString));
+  const get = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('day')}. ${get('month')}. ${get('year')} o ${get('hour')}:${get('minute')}`;
 }
