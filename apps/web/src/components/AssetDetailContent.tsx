@@ -29,6 +29,7 @@ import { AssetDetailEditForm } from './AssetDetailEditForm';
 import { AssetDetailReadView } from './AssetDetailReadView';
 import { LabelPrintButton } from './LabelPrintButton';
 import { StockPanel } from './StockPanel';
+import { TrackingModeBadge } from './TrackingModeBadge';
 
 import type { AssetDetail, LoanSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
@@ -323,7 +324,10 @@ function AssetHeroCard({
               <h1 className="mt-0.5 text-xl font-bold leading-tight text-text-primary lg:text-2xl">
                 {asset.name}
               </h1>
-              {categoryName && <p className="mt-1 text-sm text-text-secondary">{categoryName}</p>}
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {categoryName && <p className="text-sm text-text-secondary">{categoryName}</p>}
+                <TrackingModeBadge mode={asset.trackingMode} variant="label" />
+              </div>
             </div>
             <span
               className={cn(
@@ -353,6 +357,17 @@ function AssetHeroCard({
                 {CONDITION_LABELS[asset.condition] ?? asset.condition}
               </p>
             </div>
+            {asset.trackingMode === 'BULK' && (
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                  Množstvo na sklade
+                </p>
+                <p className="mt-0.5 font-mono font-semibold text-text-primary">
+                  {asset.quantityOnHand ?? 0}
+                  <span className="ml-1 text-[10px] font-normal text-text-muted">ks</span>
+                </p>
+              </div>
+            )}
             {asset.warrantyUntil && (
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">

@@ -3,6 +3,8 @@
 
 'use client';
 
+import { TrackingModeBadge } from './TrackingModeBadge';
+
 import type { AssetDetail, CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
@@ -201,6 +203,17 @@ export function AssetDetailReadView({
             <span className="text-text-muted">—</span>
           )}
         </Row>
+        <Row label="Typ sledovania">
+          <TrackingModeBadge mode={asset.trackingMode} variant="label" />
+        </Row>
+        {asset.trackingMode === 'BULK' && (
+          <Row label="Množstvo na sklade">
+            <span className="font-mono font-semibold">
+              {asset.quantityOnHand ?? 0}
+              <span className="ml-1 text-xs font-normal text-text-muted">ks</span>
+            </span>
+          </Row>
+        )}
       </Section>
 
       {/* Manufacturer / model */}
