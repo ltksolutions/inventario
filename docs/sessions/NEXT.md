@@ -1,12 +1,19 @@
 # NEXT
 
-## Aktuálny stav (2026-06-07, koniec session)
+## Aktuálny stav (2026-06-07, koniec 2. session)
 
-**P0 Sklad test DOKONČENÝ** — RECEIPT flow overený end-to-end na produkcii (UI + DB + Reconciliation). StockPanel fix pre legacy `quantityOnHand` commitnutý (`e33a826`) a nasadený. TODO #23 uzavreté. Detaily: `docs/sessions/2026-06-07-sklad-test-receipt.md`.
+**Detail výpožičky + Preberacie protokoly UI HOTOVÉ** (commitnuté, nepushnuté, netestované v prehliadači). Nové: `/loans/[id]` detail s protokolmi, CLICK_TO_SIGN podpis, PDF/Tlač, `/protocols` zoznam + menu (managerOnly), backend `GET /v1/protocols` + `POST /v1/loans/:id/protocols` (backfill), sign fixuje snapshot strany. Detaily: `docs/sessions/2026-06-07-loan-detail-protokoly-ui.md`.
 
-Nová infra: MongoDB MCP `inventario-prod` (read-only), GitHub Integration (tools overiť v novej session), Vercel MCP funkčný.
+⚠️ **Pred ďalšou prácou lokálne:** `pnpm install` (sandbox prelinkoval node_modules na Linux — pozri session log, sekcia Incident), potom `pnpm test` a `pnpm openapi:export:offline` (overiť ručne dopĺňaný openapi.json).
 
 ## ĎALŠIA SESSION — začni tu
+
+### Test protokolového flow (P0 — nadväzuje na túto session)
+
+1. Vydanie výpožičky (fulfil/direct) → `/loans/[id]` → protokol DRAFT
+2. Podpis oboch strán (manager + borrower účet) → SIGNED, PDF bez vodoznaku
+3. `/protocols` zoznam + filtre, backfill na staršej výpožičke
+4. Push + Vercel deploy
 
 ### Vizuálne odlíšenie BULK vs SERIALIZED (P1)
 
