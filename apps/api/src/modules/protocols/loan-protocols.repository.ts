@@ -27,6 +27,19 @@ import type { LoanProtocol } from '@inventario/shared-types';
 import type { ClientSession, Collection, Db, Filter, WithId } from 'mongodb';
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface ListProtocolsParams {
+  type?: LoanProtocol['type'];
+  status?: LoanProtocol['status'];
+  /** Filter na účastníka — protokoly, kde je daný user handover ALEBO receive strana. */
+  participantUserId?: string;
+  limit: number;
+  skip: number;
+}
+
+// ---------------------------------------------------------------------------
 // Repository
 // ---------------------------------------------------------------------------
 
@@ -61,6 +74,10 @@ export class LoanProtocolsRepository {
       this.collection.createIndex(
         { organisationId: 1, status: 1 },
         { name: 'organisationId_status' },
+      ),
+      this.collection.createIndex(
+        { organisationId: 1, issuedAt: -1 },
+        { name: 'organisationId_issuedAt_desc' },
       ),
     ]);
     // Counter collection index (pre generateProtocolNumber)
@@ -145,14 +162,56 @@ export class LoanProtocolsRepository {
   }
 
   /**
-   * Čiastočná aktualizácia protokolu (pre K6 — podpis + pdfSha256).
+   * Stránkovaný zoznam protokolov pre tenant s voliteľnými filtrami.
+   * Používa ho GET /v1/protocols (stránka „Preberacie protokoly").
+   *
+   * `participantUserId` obmedzí výsledky na protokoly, kde je daný user
+   * handover alebo receive stranou (EMPLOYEE vidí len vlastné).
+   */
+  async list(
+    organisationId: string,
+    params: ListProtocolsParams,
+  ): Promise<{ items: WithId<LoanProtocol>[]; total: number }> {
+    const tenantId = requireTenantId(organisationId);
+
+    const conditions: Record<string, unknown> = {};
+    if (params.type) conditions['type'] = params.type;
+    if (params.status) conditions['status'] = params.status;
+    if (params.participantUserId) {
+      conditions['$or'] = [
+        { 'parties.handover.userId': params.participantUserId },
+        { 'parties.receive.userId': params.participantUserId },
+      ];
+    }
+
+    const filter = tenantFilter<LoanProtocol>(tenantId, conditions as Filter<LoanProtocol>);
+
+    const [items, total] = await Promise.all([
+      this.collection
+        .find(filter)
+        .sort({ issuedAt: -1, _id: -1 })
+        .skip(params.skip)
+        .limit(params.limit)
+        .toArray(),
+      this.collection.countDocuments(filter),
+    ]);
+
+    return { items, total };
+  }
+
+  /**
+   * Čiastočná aktualizácia protokolu (pre K6 — podpis + pdfSha256;
+   * `parties` pre fixáciu snapshotu strany v čase podpisu).
    * Vráti aktualizovaný dokument alebo null ak neexistuje.
    */
   async update(
     organisationId: string,
     id: string,
     patch: Partial<
-      Pick<LoanProtocol, 'signatures' | 'status' | 'pdfSha256' | 'updatedAt' | 'updatedBy'>
+      Pick<
+        LoanProtocol,
+        'signatures' | 'status' | 'pdfSha256' | 'parties' | 'updatedAt' | 'updatedBy'
+      >
     >,
     session?: ClientSession,
   ): Promise<WithId<LoanProtocol> | null> {

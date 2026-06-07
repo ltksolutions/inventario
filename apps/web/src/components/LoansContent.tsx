@@ -289,6 +289,20 @@ function RequestRow({
           {request.rejectionReason && (
             <p className="mt-0.5 text-xs text-text-muted">{request.rejectionReason}</p>
           )}
+          {/* Odkliky na vzniknuté výpožičky (detail + protokoly) */}
+          {request.resultingLoanIds.length > 0 && (
+            <div className="mt-1 flex flex-col gap-0.5">
+              {request.resultingLoanIds.map((loanId, idx) => (
+                <Link
+                  key={loanId}
+                  href={`/loans/${loanId}`}
+                  className="text-xs font-medium text-brand-primary underline-offset-2 hover:underline"
+                >
+                  Výpožička{request.resultingLoanIds.length > 1 ? ` ${idx + 1}` : ''} →
+                </Link>
+              ))}
+            </div>
+          )}
         </td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2">

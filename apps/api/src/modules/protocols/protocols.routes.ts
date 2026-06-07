@@ -5,10 +5,12 @@
  * Protocols routes — HTTP endpoints pre preberacie protokoly (ADR-0022 K5–K6).
  *
  * RBAC:
+ *   GET  /v1/protocols                ASSET_MANAGER+ADMIN všetky; EMPLOYEE len vlastné (účastník)
  *   GET  /v1/loans/:id/protocols      borrower ALEBO ASSET_MANAGER+ADMIN
  *   GET  /v1/protocols/:id            účastník protokolu ALEBO ASSET_MANAGER+ADMIN
  *   GET  /v1/protocols/:id/pdf        účastník protokolu ALEBO ASSET_MANAGER+ADMIN
  *   POST /v1/protocols/:id/sign       len príslušná strana (handover alebo receive)
+ *   POST /v1/loans/:id/protocols      ASSET_MANAGER+ADMIN (backfill protokolu)
  *
  * Cross-tenant izolácia: všetky repo metódy berú `organisationId` z auth tokenu
  * (nie z URL) — dokument iného tenanta sa vráti ako null → 404.
@@ -62,6 +64,27 @@ const SignBodySchema = z.object({
   method: z.literal('CLICK_TO_SIGN'),
 });
 
+const CreateProtocolBodySchema = z.object({
+  type: z.enum(['HANDOVER', 'RETURN']),
+});
+
+const ListProtocolsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(20),
+  skip: z.coerce.number().int().min(0).default(0),
+  type: z.enum(['HANDOVER', 'RETURN', 'AMENDMENT']).optional(),
+  status: z.enum(['DRAFT', 'SIGNED', 'AMENDED', 'VOIDED']).optional(),
+});
+
+const PaginatedResponseSchema = z.object({
+  data: z.array(z.record(z.string(), z.unknown())),
+  pagination: z.object({
+    total: z.number().int().nonnegative(),
+    limit: z.number().int().positive(),
+    skip: z.number().int().nonnegative(),
+    hasMore: z.boolean(),
+  }),
+});
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -76,6 +99,85 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.loansService.setProtocolsRepo(protocolsRepo);
 
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
+  const canWrite = fastify.requireMinRole('ASSET_MANAGER');
+
+  // ── GET /v1/protocols ────────────────────────────────────────────────────
+  app.get(
+    '/v1/protocols',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
+      schema: {
+        tags: ['Protocols'],
+        summary: 'Zoznam preberacích protokolov',
+        description:
+          'Stránkovaný zoznam protokolov tenanta, najnovšie prvé. ' +
+          'ASSET_MANAGER/ADMIN vidí všetky protokoly organizácie, ' +
+          'EMPLOYEE len tie, kde je odovzdávajúcou alebo preberajúcou stranou. ' +
+          'Filtrovateľné podľa `type` a `status`.',
+        security: [{ bearerAuth: [] }],
+        querystring: ListProtocolsQuerySchema,
+        response: { 200: PaginatedResponseSchema },
+      },
+    },
+    async (request) => {
+      const actor = request.currentUser;
+      const tenantId = String(actor.organisationId);
+      const { limit, skip, type, status } = request.query;
+
+      const { items, total } = await protocolsRepo.list(tenantId, {
+        limit,
+        skip,
+        ...(type && { type }),
+        ...(status && { status }),
+        // EMPLOYEE/EXTERNAL: vynútene len protokoly, kde je účastníkom
+        ...(!isManagerOrAdmin(actor) && { participantUserId: String(actor._id) }),
+      });
+
+      const enriched = await enrichPartySnapshots(fastify.mongo.db, items);
+      return {
+        data: enriched,
+        pagination: { total, limit, skip, hasMore: skip + items.length < total },
+      };
+    },
+  );
+
+  // ── POST /v1/loans/:id/protocols ─────────────────────────────────────────
+  app.post(
+    '/v1/loans/:id/protocols',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Protocols'],
+        summary: 'Dodatočne vytvoriť protokol k výpožičke (backfill)',
+        description:
+          'Vytvorí DRAFT protokol pre existujúcu výpožičku, ktorá ho ešte nemá — ' +
+          'určené pre výpožičky vzniknuté pred zavedením protokolov. ' +
+          'HANDOVER vyžaduje loan bez handoverProtocolId; ' +
+          'RETURN vyžaduje vrátený loan bez returnProtocolId. ' +
+          'Vyžaduje ASSET_MANAGER alebo ADMIN rolu.',
+        security: [{ bearerAuth: [] }],
+        params: IdParamsSchema,
+        body: CreateProtocolBodySchema,
+        response: { 201: SingleResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      const actor = request.currentUser;
+      const tenantId = String(actor.organisationId);
+      const { id: loanId } = request.params;
+
+      const protocolId = await fastify.loansService.createProtocolForLoan(
+        loanId,
+        request.body.type,
+        actor,
+        request,
+      );
+
+      const protocol = await protocolsRepo.findById(tenantId, protocolId);
+      if (!protocol) throw new NotFoundError('LoanProtocol', protocolId);
+      return reply.status(201).send(protocolToApiShape(protocol));
+    },
+  );
 
   // ── GET /v1/loans/:id/protocols ─────────────────────────────────────────
   app.get(
@@ -118,7 +220,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const protocols = await protocolsRepo.findByLoanId(tenantId, loanId);
-      return { data: protocols.map(protocolToApiShape) };
+      return { data: await enrichPartySnapshots(fastify.mongo.db, protocols) };
     },
   );
 
@@ -253,6 +355,19 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
       const ipAddress = getClientIp(request.ip);
       const newSignatures = { ...protocol.signatures };
 
+      // K6: fixovať reálny snapshot podpisujúcej strany v čase podpisu.
+      // K4 vkladá pri borrowerovi prázdny snapshot (bez DB lookupu v tx) —
+      // tu ho doplníme z aktuálneho aktéra, aby SIGNED PDF malo reálne mená.
+      const newParties: LoanProtocol['parties'] = {
+        handover: { ...protocol.parties.handover },
+        receive: { ...protocol.parties.receive },
+      };
+      const actorSnapshot = {
+        displayName: (actor as { displayName?: string }).displayName ?? '',
+        email: (actor as { email?: string }).email ?? '',
+        organizationalUnit: null,
+      };
+
       if (isHandoverParty && !protocol.signatures.handover) {
         newSignatures.handover = {
           signedAt: now,
@@ -260,6 +375,9 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
           ipAddress,
           signatureImageId: null,
         };
+        if (!newParties.handover.snapshot.displayName) {
+          newParties.handover = { ...newParties.handover, snapshot: actorSnapshot };
+        }
       } else if (isReceiveParty && !protocol.signatures.receive) {
         newSignatures.receive = {
           signedAt: now,
@@ -267,6 +385,9 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
           ipAddress,
           signatureImageId: null,
         };
+        if (!newParties.receive.snapshot.displayName) {
+          newParties.receive = { ...newParties.receive, snapshot: actorSnapshot };
+        }
       } else {
         throw new ForbiddenError('Táto strana protokolu už podpísala.');
       }
@@ -284,6 +405,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
           const [logo, font] = await Promise.all([loadLogo(org), loadDefaultFont()]);
           const protocolWithSigs: LoanProtocol = {
             ...(protocol as unknown as LoanProtocol),
+            parties: newParties,
             signatures: newSignatures as LoanProtocol['signatures'],
             status: 'SIGNED',
           };
@@ -293,6 +415,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const updated = await protocolsRepo.update(tenantId, protocolId, {
+        parties: newParties,
         signatures: newSignatures as LoanProtocol['signatures'],
         status: newStatus,
         pdfSha256,
@@ -328,6 +451,58 @@ function isManagerOrAdmin(actor: { roles: string[] }): boolean {
 
 function protocolToApiShape(doc: WithId<LoanProtocol>): Record<string, unknown> {
   return { ...doc, _id: String(doc._id) };
+}
+
+/**
+ * Response-only enrichment prázdnych snapshotov strán.
+ *
+ * K4 vkladá pri borrowerovi prázdny snapshot (displayName: ''). Kým strana
+ * nepodpíše (kedy sa snapshot fixuje), zoznamy by ukazovali prázdne mená.
+ * Tu pre response doplníme aktuálne mená z users collection — DB dokument
+ * sa NEMENÍ (snapshot fixuje až podpis).
+ */
+async function enrichPartySnapshots(
+  db: Db,
+  protocols: WithId<LoanProtocol>[],
+): Promise<Record<string, unknown>[]> {
+  const missingUserIds = new Set<string>();
+  for (const p of protocols) {
+    for (const side of ['handover', 'receive'] as const) {
+      const party = p.parties[side];
+      if (!party.snapshot.displayName && ObjectId.isValid(String(party.userId))) {
+        missingUserIds.add(String(party.userId));
+      }
+    }
+  }
+
+  const nameMap = new Map<string, { displayName: string; email: string }>();
+  if (missingUserIds.size > 0) {
+    const docs = await db
+      .collection('users')
+      .find({ _id: { $in: [...missingUserIds].map((id) => new ObjectId(id) as never) } })
+      .toArray();
+    for (const doc of docs) {
+      nameMap.set(String(doc['_id']), {
+        displayName: (doc['displayName'] as string | undefined) ?? '',
+        email: (doc['email'] as string | undefined) ?? '',
+      });
+    }
+  }
+
+  return protocols.map((p) => {
+    const shape = protocolToApiShape(p);
+    const parties = structuredClone(p.parties) as LoanProtocol['parties'];
+    for (const side of ['handover', 'receive'] as const) {
+      const party = parties[side];
+      if (!party.snapshot.displayName) {
+        const found = nameMap.get(String(party.userId));
+        if (found) {
+          party.snapshot = { ...party.snapshot, ...found };
+        }
+      }
+    }
+    return { ...shape, parties };
+  });
 }
 
 function computeSha256(bytes: Uint8Array): string {

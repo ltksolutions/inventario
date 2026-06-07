@@ -9,7 +9,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
-import { apiClient } from './api-client';
+import { API_BASE_URL, apiClient } from './api-client';
 import { useAuth } from './auth-context';
 
 /**
@@ -1886,4 +1886,206 @@ export function useDeleteAssetCondition(): UseMutationResult<void, Error, { id: 
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['asset-conditions'] }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Preberacie protokoly (ADR-0022) — types, hooks, mutations
+// ---------------------------------------------------------------------------
+
+export type ProtocolType = 'HANDOVER' | 'RETURN' | 'AMENDMENT';
+export type ProtocolStatus = 'DRAFT' | 'SIGNED' | 'AMENDED' | 'VOIDED';
+
+export interface ProtocolParty {
+  userId: string;
+  snapshot: { displayName: string; email: string; organizationalUnit: string | null };
+}
+
+export interface ProtocolSignature {
+  signedAt: string;
+  method: string;
+  ipAddress: string;
+  signatureImageId: string | null;
+}
+
+export interface ProtocolItem {
+  assetId: string;
+  snapshot: {
+    inventoryNumber: string;
+    name: string;
+    serialNumber: string | null;
+    category: string;
+  };
+  condition: string;
+  conditionNote: string | null;
+}
+
+export interface LoanProtocolSummary {
+  _id: string;
+  organisationId: string;
+  type: ProtocolType;
+  loanId: string;
+  protocolNumber: string;
+  issuedAt: string;
+  paperSize: 'A4' | 'LETTER';
+  parties: { handover: ProtocolParty; receive: ProtocolParty };
+  items: ProtocolItem[];
+  notes: string | null;
+  signatures: { handover: ProtocolSignature | null; receive: ProtocolSignature | null };
+  status: ProtocolStatus;
+  pdfSha256: string | null;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+/** GET /v1/loans/{id} — detail výpožičky (borrower alebo manager). */
+export function useLoan(id: string | null): UseQueryResult<LoanSummary, Error> {
+  const { isAuthenticated } = useAuth();
+  return useQuery<LoanSummary, Error>({
+    queryKey: ['loan', id],
+    enabled: isAuthenticated && !!id,
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/v1/loans/{id}', {
+        params: { path: { id: id as string } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load loan');
+      }
+      return data as unknown as LoanSummary;
+    },
+  });
+}
+
+/** GET /v1/loans/{id}/protocols — protokoly viazané na výpožičku. */
+export function useLoanProtocols(
+  loanId: string | null,
+): UseQueryResult<LoanProtocolSummary[], Error> {
+  const { isAuthenticated } = useAuth();
+  return useQuery<LoanProtocolSummary[], Error>({
+    queryKey: ['loan-protocols', loanId],
+    enabled: isAuthenticated && !!loanId,
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/v1/loans/{id}/protocols', {
+        params: { path: { id: loanId as string } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load protocols');
+      }
+      return (data as unknown as { data: LoanProtocolSummary[] }).data ?? [];
+    },
+  });
+}
+
+interface ProtocolsListOptions {
+  type?: ProtocolType;
+  status?: ProtocolStatus;
+  limit?: number;
+  skip?: number;
+}
+
+/** GET /v1/protocols — zoznam protokolov (manager všetky, employee vlastné). */
+export function useProtocols(
+  options: ProtocolsListOptions = {},
+): UseQueryResult<ListResponse<LoanProtocolSummary>, Error> {
+  const { limit = 50, skip = 0, type, status } = options;
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<ListResponse<LoanProtocolSummary>, Error>({
+    queryKey: ['protocols', { limit, skip, type, status }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const query: Record<string, unknown> = { limit, skip };
+      if (type !== undefined) query['type'] = type;
+      if (status !== undefined) query['status'] = status;
+      const { data, error } = await apiClient.GET('/v1/protocols', {
+        params: { query: query as never },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load protocols');
+      }
+      return data as unknown as ListResponse<LoanProtocolSummary>;
+    },
+  });
+}
+
+/** POST /v1/protocols/{protocolId}/sign — CLICK_TO_SIGN podpis prihlásenej strany. */
+export function useSignProtocol(): UseMutationResult<
+  LoanProtocolSummary,
+  Error,
+  { protocolId: string }
+> {
+  const queryClient = useQueryClient();
+  return useMutation<LoanProtocolSummary, Error, { protocolId: string }>({
+    mutationFn: async ({ protocolId }) => {
+      const { data, error } = await apiClient.POST('/v1/protocols/{protocolId}/sign', {
+        params: { path: { protocolId } },
+        body: { method: 'CLICK_TO_SIGN' },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Protokol sa nepodarilo podpísať',
+        );
+      }
+      return data as unknown as LoanProtocolSummary;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['protocols'] });
+      void queryClient.invalidateQueries({ queryKey: ['loan-protocols'] });
+    },
+  });
+}
+
+/** POST /v1/loans/{id}/protocols — dodatočné vytvorenie protokolu (backfill, manager). */
+export function useCreateLoanProtocol(): UseMutationResult<
+  LoanProtocolSummary,
+  Error,
+  { loanId: string; type: 'HANDOVER' | 'RETURN' }
+> {
+  const queryClient = useQueryClient();
+  return useMutation<LoanProtocolSummary, Error, { loanId: string; type: 'HANDOVER' | 'RETURN' }>({
+    mutationFn: async ({ loanId, type }) => {
+      const { data, error } = await apiClient.POST('/v1/loans/{id}/protocols', {
+        params: { path: { id: loanId } },
+        body: { type },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Protokol sa nepodarilo vytvoriť',
+        );
+      }
+      return data as unknown as LoanProtocolSummary;
+    },
+    onSuccess: (_data, { loanId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['protocols'] });
+      void queryClient.invalidateQueries({ queryKey: ['loan-protocols', loanId] });
+      void queryClient.invalidateQueries({ queryKey: ['loan', loanId] });
+    },
+  });
+}
+
+/**
+ * Stiahne PDF protokolu ako Blob (autentifikovaný fetch s cookie).
+ *
+ * Nejde cez openapi-fetch (binary response) — preto vlastný 401 retry:
+ * pri expirácii access tokenu skúsi silent refresh a fetch zopakuje raz.
+ */
+export async function fetchProtocolPdf(protocolId: string): Promise<Blob> {
+  const doFetch = (): Promise<Response> =>
+    fetch(`${API_BASE_URL}/v1/protocols/${protocolId}/pdf`, { credentials: 'include' });
+
+  let res = await doFetch();
+  if (res.status === 401) {
+    const refreshed = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (refreshed.ok) res = await doFetch();
+  }
+  if (!res.ok) throw new Error('PDF protokolu sa nepodarilo stiahnuť.');
+  return res.blob();
 }

@@ -1056,9 +1056,145 @@ export class LoansService {
     });
   }
 
+  /**
+   * Dodatočné vytvorenie protokolu pre existujúcu výpožičku (backfill).
+   *
+   * Použitie: staršie výpožičky vznikli pred ADR-0022 K4 a nemajú
+   * HANDOVER/RETURN protokol. ASSET_MANAGER/ADMIN ho môže vytvoriť
+   * dodatočne — protokol vznikne v stave DRAFT a prejde štandardným
+   * CLICK_TO_SIGN flow.
+   *
+   * Pravidlá:
+   *   - HANDOVER: len ak `loan.handoverProtocolId` je null.
+   *   - RETURN:   len ak `loan.returnProtocolId` je null a loan je už vrátený.
+   *
+   * Na rozdiel od K4 (fulfil tx) tu máme čas na user lookupy — snapshoty
+   * strán sa naplnia reálnymi menami hneď pri vzniku.
+   */
+  async createProtocolForLoan(
+    loanId: string,
+    type: 'HANDOVER' | 'RETURN',
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<string> {
+    const tenantId = String(actor.organisationId);
+    const actorId = String(actor._id);
+    const now = new Date().toISOString();
+
+    if (!this.protocolsRepo) {
+      throw new BadRequestError('Protokoly nie sú na tomto serveri nakonfigurované.');
+    }
+
+    return this.runInTransaction(async (session) => {
+      const loan = await this.loansRepo.findById(tenantId, loanId, session);
+      if (!loan) throw new NotFoundError('Loan', loanId);
+
+      if (type === 'HANDOVER' && loan.handoverProtocolId) {
+        throw new BadRequestError('Výpožička už má preberací protokol.');
+      }
+      if (type === 'RETURN') {
+        if (loan.returnProtocolId) {
+          throw new BadRequestError('Výpožička už má protokol o vrátení.');
+        }
+        if (loan.returnedAt == null) {
+          throw new BadRequestError('Protokol o vrátení možno vytvoriť až po vrátení výpožičky.');
+        }
+      }
+
+      const borrowerSnapshot = await this.loadPartySnapshot(loan.borrowerId, session);
+
+      let handoverUserId: string;
+      let handoverSnapshot: LoanProtocol['parties']['handover']['snapshot'];
+      let receiveUserId: string;
+      let receiveSnapshot: LoanProtocol['parties']['receive']['snapshot'];
+
+      if (type === 'HANDOVER') {
+        handoverUserId = String(loan.handedOverBy);
+        handoverSnapshot = await this.loadPartySnapshot(handoverUserId, session);
+        receiveUserId = String(loan.borrowerId);
+        receiveSnapshot = borrowerSnapshot;
+      } else {
+        handoverUserId = String(loan.borrowerId);
+        handoverSnapshot = borrowerSnapshot;
+        receiveUserId = String(loan.returnedTo ?? actorId);
+        receiveSnapshot = await this.loadPartySnapshot(receiveUserId, session);
+      }
+
+      const newProtocolId = await this.insertDraftProtocol(
+        type,
+        loanId,
+        tenantId,
+        actorId,
+        now,
+        loan.items,
+        handoverUserId,
+        handoverSnapshot,
+        receiveUserId,
+        receiveSnapshot,
+        'A4',
+        session,
+      );
+      if (!newProtocolId) {
+        throw new BadRequestError('Protokol sa nepodarilo vytvoriť.');
+      }
+
+      await this.loansRepo.update(
+        tenantId,
+        loanId,
+        type === 'HANDOVER'
+          ? { handoverProtocolId: newProtocolId, updatedAt: now, updatedBy: actorId }
+          : { returnProtocolId: newProtocolId, updatedAt: now, updatedBy: actorId },
+        session,
+      );
+
+      await this.auditLog.record(
+        actor,
+        request,
+        {
+          action: 'LOAN_PROTOCOL_CREATED',
+          target: {
+            entityType: 'Loan',
+            entityId: loanId,
+            snapshot: { protocolId: newProtocolId, protocolType: type },
+          },
+          description:
+            type === 'HANDOVER'
+              ? 'Dodatočne vytvorený preberací protokol k výpožičke.'
+              : 'Dodatočne vytvorený protokol o vrátení k výpožičke.',
+        },
+        session,
+      );
+
+      return newProtocolId;
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Načíta snapshot strany protokolu z users collection.
+   * Chýbajúci/neplatný user → prázdny snapshot (rovnaký fallback ako K4).
+   */
+  private async loadPartySnapshot(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<LoanProtocol['parties']['handover']['snapshot']> {
+    const empty = { displayName: '', email: '', organizationalUnit: null };
+    if (!ObjectId.isValid(userId)) return empty;
+
+    const doc = await this.getDb()
+      .collection('users')
+      .findOne({ _id: new ObjectId(userId) as never }, session ? { session } : undefined);
+    if (!doc) return empty;
+
+    return {
+      displayName: (doc['displayName'] as string | undefined) ?? '',
+      email: (doc['email'] as string | undefined) ?? '',
+      organizationalUnit: null,
+    };
+  }
 
   /**
    * Vloží DRAFT LoanProtocol do transakcie (ADR-0022 K4).

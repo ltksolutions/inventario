@@ -92,6 +92,7 @@ export const AuditLogSchema = z.object({
     'LOAN_MARKED_LOST',
     'LOAN_CREATED_DIRECT', // ADR-0023: direct loan without prior request
     'LOAN_REQUEST_FULFILLED', // ADR-0026: vydanie z katalógovej žiadosti
+    'LOAN_PROTOCOL_CREATED', // ADR-0022: dodatočné vytvorenie protokolu (backfill)
 
     // Stock movements (BULK položky — ADR-0020)
     'STOCK_RECEIVED',

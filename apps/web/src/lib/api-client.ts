@@ -28,7 +28,7 @@ import type { paths } from './api-types';
  *   promise and then retry once it resolves.
  */
 
-const API_BASE_URL = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
+export const API_BASE_URL = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
 // ---------------------------------------------------------------------------
 // Singleton refresh coordination

@@ -3,7 +3,7 @@
 
 'use client';
 
-import { AlertCircle, Clock, Package, XCircle } from 'lucide-react';
+import { AlertCircle, ChevronRight, Clock, Package, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -238,6 +238,9 @@ function LoansTable({
             <th scope="col" className="px-4 py-3">
               Stav
             </th>
+            <th scope="col" className="px-4 py-3 text-right">
+              <span className="sr-only">Detail</span>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-subtle">
@@ -291,6 +294,16 @@ function LoansTable({
                   >
                     {isOverdue ? 'Po termíne' : statusConfig.label}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={`/loans/${loan._id}`}
+                    aria-label="Detail výpožičky"
+                    className="inline-flex items-center gap-0.5 rounded text-xs font-medium text-brand-primary underline-offset-2 transition hover:underline"
+                  >
+                    Detail
+                    <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+                  </Link>
                 </td>
               </tr>
             );
