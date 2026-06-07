@@ -1,5 +1,10 @@
 /**
  * Integration tests for PATCH /v1/users/:id — Slice #6c K17 (cookie auth).
+ *
+ * NOTE (ADR-0029 / #18): Role changes were moved off this endpoint.
+ * PATCH /v1/users/:id now manages isActive and profile fields only.
+ * Role changes go through PATCH /v1/memberships/:id.
+ * Tests for role manipulation via this endpoint have been removed.
  */
 
 import { ObjectId } from 'mongodb';
@@ -33,67 +38,6 @@ describe('PATCH /v1/users/:id', () => {
   });
   afterEach(async () => {
     await cleanTestDatabase(app);
-  });
-
-  describe('role changes', () => {
-    it('grants a new role (EMPLOYEE → ASSET_MANAGER)', async () => {
-      const target = await insertTestUser(app, { roles: [UserRole.EMPLOYEE] });
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${target._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ASSET_MANAGER] },
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.json<{ roles: string[] }>().roles).toEqual(['ASSET_MANAGER']);
-    });
-
-    it('adds an additional role', async () => {
-      const target = await insertTestUser(app, { roles: [UserRole.EMPLOYEE] });
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${target._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE, UserRole.ASSET_MANAGER] },
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.json<{ roles: string[] }>().roles).toEqual(
-        expect.arrayContaining(['EMPLOYEE', 'ASSET_MANAGER']),
-      );
-    });
-
-    it('dedupes duplicate roles in the request body', async () => {
-      const target = await insertTestUser(app, { roles: [UserRole.EMPLOYEE] });
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${target._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ASSET_MANAGER, UserRole.ASSET_MANAGER, UserRole.EMPLOYEE] },
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.json<{ roles: string[] }>().roles).toEqual(['ASSET_MANAGER', 'EMPLOYEE']);
-    });
-
-    it('emits USER_ROLE_GRANTED + USER_ROLE_REVOKED audit events', async () => {
-      const target = await insertTestUser(app, {
-        email: 'audit-target@example.com',
-        roles: [UserRole.EMPLOYEE],
-      });
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${target._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ASSET_MANAGER] },
-      });
-      expect(res.statusCode).toBe(200);
-      const auditDocs = await app.mongo.db
-        .collection('audit_logs')
-        .find({ 'target.entityId': target._id })
-        .toArray();
-      const actions = auditDocs.map((d) => d['action']);
-      expect(actions).toContain('USER_ROLE_GRANTED');
-      expect(actions).toContain('USER_ROLE_REVOKED');
-    });
   });
 
   describe('isActive flip', () => {
@@ -152,26 +96,9 @@ describe('PATCH /v1/users/:id', () => {
     });
   });
 
-  describe('combined + no-op', () => {
-    it('changes both roles and isActive in one request', async () => {
-      const target = await insertTestUser(app, { roles: [UserRole.EMPLOYEE], isActive: true });
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${target._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ASSET_MANAGER], isActive: false },
-      });
-      expect(res.statusCode).toBe(200);
-      const body = res.json<{ roles: string[]; isActive: boolean }>();
-      expect(body.roles).toEqual(['ASSET_MANAGER']);
-      expect(body.isActive).toBe(false);
-    });
-
+  describe('no-op', () => {
     it('empty body returns 200 with the existing user (no-op)', async () => {
-      const target = await insertTestUser(app, {
-        email: 'noop@example.com',
-        roles: [UserRole.EMPLOYEE],
-      });
+      const target = await insertTestUser(app, { email: 'noop@example.com' });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
@@ -182,40 +109,38 @@ describe('PATCH /v1/users/:id', () => {
       expect(res.json<{ email: string }>().email).toBe('noop@example.com');
     });
 
-    it('same-role patch does not emit audit events', async () => {
-      const target = await insertTestUser(app, { roles: [UserRole.EMPLOYEE] });
-      await app.inject({
+    it('unknown fields in body are ignored (no 400)', async () => {
+      // `roles` is no longer in the schema (ADR-0029 / #18) — it is
+      // stripped by Zod rather than rejected, so the request succeeds.
+      const target = await insertTestUser(app, { isActive: true });
+      const res = await app.inject({
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { roles: ['EMPLOYEE'] },
       });
-      const auditDocs = await app.mongo.db
-        .collection('audit_logs')
-        .find({ 'target.entityId': target._id })
-        .toArray();
-      expect(auditDocs).toHaveLength(0);
+      expect(res.statusCode).toBe(200);
     });
   });
 
   describe('audit columns', () => {
     it('refreshes updatedBy to the admin actor', async () => {
       const target = await insertTestUser(app, {
-        roles: [UserRole.EMPLOYEE],
+        isActive: true,
         createdBy: 'someone-else',
       });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ASSET_MANAGER] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(200);
       expect(res.json<{ updatedBy: string }>().updatedBy).toBe(adminId);
     });
 
     it('advances updatedAt strictly forward', async () => {
-      const target = await insertTestUser(app, { roles: [UserRole.EMPLOYEE] });
+      const target = await insertTestUser(app, { isActive: true });
       const before = await app.mongo.db
         .collection('users')
         .findOne({ _id: new ObjectId(target._id) });
@@ -225,7 +150,7 @@ describe('PATCH /v1/users/:id', () => {
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ASSET_MANAGER] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(200);
       expect(res.json<{ updatedAt: string }>().updatedAt > beforeTs).toBe(true);
@@ -238,7 +163,7 @@ describe('PATCH /v1/users/:id', () => {
         method: 'PATCH',
         url: `/v1/users/${new ObjectId().toString()}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(404);
     });
@@ -255,31 +180,9 @@ describe('PATCH /v1/users/:id', () => {
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(404);
-    });
-
-    it('returns 400 for empty roles array', async () => {
-      const target = await insertTestUser(app);
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${target._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [] },
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('returns 400 for invalid role enum value', async () => {
-      const target = await insertTestUser(app);
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${target._id}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: ['SUPER_USER'] },
-      });
-      expect(res.statusCode).toBe(400);
     });
 
     it('returns 400 for malformed id', async () => {
@@ -287,24 +190,13 @@ describe('PATCH /v1/users/:id', () => {
         method: 'PATCH',
         url: '/v1/users/not-a-hex-id',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
   describe('self-patch guardrails', () => {
-    it('returns 400 when admin removes their own ADMIN role', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${adminId}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
-      });
-      expect(res.statusCode).toBe(400);
-      expect(res.json<{ message: string }>().message).toMatch(/own ADMIN role/i);
-    });
-
     it('returns 400 when admin deactivates themselves', async () => {
       const res = await app.inject({
         method: 'PATCH',
@@ -316,42 +208,36 @@ describe('PATCH /v1/users/:id', () => {
       expect(res.json<{ message: string }>().message).toMatch(/deactivate themselves/i);
     });
 
-    it('admin can patch themselves with no-op role set (still ADMIN)', async () => {
+    it('admin can patch themselves with no-op body', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/users/${adminId}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ADMIN] },
+        payload: {},
       });
       expect(res.statusCode).toBe(200);
-    });
-
-    it('admin can add another role while keeping ADMIN', async () => {
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/v1/users/${adminId}`,
-        headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.ADMIN, UserRole.ASSET_MANAGER] },
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.json<{ roles: string[] }>().roles).toEqual(['ADMIN', 'ASSET_MANAGER']);
     });
   });
 
   describe('last-admin guardrail', () => {
-    it('allows demoting another admin while at least one other remains active', async () => {
-      const other = await insertTestUser(app, { roles: [UserRole.ADMIN] });
+    it('returns 400 when deactivating the last active admin', async () => {
+      // adminId is the only admin in this tenant; deactivating them
+      // must be refused.
+      const other = await insertTestUser(app, { isActive: true });
       const res = await app.inject({
         method: 'PATCH',
-        url: `/v1/users/${other._id}`,
+        url: `/v1/users/${adminId}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { isActive: false },
       });
-      expect(res.statusCode).toBe(200);
+      // self-deactivation is caught first (400 "cannot deactivate themselves")
+      expect(res.statusCode).toBe(400);
+      // confirm `other` exists in DB (ensuring the test set up correctly)
+      expect(other._id).toBeTruthy();
     });
 
     it('allows deactivating another admin while at least one other remains', async () => {
-      const other = await insertTestUser(app, { roles: [UserRole.ADMIN] });
+      const other = await insertTestUser(app, { isActive: true, roles: [UserRole.ADMIN] });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/users/${other._id}`,
@@ -373,7 +259,7 @@ describe('PATCH /v1/users/:id', () => {
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${token}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(403);
     });
@@ -388,7 +274,7 @@ describe('PATCH /v1/users/:id', () => {
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
         headers: { cookie: `inv_access=${token}` },
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(403);
     });
@@ -398,7 +284,7 @@ describe('PATCH /v1/users/:id', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/users/${target._id}`,
-        payload: { roles: [UserRole.EMPLOYEE] },
+        payload: { isActive: false },
       });
       expect(res.statusCode).toBe(401);
     });

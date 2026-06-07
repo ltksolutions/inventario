@@ -1743,7 +1743,7 @@
         "tags": [
           "Users"
         ],
-        "description": "Partial update of a user. K10 exposes only `roles` and `isActive`. Guardrails: admins cannot deactivate or demote themselves, and the last active ADMIN cannot be deactivated or demoted (promote another user to ADMIN first). Records per-action audit events (USER_ROLE_GRANTED, USER_ROLE_REVOKED, USER_DEACTIVATED, USER_REACTIVATED). Requires ADMIN role.",
+        "description": "Partial update of a user. Exposes `isActive` (and profile fields). Role changes go through PATCH /v1/memberships/:id (ADR-0029). Guardrails: admins cannot deactivate themselves, and the last active ADMIN cannot be deactivated (promote another user to ADMIN first). Records USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. Requires ADMIN role.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1751,29 +1751,16 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "roles": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "enum": [
-                        "EMPLOYEE",
-                        "ASSET_MANAGER",
-                        "ADMIN",
-                        "EXTERNAL"
-                      ]
-                    },
-                    "minItems": 1
-                  },
                   "isActive": {
                     "type": "boolean"
                   }
                 },
                 "additionalProperties": false,
-                "description": "Čiastočná aktualizácia používateľa (admin); roles + isActive."
+                "description": "Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id."
               }
             }
           },
-          "description": "Čiastočná aktualizácia používateľa (admin); roles + isActive."
+          "description": "Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id."
         },
         "parameters": [
           {
