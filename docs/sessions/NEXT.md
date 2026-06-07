@@ -2,18 +2,17 @@
 
 ## Aktuálny stav (2026-06-07, koniec 2. session)
 
-**Detail výpožičky + Preberacie protokoly UI HOTOVÉ** (commitnuté, nepushnuté, netestované v prehliadači). Nové: `/loans/[id]` detail s protokolmi, CLICK_TO_SIGN podpis, PDF/Tlač, `/protocols` zoznam + menu (managerOnly), backend `GET /v1/protocols` + `POST /v1/loans/:id/protocols` (backfill), sign fixuje snapshot strany. Detaily: `docs/sessions/2026-06-07-loan-detail-protokoly-ui.md`.
+**Detail výpožičky + Preberacie protokoly UI HOTOVÉ a OTESTOVANÉ na produkcii.** Nové: `/loans/[id]` detail s protokolmi, CLICK_TO_SIGN podpis, PDF/Tlač, `/protocols` zoznam + menu (managerOnly), backend `GET /v1/protocols` + `POST /v1/loans/:id/protocols` (backfill), sign fixuje snapshot strany. Detaily: `docs/sessions/2026-06-07-loan-detail-protokoly-ui.md`.
 
-⚠️ **Pred ďalšou prácou lokálne:** `pnpm install` (sandbox prelinkoval node_modules na Linux — pozri session log, sekcia Incident), potom `pnpm test` a `pnpm openapi:export:offline` (overiť ručne dopĺňaný openapi.json).
+E2E test prešiel (PROT-2026-000001 → SIGNED, PDF render OK). Pri teste opravené 2 prod bugy: (1) ProtocolCard — podpis druhej strany, keď je user oboma stranami (`f10ecdb`), (2) PDF render padal s JPEG logom tenanta — embedJpg podľa magic bytes + vercel.json includeFiles pre assets (`e9834c4`, `ed916b9`). `pnpm install` + `pnpm test` lokálne prebehli OK.
 
 ## ĎALŠIA SESSION — začni tu
 
-### Test protokolového flow (P0 — nadväzuje na túto session)
+### Protokoly — drobnosti (P2)
 
-1. Vydanie výpožičky (fulfil/direct) → `/loans/[id]` → protokol DRAFT
-2. Podpis oboch strán (manager + borrower účet) → SIGNED, PDF bez vodoznaku
-3. `/protocols` zoznam + filtre, backfill na staršej výpožičke
-4. Push + Vercel deploy
+- Overiť `pnpm openapi:export:offline` (ručne dopĺňaný openapi.json — nové paths /v1/protocols a POST /v1/loans/:id/protocols)
+- Zvážiť e-mail notifikáciu „máš protokol na podpis" (EmailService existuje)
+- Test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu)
 
 ### Vizuálne odlíšenie BULK vs SERIALIZED (P1)
 
