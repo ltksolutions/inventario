@@ -1,37 +1,59 @@
 # NEXT
 
-## Aktuálny stav (2026-06-06)
+## Aktuálny stav (2026-06-06, koniec session — handoff do Cowork)
 
-Prebehlo testovanie formulárov na `app.inventario.estate` (SFZ tenant). Väčšina kritických bugov opravená. Pridávanie majetku funguje keď je nastavený `inventoryNumberFormat`.
+Testovanie formulárov na `app.inventario.estate` (SFZ tenant). Pridávanie majetku (SERIALIZED aj BULK) funguje. RECEIPT logika pri BULK create **dokončená a nasadená**. Sklad stránka funguje.
 
-## Čo treba spraviť ako ďalšie
+### Hotové v tejto session
 
-### 1. RECEIPT pohyb pri vytvorení BULK majetku (P0, ~1h)
+- Combobox dropdown fixes, lokalita quick-create (`EXTERNAL`), Štítky→Tagy
+- Číselníky: plný LocationDialog s výberom typu + Upraviť tlačidlo
+- LocationType enum: `HEADQUARTERS` + `BRANCH` (migrácia `2026-06-05b`)
+- Org nastavenia: inventárne číslovanie sekcia + `foundContactInfo`/`inventoryNumberFormat` v API schéme (boli stripované Zodom — preto sa neukladali)
+- trackingMode SelectField + `initialQuantity` pole pre BULK
+- RECEIPT pohyb pri BULK create (`assets.service.ts` + `assets.routes.ts` inject `StockMovementsRepository`)
+- Stock overview fixes: `$$` premenné v `$lookup`, `$arrayElemAt` namiesto `$first`, `$ifNull` na `quantityOnHand` (legacy assety bez poľa), stringify ID v response
 
-**Problém:** Pri vytvorení BULK položky s `initialQuantity` sa `quantityOnHand` nenastaví a nevytvorí sa StockMovement RECEIPT záznam.
+## ROZROBENÉ — pokračovať tu
 
-**Čo treba:**
+### Stav rozrobeného Skladu (P0 — dokončiť test)
 
-- `assets.routes.ts` — injektnúť `StockMovementsRepository` do `AssetsService` konštruktora
-- `assets.service.ts` — po inserte BULK assetu v transakcii:
-  1. `stockMovementsRepo.insert({ type: 'RECEIPT', quantity: initialQty, ... }, session)`
-  2. `repo.update(tenantId, assetId, { quantityOnHand: initialQty, ... }, session)`
-- Testy: BULK create → `quantityOnHand` = `initialQuantity`, RECEIPT záznam v `stock_movements`
+Sklad prehľad (`/stock`) sa načítava správne. Zobrazuje **1 položku**: `SFZ-2026-00002` "Predlžovací elektrický kábel, 5m", stav **Prázdne (0 ks)**.
 
-Viď TODO.md #P0.
+**Prečo 0 ks:** táto BULK predlžovačka bola vytvorená _pred_ dokončením RECEIPT logiky, takže nemá žiadny RECEIPT pohyb a `quantityOnHand` bolo `undefined` (teraz sa v overview defaultuje na 0 cez `$ifNull`). Je to legacy dáta, nie bug.
 
-### 2. Otestovať pridanie majetku end-to-end (P0)
+**Čaká sa na test príjmu (next step):**
 
-- Najprv nastaviť `inventoryNumberFormat` v Organizácia → napr. prefix `SFZ`, padding 4, rok zapnutý
-- Pridať SERIALIZED majetok (notebook) → overiť inventárne číslo
-- Pridať BULK majetok (lopty) s počtom → overiť `quantityOnHand` v MongoDB
+1. Klik na `SFZ-2026-00002` → detail (`/assets/6a241d101df5faf33798c30a`)
+2. Tab **Sklad** → tlačidlo **Príjem na sklad**
+3. Zadať počet (napr. 10) + lokalitu → overiť že:
+   - vznikne RECEIPT záznam v `stock_movements` (kolekcia je teraz prázdna)
+   - `quantityOnHand` sa nastaví na 10
+   - stav v prehľade sa zmení z "Prázdne" na "V poriadku"
+4. **Posledný neoverený bod:** či tab Sklad v detaile (`StockPanel`) korektne načíta pohyby pre položku s legacy `quantityOnHand`. Ak padá, skontrolovať `useStockMovements` hook + `GET /v1/stock/:itemId/movements` (rovnaký vzor legacy undefined ako pri overview).
 
-### 3. Sklad stránka pre BULK majetok (P1)
+### Pozn. pre nový BULK majetok (čistý flow)
 
-- `WarehouseContent` / Sklad tab — zobraziť množstvo, pohyby
-- Vizuálne odlíšenie BULK vs SERIALIZED v zozname
+Nové BULK položky vytvorené _po_ tejto session už dostanú RECEIPT pohyb automaticky z `initialQuantity` (minimum 1, vynútené na FE). Test: vytvoriť novú BULK položku s počtom → hneď by mala mať správny `quantityOnHand` + RECEIPT záznam.
+
+## Ďalšie kroky (po dokončení Sklad testu)
+
+### Vizuálne odlíšenie BULK vs SERIALIZED (P1)
+
+- V zozname majetku (`/assets`) vizuálne odlíšiť BULK položky (badge/ikona)
+- Pri BULK v detaile zobraziť `quantityOnHand` prominentne
+
+### Pre-GA cleanup
+
+- `PATCH /v1/users/:id` — odstrániť/migrovať legacy `User.roles[]` endpoint (TODO #18)
+- Smoke test + DR test
 
 ## Referencie
 
 - Session doc: `docs/sessions/2026-06-06-testing-forms-ciselníky-org-settings.md`
-- TODO.md: pozri P0 sekciu
+- TODO.md: #23 (RECEIPT — DONE), #18 (legacy roles endpoint)
+- Detail položky predlžovačky: `/assets/6a241d101df5faf33798c30a`
+
+## Pozn. pre Cowork prostredie
+
+V Cowork beží terminál + filesystem priamo na disku — žiadny `copy_file_user_to_claude` workaround. `pnpm typecheck` / `pnpm test` / `pnpm build` možno spúšťať priamo. Git stále cez GitHub Desktop (GPG signing).
