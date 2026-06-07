@@ -115,7 +115,7 @@ export function ProtocolPdfButton({
         ) : (
           <FileText aria-hidden="true" className="h-3.5 w-3.5" />
         )}
-        PDF / Tlač
+        Tlač
       </button>
       {error && <span className="text-xs text-danger-fg">{error}</span>}
     </span>

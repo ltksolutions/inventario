@@ -338,7 +338,7 @@ function StatCard({
   };
   return (
     <div className={cn('rounded-xl border p-4 shadow-sm', colors[color])}>
-      <p className="text-xs font-medium text-text-muted">{label}</p>
+      <p className="whitespace-nowrap text-xs font-medium text-text-muted">{label}</p>
       <p className={cn('mt-1 text-2xl font-bold tabular-nums', textColors[color])}>{value}</p>
     </div>
   );

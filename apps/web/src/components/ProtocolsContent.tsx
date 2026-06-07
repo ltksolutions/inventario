@@ -9,13 +9,22 @@
  * ASSET_MANAGER/ADMIN vidí všetky protokoly organizácie (menu položka je
  * managerOnly), backend pre EMPLOYEE vynúti filter na vlastné protokoly.
  *
- * Filtrovanie: typ (HANDOVER/RETURN/AMENDMENT) a stav (DRAFT/SIGNED/...).
- * Akcie na riadku: PDF / Tlač + preklik na detail výpožičky.
+ * Filtrovanie: typ, stav, textové vyhľadávanie (odovzdávajúci/preberajúci).
+ * Radenie: kliknutím na hlavičku stĺpca (client-side).
+ * Akcie na riadku: Tlač + preklik na detail výpožičky.
  */
 
-import { AlertCircle, ChevronRight, FileSignature } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  FileSignature,
+  Search,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import type { LoanProtocolSummary, ProtocolStatus, ProtocolType } from '@/lib/api-hooks';
 import type { JSX } from 'react';
@@ -27,6 +36,9 @@ import {
 } from '@/components/ProtocolCard';
 import { useProtocols } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
+
+type SortColumn = 'protocolNumber' | 'handover' | 'receive' | 'issuedAt' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 const TYPE_FILTERS: Array<{ value: ProtocolType | ''; label: string }> = [
   { value: '', label: 'Všetky typy' },
@@ -54,14 +66,85 @@ function formatDate(iso: string): string {
 export function ProtocolsContent(): JSX.Element {
   const [typeFilter, setTypeFilter] = useState<ProtocolType | ''>('');
   const [statusFilter, setStatusFilter] = useState<ProtocolStatus | ''>('');
+  const [partySearch, setPartySearch] = useState('');
+  const [sortCol, setSortCol] = useState<SortColumn>('issuedAt');
+  const [sortDir, setSortDir] = useState<SortDirection>('desc');
 
   const protocolsQuery = useProtocols({
     limit: 100,
     ...(typeFilter ? { type: typeFilter } : {}),
     ...(statusFilter ? { status: statusFilter } : {}),
   });
-  const protocols = protocolsQuery.data?.data ?? [];
+  const rawProtocols = protocolsQuery.data?.data ?? [];
   const total = protocolsQuery.data?.pagination.total ?? 0;
+
+  const STATUS_ORDER: Record<string, number> = { DRAFT: 0, SIGNED: 1, AMENDED: 2, VOIDED: 3 };
+
+  const protocols = useMemo(() => {
+    const needle = partySearch.trim().toLowerCase();
+    const filtered = needle
+      ? rawProtocols.filter((p) => {
+          const handover = (
+            p.parties.handover.snapshot.displayName ||
+            p.parties.handover.snapshot.email ||
+            ''
+          ).toLowerCase();
+          const receive = (
+            p.parties.receive.snapshot.displayName ||
+            p.parties.receive.snapshot.email ||
+            ''
+          ).toLowerCase();
+          return handover.includes(needle) || receive.includes(needle);
+        })
+      : rawProtocols;
+
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case 'protocolNumber':
+          cmp = a.protocolNumber.localeCompare(b.protocolNumber, 'sk');
+          break;
+        case 'handover':
+          cmp = (
+            a.parties.handover.snapshot.displayName ||
+            a.parties.handover.snapshot.email ||
+            ''
+          ).localeCompare(
+            b.parties.handover.snapshot.displayName || b.parties.handover.snapshot.email || '',
+            'sk',
+          );
+          break;
+        case 'receive':
+          cmp = (
+            a.parties.receive.snapshot.displayName ||
+            a.parties.receive.snapshot.email ||
+            ''
+          ).localeCompare(
+            b.parties.receive.snapshot.displayName || b.parties.receive.snapshot.email || '',
+            'sk',
+          );
+          break;
+        case 'issuedAt':
+          cmp = a.issuedAt.localeCompare(b.issuedAt);
+          break;
+        case 'status':
+          cmp = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+          break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [rawProtocols, partySearch, sortCol, sortDir]);
+
+  function handleSort(col: SortColumn) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  }
+
+  const isFiltered = Boolean(typeFilter || statusFilter || partySearch.trim());
 
   return (
     <div>
@@ -112,14 +195,41 @@ export function ProtocolsContent(): JSX.Element {
         </div>
       </div>
 
+      {/* Party search */}
+      <div className="mb-4">
+        <label htmlFor="party-search" className="sr-only">
+          Hľadaj odovzdávajúceho alebo preberajúceho
+        </label>
+        <div className="relative max-w-sm">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
+          />
+          <input
+            id="party-search"
+            type="search"
+            value={partySearch}
+            onChange={(e) => setPartySearch(e.target.value)}
+            placeholder="Hľadaj odovzdávajúceho / preberajúceho…"
+            className="w-full rounded-lg border border-border-default bg-surface-card py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+          />
+        </div>
+      </div>
+
       {protocolsQuery.isLoading ? (
         <ListSkeleton />
       ) : protocolsQuery.isError ? (
         <ErrorPanel message="Protokoly sa nepodarilo načítať. Skontroluj pripojenie a skús to znova." />
       ) : protocols.length === 0 ? (
-        <EmptyState filtered={Boolean(typeFilter || statusFilter)} />
+        <EmptyState filtered={isFiltered} />
       ) : (
-        <ProtocolsTable protocols={protocols} total={total} />
+        <ProtocolsTable
+          protocols={protocols}
+          total={total}
+          sortCol={sortCol}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
       )}
     </div>
   );
@@ -129,37 +239,65 @@ export function ProtocolsContent(): JSX.Element {
 // Table
 // ---------------------------------------------------------------------------
 
+function SortIcon({
+  col,
+  sortCol,
+  sortDir,
+}: {
+  col: SortColumn;
+  sortCol: SortColumn;
+  sortDir: SortDirection;
+}): JSX.Element {
+  if (sortCol !== col)
+    return <ChevronsUpDown aria-hidden="true" className="ml-1 inline h-3 w-3 text-text-muted" />;
+  return sortDir === 'asc' ? (
+    <ChevronUp aria-hidden="true" className="ml-1 inline h-3 w-3" />
+  ) : (
+    <ChevronDown aria-hidden="true" className="ml-1 inline h-3 w-3" />
+  );
+}
+
 function ProtocolsTable({
   protocols,
   total,
+  sortCol,
+  sortDir,
+  onSort,
 }: {
   protocols: readonly LoanProtocolSummary[];
   total: number;
+  sortCol: SortColumn;
+  sortDir: SortDirection;
+  onSort: (col: SortColumn) => void;
 }): JSX.Element {
+  const thSort = (col: SortColumn, label: string, extraClass = '') => (
+    <th scope="col" className={cn('px-4 py-3', extraClass)}>
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className="inline-flex items-center gap-0 font-semibold hover:text-text-primary transition-colors"
+        aria-sort={sortCol === col ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        {label}
+        <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} />
+      </button>
+    </th>
+  );
+
   return (
     <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
       <table className="w-full min-w-[760px] text-sm">
-        <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
+        <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs uppercase tracking-wide text-text-muted">
           <tr>
-            <th scope="col" className="px-4 py-3">
-              Číslo
-            </th>
-            <th scope="col" className="px-4 py-3">
+            {thSort('protocolNumber', 'Číslo')}
+            <th scope="col" className="px-4 py-3 font-semibold">
               Typ
             </th>
-            <th scope="col" className="px-4 py-3">
-              Odovzdávajúci
-            </th>
-            <th scope="col" className="px-4 py-3">
-              Preberajúci
-            </th>
-            <th scope="col" className="px-4 py-3">
-              Vystavený
-            </th>
-            <th scope="col" className="px-4 py-3">
-              Stav
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
+            {thSort('handover', 'Odovzdávajúci')}
+            {thSort('receive', 'Preberajúci')}
+            {thSort('issuedAt', 'Vystavený')}
+            {thSort('status', 'Stav')}
+            <th scope="col" className="px-4 py-3 text-right font-semibold">
               Akcie
             </th>
           </tr>
