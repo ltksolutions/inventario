@@ -6,6 +6,7 @@
 import { Boxes, ClipboardList, MapPin, Tags } from 'lucide-react';
 import Link from 'next/link';
 
+import { PendingActionsPanel } from './PendingActionsPanel';
 import { StatCard } from './StatCard';
 
 import type { JSX, ReactNode } from 'react';
@@ -47,6 +48,9 @@ export function DashboardContent(): JSX.Element {
           Tu je aktuálny prehľad inventára vašej organizácie.
         </p>
       </header>
+
+      {/* Čaká na vás — akčný prehľad žiadostí, podpisov a termínov */}
+      <PendingActionsPanel />
 
       <section aria-labelledby="stats-heading" className="mb-10">
         <h2 id="stats-heading" className="sr-only">
