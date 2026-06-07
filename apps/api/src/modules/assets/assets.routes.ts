@@ -41,7 +41,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 // ---------------------------------------------------------------------------
 
 const ListAssetsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(500).default(20),
   skip: z.coerce.number().int().min(0).default(0),
 });
 
