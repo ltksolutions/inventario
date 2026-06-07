@@ -337,8 +337,8 @@ function StatCard({
     red: 'text-red-700',
   };
   return (
-    <div className={cn('rounded-xl border p-4 shadow-sm', colors[color])}>
-      <p className="whitespace-nowrap text-xs font-medium text-text-muted">{label}</p>
+    <div className={cn('min-w-0 rounded-xl border p-4 shadow-sm', colors[color])}>
+      <p className="min-h-[2rem] text-xs font-medium leading-tight text-text-muted">{label}</p>
       <p className={cn('mt-1 text-2xl font-bold tabular-nums', textColors[color])}>{value}</p>
     </div>
   );
