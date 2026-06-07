@@ -1,6 +1,21 @@
 # NEXT
 
-## Aktuálny stav (2026-06-06, koniec session — handoff do Cowork)
+## Aktuálny stav (2026-06-07 — Cowork session)
+
+**P0 Sklad test DOKONČENÝ.** Príjem na sklad pre `SFZ-2026-00002` otestovaný na produkcii:
+
+- RECEIPT +10 ks (BA centrála SFZ) zaúčtovaný, zostatok 1 → 11 ks
+- História pohybov v StockPanel sa načíta a invaliduje správne (2 pohyby)
+- Prehľad `/stock`: stav „V poriadku", 11 ks, ref. príjem 10 ks
+- Reconciliation: „Cache sedí — zostatok 11 ks" (ledger = cache)
+
+**Fix (uncommitnuté, čaká na commit):** `apps/web/src/components/StockPanel.tsx` — legacy assety s `quantityOnHand == null` zobrazovali nekonečný Skeleton namiesto hodnoty. Teraz `?? 0` (zostatok card + InfoRow v dialógoch Príjem/Korekcia). Typecheck OK. → commit + push (GitHub Desktop), Vercel deploy auto.
+
+### Ďalej: Vizuálne odlíšenie BULK vs SERIALIZED (P1) — viď nižšie
+
+---
+
+## Pôvodný stav (2026-06-06, koniec session — handoff do Cowork)
 
 Testovanie formulárov na `app.inventario.estate` (SFZ tenant). Pridávanie majetku (SERIALIZED aj BULK) funguje. RECEIPT logika pri BULK create **dokončená a nasadená**. Sklad stránka funguje.
 

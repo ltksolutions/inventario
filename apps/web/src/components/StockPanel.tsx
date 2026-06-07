@@ -38,7 +38,7 @@ import {
 import { useState } from 'react';
 
 import { SelectField } from './SelectField';
-import { Skeleton, TableSkeleton } from './Skeleton';
+import { TableSkeleton } from './Skeleton';
 
 import type { AssetDetail, StockMovement } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
@@ -117,14 +117,13 @@ export function StockPanel({ asset }: { asset: AssetDetail }): JSX.Element {
             <p className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
               Zostatok na sklade
             </p>
-            {asset.quantityOnHand == null ? (
-              <Skeleton className="mt-1 h-8 w-20" />
-            ) : (
-              <p className="mt-0.5 text-3xl font-bold tabular-nums text-text-primary">
-                {asset.quantityOnHand}
-                <span className="ml-1.5 text-base font-normal text-text-secondary">ks</span>
-              </p>
-            )}
+            {/* Legacy BULK assety nemajú quantityOnHand — defaultujeme na 0
+                (rovnaký vzor ako $ifNull v stock overview). Asset je v tomto
+                bode už načítaný, takže null ≠ loading. */}
+            <p className="mt-0.5 text-3xl font-bold tabular-nums text-text-primary">
+              {asset.quantityOnHand ?? 0}
+              <span className="ml-1.5 text-base font-normal text-text-secondary">ks</span>
+            </p>
             <p className="mt-0.5 font-mono text-xs text-text-muted">{asset.inventoryNumber}</p>
           </div>
         </div>
@@ -395,9 +394,7 @@ function ReceiveDialog({
     >
       <div className="space-y-4">
         <InfoRow label="Položka" value={`${asset.name} (${asset.inventoryNumber})`} />
-        {asset.quantityOnHand != null && (
-          <InfoRow label="Aktuálny zostatok" value={`${asset.quantityOnHand} ks`} />
-        )}
+        <InfoRow label="Aktuálny zostatok" value={`${asset.quantityOnHand ?? 0} ks`} />
         <FormField label="Množstvo kusov *">
           <input
             type="number"
@@ -519,9 +516,7 @@ function AdjustDialog({
     >
       <div className="space-y-4">
         <InfoRow label="Položka" value={`${asset.name} (${asset.inventoryNumber})`} />
-        {asset.quantityOnHand != null && (
-          <InfoRow label="Aktuálny zostatok" value={`${asset.quantityOnHand} ks`} />
-        )}
+        <InfoRow label="Aktuálny zostatok" value={`${asset.quantityOnHand ?? 0} ks`} />
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           Kladné číslo = na sklade pribudne. Záporné číslo = na sklade ubudne. Zostatok nesmie
           klesnúť pod nulu.
