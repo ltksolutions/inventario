@@ -130,12 +130,12 @@ export function AssetsTable({
                   >
                     {STATUS_LABELS[asset.status] ?? asset.status}
                   </span>
-                  {asset.status === 'BORROWED' && borrowerByAssetId?.get(asset._id) && (
-                    <span className="mt-1 flex items-center gap-1 text-xs text-text-muted">
-                      <User className="h-3 w-3 shrink-0" />
+                  {asset.status === 'BORROWED' && borrowerByAssetId?.get(asset._id) ? (
+                    <span className="mt-1.5 flex items-center gap-1 text-xs font-medium text-warning-fg">
+                      <User className="h-3 w-3 shrink-0" aria-hidden="true" />
                       {borrowerByAssetId.get(asset._id)}
                     </span>
-                  )}
+                  ) : null}
                 </td>
                 {/* Množstvo — len pre BULK */}
                 <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm">
