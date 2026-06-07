@@ -271,12 +271,15 @@ function ProtocolsTable({
   onSort: (col: SortColumn) => void;
 }): JSX.Element {
   const thSort = (col: SortColumn, label: string, extraClass = '') => (
-    <th scope="col" className={cn('px-4 py-3', extraClass)}>
+    <th
+      scope="col"
+      aria-sort={sortCol === col ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={cn('px-4 py-3', extraClass)}
+    >
       <button
         type="button"
         onClick={() => onSort(col)}
         className="inline-flex items-center gap-0 font-semibold hover:text-text-primary transition-colors"
-        aria-sort={sortCol === col ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
       >
         {label}
         <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} />
