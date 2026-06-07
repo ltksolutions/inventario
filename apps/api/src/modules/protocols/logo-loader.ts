@@ -35,13 +35,36 @@ const LOGO_FETCH_TIMEOUT_MS = 4000;
 /** Povolené Content-Type hodnoty — len rastrové obrázky, nie SVG. */
 const ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-/** Cesta k default logu (relatívna voči tomuto súboru). */
-const DEFAULT_LOGO_PATH = join(
-  fileURLToPath(import.meta.url),
-  '..',
-  'assets',
-  'inventario-logo-default.png',
-);
+/**
+ * Načíta asset súbor (font, default logo) s fallback cestami.
+ *
+ * Prečo viac kandidátov: lokálne (tsx, vitest) je asset vedľa zdrojáku a
+ * funguje cesta cez `import.meta.url`. Na Verceli sa kód bunduje (ncc) —
+ * `import.meta.url` ukazuje do bundle a asset tam nie je; súbory pribalené
+ * cez `vercel.json functions.includeFiles` ležia pod `process.cwd()`
+ * (`/var/task/src/...`). Skúšame postupne všetky známe umiestnenia.
+ */
+async function loadAsset(filename: string): Promise<Uint8Array> {
+  const candidates = [
+    join(fileURLToPath(import.meta.url), '..', 'assets', filename),
+    join(process.cwd(), 'src', 'modules', 'protocols', 'assets', filename),
+    join(process.cwd(), 'apps', 'api', 'src', 'modules', 'protocols', 'assets', filename),
+  ];
+
+  for (const path of candidates) {
+    try {
+      const buffer = await readFile(path);
+      return new Uint8Array(buffer);
+    } catch {
+      // skús ďalšieho kandidáta
+    }
+  }
+
+  throw new Error(
+    `Protocol asset '${filename}' not found. Tried: ${candidates.join(', ')}. ` +
+      'Deployment problem — check vercel.json functions.includeFiles.',
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Hlavná exportovaná funkcia
@@ -113,8 +136,7 @@ async function fetchLogoWithTimeout(url: string): Promise<Uint8Array | null> {
  * Vyhadzuje chybu len ak súbor fyzicky chýba (deployment problem).
  */
 async function loadDefaultLogo(): Promise<Uint8Array> {
-  const buffer = await readFile(DEFAULT_LOGO_PATH);
-  return new Uint8Array(buffer);
+  return loadAsset('inventario-logo-default.png');
 }
 
 /**
@@ -122,7 +144,5 @@ async function loadDefaultLogo(): Promise<Uint8Array> {
  * Konvencia: renderer dostane font ako parameter — loader je pre pohodlie volajúceho.
  */
 export async function loadDefaultFont(): Promise<Uint8Array> {
-  const fontPath = join(fileURLToPath(import.meta.url), '..', 'assets', 'DejaVuSans.ttf');
-  const buffer = await readFile(fontPath);
-  return new Uint8Array(buffer);
+  return loadAsset('DejaVuSans.ttf');
 }
