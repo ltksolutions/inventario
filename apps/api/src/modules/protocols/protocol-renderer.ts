@@ -136,7 +136,10 @@ export async function renderProtocolPdf(
   const embedFont = await pdfDoc.embedFont(font, { subset: true });
 
   // ── Embedovať logo ───────────────────────────────────────────────────────
-  const logoImage = await pdfDoc.embedPng(logo);
+  // Tenant logo môže byť PNG alebo JPEG (loader oba pustí) — formát určujeme
+  // z magic bytes, nie z prípony/content-type. JPEG začína FF D8.
+  const isJpeg = logo.length > 2 && logo[0] === 0xff && logo[1] === 0xd8;
+  const logoImage = isJpeg ? await pdfDoc.embedJpg(logo) : await pdfDoc.embedPng(logo);
 
   // ── Kontextový objekt pre stránkovanie ───────────────────────────────────
   const ctx: RenderContext = {

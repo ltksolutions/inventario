@@ -32,8 +32,11 @@ import type { Organisation } from '@inventario/shared-types';
 /** Timeout pre logo fetch v milisekundách. */
 const LOGO_FETCH_TIMEOUT_MS = 4000;
 
-/** Povolené Content-Type hodnoty — len rastrové obrázky, nie SVG. */
-const ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+/**
+ * Povolené Content-Type hodnoty — len formáty, ktoré pdf-lib vie embedovať
+ * (embedPng/embedJpg). WebP a SVG pdf-lib nepodporuje → fallback na default.
+ */
+const ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
 
 /**
  * Načíta asset súbor (font, default logo) s fallback cestami.
