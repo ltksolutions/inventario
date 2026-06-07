@@ -103,11 +103,16 @@ export type UpdateSelfInput = Partial<
  * Service-layer parameters for the `list` endpoint. Tenant scope is
  * inferred from the actor and threaded through; callers pass
  * pagination / filter knobs only.
+ *
+ * `role` filters by Membership.role (authoritative per ADR-0029).
+ * Do NOT use User.roles[] for filtering — it is a legacy stale field.
  */
 export interface ListUsersServiceParams {
   limit?: number;
   skip?: number;
   filter?: Filter<User>;
+  /** Filter by Membership.role. Routes pass this separately from the User filter. */
+  role?: string;
 }
 
 /**
@@ -115,9 +120,11 @@ export interface ListUsersServiceParams {
  *
  * Mirrors the writable subset of `UserUpdatePatch` from the repository
  * but without the `updatedAt` / `updatedBy` audit columns — those are
- * controlled by the service. The route layer narrows further (K10 only
- * exposes `roles` and `isActive`; other fields are reserved for future
- * self-service / admin extensions).
+ * controlled by the service.
+ *
+ * NOTE: `roles` is intentionally absent (ADR-0029 cleanup). Role changes
+ * go through PATCH /v1/memberships/:id. This endpoint manages isActive
+ * and profile fields only.
  */
 export type UpdateUserInput = {
   [K in keyof Omit<UserUpdatePatch, 'updatedAt' | 'updatedBy'>]?: UserUpdatePatch[K] | undefined;
@@ -213,7 +220,9 @@ export class UsersService {
     // Resolve member userIds from memberships — cross-tenant users have
     // no organisationId on their User document, so filtering users directly
     // by organisationId misses them. We go via memberships instead.
-    const userIds = await this.membershipsRepo.findUserIdsByOrganisation(tenantId);
+    // `role` filter is applied HERE (on Membership.role — authoritative per
+    // ADR-0029) rather than on the stale User.roles[] field.
+    const userIds = await this.membershipsRepo.findUserIdsByOrganisation(tenantId, params.role);
 
     const { items, total } = await this.repo.listByUserIds({
       userIds,
@@ -400,19 +409,21 @@ export class UsersService {
   // -------------------------------------------------------------------------
 
   /**
-   * Admin update of a user within the actor's tenant. Records role-
-   * change and (de)activation events to the audit log alongside the
-   * patch, in a single transaction.
+   * Admin update of a user within the actor's tenant. Records
+   * (de)activation events to the audit log alongside the patch,
+   * in a single transaction.
    *
-   * Guardrails enforced here (route schema validates shape; service
-   * validates business invariants):
-   *   1. Admin cannot patch themselves to remove ADMIN role.
-   *   2. Admin cannot deactivate themselves.
-   *   3. The patch must not leave zero active ADMINs in the tenant
-   *      (catches "I'm not removing myself but I'm demoting the last
-   *      other admin" and "I'm not deactivating myself but I'm
-   *      deactivating the last admin"). Per-tenant counting — tenant A
-   *      having ADMINs does not protect tenant B.
+   * NOTE: role changes now go through PATCH /v1/memberships/:id
+   * (ADR-0029 cleanup). This endpoint manages isActive and profile
+   * fields only. `User.roles[]` is a legacy stale field — RBAC uses
+   * `Membership.role` exclusively.
+   *
+   * Guardrails enforced here:
+   *   1. Admin cannot deactivate themselves.
+   *   2. The patch must not leave zero active ADMINs in the tenant
+   *      (deactivating the last admin would lock the system out).
+   *      Per-tenant counting — tenant A having ADMINs does not protect
+   *      tenant B. Admin role is read from Membership.role (authoritative).
    *
    * Cross-tenant access is blocked because every repo call is tenant-
    * scoped: an admin from tenant A trying to PATCH a user in tenant B
@@ -420,11 +431,8 @@ export class UsersService {
    * cross-tenant document.
    *
    * Audit events emitted (one transaction, possibly multiple events):
-   *   - `USER_ROLE_GRANTED` — once per newly added role
-   *   - `USER_ROLE_REVOKED` — once per removed role
    *   - `USER_DEACTIVATED` / `USER_REACTIVATED` — on isActive flip
-   *   - `USER_UPDATED` — fallback for any other field change (name,
-   *     preferences, etc.); not used yet in K10 but ready for K10+
+   *   - `USER_UPDATED` — any other field change (name, preferences, etc.)
    */
   async update(
     id: string,
@@ -432,22 +440,19 @@ export class UsersService {
     actor: WithId<User>,
     request: FastifyRequest,
   ): Promise<Record<string, unknown>> {
-    if (!this.auditLog || !this.mongoClient) {
-      // Programmer error: K10 admin write paths require both audit + tx
-      // helpers, which are wired up by users.routes.ts. JIT-only
-      // callers (auth flow during slice #2) construct the service
-      // without them.
+    if (!this.auditLog || !this.mongoClient || !this.membershipsRepo) {
+      // Programmer error: K10 admin write paths require audit + tx
+      // helpers + membershipsRepo, wired up by users.routes.ts.
       throw new Error(
-        'UsersService.update requires auditLog and mongoClient — ' +
+        'UsersService.update requires auditLog, mongoClient, and membershipsRepo — ' +
           'instantiate the service via the routes plugin, not directly.',
       );
     }
 
-    // Bind to a local so TypeScript narrowing survives across the async
-    // transaction callback below. Without this, every call to
-    // `this.auditLog.record(...)` inside the closure would re-widen to
-    // `AuditLogService | null` and trip TS2531.
+    // Bind to locals so TypeScript narrowing survives across the async
+    // transaction callback.
     const auditLog = this.auditLog;
+    const membershipsRepo = this.membershipsRepo;
 
     const actorId = String(actor._id);
     const tenantId = String(actor.organisationId);
@@ -460,61 +465,47 @@ export class UsersService {
       }
 
       const isSelfPatch = String(before._id) === actorId;
-
-      // ----- Step 2: normalize roles for diff (dedupe + stable order) ---
-      //
-      // The route schema allows duplicate role entries. We canonicalize
-      // here so the diff doesn't show spurious "changes" caused by
-      // reorder or duplicate input.
-      const rolesAfter: UserRole[] =
-        patch.roles !== undefined
-          ? [...new Set<UserRole>(patch.roles)].sort()
-          : [...new Set<UserRole>(before.roles)].sort();
-      const rolesBefore: UserRole[] = [...new Set<UserRole>(before.roles)].sort();
-
-      const rolesChanged = patch.roles !== undefined && !arraysEqual(rolesBefore, rolesAfter);
       const isActiveChanged = patch.isActive !== undefined && patch.isActive !== before.isActive;
 
-      // ----- Step 3: guardrails -----
-      this.assertNotLockingAdminOut({
-        target: before,
-        isSelfPatch,
-        rolesAfter,
-        nextIsActive: patch.isActive ?? before.isActive,
-      });
+      // ----- Step 2: guardrails -----
 
-      if (rolesAfter.length === 0) {
-        // shared-types schema requires at least one role. We catch this
-        // at the service so the error message is friendly.
-        throw new BadRequestError('User must have at least one role.');
+      // Self-deactivation: admin cannot deactivate themselves.
+      if (isSelfPatch && before.isActive && patch.isActive === false) {
+        throw new BadRequestError('Admins cannot deactivate themselves.');
       }
 
-      // Last-admin guardrail. Runs in the same transaction so a
-      // parallel demotion can't sneak past this check. Per-tenant scope
-      // (tenant A having ADMINs does not protect tenant B).
+      // Last-admin deactivation guardrail. Runs in the same transaction
+      // so a parallel deactivation can't sneak past this check.
+      // Per-tenant scope (tenant A's admins do not protect tenant B).
       //
-      // Trigger only if the target is CURRENTLY an active ADMIN and
-      // the patch either removes the ADMIN role or deactivates the
-      // account. In either case, the target stops counting toward
-      // active-admins, so we ask the repo whether any other admins
-      // remain in the tenant.
-      const targetWasActiveAdmin = before.isActive && rolesBefore.includes(UserRole.ADMIN);
-      const removesAdmin = !rolesAfter.includes(UserRole.ADMIN);
-      const deactivates = patch.isActive === false;
-
-      if (targetWasActiveAdmin && (removesAdmin || deactivates)) {
-        const remainingAdmins = await this.repo.countActiveAdminsExcluding(tenantId, id, session);
-        if (remainingAdmins === 0) {
-          throw new BadRequestError(
-            'Cannot remove the last active ADMIN. Promote another user to ADMIN first.',
+      // Trigger only when the patch actually deactivates the target
+      // (self-patch is already rejected above, so this branch only runs
+      // for admin-patches-other-user). We check the target's
+      // Membership.role (authoritative per ADR-0029) — User.roles[] is
+      // stale and must NOT be used here.
+      if (patch.isActive === false && before.isActive) {
+        const targetMembership = await membershipsRepo.findActive(
+          { userId: String(before._id), organisationId: tenantId },
+          session,
+        );
+        if ((targetMembership?.role as string | undefined) === UserRole.ADMIN) {
+          const remainingAdmins = await membershipsRepo.countActiveAdmins(
+            tenantId,
+            String(before._id),
+            session,
           );
+          if (remainingAdmins === 0) {
+            throw new BadRequestError(
+              'Cannot deactivate the last active ADMIN. Promote another user to ADMIN first.',
+            );
+          }
         }
       }
 
-      // ----- Step 4: build patch with audit columns -----
+      // ----- Step 3: build patch with audit columns -----
       const now = new Date().toISOString();
       const fullPatch: UserUpdatePatch = {
-        ...this.buildRepoPatch(patch, rolesAfter),
+        ...this.buildRepoPatch(patch),
         updatedAt: now,
         updatedBy: actorId,
       };
@@ -527,54 +518,7 @@ export class UsersService {
         throw new NotFoundError('User', id);
       }
 
-      // ----- Step 5: emit audit events -----
-      //
-      // We emit specific events per business action (role grants /
-      // revokes, activation flips) so the audit log is queryable and
-      // meaningful — not just a sea of generic USER_UPDATED entries.
-
-      // Role changes: one event per added role, one per removed role.
-      if (rolesChanged) {
-        const added = rolesAfter.filter((r) => !rolesBefore.includes(r));
-        const removed = rolesBefore.filter((r) => !rolesAfter.includes(r));
-
-        for (const role of added) {
-          await auditLog.record(
-            actor,
-            request,
-            {
-              action: 'USER_ROLE_GRANTED',
-              target: {
-                entityType: 'User',
-                entityId: String(after._id),
-                snapshot: { email: after.email, displayName: after.displayName },
-              },
-              description: `Granted role ${role} to "${after.displayName}" (${after.email})`,
-              metadata: { role },
-            },
-            session,
-          );
-        }
-
-        for (const role of removed) {
-          await auditLog.record(
-            actor,
-            request,
-            {
-              action: 'USER_ROLE_REVOKED',
-              target: {
-                entityType: 'User',
-                entityId: String(after._id),
-                snapshot: { email: after.email, displayName: after.displayName },
-              },
-              description: `Revoked role ${role} from "${after.displayName}" (${after.email})`,
-              severity: 'WARNING',
-              metadata: { role },
-            },
-            session,
-          );
-        }
-      }
+      // ----- Step 4: emit audit events -----
 
       // Activation flip.
       if (isActiveChanged) {
@@ -597,19 +541,14 @@ export class UsersService {
         );
       }
 
-      // Fallback: any OTHER changed field gets a USER_UPDATED with
-      // diff. Not exercised in K10 (route only allows roles +
-      // isActive) but wired up so a future K10+ extension doesn't
-      // need to revisit.
+      // Generic USER_UPDATED for any other changed field. Excludes
+      // isActive (has its own event above), roles (legacy stale field —
+      // ignored), and noise columns.
       const changes = computeShallowDiff(before, after, [
         'updatedAt',
         'updatedBy',
-        // Role / isActive changes have their own events above; don't
-        // duplicate them in the generic USER_UPDATED diff.
         'roles',
         'isActive',
-        // lastLoginAt mutates on every login as fire-and-forget; not a
-        // meaningful "admin updated this user" event.
         'lastLoginAt',
       ]);
       if (changes.length > 0) {
@@ -804,17 +743,13 @@ export class UsersService {
   // -------------------------------------------------------------------------
 
   /**
-   * Convert the public service input into the narrower repository
-   * patch. Roles are passed in pre-canonicalized (deduped + sorted) so
-   * the stored array is stable for diffing.
+   * Convert the public service input into the narrower repository patch.
+   * NOTE: `roles` is intentionally absent — role changes go through
+   * PATCH /v1/memberships/:id (ADR-0029).
    */
-  private buildRepoPatch(
-    input: UpdateUserInput,
-    canonicalRoles: UserRole[],
-  ): Omit<UserUpdatePatch, 'updatedAt' | 'updatedBy'> {
+  private buildRepoPatch(input: UpdateUserInput): Omit<UserUpdatePatch, 'updatedAt' | 'updatedBy'> {
     const patch: Omit<UserUpdatePatch, 'updatedAt' | 'updatedBy'> = {};
 
-    if (input.roles !== undefined) patch.roles = canonicalRoles;
     if (input.isActive !== undefined) patch.isActive = input.isActive;
     if (input.firstName !== undefined) patch.firstName = input.firstName;
     if (input.lastName !== undefined) patch.lastName = input.lastName;
@@ -825,32 +760,6 @@ export class UsersService {
     if (input.preferences !== undefined) patch.preferences = input.preferences;
 
     return patch;
-  }
-
-  /**
-   * Self-patch guardrails: an admin cannot lock themselves out by
-   * removing their own ADMIN role or deactivating themselves. Either
-   * action would require another admin to undo, and in the worst case
-   * (sole admin) is unrecoverable without DB access.
-   */
-  private assertNotLockingAdminOut(args: {
-    target: WithId<User>;
-    isSelfPatch: boolean;
-    rolesAfter: UserRole[];
-    nextIsActive: boolean;
-  }): void {
-    if (!args.isSelfPatch) return;
-
-    const stillHasAdmin = args.rolesAfter.includes(UserRole.ADMIN);
-    if (args.target.roles.includes(UserRole.ADMIN) && !stillHasAdmin) {
-      throw new BadRequestError(
-        'Admins cannot remove their own ADMIN role. Ask another admin to do it.',
-      );
-    }
-
-    if (args.target.isActive && !args.nextIsActive) {
-      throw new BadRequestError('Admins cannot deactivate themselves.');
-    }
   }
 
   /**
@@ -1008,11 +917,6 @@ function isDuplicateKeyError(err: unknown): boolean {
     'code' in err &&
     (err as { code: unknown }).code === 11000
   );
-}
-
-function arraysEqual<T>(a: readonly T[], b: readonly T[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((v, i) => v === b[i]);
 }
 
 function toApiShape(doc: WithId<User>): Record<string, unknown> {

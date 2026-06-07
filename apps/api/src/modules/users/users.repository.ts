@@ -36,7 +36,6 @@
  * accidentally end up in API responses.
  */
 
-import { UserRole, type User } from '@inventario/shared-types';
 import {
   ObjectId,
   type ClientSession,
@@ -48,6 +47,8 @@ import {
 } from 'mongodb';
 
 import { requireTenantId, tenantFilter } from '../../lib/organisation-scoping.js';
+
+import type { User } from '@inventario/shared-types';
 
 // ---------------------------------------------------------------------------
 // Projection — fields never returned to callers of the public methods.
@@ -89,7 +90,9 @@ export interface ListUsersResult {
 export type UserUpdatePatch = Partial<
   Pick<
     User,
-    | 'roles'
+    // NOTE: `roles` is intentionally absent. User.roles[] is a legacy field
+    // that RBAC ignores (authoritative role = Membership.role per ADR-0029).
+    // Role changes go through PATCH /v1/memberships/:id.
     | 'isActive'
     | 'firstName'
     | 'lastName'
@@ -482,48 +485,5 @@ export class UsersRepository {
     );
 
     return result ?? null;
-  }
-
-  /**
-   * Count users who are active AND have the ADMIN role within the
-   * tenant, excluding the given userId
-   *
-   * Used by the last-admin guardrail in `UsersService.update` to
-   * refuse patches that would leave a tenant with zero ADMINs. Runs
-   * inside the same transaction as the patch to avoid a race with
-   * another admin being deactivated in parallel.
-   *
-   * The "last admin" check is per-tenant: tenant A having ADMINs does
-   * not protect tenant B from having its last admin demoted. Each
-   * tenant manages its own admin set.
-   */
-  async countActiveAdminsExcluding(
-    organisationId: string,
-    userId: string,
-    session?: ClientSession,
-  ): Promise<number> {
-    const tenantId = requireTenantId(organisationId);
-    if (!ObjectId.isValid(userId)) {
-      // Defensive: an invalid id means we can't exclude anything, so
-      // this would return the full active-admin count for the tenant.
-      // The route layer already validates the id format, but mirror
-      // the guard from findById.
-      return this.collection.countDocuments(
-        tenantFilter<User>(tenantId, {
-          roles: UserRole.ADMIN,
-          isActive: true,
-        } as Filter<User>),
-        session ? { session } : undefined,
-      );
-    }
-
-    return this.collection.countDocuments(
-      tenantFilter<User>(tenantId, {
-        _id: { $ne: new ObjectId(userId) as unknown as User['_id'] },
-        roles: UserRole.ADMIN,
-        isActive: true,
-      } as Filter<User>),
-      session ? { session } : undefined,
-    );
   }
 }

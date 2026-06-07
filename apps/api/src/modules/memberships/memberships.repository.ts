@@ -56,12 +56,22 @@ export class MembershipsRepository {
    * Creates indexes if they do not exist. Idempotent.
    * Primary index creation is done by the migration runner;
    * this method is a safety net for test environments.
+   *
+   * NOTE: The userId+organisationId unique index uses a partialFilterExpression
+   * so that soft-deleted docs (deletedAt != null) are excluded. This allows a
+   * user to leave and rejoin an org — the old soft-deleted membership is kept
+   * as a historical record and does not block the new active one.
+   * Migration: 2026-06-07-memberships-partial-index.
    */
   async ensureIndexes(): Promise<void> {
     await Promise.all([
       this.col.createIndex(
         { userId: 1, organisationId: 1 },
-        { unique: true, name: 'memberships_userId_organisationId_unique' },
+        {
+          unique: true,
+          partialFilterExpression: { deletedAt: null },
+          name: 'memberships_userId_organisationId_unique',
+        },
       ),
       this.col.createIndex(
         { userId: 1, isDefault: 1 },
@@ -238,13 +248,16 @@ export class MembershipsRepository {
    * before fetching User documents — cross-tenant users have no
    * organisationId on the User document, so a direct users.find() by
    * organisationId would miss them.
+   *
+   * @param role — optional: restrict to members with this exact Membership.role.
+   *   This is the authoritative role (ADR-0029); do not filter by User.roles[].
    */
-  async findUserIdsByOrganisation(organisationId: string): Promise<string[]> {
-    const docs = await this.col
-      .find({ organisationId, status: 'ACTIVE', deletedAt: null } as never, {
-        projection: { userId: 1 },
-      })
-      .toArray();
+  async findUserIdsByOrganisation(organisationId: string, role?: string): Promise<string[]> {
+    const filter: Record<string, unknown> = { organisationId, status: 'ACTIVE', deletedAt: null };
+    if (role !== undefined) {
+      filter['role'] = role;
+    }
+    const docs = await this.col.find(filter as never, { projection: { userId: 1 } }).toArray();
     return docs.map((d) => (d as unknown as { userId: string }).userId);
   }
 

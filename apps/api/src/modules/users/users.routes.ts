@@ -10,7 +10,7 @@
  * Slice #3 K10 scope: admin endpoints for user management.
  *   - `GET    /v1/users`      ADMIN — paginated list with filters
  *   - `GET    /v1/users/:id`  ADMIN — single user
- *   - `PATCH  /v1/users/:id`  ADMIN — update roles + isActive
+ *   - `PATCH  /v1/users/:id`  ADMIN — update isActive (roles → PATCH /v1/memberships/:id)
  *
  * K12b scope: admin MFA reset.
  *   - `DELETE /v1/users/:id/mfa` ADMIN — clear MFA enrollment for a user
@@ -22,10 +22,9 @@
  *   - admin endpoints         ADMIN only
  *
  * Audit:
- *   PATCH emits one or more of `USER_ROLE_GRANTED`, `USER_ROLE_REVOKED`,
- *   `USER_DEACTIVATED`, `USER_REACTIVATED` per the diff between before
- *   and after. See `users.service.ts` for the event-emission rules.
- *   DELETE /mfa emits `MFA_RESET_BY_ADMIN`.
+ *   PATCH emits `USER_DEACTIVATED` / `USER_REACTIVATED` / `USER_UPDATED`
+ *   per the diff. Role events (USER_ROLE_GRANTED/REVOKED) now come from
+ *   PATCH /v1/memberships/:id. DELETE /mfa emits `MFA_RESET_BY_ADMIN`.
  */
 
 import { USER_ROLE_VALUES } from '@inventario/shared-types';
@@ -167,25 +166,19 @@ const RestrictionBodySchema = z
 // ---------------------------------------------------------------------------
 
 /**
- * Admin PATCH body. K10 exposes only `roles` and `isActive`. Both are
- * optional; an empty body is a no-op (returns 200 with the existing user
- * unchanged). The service enforces business rules (last-admin guardrail,
- * self-deactivation, at-least-one-role).
+ * Admin PATCH body. K10 exposes only `isActive` (and profile fields).
+ * Role changes go through PATCH /v1/memberships/:id (ADR-0029 cleanup).
+ * An empty body is a no-op (returns 200 with the existing user unchanged).
  */
 const UpdateUserBodySchema = z
   .object({
-    /**
-     * One or more roles. The service deduplicates and normalises ordering
-     * before storing, so callers don't need to pre-canonicalise.
-     */
-    roles: z
-      .array(z.enum(USER_ROLE_VALUES as unknown as [string, ...string[]]))
-      .min(1, 'Používateľ musí mať aspoň jednu rolu.'),
     /** Whether the account is permitted to authenticate. */
     isActive: z.boolean(),
   })
   .partial()
-  .describe('Čiastočná aktualizácia používateľa (admin); roles + isActive.');
+  .describe(
+    'Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id.',
+  );
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -243,6 +236,10 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       const user = request.currentUser;
+      // `user.role` (singular) is backfilled from Membership.role by
+      // loadCurrentUser (auth.ts). User.roles[] is a legacy stale field
+      // (ADR-0029) — always use the backfilled singular role here.
+      const membershipRole = (user as unknown as { role: string }).role;
       return {
         _id: String(user._id),
         email: user.email,
@@ -250,7 +247,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         lastName: user.lastName,
         displayName: user.displayName,
         accountType: user.accountType,
-        roles: user.roles,
+        roles: membershipRole ? [membershipRole] : [],
         isActive: user.isActive,
         lastLoginAt: user.lastLoginAt,
         preferences: user.preferences as Record<string, unknown>,
@@ -341,10 +338,11 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
       // $or operator shape, and the three small assignments below are
       // easier to reason about as a flat object than through a series
       // of typed assignments.
+      // `role` is passed separately to the service — it maps to
+      // Membership.role (authoritative per ADR-0029) via
+      // membershipsRepo.findUserIdsByOrganisation(). Do NOT put it
+      // into the User filter (User.roles[] is a legacy stale field).
       const filterObj: Record<string, unknown> = {};
-      if (role !== undefined) {
-        filterObj['roles'] = role;
-      }
       if (isActive !== undefined) {
         filterObj['isActive'] = isActive;
       }
@@ -359,7 +357,10 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         ];
       }
 
-      return service.list({ limit, skip, filter: filterObj as Filter<User> }, request.currentUser);
+      return service.list(
+        { limit, skip, filter: filterObj as Filter<User>, ...(role !== undefined ? { role } : {}) },
+        request.currentUser,
+      );
     },
   );
 
@@ -394,12 +395,12 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Users'],
         summary: 'Update a user (admin)',
         description:
-          'Partial update of a user. K10 exposes only `roles` and `isActive`. ' +
-          'Guardrails: admins cannot deactivate or demote themselves, and the ' +
-          'last active ADMIN cannot be deactivated or demoted (promote another ' +
-          'user to ADMIN first). Records per-action audit events ' +
-          '(USER_ROLE_GRANTED, USER_ROLE_REVOKED, USER_DEACTIVATED, ' +
-          'USER_REACTIVATED). Requires ADMIN role.',
+          'Partial update of a user. Exposes `isActive` (and profile fields). ' +
+          'Role changes go through PATCH /v1/memberships/:id (ADR-0029). ' +
+          'Guardrails: admins cannot deactivate themselves, and the last active ' +
+          'ADMIN cannot be deactivated (promote another user to ADMIN first). ' +
+          'Records USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. ' +
+          'Requires ADMIN role.',
         security: [{ bearerAuth: [] }],
         params: UserIdParamsSchema,
         body: UpdateUserBodySchema,
