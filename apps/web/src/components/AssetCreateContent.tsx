@@ -92,6 +92,7 @@ export function AssetCreateContent(): JSX.Element {
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
@@ -127,10 +128,15 @@ export function AssetCreateContent(): JSX.Element {
     );
   }
 
-  const categories = (categoriesQuery.data?.data ?? []).map((c) => ({
-    id: c._id,
-    label: c.name,
-  }));
+  // Kategórie sú odvodené od zvoleného typu majetku — ponúkame len tie,
+  // ktoré patria pod aktuálne vybraný typ (category.assetTypeSlug).
+  const selectedTypeSlug = watch('typeSlug');
+  const categories = (categoriesQuery.data?.data ?? [])
+    .filter((c) => selectedTypeSlug !== null && c.assetTypeSlug === selectedTypeSlug)
+    .map((c) => ({
+      id: c._id,
+      label: c.name,
+    }));
   const locations = (locationsQuery.data?.data ?? []).map((l) => ({
     id: l._id,
     label: l.name,
@@ -296,7 +302,12 @@ export function AssetCreateContent(): JSX.Element {
               render={({ field }) => (
                 <Combobox
                   value={field.value}
-                  onChange={field.onChange}
+                  onChange={(value) => {
+                    field.onChange(value);
+                    // Zmena typu invaliduje výber kategórie — kategórie sa
+                    // ponúkajú odvodene od typu.
+                    setValue('categoryId', null);
+                  }}
                   options={assetTypes}
                   canCreate={canManage}
                   canRename={canManage}
@@ -314,7 +325,16 @@ export function AssetCreateContent(): JSX.Element {
             />
           </Field>
 
-          <Field label="Kategória" required error={errors.categoryId?.message}>
+          <Field
+            label="Kategória"
+            required
+            error={errors.categoryId?.message}
+            hint={
+              selectedTypeSlug
+                ? undefined
+                : 'Najprv vyberte typ majetku — kategórie sa ponúkajú podľa typu.'
+            }
+          >
             <Controller
               name="categoryId"
               control={control}
@@ -324,12 +344,12 @@ export function AssetCreateContent(): JSX.Element {
                   value={field.value}
                   onChange={field.onChange}
                   options={categories}
-                  canCreate={canManage}
+                  canCreate={canManage && selectedTypeSlug !== null}
                   canRename={canManage}
                   onCreate={async (label) => {
                     const result = await createCategory.mutateAsync({
                       name: label,
-                      assetType: 'OTHER',
+                      assetTypeSlug: selectedTypeSlug ?? undefined,
                     });
                     return { id: result._id, label: result.name };
                   }}

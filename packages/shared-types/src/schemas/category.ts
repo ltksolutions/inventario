@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-import { AssetType } from '../enums/asset-type.js';
-
 import {
   BaseDocumentSchema,
   ObjectIdSchema,
@@ -12,7 +10,12 @@ import {
 /**
  * Kategória majetku — hierarchická taxonómia (strom).
  *
- * Príklad hierarchie:
+ * Každá kategória patrí pod práve jeden typ majetku (`assetTypeSlug` →
+ * per-tenant kolekcia `asset_types`). Vo formulároch sa kategórie
+ * ponúkajú filtrované podľa zvoleného typu. Deti DEDIA typ z root
+ * rodiča — typ sa nastavuje len na root úrovni.
+ *
+ * Príklad hierarchie (typ: it-majetok):
  *   IT
  *   ├── Notebooky
  *   │   ├── Pracovné notebooky
@@ -37,8 +40,15 @@ export const CategorySchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** ID nadradenej kategórie (null pre root kategórie). */
     parentId: ObjectIdSchema.nullable().default(null),
 
-    /** Top-level typ — určuje, aké `specs` polia patria do tejto kategórie. */
-    assetType: z.enum(Object.values(AssetType) as [string, ...string[]]) as z.ZodType<AssetType>,
+    /**
+     * Slug typu majetku z per-tenant číselníka `asset_types`.
+     * Root kategória ho má nastavený explicitne, deti ho dedia z rodiča
+     * (server ho pri create/update odvodzuje a kaskáduje).
+     */
+    assetTypeSlug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'assetTypeSlug musí byť lowercase slug s pomlčkami.')
+      .max(200),
 
     /** Voliteľný popis. */
     description: z.string().max(1000).nullable().default(null),

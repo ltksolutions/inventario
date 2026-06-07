@@ -155,7 +155,7 @@ async function seedCategories(
       name: node.name,
       slug: node.slug,
       parentId,
-      assetType: node.assetType,
+      assetTypeSlug: node.assetTypeSlug,
       description: null,
       icon: null,
       color: null,

@@ -202,7 +202,8 @@ export interface CategorySummary {
   _id: string;
   name: string;
   slug: string;
-  assetType: string;
+  /** Slug typu majetku z číselníka asset_types (kategória patrí pod typ). */
+  assetTypeSlug: string;
   isActive: boolean;
   [key: string]: unknown;
 }
@@ -309,15 +310,19 @@ export function useAssetConditions(
  * name), every other field has a sensible default the route applies.
  *
  * Most fields are intentionally optional even though the backend's
- * Zod schema accepts them: the K1 UI sends a minimal payload (name +
- * assetType + maybe description/parentId), and the backend default
+ * Zod schema accepts them: the UI sends a minimal payload (name +
+ * assetTypeSlug + maybe description/parentId), and the backend default
  * does the rest. Once the categories edit form lands we'll expose
  * the remaining knobs (color, icon, approvers, maxLoanDays) — until
  * then this hook keeps the call site small.
+ *
+ * `assetTypeSlug` is required for ROOT categories (no parentId); for
+ * child categories the server inherits the parent's type and ignores
+ * the provided value.
  */
 export interface CreateCategoryInput {
   name: string;
-  assetType: string;
+  assetTypeSlug?: string | undefined;
   description?: string | null | undefined;
   parentId?: string | null | undefined;
   slug?: string | undefined;
@@ -334,7 +339,7 @@ export interface CategoryDetail {
   name: string;
   slug: string;
   parentId: string | null;
-  assetType: string;
+  assetTypeSlug: string;
   description: string | null;
   icon: string | null;
   color: string | null;
@@ -371,11 +376,15 @@ export function useCreateCategory(): UseMutationResult<CategoryDetail, Error, Cr
       // empty (those are nullable in the schema).
       const body: Record<string, unknown> = {
         name: input.name,
-        assetType: input.assetType,
         parentId: input.parentId ?? null,
         description:
           input.description == null || input.description === '' ? null : input.description,
       };
+      // assetTypeSlug: required for root categories; for children the
+      // server inherits the parent's type, so omit when not provided.
+      if (input.assetTypeSlug !== undefined && input.assetTypeSlug !== '') {
+        body['assetTypeSlug'] = input.assetTypeSlug;
+      }
       if (input.slug !== undefined && input.slug !== '') {
         body['slug'] = input.slug;
       }

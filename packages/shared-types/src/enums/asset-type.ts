@@ -1,6 +1,8 @@
 /**
- * Kategórie majetku — top-level klasifikácia.
- * Detailnejšie členenie je v `categories` kolekcii v DB (hierarchická štruktúra).
+ * @deprecated Statický enum typov majetku — NAHRADENÝ per-tenant
+ * kolekciou `asset_types` (AssetTypeEntry). Kategórie aj majetok
+ * referencujú typ cez slug (`assetTypeSlug` / `asset.type`).
+ * Enum ostáva len pre staré testy a migráciu enum → slug.
  */
 export const AssetType = {
   /** IT majetok — notebooky, mobily, monitory, sieťové zariadenia. */

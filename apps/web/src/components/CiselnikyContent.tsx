@@ -22,6 +22,7 @@
 import { AlertCircle, Check, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
+import { CategoryCreateDialog } from './CategoryCreateDialog';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 
 import type { JSX } from 'react';
@@ -34,7 +35,6 @@ import {
   useCategories,
   useCreateAssetConditions,
   useCreateAssetTypes,
-  useCreateCategory,
   useCreateLocation,
   useDeleteAssetCondition,
   useDeleteAssetType,
@@ -393,31 +393,26 @@ function AddInlineDialog({
 // Tab: Categories — grouped by asset type
 // ---------------------------------------------------------------------------
 
-const ASSET_TYPE_LABELS: Record<string, string> = {
-  IT: 'IT majetok',
-  SPORTS_GEAR: 'Športová výstroj',
-  TRAINING_EQUIPMENT: 'Tréningové vybavenie',
-  OFFICE_EQUIPMENT: 'Kancelárske vybavenie',
-  MEDIA: 'Médiá a video',
-  COMMUNICATION: 'Komunikácia',
-  OTHER: 'Iné',
-};
-
-const ASSET_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  IT: { bg: '#E6F1FB', text: '#0C447C' },
-  SPORTS_GEAR: { bg: '#E1F5EE', text: '#085041' },
-  TRAINING_EQUIPMENT: { bg: '#EAF3DE', text: '#27500A' },
-  OFFICE_EQUIPMENT: { bg: '#F1EFE8', text: '#444441' },
-  MEDIA: { bg: '#EEEDFE', text: '#3C3489' },
-  COMMUNICATION: { bg: '#FAEEDA', text: '#633806' },
-  OTHER: { bg: '#FCEBEB', text: '#791F1F' },
-};
+/**
+ * Paleta pre badge skupín typov — typy sú dynamické (per-tenant
+ * číselník), takže farby prideľujeme cyklicky podľa poradia skupiny.
+ * Ak má typ nastavenú vlastnú farbu (asset_types.color), má prednosť.
+ */
+const TYPE_BADGE_PALETTE: Array<{ bg: string; text: string }> = [
+  { bg: '#E6F1FB', text: '#0C447C' },
+  { bg: '#E1F5EE', text: '#085041' },
+  { bg: '#EAF3DE', text: '#27500A' },
+  { bg: '#F1EFE8', text: '#444441' },
+  { bg: '#EEEDFE', text: '#3C3489' },
+  { bg: '#FAEEDA', text: '#633806' },
+  { bg: '#FCEBEB', text: '#791F1F' },
+];
 
 function CategoriesTab(): JSX.Element {
   const query = useCategories({ limit: 200 });
+  const typesQuery = useAssetTypes({ limit: 200 });
   const canManage = useCanManageTaxonomy();
   const canDelete = useCanDeleteTaxonomy();
-  const create = useCreateCategory();
   const rename = useRenameCategory();
   const del = useDeleteCategory();
 
@@ -427,33 +422,37 @@ function CategoriesTab(): JSX.Element {
   const [renameValue, setRenameValue] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
 
-  if (query.isLoading) return <ListSkeleton />;
+  if (query.isLoading || typesQuery.isLoading) return <ListSkeleton />;
   if (query.isError)
     return (
       <ErrorPanel message="Kategórie sa nepodarilo načítať. Skontroluj pripojenie a skús znova." />
     );
 
-  const allRows: TaxonomyRow[] = (query.data?.data ?? []).map((c) => ({
+  const categories = query.data?.data ?? [];
+  const assetTypes = typesQuery.data?.data ?? [];
+  const typeBySlug = new Map(assetTypes.map((t) => [t.slug, t]));
+
+  const allRows: TaxonomyRow[] = categories.map((c) => ({
     id: c._id,
     name: c.name,
     slug: c.slug,
-    extra: c.assetType as string,
+    extra: c.assetTypeSlug,
   }));
 
-  // Group by assetType, sort groups alphabetically by label
+  // Group by assetTypeSlug. Poradie skupín = sortOrder číselníka typov,
+  // neznáme slugy (nemali by nastať) na koniec.
   const groupOrder: string[] = [];
   const groups: Record<string, TaxonomyRow[]> = {};
   for (const row of allRows) {
-    const key = row.extra ?? 'OTHER';
+    const key = row.extra ?? 'ine';
     if (!groups[key]) {
       groupOrder.push(key);
       groups[key] = [];
     }
     groups[key]!.push(row);
   }
-  groupOrder.sort((a, b) =>
-    (ASSET_TYPE_LABELS[a] ?? a).localeCompare(ASSET_TYPE_LABELS[b] ?? b, 'sk'),
-  );
+  const typeOrder = new Map(assetTypes.map((t, i) => [t.slug, i]));
+  groupOrder.sort((a, b) => (typeOrder.get(a) ?? 999) - (typeOrder.get(b) ?? 999));
 
   async function commitRename(id: string): Promise<void> {
     const trimmed = renameValue.trim();
@@ -497,9 +496,12 @@ function CategoriesTab(): JSX.Element {
         </div>
       ) : (
         <div className="space-y-6">
-          {groupOrder.map((typeKey) => {
-            const label = ASSET_TYPE_LABELS[typeKey] ?? typeKey;
-            const colors = ASSET_TYPE_COLORS[typeKey] ?? { bg: '#F1EFE8', text: '#444441' };
+          {groupOrder.map((typeKey, groupIndex) => {
+            const typeEntry = typeBySlug.get(typeKey);
+            const label = typeEntry?.name ?? typeKey;
+            const colors =
+              TYPE_BADGE_PALETTE[groupIndex % TYPE_BADGE_PALETTE.length] ??
+              ({ bg: '#F1EFE8', text: '#444441' } as const);
             const groupRows = groups[typeKey] ?? [];
             return (
               <div key={typeKey}>
@@ -622,12 +624,10 @@ function CategoriesTab(): JSX.Element {
       )}
 
       {addOpen && (
-        <AddInlineDialog
-          title="Nová kategória"
-          onSubmit={async (name) => {
-            await create.mutateAsync({ name, assetType: 'OTHER' });
-          }}
+        <CategoryCreateDialog
+          existingCategories={categories}
           onClose={() => setAddOpen(false)}
+          onCreated={() => setAddOpen(false)}
         />
       )}
       {deleteTarget && (
@@ -995,7 +995,7 @@ function TypesTab(): JSX.Element {
       {deleteTarget && (
         <ConfirmDeleteDialog
           title={`Vymazať typ ${deleteTarget.name}?`}
-          description="Typ sa označí ako zmazaný. Ak ho referencuje nejaký majetok, mazanie zlyhá."
+          description="Typ sa označí ako zmazaný. Ak ho referencuje nejaký majetok alebo kategória, mazanie zlyhá — najprv ich preraď, alebo typ len deaktivuj."
           confirmLabel="Vymazať"
           isPending={del.isPending}
           error={del.error?.message ?? null}

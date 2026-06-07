@@ -179,4 +179,61 @@ export class AssetTypesRepository {
         session ? { session } : undefined,
       );
   }
+
+  /**
+   * Count non-deleted categories referencing this type slug (FK
+   * protection). Categories store `assetTypeSlug` referencing
+   * asset_types.slug within the same tenant.
+   */
+  async countCategoriesByTypeSlug(
+    organisationId: string,
+    typeSlug: string,
+    session?: ClientSession,
+  ): Promise<number> {
+    const tenantId = requireTenantId(organisationId);
+    return this.collection.db
+      .collection('categories')
+      .countDocuments(
+        { organisationId: tenantId, assetTypeSlug: typeSlug, deletedAt: null },
+        session ? { session } : undefined,
+      );
+  }
+
+  /**
+   * Cascade a type slug rename to all referencing documents within the
+   * tenant: categories (`assetTypeSlug`) and assets (`type`). Runs
+   * inside the caller's transaction so references never dangle.
+   */
+  async cascadeSlugRename(
+    organisationId: string,
+    oldSlug: string,
+    newSlug: string,
+    stamp: { updatedAt: string; updatedBy: string },
+    session?: ClientSession,
+  ): Promise<{ categoriesUpdated: number; assetsUpdated: number }> {
+    const tenantId = requireTenantId(organisationId);
+    const opts = session ? { session } : undefined;
+
+    const [categoriesResult, assetsResult] = await Promise.all([
+      this.collection.db
+        .collection('categories')
+        .updateMany(
+          { organisationId: tenantId, assetTypeSlug: oldSlug },
+          { $set: { assetTypeSlug: newSlug, ...stamp } },
+          opts,
+        ),
+      this.collection.db
+        .collection('assets')
+        .updateMany(
+          { organisationId: tenantId, type: oldSlug },
+          { $set: { type: newSlug, ...stamp } },
+          opts,
+        ),
+    ]);
+
+    return {
+      categoriesUpdated: categoriesResult.modifiedCount,
+      assetsUpdated: assetsResult.modifiedCount,
+    };
+  }
 }

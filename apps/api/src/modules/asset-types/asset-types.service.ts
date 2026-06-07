@@ -148,8 +148,9 @@ export class AssetTypesService {
       const before = await this.repo.findById(tenantId, id, session);
       if (!before) throw new NotFoundError('AssetType', id);
 
-      if (patch.slug !== undefined && patch.slug !== before.slug) {
-        const collision = await this.repo.findBySlug(tenantId, patch.slug, session);
+      const slugIsChanging = patch.slug !== undefined && patch.slug !== before.slug;
+      if (slugIsChanging) {
+        const collision = await this.repo.findBySlug(tenantId, patch.slug as string, session);
         if (collision && String(collision._id) !== id) {
           throw new BadRequestError(`Slug "${patch.slug}" already exists.`);
         }
@@ -164,6 +165,18 @@ export class AssetTypesService {
 
       const after = await this.repo.update(tenantId, id, fullPatch, session);
       if (!after) throw new NotFoundError('AssetType', id);
+
+      // Cascade slug rename to referencing docs (categories.assetTypeSlug
+      // + assets.type) so references never dangle. Same transaction.
+      if (slugIsChanging) {
+        await this.repo.cascadeSlugRename(
+          tenantId,
+          before.slug,
+          after.slug,
+          { updatedAt: now, updatedBy: userId },
+          session,
+        );
+      }
 
       const changes = computeShallowDiff(before, after, ['updatedAt', 'updatedBy']);
       if (changes.length > 0) {
@@ -202,6 +215,21 @@ export class AssetTypesService {
       if (assetCount > 0) {
         throw new BadRequestError(
           `Cannot delete asset type "${existing.name}": ${assetCount} asset${assetCount === 1 ? '' : 's'} reference${assetCount === 1 ? 's' : ''} it. Reassign or delete those assets first.`,
+        );
+      }
+
+      // FK protection #2: categories reference the type via assetTypeSlug.
+      // Deleting the type would orphan whole category subtrees, so block
+      // with a count. Deactivation (isActive: false) remains available to
+      // hide the type from pickers without breaking references.
+      const categoryCount = await this.repo.countCategoriesByTypeSlug(
+        tenantId,
+        existing.slug,
+        session,
+      );
+      if (categoryCount > 0) {
+        throw new BadRequestError(
+          `Cannot delete asset type "${existing.name}": ${categoryCount} categor${categoryCount === 1 ? 'y references' : 'ies reference'} it. Reassign or delete those categories first, or deactivate the type instead.`,
         );
       }
 

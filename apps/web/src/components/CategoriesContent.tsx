@@ -13,6 +13,7 @@ import type { CategorySummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
 import {
+  useAssetTypes,
   useCanDeleteTaxonomy,
   useCanManageTaxonomy,
   useCategories,
@@ -46,18 +47,9 @@ import {
  *   loans). The route stays just /categories — simpler URL surface.
  */
 
-const ASSET_TYPE_LABELS: Record<string, string> = {
-  IT: 'IT majetok',
-  SPORTS_GEAR: 'Športová výstroj',
-  TRAINING_EQUIPMENT: 'Tréningové vybavenie',
-  OFFICE_EQUIPMENT: 'Kancelárske vybavenie',
-  MEDIA: 'Médiá a video',
-  COMMUNICATION: 'Komunikácia',
-  OTHER: 'Iné',
-};
-
 export function CategoriesContent(): JSX.Element {
   const categoriesQuery = useCategories({ limit: 200 });
+  const assetTypesQuery = useAssetTypes({ limit: 200 });
   const canManage = useCanManageTaxonomy();
   const canDelete = useCanDeleteTaxonomy();
 
@@ -65,6 +57,9 @@ export function CategoriesContent(): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<CategorySummary | null>(null);
 
   const categories = categoriesQuery.data?.data ?? [];
+
+  // Názvy typov majetku z per-tenant číselníka (slug → name).
+  const typeNameBySlug = new Map((assetTypesQuery.data?.data ?? []).map((t) => [t.slug, t.name]));
 
   // Build a lookup map so we can resolve parentId → parent name in
   // the list rows. The Map is rebuilt only when categories data
@@ -103,6 +98,7 @@ export function CategoriesContent(): JSX.Element {
         <CategoriesTable
           categories={categories}
           byId={byId}
+          typeNameBySlug={typeNameBySlug}
           canDelete={canDelete}
           onDelete={(category) => setDeleteTarget(category)}
         />
@@ -130,6 +126,7 @@ export function CategoriesContent(): JSX.Element {
 interface CategoriesTableProps {
   categories: readonly CategorySummary[];
   byId: ReadonlyMap<string, CategorySummary>;
+  typeNameBySlug: ReadonlyMap<string, string>;
   canDelete: boolean;
   onDelete: (category: CategorySummary) => void;
 }
@@ -137,6 +134,7 @@ interface CategoriesTableProps {
 function CategoriesTable({
   categories,
   byId,
+  typeNameBySlug,
   canDelete,
   onDelete,
 }: CategoriesTableProps): JSX.Element {
@@ -183,7 +181,7 @@ function CategoriesTable({
                   ) : null}
                 </td>
                 <td className="px-4 py-3 text-text-secondary">
-                  {ASSET_TYPE_LABELS[category.assetType] ?? category.assetType}
+                  {typeNameBySlug.get(category.assetTypeSlug) ?? category.assetTypeSlug}
                 </td>
                 <td className="px-4 py-3 text-text-secondary">
                   {parent ? parent.name : <span className="text-text-muted">—</span>}

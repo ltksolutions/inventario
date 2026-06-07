@@ -56,12 +56,12 @@ export const DEFAULT_ASSET_CONDITIONS: readonly TaxonomyDefault[] = [
 /**
  * Default category seed — hierarchical (parent → children) so a new
  * tenant immediately sees that categories can nest. Each node carries
- * an `assetType` (the bucket it belongs to) which drives which `specs`
- * fields apply to assets in that category.
+ * an `assetTypeSlug` referencing a slug from DEFAULT_ASSET_TYPES —
+ * the asset type the category belongs to. Forms offer categories
+ * filtered by the selected asset type.
  *
- * `assetType` values must be valid AssetType enum members:
- *   IT, SPORTS_GEAR, TRAINING_EQUIPMENT, OFFICE_EQUIPMENT,
- *   MEDIA, COMMUNICATION, OTHER
+ * Children MUST carry the same `assetTypeSlug` as their root parent
+ * (inheritance is enforced by the categories service).
  *
  * Kept deliberately generic + universal (works for a federation, a
  * municipality, a club, or a school) — a fork tailors these freely.
@@ -74,7 +74,7 @@ export const DEFAULT_ASSET_CONDITIONS: readonly TaxonomyDefault[] = [
 export interface CategoryDefaultNode {
   name: string;
   slug: string;
-  assetType: string;
+  assetTypeSlug: string;
   sortOrder: number;
   children?: readonly CategoryDefaultNode[];
 }
@@ -83,55 +83,65 @@ export const DEFAULT_CATEGORIES: readonly CategoryDefaultNode[] = [
   {
     name: 'IT a výpočtová technika',
     slug: 'it-a-vypoctova-technika',
-    assetType: 'IT',
+    assetTypeSlug: 'it-majetok',
     sortOrder: 0,
     children: [
-      { name: 'Notebooky', slug: 'notebooky', assetType: 'IT', sortOrder: 0 },
-      { name: 'Stolné počítače', slug: 'stolne-pocitace', assetType: 'IT', sortOrder: 1 },
-      { name: 'Monitory a periférie', slug: 'monitory-a-periferie', assetType: 'IT', sortOrder: 2 },
+      { name: 'Notebooky', slug: 'notebooky', assetTypeSlug: 'it-majetok', sortOrder: 0 },
+      {
+        name: 'Stolné počítače',
+        slug: 'stolne-pocitace',
+        assetTypeSlug: 'it-majetok',
+        sortOrder: 1,
+      },
+      {
+        name: 'Monitory a periférie',
+        slug: 'monitory-a-periferie',
+        assetTypeSlug: 'it-majetok',
+        sortOrder: 2,
+      },
     ],
   },
   {
     name: 'Mobilné zariadenia',
     slug: 'mobilne-zariadenia',
-    assetType: 'COMMUNICATION',
+    assetTypeSlug: 'komunikacia',
     sortOrder: 1,
     children: [
       {
         name: 'Mobilné telefóny',
         slug: 'mobilne-telefony',
-        assetType: 'COMMUNICATION',
+        assetTypeSlug: 'komunikacia',
         sortOrder: 0,
       },
-      { name: 'Tablety', slug: 'tablety', assetType: 'COMMUNICATION', sortOrder: 1 },
+      { name: 'Tablety', slug: 'tablety', assetTypeSlug: 'komunikacia', sortOrder: 1 },
     ],
   },
   {
     name: 'Audio a video technika',
     slug: 'audio-a-video-technika',
-    assetType: 'MEDIA',
+    assetTypeSlug: 'media-a-video',
     sortOrder: 2,
     children: [
-      { name: 'Kamery', slug: 'kamery', assetType: 'MEDIA', sortOrder: 0 },
-      { name: 'Projektory', slug: 'projektory', assetType: 'MEDIA', sortOrder: 1 },
+      { name: 'Kamery', slug: 'kamery', assetTypeSlug: 'media-a-video', sortOrder: 0 },
+      { name: 'Projektory', slug: 'projektory', assetTypeSlug: 'media-a-video', sortOrder: 1 },
     ],
   },
   {
     name: 'Kancelárske vybavenie',
     slug: 'kancelarske-vybavenie-kat',
-    assetType: 'OFFICE_EQUIPMENT',
+    assetTypeSlug: 'kancelarske-vybavenie',
     sortOrder: 3,
   },
   {
     name: 'Športové potreby',
     slug: 'sportove-potreby',
-    assetType: 'SPORTS_GEAR',
+    assetTypeSlug: 'sportova-vystroj',
     sortOrder: 4,
   },
   {
     name: 'Ostatné',
     slug: 'ostatne',
-    assetType: 'OTHER',
+    assetTypeSlug: 'ine',
     sortOrder: 5,
   },
 ] as const;

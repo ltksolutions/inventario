@@ -107,7 +107,6 @@ export function AssetDetailEditForm({
   const renameAssetType = useRenameAssetType();
   const renameAssetCondition = useRenameAssetCondition();
 
-  const categoryOptions = categories.map((c) => ({ id: c._id, label: c.name }));
   const locationOptions = locations.map((l) => ({ id: l._id, label: l.name }));
   const assetTypeOptions = (assetTypesQuery.data?.data ?? []).map((t) => ({
     id: t.slug,
@@ -122,6 +121,8 @@ export function AssetDetailEditForm({
     register,
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, dirtyFields, isDirty },
   } = useForm<FormValues>({
     defaultValues: {
@@ -143,6 +144,13 @@ export function AssetDetailEditForm({
       requiresApproval: asset.requiresApproval,
     },
   });
+
+  // Kategórie sú odvodené od zvoleného typu majetku — ponúkame len tie,
+  // ktoré patria pod aktuálne vybraný typ (category.assetTypeSlug).
+  const selectedTypeSlug = watch('typeSlug');
+  const categoryOptions = categories
+    .filter((c) => selectedTypeSlug !== null && c.assetTypeSlug === selectedTypeSlug)
+    .map((c) => ({ id: c._id, label: c.name }));
 
   function onSubmit(values: FormValues): void {
     setSubmitError(null);
@@ -235,7 +243,12 @@ export function AssetDetailEditForm({
             render={({ field }) => (
               <Combobox
                 value={field.value}
-                onChange={field.onChange}
+                onChange={(value) => {
+                  field.onChange(value);
+                  // Zmena typu invaliduje výber kategórie — kategórie sa
+                  // ponúkajú odvodene od typu.
+                  setValue('categoryId', null, { shouldDirty: true });
+                }}
                 options={assetTypeOptions}
                 canCreate={canManage}
                 canRename={canManage}
@@ -253,7 +266,15 @@ export function AssetDetailEditForm({
           />
         </Field>
 
-        <Field label="Kategória" required>
+        <Field
+          label="Kategória"
+          required
+          hint={
+            selectedTypeSlug
+              ? undefined
+              : 'Najprv vyberte typ majetku — kategórie sa ponúkajú podľa typu.'
+          }
+        >
           <Controller
             name="categoryId"
             control={control}
@@ -263,12 +284,12 @@ export function AssetDetailEditForm({
                 value={field.value}
                 onChange={field.onChange}
                 options={categoryOptions}
-                canCreate={canManage}
+                canCreate={canManage && selectedTypeSlug !== null}
                 canRename={canManage}
                 onCreate={async (label) => {
                   const result = await createCategory.mutateAsync({
                     name: label,
-                    assetType: 'OTHER',
+                    assetTypeSlug: selectedTypeSlug ?? undefined,
                   });
                   return { id: result._id, label: result.name };
                 }}

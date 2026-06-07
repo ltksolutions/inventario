@@ -3,7 +3,6 @@
 
 'use client';
 
-import { ASSET_TYPE_VALUES } from '@inventario/shared-types';
 import { AlertCircle, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -11,20 +10,25 @@ import { useForm } from 'react-hook-form';
 import type { CategorySummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
-import { useCreateCategory } from '@/lib/api-hooks';
+import { useAssetTypes, useCreateCategory } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
 
 /**
  * Create category modal.
  *
- * MVP form scope: name + assetType + description + parent. Other
+ * MVP form scope: name + assetTypeSlug + description + parent. Other
  * fields (color, icon, approvers, maxLoanDays, sortOrder) use backend
  * defaults — they're rarely needed at creation time, and editing them
  * later will live in the (yet-to-be-built) edit form.
  *
+ * Asset type binding: kategória patrí pod typ majetku z per-tenant
+ * číselníka `asset_types`. ROOT kategória vyžaduje výber typu;
+ * podkategória DEDÍ typ z rodiča — select sa zamkne a zobrazí
+ * zdedenú hodnotu, server klientsku hodnotu aj tak ignoruje.
+ *
  * Validation:
  *   - `name` required, 1-200 chars (matches CategorySchema).
- *   - `assetType` required, must be one of ASSET_TYPE_VALUES.
+ *   - `assetTypeSlug` required pre root (slug z číselníka).
  *   - `description` optional, max 1000 chars.
  *   - `parentId` optional; the select lists existing categories.
  *
@@ -46,49 +50,55 @@ import { cn } from '@/lib/cn';
 
 interface FormValues {
   name: string;
-  assetType: string;
+  assetTypeSlug: string;
   description: string;
   parentId: string; // empty string = no parent (root category)
 }
-
-const ASSET_TYPE_LABELS: Record<string, string> = {
-  IT: 'IT majetok',
-  SPORTS_GEAR: 'Športová výstroj',
-  TRAINING_EQUIPMENT: 'Tréningové vybavenie',
-  OFFICE_EQUIPMENT: 'Kancelárske vybavenie',
-  MEDIA: 'Médiá a video',
-  COMMUNICATION: 'Komunikácia',
-  OTHER: 'Iné',
-};
 
 interface CategoryCreateDialogProps {
   existingCategories: readonly CategorySummary[];
   onClose: () => void;
   onCreated: () => void;
+  /** Predvyplnený typ majetku (slug) — napr. z aktívneho filtra. */
+  defaultAssetTypeSlug?: string | undefined;
 }
 
 export function CategoryCreateDialog({
   existingCategories,
   onClose,
   onCreated,
+  defaultAssetTypeSlug,
 }: CategoryCreateDialogProps): JSX.Element {
   const createCategory = useCreateCategory();
+  const assetTypesQuery = useAssetTypes({ limit: 200 });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
+
+  const assetTypes = assetTypesQuery.data?.data ?? [];
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isValid },
   } = useForm<FormValues>({
     mode: 'onBlur',
     defaultValues: {
       name: '',
-      assetType: 'IT',
+      assetTypeSlug: defaultAssetTypeSlug ?? '',
       description: '',
       parentId: '',
     },
   });
+
+  // Podkategória dedí typ z rodiča — select sa zamkne a ukáže zdedenú
+  // hodnotu (server klientsky typ pri podkategórii aj tak ignoruje).
+  const selectedParentId = watch('parentId');
+  const selectedParent =
+    selectedParentId === ''
+      ? null
+      : (existingCategories.find((c) => c._id === selectedParentId) ?? null);
+  const typeNameBySlug = new Map(assetTypes.map((t) => [t.slug, t.name]));
 
   // Focus the name input on mount. We can't pass ref directly to
   // register() output without merging, so we expose this via the
@@ -120,10 +130,17 @@ export function CategoryCreateDialog({
   function onSubmit(values: FormValues): void {
     setSubmitError(null);
 
+    const isChild = values.parentId !== '';
+    if (!isChild && !values.assetTypeSlug) {
+      setSubmitError('Vyberte typ majetku — root kategória musí patriť pod typ.');
+      return;
+    }
+
     createCategory.mutate(
       {
         name: values.name.trim(),
-        assetType: values.assetType,
+        // Podkategória typ dedí — neposielame ho (server odvodí z rodiča).
+        assetTypeSlug: isChild ? undefined : values.assetTypeSlug,
         description: values.description.trim() || null,
         parentId: values.parentId || null,
       },
@@ -176,19 +193,9 @@ export function CategoryCreateDialog({
             />
           </Field>
 
-          <Field label="Typ majetku" required>
-            <select {...register('assetType', { required: true })} className={inputClasses()}>
-              {ASSET_TYPE_VALUES.map((t) => (
-                <option key={t} value={t}>
-                  {ASSET_TYPE_LABELS[t] ?? t}
-                </option>
-              ))}
-            </select>
-          </Field>
-
           <Field
             label="Nadradená kategória"
-            hint="Nepovinné. Vyber, ak nová kategória patrí pod existujúcu."
+            hint="Nepovinné. Vyber, ak nová kategória patrí pod existujúcu — typ majetku potom zdedí."
           >
             <select {...register('parentId')} className={inputClasses()}>
               <option value="">— Žiadna (root) —</option>
@@ -199,6 +206,39 @@ export function CategoryCreateDialog({
               ))}
             </select>
           </Field>
+
+          {selectedParent ? (
+            <Field label="Typ majetku" hint="Podkategória dedí typ majetku z nadradenej kategórie.">
+              <input
+                type="text"
+                value={
+                  typeNameBySlug.get(selectedParent.assetTypeSlug) ?? selectedParent.assetTypeSlug
+                }
+                disabled
+                className={cn(
+                  inputClasses(),
+                  'cursor-not-allowed bg-surface-subtle text-text-muted',
+                )}
+              />
+            </Field>
+          ) : (
+            <Field
+              label="Typ majetku"
+              required
+              hint="Kategórie sa vo formulároch ponúkajú podľa zvoleného typu majetku."
+            >
+              <select {...register('assetTypeSlug', { required: true })} className={inputClasses()}>
+                <option value="" disabled>
+                  {assetTypesQuery.isLoading ? 'Načítavam…' : '— Vyber typ —'}
+                </option>
+                {assetTypes.map((t) => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           <Field label="Popis" error={errors.description?.message}>
             <textarea

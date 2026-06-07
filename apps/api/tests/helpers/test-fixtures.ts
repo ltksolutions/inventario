@@ -31,7 +31,13 @@
  *   data for tenant B alongside tenant A.
  */
 
-import { UserRole, AccountType, highestRole, type User } from '@inventario/shared-types';
+import {
+  UserRole,
+  AccountType,
+  highestRole,
+  DEFAULT_ASSET_TYPES,
+  type User,
+} from '@inventario/shared-types';
 import { ObjectId } from 'mongodb';
 
 import type { FastifyInstance } from 'fastify';
@@ -135,7 +141,51 @@ export async function resolveTestTenantId(app: FastifyInstance): Promise<string>
   };
 
   const result = await organisations.insertOne(doc);
-  return String(result.insertedId);
+  const organisationId = String(result.insertedId);
+
+  // Seed default asset types (flat číselník) so category POST tests can
+  // reference assetTypeSlug without each test inserting types manually.
+  // Mirrors the slugs from DEFAULT_ASSET_TYPES; categories are NOT
+  // seeded here — list tests assert exact contents.
+  await seedTestAssetTypes(app, organisationId, now);
+
+  return organisationId;
+}
+
+/**
+ * Insert the default asset types (it-majetok, sportova-vystroj, ...)
+ * for a tenant. Idempotent per (organisationId, slug). Exported so
+ * cross-tenant tests can seed types for secondary tenants too.
+ */
+export async function seedTestAssetTypes(
+  app: FastifyInstance,
+  organisationId: string,
+  now: string = new Date().toISOString(),
+): Promise<void> {
+  const assetTypes = app.mongo.db.collection('asset_types');
+  for (const def of DEFAULT_ASSET_TYPES) {
+    await assetTypes.updateOne(
+      { organisationId, slug: def.slug },
+      {
+        $setOnInsert: {
+          organisationId,
+          name: def.name,
+          slug: def.slug,
+          icon: null,
+          color: null,
+          isActive: true,
+          sortOrder: def.sortOrder,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'SYSTEM',
+          updatedBy: 'SYSTEM',
+          deletedAt: null,
+          deletedBy: null,
+        },
+      },
+      { upsert: true },
+    );
+  }
 }
 
 /**
@@ -562,15 +612,8 @@ export interface InsertTestCategoryOptions {
   slug?: string;
   /** Parent category ID. Defaults to null (root). */
   parentId?: string | null;
-  /** Asset type bucket. Defaults to IT. */
-  assetType?:
-    | 'IT'
-    | 'SPORTS_GEAR'
-    | 'TRAINING_EQUIPMENT'
-    | 'OFFICE_EQUIPMENT'
-    | 'MEDIA'
-    | 'COMMUNICATION'
-    | 'OTHER';
+  /** Asset type slug (číselník asset_types). Defaults to 'it-majetok'. */
+  assetTypeSlug?: string;
   /** Active flag. Defaults to true. */
   isActive?: boolean;
   /** Sort order. Defaults to 0. */
@@ -611,7 +654,7 @@ export async function insertTestCategory(
     name: options.name ?? `Test Category ${stamp}`,
     slug: options.slug ?? `test-category-${stamp}`,
     parentId: options.parentId ?? null,
-    assetType: options.assetType ?? 'IT',
+    assetTypeSlug: options.assetTypeSlug ?? 'it-majetok',
     description: options.description ?? null,
     icon: options.icon ?? null,
     color: options.color ?? null,
@@ -652,7 +695,7 @@ export function validCreateCategoryBody(
     name: `Test Category ${stamp}`,
     slug: `test-category-${stamp}`,
     parentId: null,
-    assetType: 'IT',
+    assetTypeSlug: 'it-majetok',
     description: null,
     icon: null,
     color: null,

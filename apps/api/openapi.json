@@ -3163,7 +3163,7 @@
         "tags": [
           "Categories"
         ],
-        "description": "Returns a paginated list of categories, sorted by sortOrder then name. Soft-deleted categories are excluded. Optional filters: parentId, assetType, isActive.",
+        "description": "Returns a paginated list of categories, sorted by sortOrder then name. Soft-deleted categories are excluded. Optional filters: parentId, assetTypeSlug, isActive.",
         "parameters": [
           {
             "schema": {
@@ -3200,7 +3200,7 @@
               "type": "string"
             },
             "in": "query",
-            "name": "assetType",
+            "name": "assetTypeSlug",
             "required": false
           },
           {
@@ -3307,17 +3307,10 @@
                     "nullable": true,
                     "default": null
                   },
-                  "assetType": {
+                  "assetTypeSlug": {
                     "type": "string",
-                    "enum": [
-                      "IT",
-                      "SPORTS_GEAR",
-                      "TRAINING_EQUIPMENT",
-                      "OFFICE_EQUIPMENT",
-                      "MEDIA",
-                      "COMMUNICATION",
-                      "OTHER"
-                    ]
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                    "maxLength": 200
                   },
                   "description": {
                     "type": "string",
@@ -3367,8 +3360,7 @@
                   }
                 },
                 "required": [
-                  "name",
-                  "assetType"
+                  "name"
                 ],
                 "additionalProperties": false,
                 "description": "Telo pre vytvorenie kategórie; slug je voliteľný (server odvodí z name)."
@@ -3464,17 +3456,10 @@
                     "nullable": true,
                     "default": null
                   },
-                  "assetType": {
+                  "assetTypeSlug": {
                     "type": "string",
-                    "enum": [
-                      "IT",
-                      "SPORTS_GEAR",
-                      "TRAINING_EQUIPMENT",
-                      "OFFICE_EQUIPMENT",
-                      "MEDIA",
-                      "COMMUNICATION",
-                      "OTHER"
-                    ]
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                    "maxLength": 200
                   },
                   "description": {
                     "type": "string",
