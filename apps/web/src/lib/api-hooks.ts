@@ -640,8 +640,11 @@ export interface AssetDetail {
   internalNotes: string | null;
   isLoanable: boolean;
   requiresApproval: boolean;
-  /** ADR-0020: SERIALIZED (default) alebo BULK (hromadné množstevné položky). */
-  trackingMode: 'SERIALIZED' | 'BULK';
+  /**
+   * ADR-0020: SERIALIZED (default) alebo BULK (hromadné množstevné položky).
+   * Môže chýbať v legacy dokumentoch vytvorených pred zavedením poľa.
+   */
+  trackingMode: 'SERIALIZED' | 'BULK' | undefined;
   /** ADR-0020: cache zo StockMovement ledgera. Null pre SERIALIZED. */
   quantityOnHand: number | null;
   createdAt: string;

@@ -20,7 +20,12 @@ import { cn } from '@/lib/cn';
 export type TrackingMode = 'SERIALIZED' | 'BULK';
 
 interface TrackingModeBadgeProps {
-  mode: TrackingMode;
+  /**
+   * Môže byť `undefined` pre legacy dokumenty v DB, ktoré predchádzajú
+   * zavedeniu poľa `trackingMode` (ADR-0020). Badge v takom prípade
+   * fall-backne na SERIALIZED namiesto pádu.
+   */
+  mode: TrackingMode | undefined;
   /** 'badge' = kompaktný inline badge (tabuľka), 'label' = ikona + text (filter, detail) */
   variant?: 'badge' | 'label';
   className?: string;
@@ -49,7 +54,13 @@ export function TrackingModeBadge({
   variant = 'badge',
   className,
 }: TrackingModeBadgeProps): JSX.Element {
-  const { label, icon: Icon, badgeClass, labelClass } = CONFIG[mode];
+  // Guard pre legacy DB dokumenty bez trackingMode (ADR-0020 bol pridaný
+  // neskôr). Ak mode nie je platná hodnota, fall-backni na SERIALIZED.
+  const config =
+    mode !== undefined && Object.prototype.hasOwnProperty.call(CONFIG, mode)
+      ? CONFIG[mode]
+      : CONFIG['SERIALIZED'];
+  const { label, icon: Icon, badgeClass, labelClass } = config;
 
   if (variant === 'label') {
     return (
