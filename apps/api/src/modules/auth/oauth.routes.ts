@@ -474,7 +474,17 @@ function buildAuthorizationUrl(
         // delegated permission (Graph returns 403 otherwise). Requesting
         // it as a scope lets Microsoft grant it at consent time.
         ['openid', 'profile', 'email', 'offline_access', 'User.Read'];
-  return provider.createAuthorizationURL(state, codeVerifier, scopes);
+  const url = provider.createAuthorizationURL(state, codeVerifier, scopes);
+
+  // Vynútiť výber účtu. Bez tohto Microsoft/Google pri aktívnom SSO ticho
+  // prihlásia už prihlásený účet z iného tabu/služby — používateľ tak môže
+  // skončiť prihlásený nesprávnym (napr. cudzím tenant) účtom a callback
+  // zlyhá na entra_tenant_mismatch / invite_required. `select_account`
+  // zaručí, že sa vždy zobrazí výber účtu. (Zámerne bez domain_hint, aby
+  // sme neobmedzovali iné domény/organizácie.)
+  url.searchParams.set('prompt', 'select_account');
+
+  return url;
 }
 
 // ---------------------------------------------------------------------------
