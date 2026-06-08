@@ -945,7 +945,7 @@ async function provisionOrFindUser(args: {
  *
  * Výber org je v čistej funkcii `selectAutoJoinOrg` (unit-testovaná).
  */
-async function attemptDomainAutoJoin(args: {
+export async function attemptDomainAutoJoin(args: {
   db: Db;
   provider: 'google' | 'microsoft';
   authProviderEnum: AuthProvider;
