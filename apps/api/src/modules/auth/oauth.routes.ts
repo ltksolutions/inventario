@@ -32,6 +32,7 @@
 import { AccountType, AuthProvider, MemberJoinPolicy, UserRole } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 
+import { selectAutoJoinOrg } from '../../lib/auto-join.js';
 import { seedTenantDefaults } from '../../lib/seed-tenant-defaults.js';
 import { UnauthorizedError } from '../../plugins/error-handler.js';
 
@@ -636,7 +637,17 @@ async function provisionOrFindUser(args: {
       deletedAt: null,
     });
 
-    if (!defaultMembership) return { success: false, errorCode: 'membership_not_found' };
+    if (!defaultMembership) {
+      // Bez členstva: skús auto-join podľa firemnej domény, inak odmietni.
+      const autoJoin = await attemptDomainAutoJoin({
+        db,
+        provider,
+        authProviderEnum,
+        providerUser,
+      });
+      if (autoJoin) return autoJoin;
+      return { success: false, errorCode: 'membership_not_found' };
+    }
 
     const { ObjectId } = await import('mongodb');
     const org = (await orgsCol.findOne({
@@ -742,6 +753,13 @@ async function provisionOrFindUser(args: {
       }
     }
   }
+
+  // Auto-join podľa firemnej domény (DOMAIN_RESTRICTED). Beží AŽ po
+  // invite/link vetvách — pozvánka aj prepojenie existujúceho účtu majú
+  // prednosť. Ak doména sedí práve jednej org, založí používateľa +
+  // ACTIVE členstvo (EMPLOYEE) a prihlási ho bez pozvánky.
+  const autoJoin = await attemptDomainAutoJoin({ db, provider, authProviderEnum, providerUser });
+  if (autoJoin) return autoJoin;
 
   // New user — must have pendingOrg (self-serve registration)
   if (!statePayload.pendingOrg) {
@@ -911,6 +929,181 @@ async function provisionOrFindUser(args: {
     org: newOrg,
     membershipId: String(membershipInsert.insertedId),
     role: UserRole.ADMIN,
+    isNew: true,
+    wasInvite: false,
+  };
+}
+
+/**
+ * Auto-join podľa firemnej domény (memberJoinPolicy = DOMAIN_RESTRICTED).
+ *
+ * Volá sa pre prihlasujúceho sa používateľa BEZ pozvánky. Ak jeho e-mailová
+ * doména patrí práve jednej ACTIVE org s politikou DOMAIN_RESTRICTED (a pri
+ * Microsofte sedí Entra `tid`), založí/dolinkuje používateľa a vytvorí mu
+ * ACTIVE členstvo s rolou EMPLOYEE. Inak vráti `null` (volajúci pokračuje
+ * štandardným zamietnutím — invite_required / membership_not_found).
+ *
+ * Výber org je v čistej funkcii `selectAutoJoinOrg` (unit-testovaná).
+ */
+async function attemptDomainAutoJoin(args: {
+  db: Db;
+  provider: 'google' | 'microsoft';
+  authProviderEnum: AuthProvider;
+  providerUser: ProviderUserInfo;
+}): Promise<ProvisionResult | null> {
+  const { db, provider, authProviderEnum, providerUser } = args;
+
+  // Auto-join len pri overenom e-maile (Microsoft vždy; Google podľa claimu).
+  if (!providerUser.emailVerified) return null;
+  const domain = providerUser.email.split('@')[1]?.toLowerCase() ?? '';
+  if (!domain) return null;
+
+  const usersCol = db.collection<User>('users');
+  const orgsCol = db.collection<Organisation>('organisations');
+  const membershipsCol = db.collection('memberships');
+  const now = new Date().toISOString();
+
+  // Kandidáti = orgy, ktoré majú túto doménu v autoJoinDomains. Politiku,
+  // stav a tenant rieši čistá funkcia.
+  const candidates = (await orgsCol
+    .find({ autoJoinDomains: domain, deletedAt: null })
+    .toArray()) as WithId<Organisation>[];
+
+  const selection = selectAutoJoinOrg(candidates, domain, provider, providerUser.entraTid);
+  if (selection.kind !== 'ok') return null;
+  const org = selection.org;
+  const orgId = String(org._id);
+
+  // Nájsť existujúceho používateľa podľa e-mailu (môže existovať globálne).
+  let user = (await usersCol.findOne({
+    email: providerUser.email,
+    deletedAt: null,
+  })) as WithId<User> | null;
+
+  if (user) {
+    // Globálne deaktivovaný účet — auto-join nepovolíme.
+    if (user.isActive === false) return null;
+
+    // Ak už má ACTIVE členstvo v tejto org, vráť ho (nezakladaj duplicitné).
+    const existing = await membershipsCol.findOne({
+      userId: String(user._id),
+      organisationId: orgId,
+      status: 'ACTIVE',
+      deletedAt: null,
+    });
+    if (existing) {
+      await usersCol.updateOne({ _id: user._id }, { $set: { lastLoginAt: now, updatedAt: now } });
+      return {
+        success: true,
+        user,
+        org,
+        membershipId: String(existing['_id']),
+        role: (existing['role'] as string) ?? UserRole.EMPLOYEE,
+        isNew: false,
+        wasInvite: false,
+      };
+    }
+
+    // Dolinkovať OAuth provider, ak ešte nie je naviazaný.
+    const alreadyLinked = (
+      (user.authProviders ?? []) as Array<{ provider: string; providerId: string }>
+    ).some((p) => p.provider === authProviderEnum && p.providerId === providerUser.providerId);
+    if (!alreadyLinked) {
+      await usersCol.updateOne(
+        { _id: user._id },
+        {
+          $push: {
+            authProviders: {
+              provider: authProviderEnum,
+              providerId: providerUser.providerId,
+              email: providerUser.email,
+              linkedAt: now,
+            },
+          } as never,
+          $set: { lastLoginAt: now, updatedAt: now },
+        },
+      );
+    } else {
+      await usersCol.updateOne({ _id: user._id }, { $set: { lastLoginAt: now, updatedAt: now } });
+    }
+    user = (await usersCol.findOne({ _id: user._id } as never)) as WithId<User>;
+  } else {
+    // Nový používateľ — založiť (rovnaký tvar ako pri invite-accept cez OAuth).
+    const userInsert = await usersCol.insertOne({
+      email: providerUser.email,
+      firstName: providerUser.firstName,
+      lastName: providerUser.lastName,
+      displayName: providerUser.displayName,
+      accountType: AccountType.ENTRA_ID,
+      entraOid: null,
+      authProviders: [
+        {
+          provider: authProviderEnum,
+          providerId: providerUser.providerId,
+          email: providerUser.email,
+          linkedAt: now,
+        },
+      ],
+      emailVerified: providerUser.emailVerified,
+      emailVerificationToken: null,
+      emailVerificationExpiresAt: null,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
+      passwordHash: null,
+      roles: [UserRole.EMPLOYEE],
+      isActive: true,
+      lastLoginAt: now,
+      mfaEnabled: false,
+      mfaSecret: null,
+      mfaRecoveryCodes: [],
+      mfaEnabledAt: null,
+      preferences: { language: 'sk', timezone: 'Europe/Bratislava' },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 'SYSTEM',
+      updatedBy: 'SYSTEM',
+      deletedAt: null,
+      deletedBy: null,
+    } as never);
+    user = (await usersCol.findOne({ _id: userInsert.insertedId } as never)) as WithId<User>;
+  }
+
+  // isDefault, ak používateľ nemá iné default ACTIVE členstvo.
+  const hasDefault = await membershipsCol.findOne({
+    userId: String(user._id),
+    isDefault: true,
+    status: 'ACTIVE',
+    deletedAt: null,
+  });
+
+  const membershipInsert = await membershipsCol.insertOne({
+    userId: String(user._id),
+    organisationId: orgId,
+    role: UserRole.EMPLOYEE,
+    organizationalUnit: null,
+    teams: [],
+    status: 'ACTIVE',
+    isDefault: !hasDefault,
+    invitedBy: null,
+    invitedAt: null,
+    acceptedAt: now,
+    mustChangePassword: false,
+    lastAccessedAt: now,
+    notifications: { email: true, push: false },
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'SYSTEM',
+    updatedBy: String(user._id),
+    deletedAt: null,
+    deletedBy: null,
+  });
+
+  return {
+    success: true,
+    user,
+    org,
+    membershipId: String(membershipInsert.insertedId),
+    role: UserRole.EMPLOYEE,
     isNew: true,
     wasInvite: false,
   };
