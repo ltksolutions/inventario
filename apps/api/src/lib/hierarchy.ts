@@ -100,11 +100,16 @@ export type ParentLookup = (id: string) => Promise<string | null | undefined>;
  *   - For CREATE (no editedId yet), pass editedId = null. The cycle
  *     check is skipped (a not-yet-existing node can't be in any chain),
  *     but depth + corrupt-tree checks still apply.
+ *   - `maxDepth` defaults to the project-wide MAX_HIERARCHY_DEPTH (used
+ *     by locations). Callers can pass a stricter limit: categories pass
+ *     `maxDepth = 1` to enforce a flat root + values model (exactly two
+ *     levels — a root and its direct children, no grandchildren).
  */
 export async function checkHierarchyOnReparent(
   editedId: string | null,
   proposedParentId: string | null,
   lookupParent: ParentLookup,
+  maxDepth: number = MAX_HIERARCHY_DEPTH,
 ): Promise<HierarchyCheckResult> {
   // Reparent to root — always safe (root is depth 0).
   if (proposedParentId === null) {
@@ -140,15 +145,14 @@ export async function checkHierarchyOnReparent(
     visited.add(current);
     chain.push(current);
 
-    // Depth budget: if we've already walked MAX_HIERARCHY_DEPTH steps
-    // above the proposed parent (i.e. the proposed parent is at depth
-    // MAX_HIERARCHY_DEPTH), placing the edited node here would make it
-    // depth MAX_HIERARCHY_DEPTH + 1.
-    if (stepsAbove >= MAX_HIERARCHY_DEPTH) {
+    // Depth budget: if we've already walked `maxDepth` steps above the
+    // proposed parent (i.e. the proposed parent is at depth `maxDepth`),
+    // placing the edited node here would make it depth `maxDepth` + 1.
+    if (stepsAbove >= maxDepth) {
       return {
         kind: 'too-deep',
         depth: stepsAbove + 1,
-        max: MAX_HIERARCHY_DEPTH,
+        max: maxDepth,
       };
     }
 

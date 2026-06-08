@@ -191,6 +191,43 @@ describe('checkHierarchyOnReparent', () => {
     });
   });
 
+  describe('custom maxDepth (categories pass 1 → 2 levels)', () => {
+    it('allows a value under a root (depth 1) with maxDepth=1', async () => {
+      // proposed parent is a root (depth 0); edited node lands at depth 1.
+      const result = await checkHierarchyOnReparent(
+        'edited',
+        'root',
+        makeLookup({ root: null }),
+        1,
+      );
+      expect(result.kind).toBe('ok');
+    });
+
+    it('rejects a grandchild (value under a value) with maxDepth=1', async () => {
+      // proposed parent is a value at depth 1; edited node would be depth 2.
+      const result = await checkHierarchyOnReparent(
+        'edited',
+        'value',
+        makeLookup({ value: 'root', root: null }),
+        1,
+      );
+      expect(result.kind).toBe('too-deep');
+      if (result.kind === 'too-deep') {
+        expect(result.max).toBe(1);
+      }
+    });
+
+    it('enforces maxDepth=1 in CREATE mode too', async () => {
+      const result = await checkHierarchyOnReparent(
+        null,
+        'value',
+        makeLookup({ value: 'root', root: null }),
+        1,
+      );
+      expect(result.kind).toBe('too-deep');
+    });
+  });
+
   describe('CREATE mode (editedId = null)', () => {
     it('skips cycle check when editedId is null', async () => {
       // A 3-deep chain that doesn't form a cycle. Creating a new node

@@ -33,7 +33,8 @@
  * Hierarchy handling (K4 scope):
  *   `parentId` forms a tree within a tenant. Both POST and PATCH check:
  *     - parent existence (if non-null) within the same tenant
- *     - max depth (root + 4 nested = 5 total levels via MAX_HIERARCHY_DEPTH)
+ *     - max depth (CATEGORY_MAX_DEPTH = 1 → presne 2 úrovne: root +
+ *       jeho priame deti = hodnoty; vnuk je odmietnutý)
  *     - cycle prevention on PATCH (the proposed parent must not have the
  *       edited category in its ancestor chain)
  *     - detection of pre-existing cycles in the DB (returns 400 with a
@@ -52,7 +53,6 @@
 
 import {
   checkHierarchyOnReparent,
-  MAX_HIERARCHY_DEPTH,
   type HierarchyCheckResult,
   type ParentLookup,
 } from '../../lib/hierarchy.js';
@@ -66,6 +66,19 @@ import type { AuditLogService } from '../audit/audit.service.js';
 import type { Category, CreateCategoryInput, User } from '@inventario/shared-types';
 import type { FastifyRequest } from 'fastify';
 import type { ClientSession, Filter, MongoClient, WithId } from 'mongodb';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximálna hĺbka stromu kategórií: presne 2 úrovne — ROOT (depth 0) a
+ * jeho priame deti = HODNOTY (depth 1). Vnuk (depth 2) je odmietnutý.
+ *
+ * Pozn.: lokality používajú spoločnú `MAX_HIERARCHY_DEPTH` z hierarchy.ts;
+ * kategórie majú vlastný, prísnejší limit nezávisle od lokalít.
+ */
+const CATEGORY_MAX_DEPTH = 1;
 
 // ---------------------------------------------------------------------------
 // Public API types
@@ -231,6 +244,7 @@ export class CategoriesService {
           null, // editedId = null on create
           input.parentId,
           this.makeParentLookup(tenantId, session),
+          CATEGORY_MAX_DEPTH,
         );
         this.assertHierarchyOk(hierarchyResult);
       }
@@ -401,6 +415,7 @@ export class CategoriesService {
           id,
           patch.parentId,
           this.makeParentLookup(tenantId, session),
+          CATEGORY_MAX_DEPTH,
         );
         this.assertHierarchyOk(hierarchyResult);
       }
@@ -580,7 +595,7 @@ export class CategoriesService {
 
     if (result.kind === 'too-deep') {
       throw new BadRequestError(
-        `This parent assignment would exceed the maximum hierarchy depth of ${MAX_HIERARCHY_DEPTH + 1} levels (root + ${MAX_HIERARCHY_DEPTH} nested).`,
+        `Kategórie majú len 2 úrovne: root a jeho hodnoty. Hodnotu nie je možné vložiť pod inú hodnotu (max. ${result.max + 1} úrovne).`,
       );
     }
 

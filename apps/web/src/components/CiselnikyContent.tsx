@@ -40,7 +40,6 @@ import {
   useRenameCategory,
   useUpdateLocation,
 } from '@/lib/api-hooks';
-import { categoryPath } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 
 type TabKey = 'categories' | 'locations' | 'conditions';
@@ -407,7 +406,11 @@ function CategoriesTab(): JSX.Element {
   const rename = useRenameCategory();
   const del = useDeleteCategory();
 
-  const [addOpen, setAddOpen] = useState(false);
+  // Otvorenie dialógu: buď tvorba root kategórie, alebo hodnoty pod
+  // konkrétny root (parentId). null = zatvorené.
+  const [addState, setAddState] = useState<
+    { mode: 'root' } | { mode: 'value'; parentId: string } | null
+  >(null);
   const [deleteTarget, setDeleteTarget] = useState<TaxonomyRow | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -444,7 +447,7 @@ function CategoriesTab(): JSX.Element {
     if (c.parentId == null) continue;
     const row: TaxonomyRow = {
       id: c._id,
-      name: categoryPath(c, byId),
+      name: c.name,
       slug: c.slug,
       extra: null,
     };
@@ -486,11 +489,11 @@ function CategoriesTab(): JSX.Element {
         <div className="mb-4 flex justify-end">
           <button
             type="button"
-            onClick={() => setAddOpen(true)}
+            onClick={() => setAddState({ mode: 'root' })}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
-            Pridať kategóriu
+            Pridať root kategóriu
           </button>
         </div>
       )}
@@ -520,6 +523,17 @@ function CategoriesTab(): JSX.Element {
                   <span className="text-xs text-text-muted">
                     {childCount} {pluralCount(childCount)}
                   </span>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => setAddState({ mode: 'value', parentId: rootId })}
+                      aria-label={`Pridať hodnotu do ${label}`}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+                      Pridať hodnotu
+                    </button>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
@@ -628,11 +642,13 @@ function CategoriesTab(): JSX.Element {
         </div>
       )}
 
-      {addOpen && (
+      {addState && (
         <CategoryCreateDialog
           existingCategories={categories}
-          onClose={() => setAddOpen(false)}
-          onCreated={() => setAddOpen(false)}
+          mode={addState.mode}
+          defaultParentId={addState.mode === 'value' ? addState.parentId : undefined}
+          onClose={() => setAddState(null)}
+          onCreated={() => setAddState(null)}
         />
       )}
       {deleteTarget && (

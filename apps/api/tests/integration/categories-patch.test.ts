@@ -239,37 +239,31 @@ describe('PATCH /v1/categories/:id', () => {
     });
   });
 
-  describe('depth limit', () => {
-    it('allows reparenting at the maximum legal depth', async () => {
+  describe('depth limit (presne 2 úrovne: root + hodnoty)', () => {
+    it('allows reparenting a category to become a value under a root', async () => {
       const root = await insertTestCategory(app, { slug: 'depth-root' });
-      const d1 = await insertTestCategory(app, { slug: 'depth-d1', parentId: root._id });
-      const d2 = await insertTestCategory(app, { slug: 'depth-d2', parentId: d1._id });
-      const d3 = await insertTestCategory(app, { slug: 'depth-d3', parentId: d2._id });
       const orphan = await insertTestCategory(app, { slug: 'depth-orphan' });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${orphan._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { parentId: d3._id },
+        payload: { parentId: root._id },
       });
       expect(res.statusCode).toBe(200);
     });
 
-    it('rejects reparenting that would exceed the maximum depth', async () => {
+    it('rejects reparenting under a value (would create a grandchild)', async () => {
       const root = await insertTestCategory(app, { slug: 'over-root' });
-      const d1 = await insertTestCategory(app, { slug: 'over-d1', parentId: root._id });
-      const d2 = await insertTestCategory(app, { slug: 'over-d2', parentId: d1._id });
-      const d3 = await insertTestCategory(app, { slug: 'over-d3', parentId: d2._id });
-      const d4 = await insertTestCategory(app, { slug: 'over-d4', parentId: d3._id });
+      const value = await insertTestCategory(app, { slug: 'over-value', parentId: root._id });
       const orphan = await insertTestCategory(app, { slug: 'over-orphan' });
       const res = await app.inject({
         method: 'PATCH',
         url: `/v1/categories/${orphan._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { parentId: d4._id },
+        payload: { parentId: value._id },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json<{ message: string }>().message).toMatch(/depth/i);
+      expect(res.json<{ message: string }>().message).toMatch(/úrovne|hodnot/i);
     });
   });
 

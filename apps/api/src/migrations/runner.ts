@@ -31,6 +31,7 @@ import { migrate_2026_06_05b_location_type_enum_expand } from './2026-06-05b-loc
 import { migrate_2026_06_07_memberships_partial_index } from './2026-06-07-memberships-partial-index.js';
 import { migrate_2026_06_08_category_asset_type_slug } from './2026-06-08-category-asset-type-slug.js';
 import { migrate_2026_06_08b_merge_asset_types_into_categories } from './2026-06-08b-merge-asset-types-into-categories.js';
+import { migrate_2026_06_09_flatten_categories_to_two_levels } from './2026-06-09-flatten-categories-to-two-levels.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -132,6 +133,12 @@ const MIGRATIONS: MigrationDefinition[] = [
     description:
       'Zlúčenie číselníkov: asset_types → root kategórie (typy = root úroveň stromu), reparent starých roots, $unset categories.assetTypeSlug + assets.type.',
     run: migrate_2026_06_08b_merge_asset_types_into_categories,
+  },
+  {
+    key: '2026-06-09-flatten-categories-to-two-levels',
+    description:
+      'Sploštenie kategórií na 2 úrovne: hlbšie uzly priamo pod root, soft-delete prázdnych medzivrstiev, oprava názvov s cestou („ › ").',
+    run: migrate_2026_06_09_flatten_categories_to_two_levels,
   },
 ];
 

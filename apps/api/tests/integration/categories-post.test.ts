@@ -352,30 +352,28 @@ describe('POST /v1/categories', () => {
   // Hierarchy depth
   // -------------------------------------------------------------------------
 
-  describe('hierarchy depth', () => {
-    it('allows creating at the maximum legal depth (root + 4 nested)', async () => {
+  describe('hierarchy depth (presne 2 úrovne: root + hodnoty)', () => {
+    it('allows creating a value directly under a root (depth 1)', async () => {
       const root = await insertTestCategory(app, { slug: 'cr-root' });
-      const d1 = await insertTestCategory(app, { slug: 'cr-d1', parentId: root._id });
-      const d2 = await insertTestCategory(app, { slug: 'cr-d2', parentId: d1._id });
-      const d3 = await insertTestCategory(app, { slug: 'cr-d3', parentId: d2._id });
 
       const res = await app.inject({
         method: 'POST',
         url: '/v1/categories',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: validCreateCategoryBody({ name: 'Deep leaf', slug: 'cr-leaf', parentId: d3._id }),
+        payload: validCreateCategoryBody({
+          name: 'Notebooky',
+          slug: 'cr-value',
+          parentId: root._id,
+        }),
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json<{ parentId: string }>().parentId).toBe(d3._id);
+      expect(res.json<{ parentId: string }>().parentId).toBe(root._id);
     });
 
-    it('rejects creating one level past the maximum depth', async () => {
+    it('rejects creating a grandchild (a value under another value)', async () => {
       const root = await insertTestCategory(app, { slug: 'crover-root' });
-      const d1 = await insertTestCategory(app, { slug: 'crover-d1', parentId: root._id });
-      const d2 = await insertTestCategory(app, { slug: 'crover-d2', parentId: d1._id });
-      const d3 = await insertTestCategory(app, { slug: 'crover-d3', parentId: d2._id });
-      const d4 = await insertTestCategory(app, { slug: 'crover-d4', parentId: d3._id });
+      const value = await insertTestCategory(app, { slug: 'crover-value', parentId: root._id });
 
       const res = await app.inject({
         method: 'POST',
@@ -384,12 +382,12 @@ describe('POST /v1/categories', () => {
         payload: validCreateCategoryBody({
           name: 'Too deep',
           slug: 'crover-toodeep',
-          parentId: d4._id,
+          parentId: value._id,
         }),
       });
 
       expect(res.statusCode).toBe(400);
-      expect(res.json<{ message: string }>().message).toMatch(/depth/i);
+      expect(res.json<{ message: string }>().message).toMatch(/úrovne|hodnot/i);
     });
   });
 

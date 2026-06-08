@@ -8,22 +8,21 @@ import {
 } from './common.js';
 
 /**
- * Kategória majetku — hierarchická taxonómia (strom), JEDINÝ číselník
- * klasifikácie majetku (zlúčenie s "Typmi majetku", 2026-06-08).
+ * Kategória majetku — dvojúrovňový číselník (root + hodnoty), JEDINÝ
+ * číselník klasifikácie majetku (zlúčenie s "Typmi majetku", 2026-06-08;
+ * sploštenie na 2 úrovne, 2026-06-09).
  *
- * ROOT kategórie (parentId = null) plnia rolu typov majetku — slúžia
- * len na zoskupenie. Majetok sa zaraďuje výhradne do PODkategórií
- * (vynucuje AssetsService).
+ * Presne 2 úrovne (vynucuje CategoriesService cez CATEGORY_MAX_DEPTH = 1):
+ *   - ROOT kategórie (parentId = null) plnia rolu typov majetku — slúžia
+ *     len na zoskupenie. Majetok sa do nich zaradiť nedá.
+ *   - HODNOTY (parentId = root) sú priame deti rootu — sem sa zaraďuje
+ *     majetok (vynucuje AssetsService). Hodnota nemôže mať vlastné deti.
  *
  * Príklad hierarchie:
- *   IT majetok            ← root = "typ"
- *   ├── Notebooky         ← sem sa zaraďuje majetok
- *   │   ├── Pracovné notebooky
- *   │   └── Vývojárske notebooky
- *   ├── Mobily
- *   └── Periférie
- *       ├── Klávesnice
- *       └── Myši
+ *   IT majetok            ← root = "typ" (len zoskupuje)
+ *   ├── Notebooky         ← hodnota (sem sa zaraďuje majetok)
+ *   ├── Stolné počítače   ← hodnota
+ *   └── Monitory          ← hodnota
  */
 export const CategorySchema = BaseDocumentSchema.merge(SoftDeleteSchema)
   .merge(OrganisationScopedSchema)

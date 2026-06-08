@@ -101,6 +101,7 @@ export function CategoriesContent(): JSX.Element {
       {createOpen ? (
         <CategoryCreateDialog
           existingCategories={categories}
+          mode="root"
           onClose={() => setCreateOpen(false)}
           onCreated={() => setCreateOpen(false)}
         />

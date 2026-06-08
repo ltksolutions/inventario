@@ -11,26 +11,26 @@ import type { CategorySummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
 import { useCreateCategory } from '@/lib/api-hooks';
-import { categoryPath } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 
 /**
  * Create category modal.
  *
- * MVP form scope: name + description + parent. Other fields (color,
- * icon, approvers, maxLoanDays, sortOrder) use backend defaults —
- * they're rarely needed at creation time, and editing them later will
- * live in the (yet-to-be-built) edit form.
+ * MVP form scope: name + description (+ root pri tvorbe hodnoty). Ostatné
+ * polia (color, icon, approvers, maxLoanDays, sortOrder) používajú
+ * backend defaulty — pri tvorbe sú zriedka potrebné.
  *
- * Zlúčený číselník (2026-06-08): kategórie sú jeden strom. Bez rodiča
- * vzniká ROOT kategória — skupina/„typ majetku", ktorá len zoskupuje
- * (majetok sa do nej zaradiť nedá). S rodičom vzniká podkategória, do
- * ktorej sa už majetok zaraďuje.
+ * Dvojúrovňový číselník (2026-06-09): kategórie majú presne 2 úrovne.
+ *   - `mode = 'root'`  → vzniká ROOT kategória (skupina), ktorá len
+ *     zoskupuje; majetok sa do nej zaradiť nedá. Bez výberu rodiča.
+ *   - `mode = 'value'` → vzniká HODNOTA pod zvoleným rootom; sem sa už
+ *     zaraďuje majetok. Rodič sa vyberá IBA spomedzi root kategórií
+ *     (hodnota nemôže mať vlastné deti).
  *
  * Validation:
  *   - `name` required, 1-200 chars (matches CategorySchema).
  *   - `description` optional, max 1000 chars.
- *   - `parentId` optional; the select lists existing categories.
+ *   - `parentId` povinný v režime 'value' (výber spomedzi rootov).
  *
  * Accessibility:
  *   - role="dialog" + aria-modal + aria-labelledby on the panel.
@@ -51,19 +51,22 @@ import { cn } from '@/lib/cn';
 interface FormValues {
   name: string;
   description: string;
-  parentId: string; // empty string = no parent (root category)
+  parentId: string; // root mode: ignored; value mode: id zvoleného rootu
 }
 
 interface CategoryCreateDialogProps {
   existingCategories: readonly CategorySummary[];
+  /** 'root' = nová skupina (root); 'value' = nová hodnota pod root. */
+  mode: 'root' | 'value';
   onClose: () => void;
   onCreated: () => void;
-  /** Predvyplnený rodič (ID) — napr. z aktívnej skupiny v Číselníkoch. */
+  /** Predvyplnený root (ID) pri tvorbe hodnoty — napr. z hlavičky skupiny. */
   defaultParentId?: string | undefined;
 }
 
 export function CategoryCreateDialog({
   existingCategories,
+  mode,
   onClose,
   onCreated,
   defaultParentId,
@@ -72,25 +75,27 @@ export function CategoryCreateDialog({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
 
+  const isRoot = mode === 'root';
+
+  // Rodič sa vyberá IBA spomedzi root kategórií (hodnota nemôže byť pod
+  // hodnotou). Zoradené podľa názvu.
+  const rootOptions = existingCategories
+    .filter((c) => c.parentId == null)
+    .map((c) => ({ id: c._id, label: c.name }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'sk'));
+
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors, isValid },
   } = useForm<FormValues>({
     mode: 'onBlur',
     defaultValues: {
       name: '',
       description: '',
-      parentId: defaultParentId ?? '',
+      parentId: isRoot ? '' : (defaultParentId ?? rootOptions[0]?.id ?? ''),
     },
   });
-
-  const byId = new Map(existingCategories.map((c) => [c._id, c]));
-  const parentOptions = existingCategories
-    .map((c) => ({ id: c._id, label: categoryPath(c, byId) }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'sk'));
-  const isRoot = watch('parentId') === '';
 
   // Focus the name input on mount. We can't pass ref directly to
   // register() output without merging, so we expose this via the
@@ -126,7 +131,7 @@ export function CategoryCreateDialog({
       {
         name: values.name.trim(),
         description: values.description.trim() || null,
-        parentId: values.parentId || null,
+        parentId: isRoot ? null : values.parentId || null,
       },
       {
         onSuccess: () => onCreated(),
@@ -146,10 +151,12 @@ export function CategoryCreateDialog({
         <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-6 py-4">
           <div>
             <h2 id="create-category-title" className="text-lg font-semibold text-text-primary">
-              Nová kategória
+              {isRoot ? 'Nová root kategória' : 'Nová hodnota'}
             </h2>
             <p className="mt-0.5 text-xs text-text-secondary">
-              Slug sa odvodí z názvu automaticky. Ostatné polia môžeš upraviť neskôr.
+              {isRoot
+                ? 'Root len zoskupuje — majetok sa zaraďuje do hodnôt pod ním. Slug sa odvodí z názvu.'
+                : 'Hodnota patrí pod zvolený root a zaraďuje sa do nej majetok. Slug sa odvodí z názvu.'}
             </p>
           </div>
           <button
@@ -170,30 +177,32 @@ export function CategoryCreateDialog({
                 firstInputRef.current = el;
               }}
               type="text"
-              placeholder="napr. Notebooky"
+              placeholder={isRoot ? 'napr. IT majetok' : 'napr. Notebooky'}
               autoComplete="off"
               className={inputClasses()}
               {...nameInputProps}
             />
           </Field>
 
-          <Field
-            label="Nadradená kategória"
-            hint={
-              isRoot
-                ? 'Bez rodiča vznikne nová skupina (root) — slúži len na zoskupenie, majetok sa zaraďuje do podkategórií.'
-                : 'Nová kategória bude podkategóriou zvoleného rodiča.'
-            }
-          >
-            <select {...register('parentId')} className={inputClasses()}>
-              <option value="">— Žiadna (nová skupina) —</option>
-              {parentOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {!isRoot ? (
+            <Field
+              label="Root kategória"
+              required
+              hint="Hodnota patrí pod jeden root. Hodnotu nie je možné vložiť pod inú hodnotu."
+              error={errors.parentId?.message}
+            >
+              <select
+                {...register('parentId', { required: 'Vyber root kategóriu.' })}
+                className={inputClasses()}
+              >
+                {rootOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
 
           <Field label="Popis" error={errors.description?.message}>
             <textarea
