@@ -210,7 +210,11 @@ describe('PATCH /v1/categories/:id', () => {
       expect(res.json<{ message: string }>().message).toMatch(/cycle/i);
     });
 
-    it('rejects a 3-cycle through an intermediate', async () => {
+    it('rejects reparenting onto a deeper descendant (3-level chain, direct-inserted)', async () => {
+      // Direct DB insert obchádza 2-úrovňovú validáciu, takže vieme zostaviť
+      // 3-úrovňový reťazec a–b–c. Pokus presunúť root `a` pod jeho vnuka `c`
+      // je odmietnutý — pri maxDepth=1 sa skôr než cyklus zachytí prekročenie
+      // hĺbky, takže akceptujeme obe znenia hlášky.
       const a = await insertTestCategory(app, { slug: 'cyc-a' });
       const b = await insertTestCategory(app, { slug: 'cyc-b', parentId: a._id });
       const c = await insertTestCategory(app, { slug: 'cyc-c', parentId: b._id });
@@ -221,21 +225,21 @@ describe('PATCH /v1/categories/:id', () => {
         payload: { parentId: c._id },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json<{ message: string }>().message).toMatch(/cycle/i);
+      expect(res.json<{ message: string }>().message).toMatch(/cycle|úrovne|hodnot/i);
     });
 
-    it('allows reparenting that does NOT create a cycle', async () => {
-      const a = await insertTestCategory(app, { slug: 'sib-a' });
-      const b = await insertTestCategory(app, { slug: 'sib-b', parentId: a._id });
-      const c = await insertTestCategory(app, { slug: 'sib-c', parentId: a._id });
+    it('allows reparenting a value from one root to another (no cycle, stays 2-level)', async () => {
+      const rootA = await insertTestCategory(app, { slug: 'sib-a' });
+      const rootB = await insertTestCategory(app, { slug: 'sib-b' });
+      const value = await insertTestCategory(app, { slug: 'sib-c', parentId: rootA._id });
       const res = await app.inject({
         method: 'PATCH',
-        url: `/v1/categories/${c._id}`,
+        url: `/v1/categories/${value._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { parentId: b._id },
+        payload: { parentId: rootB._id },
       });
       expect(res.statusCode).toBe(200);
-      expect(res.json<{ parentId: string }>().parentId).toBe(b._id);
+      expect(res.json<{ parentId: string }>().parentId).toBe(rootB._id);
     });
   });
 
