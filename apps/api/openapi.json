@@ -472,6 +472,45 @@
                     "additionalProperties": false,
                     "nullable": true
                   },
+                  "protocolSettings": {
+                    "type": "object",
+                    "properties": {
+                      "paperSize": {
+                        "type": "string",
+                        "enum": [
+                          "A4",
+                          "LETTER"
+                        ]
+                      },
+                      "numberFormat": {
+                        "type": "object",
+                        "properties": {
+                          "prefix": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{1,5}$"
+                          },
+                          "padding": {
+                            "type": "integer",
+                            "minimum": 3,
+                            "maximum": 8
+                          },
+                          "initialSeq": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "prefix",
+                          "padding",
+                          "initialSeq"
+                        ],
+                        "additionalProperties": false,
+                        "nullable": true
+                      }
+                    },
+                    "additionalProperties": false,
+                    "nullable": true
+                  },
                   "allowedAuthProviders": {
                     "type": "array",
                     "items": {
