@@ -28,6 +28,7 @@ import fp from 'fastify-plugin';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
+import { resolveAppBaseUrl } from '../../lib/app-base-url.js';
 import { NotFoundError } from '../../plugins/error-handler.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 import { OrganisationsRepository } from '../organisations/organisations.repository.js';
@@ -117,14 +118,10 @@ const labelsRoutes: FastifyPluginAsync = async (fastify) => {
       const { assetIds, preset } = request.query;
 
       // Načítaj org pre appBaseUrl + logo + labelPrinting config
-      const org = await orgsRepo.findById(tenantId);
-      if (!org) throw new NotFoundError('Organisation', tenantId);
-      if (!org.appBaseUrl) {
-        return reply.status(409).send({
-          message:
-            'Nastavte appBaseUrl na organizácii pred použitím QR štítkov (Settings → Organizácia).',
-        });
-      }
+      const orgRaw = await orgsRepo.findById(tenantId);
+      if (!orgRaw) throw new NotFoundError('Organisation', tenantId);
+      // appBaseUrl: per-tenant → env → default (ADR-0021, z konfigurácie nie z Host).
+      const org = { ...orgRaw, appBaseUrl: resolveAppBaseUrl(orgRaw.appBaseUrl) };
 
       // Načítaj assety — všetky musia patriť tomuto tenantovi
       const labelAssets: LabelAssetInput[] = [];
@@ -189,11 +186,9 @@ const labelsRoutes: FastifyPluginAsync = async (fastify) => {
       const tenantId = String(actor.organisationId);
       const { id } = request.params;
 
-      const org = await orgsRepo.findById(tenantId);
-      if (!org) throw new NotFoundError('Organisation', tenantId);
-      if (!org.appBaseUrl) {
-        throw Object.assign(new Error('appBaseUrl nie je nastavený.'), { statusCode: 409 });
-      }
+      const orgRaw = await orgsRepo.findById(tenantId);
+      if (!orgRaw) throw new NotFoundError('Organisation', tenantId);
+      const org = { ...orgRaw, appBaseUrl: resolveAppBaseUrl(orgRaw.appBaseUrl) };
 
       const asset = await assetsRepo.findById(tenantId, id);
       if (!asset) throw new NotFoundError('Asset', id);
@@ -234,11 +229,9 @@ const labelsRoutes: FastifyPluginAsync = async (fastify) => {
       const tenantId = String(actor.organisationId);
       const { assetIds } = request.body;
 
-      const org = await orgsRepo.findById(tenantId);
-      if (!org) throw new NotFoundError('Organisation', tenantId);
-      if (!org.appBaseUrl) {
-        throw Object.assign(new Error('appBaseUrl nie je nastavený.'), { statusCode: 409 });
-      }
+      const orgRaw = await orgsRepo.findById(tenantId);
+      if (!orgRaw) throw new NotFoundError('Organisation', tenantId);
+      const org = { ...orgRaw, appBaseUrl: resolveAppBaseUrl(orgRaw.appBaseUrl) };
 
       const labels: Array<{ assetId: string; zpl: string }> = [];
 

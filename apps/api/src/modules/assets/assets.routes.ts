@@ -25,6 +25,7 @@ import { TRACKING_MODE_VALUES, UpdateAssetSchema } from '@inventario/shared-type
 import QRCode from 'qrcode';
 import { z } from 'zod';
 
+import { resolveAppBaseUrl } from '../../lib/app-base-url.js';
 import { NotFoundError } from '../../plugins/error-handler.js';
 import { AuditLogRepository } from '../audit/audit.repository.js';
 import { CategoriesRepository } from '../categories/categories.repository.js';
@@ -260,16 +261,10 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ message: 'Asset not found.' });
       }
 
-      // Nacitaj org pre appBaseUrl - VYLUCNE z DB, nikdy z request headers
+      // Základ URL pre QR: per-tenant appBaseUrl → env APP_BASE_URL → default.
+      // VŽDY z konfigurácie, NIKDY z request headers (ADR-0021).
       const org = await orgsRepo.findById(tenantId);
-      if (!org || !org.appBaseUrl) {
-        return reply.status(409).send({
-          message:
-            'Nastavte appBaseUrl na organizacii pred pouzitim QR kodov (Settings -> Organizacia).',
-        });
-      }
-
-      const url = `${org.appBaseUrl}/scan/${asset.publicToken}`;
+      const url = `${resolveAppBaseUrl(org?.appBaseUrl)}/scan/${asset.publicToken}`;
 
       if (format === 'png') {
         const pngBuffer = await QRCode.toBuffer(url, {
