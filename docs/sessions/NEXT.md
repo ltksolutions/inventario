@@ -10,9 +10,15 @@
 
 **Dnešná session (2026-06-09):** Ecomail spam fix (`EMAIL_FROM_ADDRESS` → `noreply@mail.inventario.estate` vo Vercel) + CI fix `attemptDomainAutoJoin` `isNew` (commit `b981e41`, nasadené). Detail: `docs/sessions/2026-06-09-ecomail-ci-fix-overview.md`.
 
-### ĎALŠIA ÚLOHA — e-mail notifikácia „máš protokol na podpis"
+### ĎALŠIA ÚLOHA — e-mail notifikácia „máš protokol na podpis" (Sonnet)
 
-`EmailService` ju zatiaľ nemá (chýba `sendProtocolToSign...`). Pridať notifikáciu, keď vznikne DRAFT protokol čakajúci na podpis druhej strany. Pred štartom upresniť rozsah a model (impl → Sonnet).
+`EmailService` ju zatiaľ nemá (chýba `sendProtocolToSign...`). **Rozsah dohodnutý 2026-06-09:**
+
+- **Trigger:** pri vzniku DRAFT protokolu typu **HANDOVER aj RETURN** (po `insertDraftProtocol` v `loans.service.ts`).
+- **Príjemca:** strana, ktorej podpis ešte **chýba** (borrower alebo manager podľa typu protokolu).
+- **Obsah:** odkaz na detail výpožičky `/loans/[id]`, kde sa podpisuje (CLICK_TO_SIGN).
+- **Implementácia:** nová metóda `sendProtocolToSignEmail` v `EmailService` + šablóna, fire-and-forget (vzor `sendLoanApprovedEmail`), zapojené v `loans.service.ts`; + testy.
+- **Model:** Sonnet (impl/CRUD).
 
 ### Manuálne checky (P2 zvyšok)
 
