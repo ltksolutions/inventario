@@ -618,6 +618,8 @@ export class LoansService {
       return insertedLoan;
     });
 
+    this.notifyProtocolToSign('HANDOVER', String(loan._id), String(loan.borrowerId), request);
+
     return loanToApiShape(loan);
   }
 
@@ -869,6 +871,8 @@ export class LoansService {
       return insertedLoan;
     });
 
+    this.notifyProtocolToSign('HANDOVER', String(loan._id), String(loan.borrowerId), request);
+
     return loanToApiShape(loan);
   }
 
@@ -993,6 +997,8 @@ export class LoansService {
 
       return updatedLoan;
     });
+
+    this.notifyProtocolToSign('RETURN', id, String(updated.borrowerId), request);
 
     return loanToApiShape(updated);
   }
@@ -1194,6 +1200,40 @@ export class LoansService {
       email: (doc['email'] as string | undefined) ?? '',
       organizationalUnit: null,
     };
+  }
+
+  /**
+   * Fire-and-forget: pošle e-mail borrowerovi o protokole na podpis.
+   * Zlyhanie sa len zaloguje — neovplyvní hlavnú operáciu.
+   */
+  private notifyProtocolToSign(
+    protocolType: 'HANDOVER' | 'RETURN',
+    loanId: string,
+    borrowerId: string,
+    request: FastifyRequest,
+  ): void {
+    if (!this.emailService?.isConfigured) return;
+    void (async () => {
+      try {
+        const usersCol = this.getDb().collection('users');
+        const borrower = await usersCol.findOne({
+          _id: ObjectId.isValid(borrowerId)
+            ? (new ObjectId(borrowerId) as never)
+            : (borrowerId as never),
+          deletedAt: null,
+        });
+        if (borrower?.['email']) {
+          await this.emailService!.sendProtocolToSignEmail(borrower['email'] as string, {
+            recipientName: (borrower['displayName'] as string) || (borrower['email'] as string),
+            protocolType,
+            loanId,
+            frontendUrl: this.frontendUrl,
+          });
+        }
+      } catch (err) {
+        request.log.warn({ err }, 'Failed to send protocol-to-sign email');
+      }
+    })();
   }
 
   /**

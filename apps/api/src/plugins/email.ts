@@ -69,6 +69,15 @@ export interface EmailService {
       frontendUrl: string;
     },
   ): Promise<void>;
+  sendProtocolToSignEmail(
+    to: string,
+    opts: {
+      recipientName: string;
+      protocolType: 'HANDOVER' | 'RETURN';
+      loanId: string;
+      frontendUrl: string;
+    },
+  ): Promise<void>;
   /**
    * Send account-linking magic-link email (OAuth-only accounts).
    * @param verifyUrl  Full URL to /v1/auth/link-provider/verify?token=...
@@ -216,6 +225,18 @@ const emailPlugin: FastifyPluginAsync = async (fastify) => {
           `${opts.requesterName} podal/a žiadosť "${opts.purpose}" (${opts.itemCount} pol.), ` +
           `${formatDateSk(opts.plannedFrom)} – ${formatDateSk(opts.plannedTo)}. ` +
           `${opts.frontendUrl}/requests/${opts.requestId}`,
+      });
+    },
+
+    async sendProtocolToSignEmail(to, opts) {
+      const typeLabel = opts.protocolType === 'HANDOVER' ? 'odovzdávací' : 'preberací';
+      await provider.send({
+        to,
+        subject: `Máte ${typeLabel} protokol na podpis — Inventario`,
+        html: protocolToSignEmailHtml(opts),
+        text:
+          `${opts.recipientName}, máte ${typeLabel} protokol na podpis. ` +
+          `Podpíšte ho na: ${opts.frontendUrl}/loans/${opts.loanId}`,
       });
     },
 
@@ -445,6 +466,30 @@ function loanRequestPendingEmailHtml(opts: {
           <td style="color:#1A2D47;font-size:14px;">${formatDateSk(opts.plannedTo)}</td></tr>
     </table>
     ${btn(`${opts.frontendUrl}/requests/${opts.requestId}`, 'Schváliť alebo zamietnuť')}
+  `,
+  );
+}
+
+function protocolToSignEmailHtml(opts: {
+  recipientName: string;
+  protocolType: 'HANDOVER' | 'RETURN';
+  loanId: string;
+  frontendUrl: string;
+}): string {
+  const isHandover = opts.protocolType === 'HANDOVER';
+  const typeLabel = isHandover ? 'odovzdávací' : 'preberací';
+  const actionLabel = isHandover ? 'Podpísať odovzdávací protokol' : 'Podpísať preberací protokol';
+  const url = `${opts.frontendUrl}/loans/${opts.loanId}`;
+  return emailLayout(
+    `Protokol na podpis`,
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">✍️ Máte ${typeLabel} protokol na podpis</h1>
+    <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+      Ahoj, <strong>${opts.recipientName}</strong>!<br />
+      Bol vytvorený ${typeLabel} protokol k výpožičke, ktorý čaká na váš podpis.
+    </p>
+    ${btn(url, actionLabel)}
+    <p style="margin:20px 0 0;color:#94A3B8;font-size:12px;">Protokol podpíšete na stránke s detailom výpožičky.</p>
   `,
   );
 }

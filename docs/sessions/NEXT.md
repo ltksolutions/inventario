@@ -10,15 +10,13 @@
 
 **Dnešná session (2026-06-09):** Ecomail spam fix (`EMAIL_FROM_ADDRESS` → `noreply@mail.inventario.estate` vo Vercel) + CI fix `attemptDomainAutoJoin` `isNew` (commit `b981e41`, nasadené). Detail: `docs/sessions/2026-06-09-ecomail-ci-fix-overview.md`.
 
-### ĎALŠIA ÚLOHA — e-mail notifikácia „máš protokol na podpis" (Sonnet)
+### ✅ E-mail notifikácia „máš protokol na podpis" — HOTOVÉ (2026-06-09)
 
-`EmailService` ju zatiaľ nemá (chýba `sendProtocolToSign...`). **Rozsah dohodnutý 2026-06-09:**
-
-- **Trigger:** pri vzniku DRAFT protokolu typu **HANDOVER aj RETURN** (po `insertDraftProtocol` v `loans.service.ts`).
-- **Príjemca:** strana, ktorej podpis ešte **chýba** (borrower alebo manager podľa typu protokolu).
-- **Obsah:** odkaz na detail výpožičky `/loans/[id]`, kde sa podpisuje (CLICK_TO_SIGN).
-- **Implementácia:** nová metóda `sendProtocolToSignEmail` v `EmailService` + šablóna, fire-and-forget (vzor `sendLoanApprovedEmail`), zapojené v `loans.service.ts`; + testy.
-- **Model:** Sonnet (impl/CRUD).
+- `sendProtocolToSignEmail` pridaná do `EmailService` interface + implementácia + HTML šablóna (`apps/api/src/plugins/email.ts`)
+- `notifyProtocolToSign` private helper v `LoansService` — fire-and-forget po transakcii (vzor `sendLoanRejectedEmail`)
+- Zapojené na 3 miestach: `fulfilLoanRequest`, `createDirectLoan`, `returnLoan` — vždy notifikuje borrowera
+- Unit testy: `tests/unit/email-protocol-to-sign.test.ts` (interface contract); testy spúšťať lokálne (`pnpm test`), sandbox blokuje esbuild/mongodb-memory-server
+- Typecheck: ✅ bez chýb
 
 ### Manuálne checky (P2 zvyšok)
 
