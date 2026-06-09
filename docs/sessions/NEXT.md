@@ -1,6 +1,27 @@
 # NEXT
 
-## Aktuálny stav (2026-06-07, koniec 2. session)
+## Aktuálny stav (2026-06-09)
+
+**P1 a P2 z predošlého plánu sú hotové** (overené v kóde 2026-06-09):
+
+- BULK vs SERIALIZED odlíšenie — `TrackingModeBadge` + badge v `AssetsTable` + `quantityOnHand`. ✅
+- #19 partial index `memberships_userId_organisationId_unique` s `partialFilterExpression: { deletedAt: null }` — migrácia `2026-06-07-memberships-partial-index.ts` + repository. ✅ _(potvrdiť dobehnutie na prod)_
+- #18 legacy `User.roles` — `PATCH /v1/users/:id` mutuje len `isActive`, role idú cez `PATCH /v1/memberships/:id`. ✅
+
+**Dnešná session (2026-06-09):** Ecomail spam fix (`EMAIL_FROM_ADDRESS` → `noreply@mail.inventario.estate` vo Vercel) + CI fix `attemptDomainAutoJoin` `isNew` (commit `b981e41`, nasadené). Detail: `docs/sessions/2026-06-09-ecomail-ci-fix-overview.md`.
+
+### ĎALŠIA ÚLOHA — e-mail notifikácia „máš protokol na podpis"
+
+`EmailService` ju zatiaľ nemá (chýba `sendProtocolToSign...`). Pridať notifikáciu, keď vznikne DRAFT protokol čakajúci na podpis druhej strany. Pred štartom upresniť rozsah a model (impl → Sonnet).
+
+### Manuálne checky (P2 zvyšok)
+
+- Overiť `pnpm openapi:export:offline` (ručne dopĺňaný openapi.json — paths /v1/protocols a POST /v1/loans/:id/protocols)
+- E2E test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu) — overí aj Dashboard blok „Čaká na vás"
+
+---
+
+## Archív — stav (2026-06-07, koniec 2. session)
 
 **Detail výpožičky + Preberacie protokoly UI HOTOVÉ a OTESTOVANÉ na produkcii.** Nové: `/loans/[id]` detail s protokolmi, CLICK_TO_SIGN podpis, PDF/Tlač, `/protocols` zoznam + menu (managerOnly), backend `GET /v1/protocols` + `POST /v1/loans/:id/protocols` (backfill), sign fixuje snapshot strany. Detaily: `docs/sessions/2026-06-07-loan-detail-protokoly-ui.md`.
 

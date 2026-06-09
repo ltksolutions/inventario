@@ -12,12 +12,12 @@ SPDX-License-Identifier: CC-BY-4.0
 > [`docs/sessions/NEXT.md`](./sessions/NEXT.md). Testovanie sa rieši priebežne pri každej
 > položke (workflow pravidlo: testy s každou zmenou) — preto tu nie je samostatná „testovacia" sekcia.
 
-| Atribút                   | Hodnota                                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-06 (testovanie formulárov; combobox fix; location types; org settings; trackingMode) |
-| **Stav projektu**         | Production LIVE ✅ — SFZ pilot aktívne testovaný                                             |
-| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr                  |
-| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs         |
+| Atribút                   | Hodnota                                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-09 (#18 + #19 overené DONE; Ecomail spam fix; CI fix auto-join isNew; ďalej e-mail notif protokol na podpis) |
+| **Stav projektu**         | Production LIVE ✅ — SFZ pilot aktívne testovaný                                                                     |
+| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr                                          |
+| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs                                 |
 
 ---
 
@@ -176,13 +176,10 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Pozn.:** nie je blocker pre pilot (default brand funguje), ale **logo na protokoloch/štítkoch je viditeľná pilotná bolesť**. Po dokončení SFZ nastaviť `logoUrl` (PNG, nie SVG). FREE pilot dostane logo; farby vyžadujú dočasné povýšenie plánu.
 - **Zdieľa:** `loadLogo()` (ADR-0022) — featura ho len odomkne tým, že `logoUrl` sa dá nastaviť.
 
-### 18. TECH-DEBT (ADR-0029): PATCH /v1/users/:id — legacy User.roles
+### 18. TECH-DEBT (ADR-0029): PATCH /v1/users/:id — legacy User.roles ✅ DONE (overené 2026-06-09)
 
-- **Stav:** Otvorené (P2 tech-debt)
-- **Kontext:** `users.service.ts`, `users.routes.ts`, `users.repository.ts` pracujú na legacy `User.roles[]` (pole na User dokumente). `PATCH /v1/users/:id` (admin mena rôl) je zastaraný spôsob správy rôl — reálna správa ide cez `PATCH /v1/memberships/:id` (Membership.role). RBAC už číta len Membership.role, takže User.roles je RBAC-irelevantné.
-- **Čo treba:** Buď (a) napojiť PATCH /v1/users/:id na membership miesto User.roles, alebo (b) odstraniť endpoint pred GA a presmerovať UI na PATCH /v1/memberships/:id.
-- **Model:** Sonnet
-- **Blocker:** NIE — SFZ pilot môže fungovať so zastaraným endpointom (RBAC je správne, len UI admin stránka "Používatelia" siàha na wrong miesto)
+- **Stav:** ✅ vyriešené — `PATCH /v1/users/:id` mutuje už len `isActive` (+profil), zmena rolí ide cez `PATCH /v1/memberships/:id`. Docstring aj admin PATCH schéma to potvrdzujú („Role changes go through PATCH /v1/memberships/:id (ADR-0029 cleanup)").
+- **Kontext (pôvodný):** `PATCH /v1/users/:id` (admin mena rôl) bol zastaraný spôsob správy rôl — reálna správa ide cez `PATCH /v1/memberships/:id` (Membership.role). RBAC už čítal len Membership.role.
 
 ### 20. ADR-0030 — Registračné identity + Entra ako per-tenant doménová reštrikcia
 
@@ -293,16 +290,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 - `Cmd+K` tenant picker · SOC 2 Type II roadmap · dashboard štatistiky · QR štítky PDF (batch tlač)
 
-### 19. TECH-DEBT: Unique index `memberships_userId_organisationId_unique` — chýba partial filter
+### 19. TECH-DEBT: Unique index `memberships_userId_organisationId_unique` — partial filter ✅ DONE (overené 2026-06-09)
 
-- **Stav:** Otvorené (P1 tech-debt, pridанé 2026-06-03)
-- **Kontext:** Index pokrýva všetky dokumenty vrátane soft-deleted (`deletedAt ≠ null`). Hotfix `reactivate()` eliminuje praktický risk pri rejoini, ale správna obranná vrstva je `partialFilterExpression: { deletedAt: null }`. Bez neho race condition v `reactivate()` fallback stále môže vyhodiť E11000.
-- **Čo treba:**
-  1. Nová migrácia: drop `memberships_userId_organisationId_unique` + `createIndex` s `partialFilterExpression: { deletedAt: null }`, nový názov `memberships_userId_organisationId_partial_unique`
-  2. Aktualizovať `MembershipsRepository.ensureIndexes()`
-  3. Spustiť na prod (Flex tier, pozadie, bez downtime)
-- **Model:** Sonnet
-- **Blocker:** NIE — `reactivate()` hotfix pokrýva bežný case; partial index je poistka
+- **Stav:** ✅ implementované — migrácia `2026-06-07-memberships-partial-index.ts` (drop + recreate s `partialFilterExpression: { deletedAt: null }`, názov indexu zachovaný), registrovaná v `runner.ts` (ADR-0029), `MembershipsRepository.ensureIndexes()` aktualizovaný. _(Potvrdiť dobehnutie migrácie na prod.)_
+- **Kontext (pôvodný):** Index pokrýval všetky dokumenty vrátane soft-deleted; bez partial filtra mohol race v `reactivate()` fallbacku vyhodiť E11000.
 
 ---
 
