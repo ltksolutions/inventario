@@ -222,7 +222,8 @@ export class UsersService {
     // by organisationId misses them. We go via memberships instead.
     // `role` filter is applied HERE (on Membership.role — authoritative per
     // ADR-0029) rather than on the stale User.roles[] field.
-    const userIds = await this.membershipsRepo.findUserIdsByOrganisation(tenantId, params.role);
+    const roleByUserId = await this.membershipsRepo.findRolesByOrganisation(tenantId, params.role);
+    const userIds = [...roleByUserId.keys()];
 
     const { items, total } = await this.repo.listByUserIds({
       userIds,
@@ -231,8 +232,18 @@ export class UsersService {
       filter,
     });
 
+    // Overwrite `roles` with the authoritative Membership.role (same shape
+    // as GET /v1/me). User.roles[] is a legacy stale field — on documents
+    // created after the memberships migration it may be missing or null,
+    // which crashed the admin list UI (user.roles.map on null).
     return {
-      data: items.map(toApiShape),
+      data: items.map((doc) => {
+        const membershipRole = roleByUserId.get(String(doc._id));
+        return {
+          ...toApiShape(doc),
+          roles: membershipRole ? [membershipRole] : [],
+        };
+      }),
       pagination: {
         total,
         limit,
@@ -248,7 +259,26 @@ export class UsersService {
     if (!doc) {
       throw new NotFoundError('User', id);
     }
-    return toApiShape(doc);
+
+    // Enrich with the authoritative Membership.role (ADR-0029) — same
+    // reasoning as in list(): User.roles[] is legacy and may be null.
+    // `membershipId` is included so the admin edit dialog can change
+    // the role via PATCH /v1/memberships/:id without an extra lookup.
+    let membershipRoles: string[] = [];
+    let membershipId: string | null = null;
+    if (this.membershipsRepo) {
+      const membership = await this.membershipsRepo.findActive({
+        userId: id,
+        organisationId: tenantId,
+      });
+      membershipRoles = membership?.role ? [membership.role] : [];
+      membershipId = membership ? String(membership._id) : null;
+    }
+    return {
+      ...toApiShape(doc),
+      roles: membershipRoles,
+      membershipId,
+    };
   }
 
   // -------------------------------------------------------------------------

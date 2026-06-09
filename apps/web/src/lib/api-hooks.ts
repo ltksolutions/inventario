@@ -779,7 +779,18 @@ export interface UserDetail {
   lastName: string;
   displayName: string;
   accountType: string;
+  /**
+   * Authoritative role(s) derived from Membership.role (ADR-0029) —
+   * always 0 or 1 element. Kept as an array for backwards compat with
+   * the list row shape.
+   */
   roles: string[];
+  /**
+   * _id of the user's ACTIVE membership in the current tenant. Used by
+   * the edit dialog to change the role via PATCH /v1/memberships/:id.
+   * Null if the membership lookup failed (defensive).
+   */
+  membershipId: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
   preferences: Record<string, unknown>;
@@ -788,12 +799,11 @@ export interface UserDetail {
 }
 
 /**
- * Patch body for PATCH /v1/users/:id. K10 exposes only `roles` and
- * `isActive`; the service supports more (name, preferences) but the
- * admin endpoint deliberately stays narrow.
+ * Patch body for PATCH /v1/users/:id. The admin endpoint exposes only
+ * `isActive` (ADR-0029: role changes go through PATCH
+ * /v1/memberships/:id — see `useUpdateMembershipRole`).
  */
 export interface UserUpdatePatch {
-  roles?: string[] | undefined;
   isActive?: boolean | undefined;
 }
 
@@ -943,6 +953,47 @@ export function useUpdateUser(): UseMutationResult<
       // preferences — currently impossible via this UI, but possible
       // via future flows), invalidate /v1/me too so the header reflects
       // it. Cheap; just one extra refetch.
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
+/**
+ * PATCH /v1/memberships/:id — change the authoritative role of a
+ * member (ADR-0029: role lives on Membership, not User). Used by the
+ * admin user-edit dialog. Backend guardrails: last-active-ADMIN can't
+ * be demoted (assertNotLastAdmin); errors surface verbatim.
+ *
+ * On success invalidates the users list + the single-user cache (the
+ * dialog reads roles through GET /v1/users/:id, which derives them
+ * from the membership).
+ */
+export function useUpdateMembershipRole(): UseMutationResult<
+  unknown,
+  Error,
+  { membershipId: string; userId: string; role: string }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation<unknown, Error, { membershipId: string; userId: string; role: string }>({
+    mutationFn: async ({ membershipId, role }) => {
+      const { data, error } = await apiClient.PATCH('/v1/memberships/{id}', {
+        params: { path: { id: membershipId } },
+        body: { role } as unknown as never,
+      });
+      if (error) {
+        const errObj = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof errObj.message === 'string' ? errObj.message : 'Failed to update role',
+        );
+      }
+      return data;
+    },
+    onSuccess: (_data, { userId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['user', userId] });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      // Role change can affect the actor's own session capabilities
+      // when editing self is ever allowed — cheap refetch.
       void queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });

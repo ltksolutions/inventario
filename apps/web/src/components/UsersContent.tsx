@@ -318,7 +318,8 @@ function UsersTable({ users, currentUserId, onEdit }: UsersTableProps): JSX.Elem
                 <td className="px-4 py-3 text-text-secondary">{user.email}</td>
                 <td className="px-4 py-3">
                   <ul className="flex flex-wrap gap-1">
-                    {user.roles.map((role) => (
+                    {/* Defensive ?? [] — legacy users can have roles missing/null */}
+                    {(user.roles ?? []).map((role) => (
                       <li
                         key={role}
                         className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-text-secondary"

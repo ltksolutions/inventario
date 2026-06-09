@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { JSX, ReactNode } from 'react';
 
-import { useUpdateUser, useUser } from '@/lib/api-hooks';
+import { useUpdateMembershipRole, useUpdateUser, useUser } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
 
 /**
@@ -18,30 +18,28 @@ import { cn } from '@/lib/cn';
  * Loads the full UserDetail via `useUser(id)` so the dialog has
  * fresh data even if the list cache is stale. Two editable surfaces:
  *
- *   1. Roles (multi-select checkboxes — backend stores roles[] with
- *      a min-1 invariant, see UpdateUserBodySchema).
- *   2. isActive toggle.
+ *   1. Role — single-select radio (ADR-0029: a member has exactly ONE
+ *      Membership.role). Changing it goes through
+ *      PATCH /v1/memberships/:id (the users endpoint deliberately
+ *      ignores roles — User.roles[] is a legacy stale field).
+ *   2. isActive toggle — goes through PATCH /v1/users/:id.
+ *
+ * Both changes can be combined in one save; the dialog issues the two
+ * PATCHes sequentially (role first) and closes only when both succeed.
  *
  * Pre-emptive self-guardrails (when isSelf is true):
- *   - The ADMIN checkbox is disabled with a tooltip ("Nemôžete si
- *     odobrať vlastnú admin rolu") so the user can't even try to
- *     submit a self-demote. Backend rejects it too, but the UI
- *     surfaces the constraint up-front.
- *   - The isActive toggle is disabled with a tooltip ("Nemôžete sa
- *     sami deaktivovať").
- *   - Other roles stay editable on self — promoting yourself from
- *     ADMIN+ASSET_MANAGER to just ADMIN is fine.
+ *   - The whole role group is disabled ("Nemôžete si zmeniť vlastnú
+ *     rolu") — with a single role, any change on self would be a
+ *     self-demote. Backend enforces last-admin too.
+ *   - The isActive toggle is disabled ("Nemôžete sa sami deaktivovať").
  *
  * Last-active-admin guardrail is server-side only: we can't detect
  * it client-side without a count query, and the backend already
- * returns a user-friendly message ("Cannot revoke ADMIN role: this
- * is the last active administrator in the tenant"). The dialog
- * surfaces that message verbatim through the error state.
+ * returns a user-friendly message. The dialog surfaces that message
+ * verbatim through the error state.
  *
  * Submit semantics:
- *   - Only changed fields are sent. Submitting with no changes
- *     returns 200 with the user unchanged but generates noise; we
- *     skip the request entirely if no diff.
+ *   - Only changed fields are sent; no diff → submit disabled.
  *   - The dialog stays open after a refused mutation so the user
  *     can read the error and adjust.
  */
@@ -49,7 +47,6 @@ import { cn } from '@/lib/cn';
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrátor',
   ASSET_MANAGER: 'Správca majetku',
-  TEAM_MANAGER: 'Vedúci tímu',
   EMPLOYEE: 'Zamestnanec',
   EXTERNAL: 'Externý',
 };
@@ -57,7 +54,6 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   ADMIN: 'Plný prístup, správa používateľov.',
   ASSET_MANAGER: 'Eviduje majetok, schvaľuje výpožičky.',
-  TEAM_MANAGER: 'Spravuje výpožičky pre svoj tím.',
   EMPLOYEE: 'Bežný používateľ — môže si požičať pre seba.',
   EXTERNAL: 'Externý spolupracovník s obmedzeným prístupom.',
 };
@@ -71,13 +67,15 @@ interface UserEditDialogProps {
 export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps): JSX.Element {
   const userQuery = useUser(userId);
   const updateUser = useUpdateUser();
+  const updateRole = useUpdateMembershipRole();
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
 
+  const isPending = updateUser.isPending || updateRole.isPending;
+  // Submit-level error: either mutation's failure, surfaced verbatim.
+  const mutationError = updateRole.error ?? updateUser.error;
+
   // Form state — initialised from the fetched user, then user-edited.
-  // We don't use react-hook-form here because the form is genuinely
-  // small (5 checkboxes + 1 toggle) and form-state explicitness helps
-  // readers see the dirty-diff logic at the bottom.
-  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
+  const [selectedRole, setSelectedRole] = useState<string>('');
   const [isActive, setIsActive] = useState(true);
   const [initialised, setInitialised] = useState(false);
 
@@ -87,7 +85,7 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
   // returns a stale refetch mid-edit.
   useEffect(() => {
     if (userQuery.data && !initialised) {
-      setSelectedRoles(new Set(userQuery.data.roles));
+      setSelectedRole(userQuery.data.roles?.[0] ?? '');
       setIsActive(userQuery.data.isActive);
       setInitialised(true);
     }
@@ -97,73 +95,64 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
   // other dialogs in the codebase.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
-      if (e.key === 'Escape' && !updateUser.isPending) {
+      if (e.key === 'Escape' && !isPending) {
         onClose();
       }
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose, updateUser.isPending]);
+  }, [onClose, isPending]);
 
   useEffect(() => {
     cancelButtonRef.current?.focus();
   }, []);
 
+  // membershipId is required for role changes. Null means the backend
+  // couldn't resolve an ACTIVE membership — role editing is then
+  // disabled with an explanatory hint (data inconsistency, not a
+  // normal state).
+  const membershipId = userQuery.data?.membershipId ?? null;
+
   // Compute what (if anything) has changed against the original.
-  // Memoised so the disabled-submit and the payload share a single
-  // truth without recomputing on every render.
   const patch = useMemo(() => {
     if (!userQuery.data || !initialised) {
       return null;
     }
     const original = userQuery.data;
-    const rolesChanged =
-      selectedRoles.size !== original.roles.length ||
-      original.roles.some((r) => !selectedRoles.has(r));
+    const originalRole = original.roles?.[0] ?? '';
+    const roleChanged = selectedRole !== '' && selectedRole !== originalRole;
     const activeChanged = isActive !== original.isActive;
 
-    if (!rolesChanged && !activeChanged) {
+    if (!roleChanged && !activeChanged) {
       return null;
     }
-
-    const result: { roles?: string[]; isActive?: boolean } = {};
-    if (rolesChanged) {
-      result.roles = Array.from(selectedRoles);
-    }
-    if (activeChanged) {
-      result.isActive = isActive;
-    }
-    return result;
-  }, [userQuery.data, initialised, selectedRoles, isActive]);
-
-  function toggleRole(role: string, isAdminSelfLock: boolean): void {
-    // Pre-emptive guardrail: ADMIN role on self is fixed.
-    if (isAdminSelfLock) {
-      return;
-    }
-    setSelectedRoles((prev) => {
-      const next = new Set(prev);
-      if (next.has(role)) {
-        next.delete(role);
-      } else {
-        next.add(role);
-      }
-      return next;
-    });
-  }
+    return {
+      role: roleChanged ? selectedRole : undefined,
+      isActive: activeChanged ? isActive : undefined,
+    };
+  }, [userQuery.data, initialised, selectedRole, isActive]);
 
   function onSubmit(): void {
-    if (!patch) {
+    if (!patch || isPending) {
       return;
     }
-    updateUser.mutate(
-      { id: userId, patch },
-      {
-        onSuccess: onClose,
-        // onError surfaces via updateUser.error — dialog stays open
-        // so the user can read the backend's message and adjust.
-      },
-    );
+    void (async () => {
+      try {
+        // Role first — it's the more constrained operation (last-admin
+        // guardrail). If it's refused, we don't touch isActive either,
+        // so the save stays all-or-nothing from the user's view.
+        if (patch.role !== undefined && membershipId) {
+          await updateRole.mutateAsync({ membershipId, userId, role: patch.role });
+        }
+        if (patch.isActive !== undefined) {
+          await updateUser.mutateAsync({ id: userId, patch: { isActive: patch.isActive } });
+        }
+        onClose();
+      } catch {
+        // Error surfaces via mutationError — dialog stays open so the
+        // user can read the backend's message and adjust.
+      }
+    })();
   }
 
   return (
@@ -188,7 +177,7 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
           <button
             type="button"
             onClick={onClose}
-            disabled={updateUser.isPending}
+            disabled={isPending}
             aria-label="Zatvoriť"
             className="rounded-lg p-1.5 text-text-muted transition hover:bg-surface-subtle hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
@@ -209,10 +198,12 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
             />
           ) : (
             <DialogBody
-              roles={selectedRoles}
+              selectedRole={selectedRole}
               isActive={isActive}
               isSelf={isSelf}
-              onToggleRole={toggleRole}
+              roleEditDisabled={isSelf || membershipId === null}
+              membershipMissing={membershipId === null}
+              onSelectRole={setSelectedRole}
               onToggleActive={() => {
                 if (!isSelf) {
                   setIsActive((v) => !v);
@@ -221,23 +212,13 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
             />
           )}
 
-          {updateUser.error ? (
+          {mutationError ? (
             <div
               role="alert"
               className="mt-4 flex items-start gap-2 rounded-lg border border-danger-fg bg-danger-bg p-3 text-sm text-danger-fg"
             >
               <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span>{updateUser.error.message}</span>
-            </div>
-          ) : null}
-
-          {selectedRoles.size === 0 && initialised && !updateUser.error ? (
-            <div
-              role="alert"
-              className="mt-4 flex items-start gap-2 rounded-lg border border-warning-fg bg-warning-bg p-3 text-sm text-warning-fg"
-            >
-              <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span>Používateľ musí mať aspoň jednu rolu.</span>
+              <span>{mutationError.message}</span>
             </div>
           ) : null}
         </div>
@@ -247,7 +228,7 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
             type="button"
             ref={cancelButtonRef}
             onClick={onClose}
-            disabled={updateUser.isPending}
+            disabled={isPending}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             Zrušiť
@@ -255,14 +236,12 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
           <button
             type="button"
             onClick={onSubmit}
-            disabled={
-              patch === null || updateUser.isPending || !initialised || selectedRoles.size === 0
-            }
+            disabled={patch === null || isPending || !initialised}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
             aria-live="polite"
           >
             <Save aria-hidden="true" className="h-4 w-4" />
-            {updateUser.isPending ? 'Ukladám…' : 'Uložiť zmeny'}
+            {isPending ? 'Ukladám…' : 'Uložiť zmeny'}
           </button>
         </div>
       </div>
@@ -271,64 +250,74 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
 }
 
 // ---------------------------------------------------------------------------
-// Dialog body — role checkboxes + isActive toggle
+// Dialog body — role radio group + isActive toggle
 // ---------------------------------------------------------------------------
 
 interface DialogBodyProps {
-  roles: ReadonlySet<string>;
+  selectedRole: string;
   isActive: boolean;
   isSelf: boolean;
-  onToggleRole: (role: string, isAdminSelfLock: boolean) => void;
+  /** Disable the whole role group (self-edit or missing membership). */
+  roleEditDisabled: boolean;
+  /** True when the backend couldn't resolve an ACTIVE membership. */
+  membershipMissing: boolean;
+  onSelectRole: (role: string) => void;
   onToggleActive: () => void;
 }
 
 function DialogBody({
-  roles,
+  selectedRole,
   isActive,
   isSelf,
-  onToggleRole,
+  roleEditDisabled,
+  membershipMissing,
+  onSelectRole,
   onToggleActive,
 }: DialogBodyProps): JSX.Element {
   return (
     <div className="space-y-5">
       <fieldset>
-        <legend className="text-sm font-medium text-text-primary">Roly</legend>
+        <legend className="text-sm font-medium text-text-primary">Rola</legend>
         <p className="mt-0.5 text-xs text-text-secondary">
-          Používateľ musí mať aspoň jednu rolu. Roly môžu byť kombinované.
+          {membershipMissing
+            ? 'Členstvo používateľa sa nepodarilo načítať — rolu teraz nie je možné zmeniť.'
+            : isSelf
+              ? 'Nemôžete si zmeniť vlastnú rolu. Požiadajte iného administrátora.'
+              : 'Každý člen má práve jednu rolu. Zmena sa prejaví okamžite.'}
         </p>
         <ul className="mt-3 space-y-2">
           {USER_ROLE_VALUES.map((role) => {
-            const checked = roles.has(role);
-            const isAdminSelfLock = isSelf && role === 'ADMIN';
+            const checked = selectedRole === role;
             const inputId = `user-edit-role-${role}`;
             return (
               <li key={role}>
                 <label
                   htmlFor={inputId}
                   className={cn(
-                    'flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-card p-3 transition',
-                    isAdminSelfLock
+                    'flex items-start gap-3 rounded-lg border bg-surface-card p-3 transition',
+                    checked ? 'border-brand-primary' : 'border-border-subtle',
+                    roleEditDisabled
                       ? 'cursor-not-allowed opacity-70'
                       : 'cursor-pointer hover:border-border-default hover:bg-surface-subtle',
                   )}
                 >
                   <input
                     id={inputId}
-                    type="checkbox"
+                    type="radio"
+                    name="user-edit-role"
                     checked={checked}
-                    disabled={isAdminSelfLock}
-                    onChange={() => onToggleRole(role, isAdminSelfLock)}
+                    disabled={roleEditDisabled}
+                    onChange={() => {
+                      if (!roleEditDisabled) {
+                        onSelectRole(role);
+                      }
+                    }}
                     aria-label={ROLE_LABELS[role] ?? role}
-                    className="mt-0.5 h-4 w-4 cursor-pointer rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed"
+                    className="mt-0.5 h-4 w-4 cursor-pointer border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed"
                   />
                   <span className="flex flex-1 flex-col">
                     <span className="text-sm font-medium text-text-primary">
                       {ROLE_LABELS[role] ?? role}
-                      {isAdminSelfLock ? (
-                        <span className="ml-2 text-xs font-normal text-text-muted">
-                          (nemôžete si odobrať vlastnú rolu)
-                        </span>
-                      ) : null}
                     </span>
                     <span className="text-xs text-text-secondary">
                       {ROLE_DESCRIPTIONS[role] ?? null}
@@ -353,12 +342,7 @@ function DialogBody({
           Inline checkbox + label. We attach explicit htmlFor/id rather
           than relying on the implicit-association pattern (input nested
           in label) because the codebase's jsx-a11y config flags the
-          implicit form here. Other dialogs avoid the flag by routing
-          their inputs through Field's `children` slot — which is what
-          we'd do too, except this control deliberately keeps the
-          checkbox + caption on the SAME visual row (Field's column
-          layout would stack them), so an inline `<label htmlFor>` is
-          the cleaner fit.
+          implicit form here.
         */}
         <div
           className={cn(

@@ -262,6 +262,32 @@ export class MembershipsRepository {
   }
 
   /**
+   * Like `findUserIdsByOrganisation`, but returns a userId → Membership.role
+   * map in a single query. Used by UsersService.list() to enrich each user
+   * row with the authoritative role (ADR-0029) — User.roles[] is a legacy
+   * stale field that may be missing or null on documents created after the
+   * memberships migration, so the API must not surface it directly.
+   */
+  async findRolesByOrganisation(
+    organisationId: string,
+    role?: string,
+  ): Promise<Map<string, string>> {
+    const filter: Record<string, unknown> = { organisationId, status: 'ACTIVE', deletedAt: null };
+    if (role !== undefined) {
+      filter['role'] = role;
+    }
+    const docs = await this.col
+      .find(filter as never, { projection: { userId: 1, role: 1 } })
+      .toArray();
+    return new Map(
+      docs.map((d) => {
+        const { userId, role: memberRole } = d as unknown as { userId: string; role: string };
+        return [userId, memberRole];
+      }),
+    );
+  }
+
+  /**
    * Insert a new membership. The unique index on {userId, organisationId}
    * prevents duplicates (callers catch E11000 and surface as 409).
    */

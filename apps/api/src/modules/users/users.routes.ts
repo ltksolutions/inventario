@@ -340,7 +340,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
       // of typed assignments.
       // `role` is passed separately to the service — it maps to
       // Membership.role (authoritative per ADR-0029) via
-      // membershipsRepo.findUserIdsByOrganisation(). Do NOT put it
+      // membershipsRepo.findRolesByOrganisation(). Do NOT put it
       // into the User filter (User.roles[] is a legacy stale field).
       const filterObj: Record<string, unknown> = {};
       if (isActive !== undefined) {
