@@ -40,6 +40,7 @@ import type { AssetsRepository } from '../assets/assets.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
 import type { LoanProtocolsRepository } from '../protocols/loan-protocols.repository.js';
 import type {
+  Asset,
   AssetStatus,
   CreateDirectLoanInput,
   FulfilLoanRequestInput,
@@ -1309,18 +1310,57 @@ export class LoansService {
 
     const protocolNumber = await generateProtocolNumber(db, tenantId, session, year, numberFormat);
 
-    const protocolItems: LoanProtocol['items'] = loanItems.map((item) => ({
-      assetId: item.assetId,
-      snapshot: {
-        inventoryNumber: item.snapshot.inventoryNumber,
-        name: item.snapshot.name,
-        serialNumber: null,
-        category: '',
-      },
-      condition: 'GOOD' as const,
-      conditionNote: null,
-      photoIds: [],
-    }));
+    // Snapshot položiek pre PDF protokol. Protokol je nemenný — sériové číslo
+    // a kategóriu treba fixovať čítaním z assetu/kategórie v tej istej transakcii.
+    // (loanItems.snapshot drží len inv. číslo + názov, viac polí neuchováva.)
+    const assetById = new Map<string, WithId<Asset>>();
+    for (const item of loanItems) {
+      const assetId = String(item.assetId);
+      if (assetById.has(assetId)) continue;
+      const asset = await this.assetsRepo.findById(tenantId, assetId, session);
+      if (asset) assetById.set(assetId, asset);
+    }
+
+    // Názvy kategórií jedným dotazom (categoryId → name), tenant-scoped.
+    const categoryIds = [
+      ...new Set(
+        [...assetById.values()]
+          .map((a) => String(a.categoryId))
+          .filter((id) => ObjectId.isValid(id)),
+      ),
+    ];
+    const categoryNameById = new Map<string, string>();
+    if (categoryIds.length > 0) {
+      const cats = await db
+        .collection('categories')
+        .find(
+          {
+            organisationId: tenantId,
+            _id: { $in: categoryIds.map((id) => new ObjectId(id)) },
+          },
+          { projection: { name: 1 }, session },
+        )
+        .toArray();
+      for (const cat of cats) {
+        categoryNameById.set(String(cat['_id']), (cat['name'] as string | undefined) ?? '');
+      }
+    }
+
+    const protocolItems: LoanProtocol['items'] = loanItems.map((item) => {
+      const asset = assetById.get(String(item.assetId));
+      return {
+        assetId: item.assetId,
+        snapshot: {
+          inventoryNumber: item.snapshot.inventoryNumber,
+          name: item.snapshot.name,
+          serialNumber: asset?.serialNumber ?? null,
+          category: asset ? (categoryNameById.get(String(asset.categoryId)) ?? '') : '',
+        },
+        condition: 'GOOD' as const,
+        conditionNote: null,
+        photoIds: [],
+      };
+    });
 
     const protocolDoc: Omit<LoanProtocol, '_id'> = {
       organisationId: tenantId,
