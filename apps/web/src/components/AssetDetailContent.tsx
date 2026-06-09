@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowLeft,
@@ -20,6 +20,8 @@ import {
   Pencil,
   RotateCcw,
   ShieldAlert,
+  Trash2,
+  Upload,
   User,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -34,7 +36,7 @@ import { StockPanel } from './StockPanel';
 import { TrackingModeBadge } from './TrackingModeBadge';
 
 import type { AssetDetail, LoanSummary } from '@/lib/api-hooks';
-import type { JSX, ReactNode } from 'react';
+import type { JSX } from 'react';
 
 import {
   useAsset,
@@ -226,11 +228,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                   {activeTab === 'history' && <LoanHistoryTab assetId={assetId} />}
                   {activeTab === 'audit' && <AuditLogTab assetId={assetId} />}
                   {activeTab === 'attachments' && (
-                    <StubTab
-                      icon={<Paperclip className="h-8 w-8" />}
-                      title="Prílohy"
-                      description="Faktúry, záručné listy, fotodokumentácia — čoskoro."
-                    />
+                    <AttachmentsTab assetId={assetId} canEdit={canEdit} />
                   )}
                   {activeTab === 'related' && (
                     <RelatedAssetsTab
@@ -814,6 +812,230 @@ function formatChangeValue(v: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
+// Attachments tab (foto + doklady, Vercel Blob)
+// ---------------------------------------------------------------------------
+
+interface Attachment {
+  id: string;
+  originalFilename: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  attachmentType: string;
+  caption: string | null;
+  createdAt: string;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolean }): JSX.Element {
+  const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const query = useQuery<Attachment[], Error>({
+    queryKey: ['asset-attachments', assetId],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Nepodarilo sa načítať prílohy (${res.status}).`);
+      }
+      const json = (await res.json()) as { data: Attachment[] };
+      return json.data;
+    },
+  });
+
+  async function handleUpload(file: File): Promise<void> {
+    setError(null);
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments`, {
+        method: 'POST',
+        credentials: 'include',
+        body: form,
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Nahrávanie zlyhalo (${res.status}).`);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['asset-attachments', assetId] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nahrávanie zlyhalo.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDelete(id: string): Promise<void> {
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/v1/attachments/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok && res.status !== 204) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Mazanie zlyhalo (${res.status}).`);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['asset-attachments', assetId] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Mazanie zlyhalo.');
+    }
+  }
+
+  const items = query.data ?? [];
+  const photos = items.filter((a) => a.attachmentType === 'ASSET_PHOTO');
+  const documents = items.filter((a) => a.attachmentType !== 'ASSET_PHOTO');
+
+  return (
+    <div>
+      {canEdit && (
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <label
+            className={cn(
+              'inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle',
+              uploading && 'pointer-events-none opacity-60',
+            )}
+          >
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            {uploading ? 'Nahrávam…' : 'Nahrať prílohu'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleUpload(file);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          <span className="text-xs text-text-muted">PNG, JPEG, WEBP alebo PDF — max 20 MB</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {query.isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
+        </div>
+      ) : query.isError ? (
+        <div className="py-10 text-center">
+          <Paperclip className="mx-auto h-10 w-10 text-text-muted" aria-hidden="true" />
+          <p className="mt-3 text-sm font-medium text-text-primary">
+            Prílohy sa nepodarilo načítať
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">{query.error.message}</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="py-10 text-center">
+          <Paperclip className="mx-auto h-10 w-10 text-text-muted" aria-hidden="true" />
+          <p className="mt-3 text-sm font-medium text-text-primary">Žiadne prílohy</p>
+          <p className="mt-1 text-sm text-text-secondary">
+            Faktúry, záručné listy a fotodokumentácia majetku.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {photos.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-sm font-bold text-text-primary">Fotografie</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {photos.map((a) => (
+                  <div
+                    key={a.id}
+                    className="group relative overflow-hidden rounded-lg border border-border-subtle"
+                  >
+                    <a href={a.url} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={a.url}
+                        alt={a.originalFilename}
+                        className="aspect-square w-full object-cover"
+                      />
+                    </a>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(a.id)}
+                        title="Zmazať"
+                        className="absolute right-1.5 top-1.5 rounded-md bg-white/90 p-1.5 text-red-600 opacity-0 shadow transition group-hover:opacity-100 hover:bg-white"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {documents.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-sm font-bold text-text-primary">Doklady</h3>
+              <ul className="space-y-2">
+                {documents.map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex items-center gap-3 rounded-lg border border-border-subtle bg-white p-3"
+                  >
+                    <FileText className="h-5 w-5 shrink-0 text-text-muted" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-text-primary">
+                        {a.originalFilename}
+                      </p>
+                      <p className="text-xs text-text-muted">{formatBytes(a.sizeBytes)}</p>
+                    </div>
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Stiahnuť"
+                      className="rounded-md p-1.5 text-text-secondary transition hover:bg-surface-subtle hover:text-text-primary"
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(a.id)}
+                        title="Zmazať"
+                        className="rounded-md p-1.5 text-red-600 transition hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Related assets tab
 // ---------------------------------------------------------------------------
 
@@ -902,30 +1124,6 @@ function StatusBadge({ status }: { status: string }): JSX.Element {
     >
       {STATUS_LABELS[status] ?? status}
     </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Stub tab
-// ---------------------------------------------------------------------------
-
-function StubTab({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-}): JSX.Element {
-  return (
-    <div className="py-10 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-surface-subtle text-text-muted">
-        {icon}
-      </div>
-      <p className="mt-3 text-sm font-medium text-text-primary">{title}</p>
-      <p className="mt-1 text-sm text-text-secondary">{description}</p>
-    </div>
   );
 }
 

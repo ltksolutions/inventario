@@ -31,6 +31,7 @@ import { runPendingMigrations } from './migrations/runner.js';
 import assetConditionsRoutes from './modules/asset-conditions/asset-conditions.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
 import publicAssetsRoutes from './modules/assets/public-assets.routes.js';
+import attachmentsRoutes from './modules/attachments/attachments.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
 import appleAuthRoutes from './modules/auth/apple-auth.routes.js';
 import authSessionRoutes from './modules/auth/auth-session.routes.js';
@@ -178,6 +179,7 @@ export async function buildServer(
   await app.register(organisationsRoutes);
   await app.register(usersRoutes);
   await app.register(assetsRoutes);
+  await app.register(attachmentsRoutes);
   await app.register(publicAssetsRoutes);
   await app.register(assetConditionsRoutes);
   await app.register(categoriesRoutes);
