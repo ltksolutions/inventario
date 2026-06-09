@@ -70,6 +70,48 @@ export class AuditLogRepository {
   }
 
   /**
+   * Find audit log entries for a specific target entity (tenant-scoped),
+   * newest-first, with pagination. Used by entity history views (napr.
+   * „Audit log" tab na detaile majetku).
+   *
+   * Uses the `target_entity` index. `organisationId` je vždy povinný —
+   * audit log je tenant-scoped a cudzí tenant nesmie vidieť históriu.
+   */
+  async findByTarget(
+    organisationId: string,
+    entityType: string,
+    entityId: string,
+    opts: { limit: number; skip: number },
+  ): Promise<AuditLog[]> {
+    return this.collection
+      .find({
+        organisationId,
+        'target.entityType': entityType,
+        'target.entityId': entityId,
+      } as unknown as Parameters<Collection<AuditLog>['find']>[0])
+      .sort({ at: -1 })
+      .skip(opts.skip)
+      .limit(opts.limit)
+      .toArray() as unknown as AuditLog[];
+  }
+
+  /**
+   * Count audit log entries for a specific target entity (tenant-scoped).
+   * Pre stránkovanie `findByTarget`.
+   */
+  async countByTarget(
+    organisationId: string,
+    entityType: string,
+    entityId: string,
+  ): Promise<number> {
+    return this.collection.countDocuments({
+      organisationId,
+      'target.entityType': entityType,
+      'target.entityId': entityId,
+    } as unknown as Parameters<Collection<AuditLog>['countDocuments']>[0]);
+  }
+
+  /**
    * Insert an audit log record.
    *
    * Optionally accepts a `session` for inclusion in a transaction. When

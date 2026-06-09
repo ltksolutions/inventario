@@ -25,6 +25,8 @@ import { TRACKING_MODE_VALUES, UpdateAssetSchema } from '@inventario/shared-type
 import QRCode from 'qrcode';
 import { z } from 'zod';
 
+import { NotFoundError } from '../../plugins/error-handler.js';
+import { AuditLogRepository } from '../audit/audit.repository.js';
 import { CategoriesRepository } from '../categories/categories.repository.js';
 import { LocationsRepository } from '../locations/locations.repository.js';
 import { OrganisationsRepository } from '../organisations/organisations.repository.js';
@@ -78,6 +80,21 @@ const ApiCreateAssetBodySchema = z
   })
   .describe('Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server');
 
+const AuditListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  skip: z.coerce.number().int().min(0).default(0),
+});
+
+const AuditListResponseSchema = z.object({
+  data: z.array(z.record(z.string(), z.unknown())),
+  pagination: z.object({
+    total: z.number().int().nonnegative(),
+    limit: z.number().int().positive(),
+    skip: z.number().int().nonnegative(),
+    hasMore: z.boolean(),
+  }),
+});
+
 const AssetResponseSchema = z.record(z.string(), z.unknown());
 
 const ListAssetsResponseSchema = z.object({
@@ -102,6 +119,7 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
   const locationsRepo = new LocationsRepository(fastify.mongo.db);
   const orgsRepo = new OrganisationsRepository(fastify.mongo.db);
   const stockMovementsRepo = new StockMovementsRepository(fastify.mongo.db);
+  const auditLogRepo = new AuditLogRepository(fastify.mongo.db);
   const service = new AssetsService(
     repo,
     fastify.auditLog,
@@ -154,6 +172,59 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       return service.getById(request.params.id, request.currentUser);
+    },
+  );
+
+  // --- GET /v1/assets/:id/audit --------------------------------------------
+  // História zmien majetku (GDPR čl. 30). Tenant-scoped, len pre správcov
+  // a adminov (zobrazuje meno aktéra — obmedzené z dôvodu ochrany os. údajov).
+  app.get(
+    '/v1/assets/:id/audit',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Assets'],
+        summary: 'Audit log majetku',
+        description:
+          'Záznamy auditu pre konkrétny majetok (najnovšie prvé), stránkované. ' +
+          'Len ASSET_MANAGER/ADMIN. 404 ak majetok neexistuje v tenantovi.',
+        security: [{ bearerAuth: [] }],
+        params: AssetIdParamsSchema,
+        querystring: AuditListQuerySchema,
+        response: { 200: AuditListResponseSchema },
+      },
+    },
+    async (request) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const { id } = request.params;
+      const { limit, skip } = request.query;
+
+      // Overiť, že majetok existuje v tenantovi (inak by sa dal sondovať cudzí audit).
+      const asset = await repo.findById(tenantId, id);
+      if (!asset) {
+        throw new NotFoundError('Asset', id);
+      }
+
+      const [entries, total] = await Promise.all([
+        auditLogRepo.findByTarget(tenantId, 'Asset', id, { limit, skip }),
+        auditLogRepo.countByTarget(tenantId, 'Asset', id),
+      ]);
+
+      return {
+        data: entries.map((e) => ({
+          id: String(e._id),
+          at: e.at,
+          actor: {
+            displayName: e.actor.displayName,
+            accountType: e.actor.accountType,
+          },
+          action: e.action,
+          description: e.description,
+          changes: e.changes ?? null,
+          severity: e.severity,
+        })),
+        pagination: { total, limit, skip, hasMore: skip + entries.length < total },
+      };
     },
   );
 

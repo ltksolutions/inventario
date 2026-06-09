@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowLeft,
@@ -112,7 +113,8 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
   const orgQuery = useCurrentOrganisation();
 
   const isBulk = assetQuery.data?.trackingMode === 'BULK';
-  const TABS = isBulk ? TABS_BULK : TABS_SERIALIZED;
+  // Audit log je len pre správcov/adminov (endpoint je ASSET_MANAGER/ADMIN).
+  const TABS = (isBulk ? TABS_BULK : TABS_SERIALIZED).filter((t) => t.id !== 'audit' || canEdit);
 
   const categoriesById = new Map((categoriesQuery.data?.data ?? []).map((c) => [c._id, c]));
   const locationsById = new Map((locationsQuery.data?.data ?? []).map((l) => [l._id, l]));
@@ -222,13 +224,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                     <StockPanel asset={assetQuery.data} />
                   )}
                   {activeTab === 'history' && <LoanHistoryTab assetId={assetId} />}
-                  {activeTab === 'audit' && (
-                    <StubTab
-                      icon={<ShieldAlert className="h-8 w-8" />}
-                      title="Audit log"
-                      description="Kompletný záznam zmien podľa GDPR Article 30 — čoskoro k dispozícii."
-                    />
-                  )}
+                  {activeTab === 'audit' && <AuditLogTab assetId={assetId} />}
                   {activeTab === 'attachments' && (
                     <StubTab
                       icon={<Paperclip className="h-8 w-8" />}
@@ -670,6 +666,151 @@ function LoanTimelineItem({ loan, isLast }: { loan: LoanSummary; isLast: boolean
       </div>
     </li>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Audit log tab (ADR — GDPR čl. 30 história zmien majetku)
+// ---------------------------------------------------------------------------
+
+interface AuditEntry {
+  id: string;
+  at: string;
+  actor: { displayName: string; accountType: string };
+  action: string;
+  description: string;
+  changes: { field: string; before: unknown; after: unknown }[] | null;
+  severity: 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
+}
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  ASSET_CREATED: 'Majetok vytvorený',
+  ASSET_UPDATED: 'Majetok upravený',
+  ASSET_DELETED: 'Majetok zmazaný',
+  ASSET_STATUS_CHANGED: 'Zmena stavu',
+  ASSET_LOCATION_CHANGED: 'Zmena lokality',
+  ASSET_DISPOSED: 'Majetok vyradený',
+};
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString('sk-SK', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function AuditLogTab({ assetId }: { assetId: string }): JSX.Element {
+  const query = useQuery<AuditEntry[], Error>({
+    queryKey: ['asset-audit', assetId],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/v1/assets/${assetId}/audit?limit=100`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Nepodarilo sa načítať audit log (${res.status}).`);
+      }
+      const json = (await res.json()) as { data: AuditEntry[] };
+      return json.data;
+    },
+  });
+
+  if (query.isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <div className="py-10 text-center">
+        <ShieldAlert className="mx-auto h-10 w-10 text-text-muted" aria-hidden="true" />
+        <p className="mt-3 text-sm font-medium text-text-primary">
+          Audit log sa nepodarilo načítať
+        </p>
+        <p className="mt-1 text-sm text-text-secondary">{query.error.message}</p>
+      </div>
+    );
+  }
+
+  const entries = query.data ?? [];
+  if (entries.length === 0) {
+    return (
+      <div className="py-10 text-center">
+        <ShieldAlert className="mx-auto h-10 w-10 text-text-muted" aria-hidden="true" />
+        <p className="mt-3 text-sm font-medium text-text-primary">Žiadne záznamy auditu</p>
+        <p className="mt-1 text-sm text-text-secondary">
+          Pre tento majetok zatiaľ nie sú zaznamenané žiadne zmeny.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h3 className="mb-5 font-bold text-text-primary">
+        Záznam zmien
+        <span className="ml-2 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-normal text-text-secondary">
+          {entries.length}
+        </span>
+      </h3>
+      <ol className="ml-2 space-y-0">
+        {entries.map((entry, idx) => (
+          <li key={entry.id} className="relative flex gap-4 pb-6 last:pb-0">
+            {idx !== entries.length - 1 && (
+              <div className="absolute left-[9px] top-5 bottom-0 w-0.5 bg-border-subtle" />
+            )}
+            <div
+              className={cn(
+                'relative z-10 mt-1 h-5 w-5 shrink-0 rounded-full border-[3px] bg-surface-card shadow-sm',
+                entry.severity === 'INFO' ? 'border-brand-primary' : 'border-amber-400',
+              )}
+            />
+            <div className="flex-1 rounded-lg border border-border-subtle bg-white p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="text-sm font-bold text-text-primary">
+                  {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
+                </p>
+                <span className="flex shrink-0 items-center gap-1 text-xs text-text-secondary">
+                  <Clock className="h-3 w-3" />
+                  {formatDateTime(entry.at)}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-text-secondary">{entry.description}</p>
+              <p className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                <User className="h-3 w-3" />
+                {entry.actor.displayName}
+              </p>
+              {entry.changes && entry.changes.length > 0 && (
+                <ul className="mt-2 space-y-1 border-t border-border-subtle pt-2">
+                  {entry.changes.map((ch, i) => (
+                    <li key={i} className="text-xs text-text-secondary">
+                      <span className="font-medium text-text-primary">{ch.field}</span>:{' '}
+                      <span className="text-text-muted line-through">
+                        {formatChangeValue(ch.before)}
+                      </span>{' '}
+                      → <span className="text-text-primary">{formatChangeValue(ch.after)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function formatChangeValue(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
 }
 
 // ---------------------------------------------------------------------------
