@@ -18,10 +18,59 @@
 - Unit testy: `tests/unit/email-protocol-to-sign.test.ts` (interface contract); testy spúšťať lokálne (`pnpm test`), sandbox blokuje esbuild/mongodb-memory-server
 - Typecheck: ✅ bez chýb
 
+### ✅ E-mail notifikácia borrowerovi pri priamej výpožičke — HOTOVÉ (2026-06-09)
+
+- `sendDirectLoanCreatedEmail` pridaná do `EmailService` + `notifyDirectLoanCreated` helper v `LoansService`
+- Zapojené v `createDirectLoan` — fire-and-forget po transakcii
+- Commit `3d29301`
+
 ### Manuálne checky (P2 zvyšok)
 
 - Overiť `pnpm openapi:export:offline` (ručne dopĺňaný openapi.json — paths /v1/protocols a POST /v1/loans/:id/protocols)
 - E2E test s dvomi rôznymi účtami (manager vydá, borrower podpisuje zo svojho účtu) — overí aj Dashboard blok „Čaká na vás"
+
+---
+
+## EU Compliance — gaps zistené 2026-06-09
+
+Stav preverený voči deklaráciám na inventario.estate (EUPL-1.2 · REUSE 3.3 · GDPR ready · WCAG 2.1 AA).
+
+### 🔴 P1 — Audit log: chýba LOAN_PROTOCOL_SIGNED
+
+`protocols.routes.ts` (POST `/v1/loans/:id/protocols/:protocolId/sign`) nemá žiadne volanie `auditLog.record`. Prechod DRAFT → SIGNED je kľúčová právna udalosť — kto, kedy, akým spôsobom potvrdil prevzatie/vrátenie majetku.
+
+**Fix:** Pridať `LOAN_PROTOCOL_SIGNED` do `protocols.routes.ts` po úspešnom podpise (po zápise do DB), s `target.entityType: 'LoanProtocol'`, `target.entityId: protocolId`, `severity: 'INFO'`, `legalBasis: 'legitimate_interest'`. Taktiež pridať `LOAN_PROTOCOL_SIGNED` do `CRUD_ACTIONS` v `retention.service.ts`.
+
+### 🟡 P2 — Audit log: LOAN_PROTOCOL_CREATED chýba v retention
+
+Akcia `LOAN_PROTOCOL_CREATED` je logovaná v kóde, ale **chýba v `CRUD_ACTIONS`** zozname v `retention.service.ts` → nikdy sa nepseudonymizuje. Fix: pridať jeden riadok do `CRUD_ACTIONS` array.
+
+### 🟡 P2 — REUSE 3.3: chýba `.reuse/` adresár a 122 súborov bez SPDX hlavičky
+
+Web deklaruje **REUSE 3.3 compliant**, ale:
+
+- Chýba `.reuse/dep5` alebo `.reuse/REUSE.toml` (povinný pre REUSE spec)
+- 122 zdrojových súborov (z 341) nemá `SPDX-FileCopyrightText` + `SPDX-License-Identifier` hlavičku — najmä `apps/api/src/modules/audit/`, `categories/`, `locations/`, `organisations/`, `stock/`, `users/`, `loans/`, utility libs, helper súbory
+
+**Fix:** (a) Pridať `.reuse/REUSE.toml` (alebo `dep5`) pre generované súbory a binary assets. (b) Batch-pridať SPDX hlavičky do chýbajúcich zdrojových súborov — 1-riadkový copyright + license comment. Potom spustiť `reuse lint` v CI. Súbory v `dist/` a `node_modules/` sa riešia cez `.reuse/dep5` (REUSE to predvída).
+
+### 🟢 P3 — WCAG 2.1 AA: marketing site má 3 otvorené P1 nálezy
+
+Podľa `docs/compliance/wcag-2.1-aa-audit.md` (audit z 17. mája 2026, plánovaný fix „Phase D"):
+
+- **#1** SVG a emoji ikony bez `aria-hidden` (1.1.1 Non-text content)
+- **#2** Chýba `<main>` landmark (1.3.1 Info and relationships)
+- **#3** Link color `--brand-accent #388fc3` má kontrast ~3.5:1 voči bielej — pod AA limitom 4.5:1 (1.4.3 Contrast)
+
+`apps/web` (aplikácia) zatiaľ bez WCAG auditu — plánovaný `eslint-plugin-jsx-a11y` + `@axe-core/cli` v CI.
+
+### ✅ Čo je v poriadku
+
+- GDPR Article 30 záznamy existujú (`docs/compliance/gdpr-article-30.md`)
+- Retenčná politika implementovaná (`retention.service.ts`) — 3 časové pásma (24/60/84 mesiacov), pseudonymizácia (nie mazanie)
+- `LOAN_PROTOCOL_CREATED` je logovaný (chýba len v retention — viď P2 vyššie)
+- LICENSES/ adresár obsahuje EUPL-1.2.txt, CC-BY-4.0.txt, LicenseRef-DejaVu.txt ✅
+- EUPL-1.2 licencia v existujúcich súboroch správne ✅
 
 ---
 
