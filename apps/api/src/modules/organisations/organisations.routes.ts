@@ -253,6 +253,11 @@ const UpdateOrganisationBodySchema = z
     brandKit: BrandKitBodySchema.nullable(),
     billing: BillingBodySchema.nullable(),
     settings: z.record(z.string(), z.unknown()),
+    // ADR-0021: základná URL aplikácie pre QR kódy a /scan/ odkazy.
+    appBaseUrl: z
+      .string()
+      .url('appBaseUrl musí byť platná URL (napr. https://app.inventario.estate).')
+      .nullable(),
   })
   .partial()
   .describe('Čiastočná aktualizácia organizácie; všetky polia voliteľné.');
@@ -353,6 +358,12 @@ const UpdateOwnOrganisationBodySchema = z
     // clientSecret je plaintext — service ho zašifruje pred uložením.
     // null = odstrániť vlastnú app (späť na platformový fallback).
     microsoftOAuth: MicrosoftOAuthCredentialsPatchSchema.nullable().optional(),
+    // ADR-0021: základná URL aplikácie pre QR kódy a /scan/ odkazy.
+    // QR zakóduje `${appBaseUrl}/scan/${publicToken}`; bez nej QR/štítky vrátia 409.
+    appBaseUrl: z
+      .string()
+      .url('appBaseUrl musí byť platná URL (napr. https://app.inventario.estate).')
+      .nullable(),
   })
   .partial()
   .describe(

@@ -142,6 +142,9 @@ function OrganisationSettingsPanel(): JSX.Element {
   const [foundPhone, setFoundPhone] = useState('');
   const [foundMessage, setFoundMessage] = useState('');
 
+  // appBaseUrl — základná URL pre QR kódy / štítky (ADR-0021)
+  const [appBaseUrl, setAppBaseUrl] = useState('');
+
   // Inventory number format state (ADR-0021)
   const [invPrefix, setInvPrefix] = useState('');
   const [invPadding, setInvPadding] = useState(4);
@@ -183,6 +186,8 @@ function OrganisationSettingsPanel(): JSX.Element {
     setFoundEmail(org.foundContactInfo?.email ?? '');
     setFoundPhone(org.foundContactInfo?.phone ?? '');
     setFoundMessage(org.foundContactInfo?.message ?? '');
+    // appBaseUrl hydration (ADR-0021)
+    setAppBaseUrl(org.appBaseUrl ?? '');
     // inventoryNumberFormat hydration (ADR-0021)
     setInvPrefix(org.inventoryNumberFormat?.prefix ?? '');
     setInvPadding(org.inventoryNumberFormat?.padding ?? 4);
@@ -302,6 +307,17 @@ function OrganisationSettingsPanel(): JSX.Element {
       setFormError('Prefix čísla protokolu musí byť 1–5 veľkých ASCII písmen (napr. "PROT").');
       return;
     }
+    if (appBaseUrl.trim()) {
+      try {
+        const u = new URL(appBaseUrl.trim());
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('protocol');
+      } catch {
+        setFormError(
+          'Základná URL aplikácie musí byť platná adresa (napr. https://app.inventario.estate).',
+        );
+        return;
+      }
+    }
 
     update.mutate(
       {
@@ -336,6 +352,7 @@ function OrganisationSettingsPanel(): JSX.Element {
               }
             : null,
         },
+        appBaseUrl: appBaseUrl.trim() || null,
       },
       {
         onSuccess: () => {
@@ -384,9 +401,21 @@ function OrganisationSettingsPanel(): JSX.Element {
           </Field>
         </Section>
 
-        <Section title="QR kódy — kontakt na vrátenie">
+        <Section title="QR kódy a štítky">
+          <Field
+            label="Základná URL aplikácie"
+            hint="Povinné pre QR kódy a tlač štítkov. QR zakóduje {URL}/scan/{token}. Napr. https://app.inventario.estate"
+          >
+            <input
+              type="url"
+              value={appBaseUrl}
+              onChange={(e) => setAppBaseUrl(e.target.value)}
+              placeholder="https://app.inventario.estate"
+              className={inputCls()}
+            />
+          </Field>
           <p className="-mt-1 text-xs text-text-secondary">
-            Tieto informácie sa zobrazia na verejnej stránke po naskenovaní QR kódu nálezcom.
+            Nasledujúce informácie sa zobrazia na verejnej stránke po naskenovaní QR kódu nálezcom.
             Odporúčame organizačný kontakt, nie osobný. Nechajte prázdne, ak nechcete zverejniť
             kontakt.
           </p>

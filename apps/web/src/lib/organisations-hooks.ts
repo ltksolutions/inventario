@@ -107,6 +107,8 @@ export interface OrganisationSummary {
       initialSeq: number;
     } | null;
   } | null;
+  /** Základná URL aplikácie pre QR kódy a /scan/ odkazy (ADR-0021). Null = QR/štítky nedostupné. */
+  appBaseUrl: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -202,6 +204,8 @@ export interface UpdateCurrentOrganisationInput {
       initialSeq: number;
     } | null;
   } | null;
+  /** Základná URL aplikácie pre QR kódy a /scan/ odkazy (ADR-0021). */
+  appBaseUrl?: string | null;
 }
 
 export function useUpdateCurrentOrganisation(): UseMutationResult<
