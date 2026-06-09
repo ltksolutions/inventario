@@ -20,6 +20,7 @@ import {
   Pencil,
   RotateCcw,
   ShieldAlert,
+  Star,
   Trash2,
   Upload,
   User,
@@ -113,6 +114,8 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
   const locationsQuery = useLocations({ limit: 200 });
   const canEdit = useCanEditAssets();
   const orgQuery = useCurrentOrganisation();
+  const attachmentsQuery = useAssetAttachments(assetId);
+  const heroPhoto = pickHeroPhoto(attachmentsQuery.data);
 
   const isBulk = assetQuery.data?.trackingMode === 'BULK';
   // Audit log je len pre správcov/adminov (endpoint je ASSET_MANAGER/ADMIN).
@@ -178,6 +181,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                   canEdit={canEdit}
                   onEdit={() => setMode('edit')}
                   labelPrintingMode={orgQuery.data?.labelPrinting?.mode ?? null}
+                  photoUrl={heroPhoto?.url ?? null}
                 />
                 {/* QR card */}
                 <QrCard assetId={assetId} inventoryNumber={assetQuery.data.inventoryNumber} />
@@ -290,6 +294,7 @@ function AssetHeroCard({
   canEdit,
   onEdit,
   labelPrintingMode,
+  photoUrl,
 }: {
   asset: AssetDetail;
   categoryName: string | undefined;
@@ -297,22 +302,33 @@ function AssetHeroCard({
   canEdit: boolean;
   onEdit: () => void;
   labelPrintingMode?: 'PDF_SHEET' | 'ZEBRA_ZPL' | null;
+  photoUrl?: string | null;
 }): JSX.Element {
   return (
     <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-sm lg:col-span-2">
       <div className="grid grid-cols-1 sm:grid-cols-5">
         {/* Thumb */}
-        <div
-          className={cn(
-            'relative flex min-h-[140px] items-center justify-center bg-gradient-to-br sm:col-span-2 sm:min-h-[220px]',
-            heroGradient(asset.status),
-          )}
-        >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_25%_30%,rgba(255,255,255,0.15),transparent_50%)]" />
-          <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-            <Layers aria-hidden="true" className="h-8 w-8 text-white" />
+        {photoUrl ? (
+          <div className="relative min-h-[140px] bg-surface-subtle sm:col-span-2 sm:min-h-[220px]">
+            <img
+              src={photoUrl}
+              alt={asset.name}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
-        </div>
+        ) : (
+          <div
+            className={cn(
+              'relative flex min-h-[140px] items-center justify-center bg-gradient-to-br sm:col-span-2 sm:min-h-[220px]',
+              heroGradient(asset.status),
+            )}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_25%_30%,rgba(255,255,255,0.15),transparent_50%)]" />
+            <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+              <Layers aria-hidden="true" className="h-8 w-8 text-white" />
+            </div>
+          </div>
+        )}
 
         {/* Info */}
         <div className="flex flex-col p-5 sm:col-span-3 lg:p-6">
@@ -823,6 +839,7 @@ interface Attachment {
   sizeBytes: number;
   attachmentType: string;
   caption: string | null;
+  isPrimary: boolean;
   createdAt: string;
 }
 
@@ -832,12 +849,9 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolean }): JSX.Element {
-  const queryClient = useQueryClient();
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const query = useQuery<Attachment[], Error>({
+/** Zdieľaný hook — prílohy majetku (používa hero karta aj Prílohy tab). */
+function useAssetAttachments(assetId: string): ReturnType<typeof useQuery<Attachment[], Error>> {
+  return useQuery<Attachment[], Error>({
     queryKey: ['asset-attachments', assetId],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments`, {
@@ -851,6 +865,37 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
       return json.data;
     },
   });
+}
+
+/** Vyberie hlavné foto (isPrimary), inak najnovšiu fotku. */
+function pickHeroPhoto(items: Attachment[] | undefined): Attachment | null {
+  const photos = (items ?? []).filter((a) => a.attachmentType === 'ASSET_PHOTO');
+  return photos.find((a) => a.isPrimary) ?? photos[0] ?? null;
+}
+
+function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolean }): JSX.Element {
+  const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const query = useAssetAttachments(assetId);
+
+  async function handleSetPrimary(id: string): Promise<void> {
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/v1/attachments/${id}/primary`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (!res.ok && res.status !== 204) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Nastavenie hlavného foto zlyhalo (${res.status}).`);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['asset-attachments', assetId] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nastavenie hlavného foto zlyhalo.');
+    }
+  }
 
   async function handleUpload(file: File): Promise<void> {
     setError(null);
@@ -964,7 +1009,12 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
                 {photos.map((a) => (
                   <div
                     key={a.id}
-                    className="group relative overflow-hidden rounded-lg border border-border-subtle"
+                    className={cn(
+                      'group relative overflow-hidden rounded-lg border',
+                      a.isPrimary
+                        ? 'border-brand-primary ring-1 ring-brand-primary'
+                        : 'border-border-subtle',
+                    )}
                   >
                     <a href={a.url} target="_blank" rel="noopener noreferrer">
                       <img
@@ -973,15 +1023,33 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
                         className="aspect-square w-full object-cover"
                       />
                     </a>
+                    {a.isPrimary && (
+                      <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-md bg-brand-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+                        <Star className="h-3 w-3 fill-current" />
+                        Hlavné
+                      </span>
+                    )}
                     {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(a.id)}
-                        title="Zmazať"
-                        className="absolute right-1.5 top-1.5 rounded-md bg-white/90 p-1.5 text-red-600 opacity-0 shadow transition group-hover:opacity-100 hover:bg-white"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                        {!a.isPrimary && (
+                          <button
+                            type="button"
+                            onClick={() => void handleSetPrimary(a.id)}
+                            title="Nastaviť ako hlavné foto"
+                            className="rounded-md bg-white/90 p-1.5 text-brand-primary shadow hover:bg-white"
+                          >
+                            <Star className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(a.id)}
+                          title="Zmazať"
+                          className="rounded-md bg-white/90 p-1.5 text-red-600 shadow hover:bg-white"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}

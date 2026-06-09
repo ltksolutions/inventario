@@ -83,6 +83,38 @@ export class AttachmentsRepository {
     return inserted;
   }
 
+  /**
+   * Nastaví danú prílohu ako hlavné foto entity. Najprv zruší príznak na
+   * všetkých ASSET_PHOTO danej entity, potom ho nastaví na cieľovej prílohe.
+   * Tým je zaručené max jedno `isPrimary=true` na entitu.
+   */
+  async setPrimary(
+    organisationId: string,
+    entityType: Attachment['linkedTo']['entityType'],
+    entityId: string,
+    attachmentId: string,
+  ): Promise<void> {
+    const tenantId = requireTenantId(organisationId);
+    if (!ObjectId.isValid(attachmentId)) return;
+
+    await this.collection.updateMany(
+      tenantFilter<Attachment>(tenantId, {
+        'linkedTo.entityType': entityType,
+        'linkedTo.entityId': entityId,
+        attachmentType: 'ASSET_PHOTO',
+        isPrimary: true,
+      } as Filter<Attachment>),
+      { $set: { isPrimary: false, updatedAt: new Date().toISOString() } },
+    );
+
+    await this.collection.updateOne(
+      tenantFilter<Attachment>(tenantId, {
+        _id: new ObjectId(attachmentId) as unknown as Attachment['_id'],
+      } as Filter<Attachment>),
+      { $set: { isPrimary: true, updatedAt: new Date().toISOString() } },
+    );
+  }
+
   async softDelete(
     organisationId: string,
     id: string,

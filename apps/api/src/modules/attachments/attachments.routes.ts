@@ -84,6 +84,7 @@ function toApiShape(a: Attachment & { _id: unknown }): Record<string, unknown> {
     sizeBytes: a.sizeBytes,
     attachmentType: a.attachmentType,
     caption: a.caption,
+    isPrimary: a.isPrimary,
     createdAt: a.createdAt,
   };
 }
@@ -212,6 +213,7 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         caption: null,
         imageDimensions: null,
         isPublic: true,
+        isPrimary: false,
         createdAt: now,
         updatedAt: now,
         createdBy: actorId,
@@ -222,6 +224,42 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const inserted = await attachmentsRepo.insert(doc);
       return reply.status(201).send(toApiShape(inserted));
+    },
+  );
+
+  // --- PATCH /v1/attachments/:id/primary -----------------------------------
+  // Nastaví fotku ako hlavné foto majetku (zobrazí sa na hero karte).
+  app.patch(
+    '/v1/attachments/:id/primary',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Attachments'],
+        summary: 'Nastaviť prílohu ako hlavné foto (ASSET_MANAGER/ADMIN)',
+        description: 'Označí ASSET_PHOTO ako hlavné foto entity; ostatné sa odznačia.',
+        security: [{ bearerAuth: [] }],
+        params: AttachmentIdParamsSchema,
+        response: { 204: z.null() },
+      },
+    },
+    async (request, reply) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const { id } = request.params;
+
+      const existing = await attachmentsRepo.findById(tenantId, id);
+      if (!existing || existing.deletedAt) throw new NotFoundError('Attachment', id);
+      if (existing.attachmentType !== 'ASSET_PHOTO') {
+        throw new BadRequestError('Hlavné foto možno nastaviť len pre fotografiu (ASSET_PHOTO).');
+      }
+
+      await attachmentsRepo.setPrimary(
+        tenantId,
+        existing.linkedTo.entityType,
+        String(existing.linkedTo.entityId),
+        id,
+      );
+
+      return reply.status(204).send(null);
     },
   );
 

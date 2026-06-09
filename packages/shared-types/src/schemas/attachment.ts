@@ -78,6 +78,13 @@ export const AttachmentSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
 
     /** Či je súbor verejne dostupný (presigned URL nie je potrebný). */
     isPublic: z.boolean().default(false),
+
+    /**
+     * Hlavné foto entity (len pre ASSET_PHOTO). Max jedno `isPrimary=true`
+     * na entitu — vynucuje service pri nastavovaní. Zobrazuje sa na detaile
+     * majetku ako hero obrázok.
+     */
+    isPrimary: z.boolean().default(false),
   });
 
 export type Attachment = z.infer<typeof AttachmentSchema>;
