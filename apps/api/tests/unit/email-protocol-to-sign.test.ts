@@ -46,6 +46,7 @@ function makeStubEmailService(): {
     sendLoanRejectedEmail: async () => {},
     sendLoanRequestPendingEmail: async () => {},
     sendLinkProviderEmail: async () => {},
+    sendDirectLoanCreatedEmail: async () => {},
     sendProtocolToSignEmail: async (to, opts) => {
       // We test the real implementation by importing the plugin's service factory.
       // Here we just test the contract shape via the interface.

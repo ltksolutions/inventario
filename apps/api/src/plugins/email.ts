@@ -69,6 +69,17 @@ export interface EmailService {
       frontendUrl: string;
     },
   ): Promise<void>;
+  sendDirectLoanCreatedEmail(
+    to: string,
+    opts: {
+      borrowerName: string;
+      purpose: string;
+      itemCount: number;
+      dueAt: string | null;
+      loanId: string;
+      frontendUrl: string;
+    },
+  ): Promise<void>;
   sendProtocolToSignEmail(
     to: string,
     opts: {
@@ -225,6 +236,18 @@ const emailPlugin: FastifyPluginAsync = async (fastify) => {
           `${opts.requesterName} podal/a žiadosť "${opts.purpose}" (${opts.itemCount} pol.), ` +
           `${formatDateSk(opts.plannedFrom)} – ${formatDateSk(opts.plannedTo)}. ` +
           `${opts.frontendUrl}/requests/${opts.requestId}`,
+      });
+    },
+
+    async sendDirectLoanCreatedEmail(to, opts) {
+      await provider.send({
+        to,
+        subject: 'Bola vám vytvorená výpožička — Inventario',
+        html: directLoanCreatedEmailHtml(opts),
+        text:
+          `${opts.borrowerName}, správca vám vytvoril výpožičku "${opts.purpose}" ` +
+          `(${opts.itemCount} pol.), termín: ${formatDateSk(opts.dueAt)}. ` +
+          `${opts.frontendUrl}/my-loans`,
       });
     },
 
@@ -466,6 +489,34 @@ function loanRequestPendingEmailHtml(opts: {
           <td style="color:#1A2D47;font-size:14px;">${formatDateSk(opts.plannedTo)}</td></tr>
     </table>
     ${btn(`${opts.frontendUrl}/requests/${opts.requestId}`, 'Schváliť alebo zamietnuť')}
+  `,
+  );
+}
+
+function directLoanCreatedEmailHtml(opts: {
+  borrowerName: string;
+  purpose: string;
+  itemCount: number;
+  dueAt: string | null;
+  loanId: string;
+  frontendUrl: string;
+}): string {
+  return emailLayout(
+    'Nová výpožička',
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">📦 Bola vám vytvorená výpožička</h1>
+    <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+      Ahoj, <strong>${opts.borrowerName}</strong>! Správca vám vytvoril novú výpožičku.
+    </p>
+    <table style="background-color:#F8F6F1;border-radius:6px;padding:16px 20px;margin:0 0 24px;width:100%;box-sizing:border-box;">
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Účel</td>
+          <td style="color:#1A2D47;font-size:14px;font-weight:600;">${opts.purpose}</td></tr>
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:6px;">Počet položiek</td>
+          <td style="color:#1A2D47;font-size:14px;">${opts.itemCount}</td></tr>
+      <tr><td style="color:#64748B;font-size:13px;">Termín vrátenia</td>
+          <td style="color:#1A2D47;font-size:14px;font-weight:600;">${formatDateSk(opts.dueAt)}</td></tr>
+    </table>
+    ${btn(`${opts.frontendUrl}/my-loans`, 'Zobraziť moje výpožičky')}
   `,
   );
 }

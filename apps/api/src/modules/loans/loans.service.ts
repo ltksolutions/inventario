@@ -872,6 +872,7 @@ export class LoansService {
     });
 
     this.notifyProtocolToSign('HANDOVER', String(loan._id), String(loan.borrowerId), request);
+    void this.notifyDirectLoanCreated(loan, request);
 
     return loanToApiShape(loan);
   }
@@ -1232,6 +1233,38 @@ export class LoansService {
         }
       } catch (err) {
         request.log.warn({ err }, 'Failed to send protocol-to-sign email');
+      }
+    })();
+  }
+
+  /**
+   * Fire-and-forget: pošle e-mail borrowerovi o novej priamej výpožičke.
+   * Zlyhanie sa len zaloguje — neovplyvní hlavnú operáciu.
+   */
+  private notifyDirectLoanCreated(loan: WithId<Loan>, request: FastifyRequest): void {
+    if (!this.emailService?.isConfigured) return;
+    void (async () => {
+      try {
+        const usersCol = this.getDb().collection('users');
+        const borrowerId = String(loan.borrowerId);
+        const borrower = await usersCol.findOne({
+          _id: ObjectId.isValid(borrowerId)
+            ? (new ObjectId(borrowerId) as never)
+            : (borrowerId as never),
+          deletedAt: null,
+        });
+        if (borrower?.['email']) {
+          await this.emailService!.sendDirectLoanCreatedEmail(borrower['email'] as string, {
+            borrowerName: (borrower['displayName'] as string) || (borrower['email'] as string),
+            purpose: loan.purpose,
+            itemCount: loan.items.length,
+            dueAt: loan.dueAt,
+            loanId: String(loan._id),
+            frontendUrl: this.frontendUrl,
+          });
+        }
+      } catch (err) {
+        request.log.warn({ err }, 'Failed to send direct-loan-created email');
       }
     })();
   }
