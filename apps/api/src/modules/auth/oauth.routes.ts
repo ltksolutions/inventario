@@ -980,6 +980,8 @@ export async function attemptDomainAutoJoin(args: {
     deletedAt: null,
   })) as WithId<User> | null;
 
+  const isNewUser = !user;
+
   if (user) {
     // Globálne deaktivovaný účet — auto-join nepovolíme.
     if (user.isActive === false) return null;
@@ -1104,7 +1106,7 @@ export async function attemptDomainAutoJoin(args: {
     org,
     membershipId: String(membershipInsert.insertedId),
     role: UserRole.EMPLOYEE,
-    isNew: true,
+    isNew: isNewUser,
     wasInvite: false,
   };
 }
