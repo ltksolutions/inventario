@@ -26,7 +26,7 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -436,9 +436,8 @@ function AssetHeroCard({
  * QrCard — zobrazuje QR kod pre asset.
  *
  * Pouziva backend endpoint GET /v1/assets/:id/qr?format=svg (ADR-0021 K3).
- * Image sa nacitava cez <img> tag s credentials — cookie auth funguje
- * automaticky (same-site request na API_BASE).
- * Download button fetchuje PNG blob a triggerne <a download>.
+ * Inline náhľad aj download fetchujú cez credentials: 'include' a renderujú
+ * blob URL — <img src> by pri cross-origin requeste neposlal auth cookie.
  */
 function QrCard({
   assetId,
@@ -450,6 +449,36 @@ function QrCard({
   const [downloading, setDownloading] = useState(false);
   const qrSvgUrl = `${API_BASE}/v1/assets/${assetId}/qr?format=svg`;
   const qrPngUrl = `${API_BASE}/v1/assets/${assetId}/qr?format=png`;
+
+  // Inline náhľad QR načítavame cez fetch s credentials (nie priamo <img src>),
+  // lebo <img> pri cross-origin requeste neposiela auth cookie → 401. Blob URL
+  // potom vykreslíme. Rovnaký prístup ako funkčný PNG download.
+  const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
+  const [qrFailed, setQrFailed] = useState(false);
+
+  useEffect(() => {
+    let revoked: string | null = null;
+    let cancelled = false;
+    setQrPreviewUrl(null);
+    setQrFailed(false);
+    void (async () => {
+      try {
+        const res = await fetch(qrSvgUrl, { credentials: 'include' });
+        if (!res.ok) throw new Error(String(res.status));
+        const blob = await res.blob();
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        revoked = url;
+        setQrPreviewUrl(url);
+      } catch {
+        if (!cancelled) setQrFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [qrSvgUrl]);
 
   async function handleDownload() {
     setDownloading(true);
@@ -490,19 +519,16 @@ function QrCard({
         </button>
       </div>
 
-      {/* QR SVG — nacitany z API (same-origin), cookie auth automaticky.
-           Pouzivame <img> nie next/image lebo src je API URL s credentials;
-           next/image nepodporuje credentials: include na same-origin fetch. */}
-      <div className="mx-auto w-40 rounded-xl border border-border-subtle bg-white p-3 lg:w-44">
-        <img
-          src={qrSvgUrl}
-          alt={`QR kod pre ${inventoryNumber}`}
-          className="h-full w-full"
-          onError={(e) => {
-            // Ak API vrati 409 (appBaseUrl nie je nastaveny) — skry obrazok
-            (e.target as HTMLImageElement).style.opacity = '0.2';
-          }}
-        />
+      {/* QR — načítaný cez fetch s credentials (blob URL), lebo <img src> pri
+           cross-origin requeste neposiela auth cookie. */}
+      <div className="mx-auto flex aspect-square w-40 items-center justify-center rounded-xl border border-border-subtle bg-white p-3 lg:w-44">
+        {qrPreviewUrl ? (
+          <img src={qrPreviewUrl} alt={`QR kod pre ${inventoryNumber}`} className="h-full w-full" />
+        ) : qrFailed ? (
+          <span className="text-center text-[11px] text-text-muted">QR sa nepodarilo načítať</span>
+        ) : (
+          <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin text-text-muted" />
+        )}
       </div>
 
       <div className="mt-3 text-center">
