@@ -24,7 +24,7 @@
  *     - POST /v1/labels/zpl → { labels }
  *     - RBAC: EMPLOYEE môže, neautorizovaný dostane 401
  *     - Cross-tenant: asset iného tenanta → 404
- *     - 409 ak tenant nemá appBaseUrl
+ *     - tenant bez appBaseUrl → fallback na env/default (200, nie 409)
  *     - Fork doména: QR URL obsahuje appBaseUrl tenanta, nie hardkódovanú doménu
  */
 
@@ -348,8 +348,9 @@ describe('Labels routes — integration', () => {
       expect(res.statusCode).toBe(404);
     });
 
-    it('tenant bez appBaseUrl → 409', async () => {
-      // Nastav appBaseUrl na null pre test tenant
+    it('tenant bez appBaseUrl → fallback na default (200 + PDF)', async () => {
+      // Bez per-tenant appBaseUrl sa použije env APP_BASE_URL → default
+      // (resolveAppBaseUrl), takže QR štítky fungujú namiesto starého 409.
       const { token } = await provisionUser(app, {
         oid: 'sheet-nourl',
         role: UserRole.ASSET_MANAGER,
@@ -367,7 +368,8 @@ describe('Labels routes — integration', () => {
         headers: { cookie: `inv_access=${token}` },
       });
 
-      expect(res.statusCode).toBe(409);
+      expect(res.statusCode).toBe(200);
+      expect(Buffer.from(res.rawPayload).slice(0, 4).toString()).toBe('%PDF');
     });
 
     it('preset avery-l7163 → platné PDF', async () => {
