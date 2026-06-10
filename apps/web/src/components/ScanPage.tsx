@@ -14,8 +14,9 @@
  * na mobilnom zariadení nálezcu.
  */
 
-import { AlertCircle, Building2, Loader2, Mail, MapPin, Phone, Tag } from 'lucide-react';
+import { AlertCircle, Building2, Loader2, Mail, Phone } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
@@ -27,8 +28,6 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 interface PublicAssetView {
   organisationName: string;
   organisationLogoUrl: string | null;
-  inventoryNumber: string;
-  name: string;
   foundContact: {
     email: string | null;
     phone: string | null;
@@ -48,11 +47,31 @@ type ScanState =
 
 export function ScanPage({ publicToken }: { publicToken: string }) {
   const [state, setState] = useState<ScanState>({ status: 'loading' });
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      // Krok 1: ak je nálezca prihlásený člen tenanta, presmeruj na interný
+      // detail majetku (rýchle vyžiadanie/vrátenie). Token rozlíšime cez
+      // autentifikovaný endpoint; 401/404 = spadni na verejný lost&found.
+      try {
+        const authed = await fetch(
+          `${API_BASE}/v1/assets/by-token/${encodeURIComponent(publicToken)}`,
+          { credentials: 'include' },
+        );
+        if (cancelled) return;
+        if (authed.ok) {
+          const { id } = (await authed.json()) as { id: string };
+          router.replace(`/assets/${id}`);
+          return; // ostáva 'loading' kým prebehne presmerovanie
+        }
+      } catch {
+        // ignoruj — pokračuj na verejný view
+      }
+
+      // Krok 2: verejná lost&found stránka (neprihlásený nálezca)
       try {
         const res = await fetch(`${API_BASE}/v1/public/scan/${encodeURIComponent(publicToken)}`);
         if (cancelled) return;
@@ -80,7 +99,7 @@ export function ScanPage({ publicToken }: { publicToken: string }) {
     return () => {
       cancelled = true;
     };
-  }, [publicToken]);
+  }, [publicToken, router]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-start justify-center pt-12 px-4">
@@ -131,7 +150,7 @@ function ErrorView({ message }: { message: string }) {
 }
 
 function FoundView({ asset }: { asset: PublicAssetView }) {
-  const { organisationName, organisationLogoUrl, inventoryNumber, name, foundContact } = asset;
+  const { organisationName, organisationLogoUrl, foundContact } = asset;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -153,20 +172,6 @@ function FoundView({ asset }: { asset: PublicAssetView }) {
           <span className="text-sm font-medium opacity-90">{organisationName}</span>
         </div>
         <p className="text-xs opacity-70 mt-1">Našli ste náš majetok</p>
-      </div>
-
-      {/* Asset info */}
-      <div className="px-6 py-5 border-b border-gray-100">
-        <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
-          <div>
-            <p className="font-semibold text-gray-900">{name}</p>
-            <div className="flex items-center gap-1.5 mt-1">
-              <Tag className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-xs text-gray-500 font-mono">{inventoryNumber}</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Contact */}

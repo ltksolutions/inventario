@@ -68,12 +68,13 @@ describe('GET /v1/public/scan/:publicToken', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json<Record<string, unknown>>();
 
-      // Povinne polia musia byt pritomne
+      // Povinne polia musia byt pritomne (BEZ identity majetku — len org + kontakt)
       expect(typeof body['organisationName']).toBe('string');
-      expect(body['inventoryNumber']).toBe(asset.inventoryNumber);
-      expect(body['name']).toBe('Najdeny notebook');
       expect('foundContact' in body).toBe(true);
       expect('organisationLogoUrl' in body).toBe(true);
+      // Identita majetku sa NESMIE zverejniť anonymnému nálezcovi
+      expect(body).not.toHaveProperty('inventoryNumber');
+      expect(body).not.toHaveProperty('name');
     });
 
     it('whitelist: response neobsahuje citlive polia', async () => {
@@ -91,11 +92,13 @@ describe('GET /v1/public/scan/:publicToken', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json<Record<string, unknown>>();
 
-      // Citlive polia NESMU byt v response
+      // Citlive polia NESMU byt v response (vrátane identity majetku)
       const forbidden = [
         '_id',
         'organisationId',
         'publicToken',
+        'inventoryNumber',
+        'name',
         'internalNotes',
         'acquisitionCost',
         'locationId',
@@ -111,17 +114,9 @@ describe('GET /v1/public/scan/:publicToken', () => {
         expect(body).not.toHaveProperty(field);
       }
 
-      // Presne 5 klucev
+      // Presne 3 kluce — len org identita + kontakt na vrátenie
       const keys = Object.keys(body).sort();
-      expect(keys).toEqual(
-        [
-          'foundContact',
-          'inventoryNumber',
-          'name',
-          'organisationLogoUrl',
-          'organisationName',
-        ].sort(),
-      );
+      expect(keys).toEqual(['foundContact', 'organisationLogoUrl', 'organisationName'].sort());
     });
   });
 

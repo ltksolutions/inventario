@@ -144,8 +144,9 @@ export const PublicAssetViewSchema = z
   .object({
     organisationName: z.string(),
     organisationLogoUrl: z.string().url().nullable(),
-    inventoryNumber: z.string(),
-    name: z.string(),
+    // ZÁMERNE bez identity majetku (názov/inv. číslo) — verejný lost&found
+    // ukazuje len organizáciu a kontakt na vrátenie. Identitu vidí len
+    // prihlásený člen tenanta cez interný flow (ADR-0021).
     foundContact: z
       .object({
         email: z.string().nullable(),

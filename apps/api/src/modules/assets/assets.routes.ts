@@ -176,6 +176,36 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // --- GET /v1/assets/by-token/:publicToken --------------------------------
+  // Autentifikované rozlíšenie majetku z QR tokenu pre interný flow (sken
+  // prihláseným členom → presmerovanie na detail). Tenant-scoped: token je
+  // globálne unikátny, ale vraciame len ak patrí tenantovi aktéra (inak 404 —
+  // nerevealujeme cudzie tenanty). NEzávisí od publicAssetLookup.
+  app.get(
+    '/v1/assets/by-token/:publicToken',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
+      schema: {
+        tags: ['Assets'],
+        summary: 'Rozlíš majetok podľa QR tokenu (interné, prihlásené)',
+        description:
+          'Vráti id majetku pre daný publicToken v rámci tenanta aktéra. ' +
+          '404 ak token neexistuje alebo patrí inému tenantovi.',
+        security: [{ bearerAuth: [] }],
+        params: z.object({ publicToken: z.string().min(1).max(128) }),
+        response: { 200: z.object({ id: z.string() }) },
+      },
+    },
+    async (request) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const asset = await repo.findByPublicToken(request.params.publicToken);
+      if (!asset || String(asset.organisationId) !== tenantId) {
+        throw new NotFoundError('Asset', request.params.publicToken);
+      }
+      return { id: String(asset._id) };
+    },
+  );
+
   // --- GET /v1/assets/:id/audit --------------------------------------------
   // História zmien majetku (GDPR čl. 30). Tenant-scoped, len pre správcov
   // a adminov (zobrazuje meno aktéra — obmedzené z dôvodu ochrany os. údajov).

@@ -29,12 +29,14 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 // Schemas
 // ---------------------------------------------------------------------------
 
+// Verejná lost&found odpoveď — ZÁMERNE bez identity majetku (názov,
+// inventárne číslo). Neprihlásený nálezca vidí len organizáciu a kontakt
+// na vrátenie (email/telefón/správa z nastavení organizácie). Identitu
+// majetku vidí len prihlásený člen tenanta cez interný flow.
 const PublicAssetResponseSchema = z
   .object({
     organisationName: z.string(),
     organisationLogoUrl: z.string().url().nullable(),
-    inventoryNumber: z.string(),
-    name: z.string(),
     foundContact: z
       .object({
         email: z.string().nullable(),
@@ -94,12 +96,11 @@ const publicAssetsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ message: 'Not found.' });
       }
 
-      // Krok 3: zostav PublicAssetView — POLE PO POLI, NIE spread (ADR-0021)
+      // Krok 3: zostav PublicAssetView — POLE PO POLI, NIE spread (ADR-0021).
+      // BEZ identity majetku (názov/inv. číslo) — len org + kontakt na vrátenie.
       const view = {
         organisationName: org.displayName,
         organisationLogoUrl: org.brandKit?.logoUrl ?? null,
-        inventoryNumber: asset.inventoryNumber,
-        name: asset.name,
         foundContact:
           org.foundContactInfo != null
             ? {
