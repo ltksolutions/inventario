@@ -572,6 +572,9 @@
                     "type": "string",
                     "format": "uri",
                     "nullable": true
+                  },
+                  "publicAssetLookup": {
+                    "type": "boolean"
                   }
                 },
                 "additionalProperties": false,
@@ -1348,6 +1351,9 @@
                     "type": "string",
                     "format": "uri",
                     "nullable": true
+                  },
+                  "publicAssetLookup": {
+                    "type": "boolean"
                   }
                 },
                 "additionalProperties": false,
@@ -2430,6 +2436,53 @@
         }
       }
     },
+    "/v1/assets/by-token/{publicToken}": {
+      "get": {
+        "summary": "Rozlíš majetok podľa QR tokenu (interné, prihlásené)",
+        "tags": [
+          "Assets"
+        ],
+        "description": "Vráti id majetku pre daný publicToken v rámci tenanta aktéra. 404 ak token neexistuje alebo patrí inému tenantovi.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "publicToken",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/assets/{id}/audit": {
       "get": {
         "summary": "Audit log majetku",
@@ -2765,12 +2818,6 @@
                       "format": "uri",
                       "nullable": true
                     },
-                    "inventoryNumber": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
                     "foundContact": {
                       "type": "object",
                       "properties": {
@@ -2799,8 +2846,6 @@
                   "required": [
                     "organisationName",
                     "organisationLogoUrl",
-                    "inventoryNumber",
-                    "name",
                     "foundContact"
                   ],
                   "additionalProperties": false
