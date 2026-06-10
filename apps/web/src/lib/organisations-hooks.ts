@@ -109,6 +109,8 @@ export interface OrganisationSummary {
   } | null;
   /** Základná URL aplikácie pre QR kódy a /scan/ odkazy (ADR-0021). Null = QR/štítky nedostupné. */
   appBaseUrl: string | null;
+  /** Opt-in verejný „lost & found" lookup po naskenovaní QR (ADR-0021). */
+  publicAssetLookup: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -206,6 +208,8 @@ export interface UpdateCurrentOrganisationInput {
   } | null;
   /** Základná URL aplikácie pre QR kódy a /scan/ odkazy (ADR-0021). */
   appBaseUrl?: string | null;
+  /** Opt-in verejný „lost & found" lookup po naskenovaní QR (ADR-0021). */
+  publicAssetLookup?: boolean;
 }
 
 export function useUpdateCurrentOrganisation(): UseMutationResult<

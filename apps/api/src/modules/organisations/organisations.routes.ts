@@ -258,6 +258,8 @@ const UpdateOrganisationBodySchema = z
       .string()
       .url('appBaseUrl musí byť platná URL (napr. https://app.inventario.estate).')
       .nullable(),
+    // ADR-0021: opt-in verejný „lost & found" lookup po naskenovaní QR.
+    publicAssetLookup: z.boolean(),
   })
   .partial()
   .describe('Čiastočná aktualizácia organizácie; všetky polia voliteľné.');
@@ -359,11 +361,13 @@ const UpdateOwnOrganisationBodySchema = z
     // null = odstrániť vlastnú app (späť na platformový fallback).
     microsoftOAuth: MicrosoftOAuthCredentialsPatchSchema.nullable().optional(),
     // ADR-0021: základná URL aplikácie pre QR kódy a /scan/ odkazy.
-    // QR zakóduje `${appBaseUrl}/scan/${publicToken}`; bez nej QR/štítky vrátia 409.
+    // QR zakóduje `${appBaseUrl}/scan/${publicToken}`.
     appBaseUrl: z
       .string()
       .url('appBaseUrl musí byť platná URL (napr. https://app.inventario.estate).')
       .nullable(),
+    // ADR-0021: opt-in verejný „lost & found" lookup po naskenovaní QR.
+    publicAssetLookup: z.boolean(),
   })
   .partial()
   .describe(

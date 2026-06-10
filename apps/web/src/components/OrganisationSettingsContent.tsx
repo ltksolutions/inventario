@@ -144,6 +144,8 @@ function OrganisationSettingsPanel(): JSX.Element {
 
   // appBaseUrl — základná URL pre QR kódy / štítky (ADR-0021)
   const [appBaseUrl, setAppBaseUrl] = useState('');
+  // publicAssetLookup — verejný lost & found lookup po naskenovaní QR (ADR-0021)
+  const [publicAssetLookup, setPublicAssetLookup] = useState(false);
 
   // Inventory number format state (ADR-0021)
   const [invPrefix, setInvPrefix] = useState('');
@@ -188,6 +190,7 @@ function OrganisationSettingsPanel(): JSX.Element {
     setFoundMessage(org.foundContactInfo?.message ?? '');
     // appBaseUrl hydration (ADR-0021)
     setAppBaseUrl(org.appBaseUrl ?? '');
+    setPublicAssetLookup(org.publicAssetLookup ?? false);
     // inventoryNumberFormat hydration (ADR-0021)
     setInvPrefix(org.inventoryNumberFormat?.prefix ?? '');
     setInvPadding(org.inventoryNumberFormat?.padding ?? 4);
@@ -353,6 +356,7 @@ function OrganisationSettingsPanel(): JSX.Element {
             : null,
         },
         appBaseUrl: appBaseUrl.trim() || null,
+        publicAssetLookup,
       },
       {
         onSuccess: () => {
@@ -414,6 +418,24 @@ function OrganisationSettingsPanel(): JSX.Element {
               className={inputCls()}
             />
           </Field>
+
+          <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm font-medium text-text-primary">
+            <input
+              type="checkbox"
+              checked={publicAssetLookup}
+              onChange={(e) => setPublicAssetLookup(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            />
+            <span>
+              Verejný lookup po naskenovaní QR (lost &amp; found)
+              <span className="mt-0.5 block text-xs font-normal text-text-secondary">
+                Ak je zapnuté, po naskenovaní QR sa komukoľvek (bez prihlásenia) zobrazí verejná
+                stránka s názvom organizácie, inventárnym číslom, názvom majetku a kontaktom na
+                vrátenie nižšie. Vypnuté = sken vráti „nenašiel sa".
+              </span>
+            </span>
+          </label>
+
           <p className="-mt-1 text-xs text-text-secondary">
             Nasledujúce informácie sa zobrazia na verejnej stránke po naskenovaní QR kódu nálezcom.
             Odporúčame organizačný kontakt, nie osobný. Nechajte prázdne, ak nechcete zverejniť
