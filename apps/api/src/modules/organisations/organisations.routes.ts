@@ -434,16 +434,10 @@ function detectImageType(buf: Buffer): { ext: string; contentType: string } | nu
 const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
-  // Multipart — zaregistrovaný lokálne v tomto plugine s limitmi pre logo
-  // upload (ADR-0028 v2). Limit fileSize je tvrdý strop na úrovni parsera;
-  // hodnotu validujeme ešte raz v handleri pre jasnú chybovú hlášku.
-  await fastify.register(import('@fastify/multipart'), {
-    limits: {
-      fileSize: LOGO_MAX_BYTES,
-      files: 1,
-      fields: 0,
-    },
-  });
+  // Multipart parser je registrovaný GLOBÁLNE v server.ts (raz pre celú app —
+  // @fastify/multipart sa pripája na koreňový scope, dvojitá registrácia padá
+  // na FST_ERR_CTP_ALREADY_PRESENT). Logo upload limit (LOGO_MAX_BYTES) sa
+  // vynucuje v handleri kontrolou veľkosti bufferu.
 
   const repo = new OrganisationsRepository(fastify.mongo.db);
   const service = new OrganisationsService(

@@ -128,6 +128,15 @@ export async function buildServer(
 
   await app.register(fastifyCookie);
 
+  // Multipart parser — registrovaný RAZ globálne. @fastify/multipart sa
+  // pripája na koreňový scope, takže viacnásobná registrácia v rôznych
+  // route plugin-och padá na FST_ERR_CTP_ALREADY_PRESENT. fileSize je
+  // tvrdý strop parsera (20 MB = max pre prílohy); jednotlivé handlery
+  // (napr. logo 512 KB) si menšie limity vynucujú kontrolou bufferu.
+  await app.register(import('@fastify/multipart'), {
+    limits: { fileSize: 20 * 1024 * 1024, files: 1 },
+  });
+
   await app.register(fastifyRateLimit, {
     max: 100, // 100 requests
     timeWindow: '1 minute',

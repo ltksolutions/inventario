@@ -96,10 +96,8 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
   const assetsRepo = new AssetsRepository(fastify.mongo.db);
   await attachmentsRepo.ensureIndexes();
 
-  // Multipart parser pre tento plugin scope (limit na úrovni parsera).
-  await fastify.register(import('@fastify/multipart'), {
-    limits: { fileSize: ATTACHMENT_MAX_BYTES, files: 1 },
-  });
+  // Multipart parser je registrovaný GLOBÁLNE v server.ts (limit fileSize
+  // pokrýva aj prílohy). Veľkosť kontrolujeme ešte raz v handleri.
 
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
