@@ -13,6 +13,14 @@
 
 **Follow-upy (nice-to-have):** audit eventy pre prílohy (chýba enum akcia), EXIF strip, súkromné blob URL pre citlivé doklady, živé odskúšanie Zebra ZPL vetvy (ADR-0027).
 
+### ✅ E-mail notifikácie overené (2026-06-10)
+
+- mail-tester.com: **9.3/10**, SPF + DKIM + DMARC **pass** (aligned). DNS pre `mail.inventario.estate` (SPF cez CNAME na SparkPost, DKIM `ecomail._domainkey.mail`, DMARC, tracking) je správny a publikovaný.
+- **Root-cause prečo predtým maily nešli:** produkčný deployment bežal s `EMAIL_PROVIDER=stub` (`[EMAIL-STUB] Would send email` v logu) — env premenná `EMAIL_PROVIDER=ecomail` bola síce vo Verceli, ale **Vercel načíta env len pri novom deployi**. Po `vercel --prod` redeployi sa maily reálne posielajú cez Ecomail.
+- Prod env (potvrdené): `EMAIL_PROVIDER=ecomail`, `EMAIL_FROM_ADDRESS=noreply@mail.inventario.estate`, `EMAIL_FROM_NAME=Inventario`, `EMAIL_REPLY_TO=support@inventario.estate`, `ECOMAIL_API_KEY` set. Mŕtva premenná `EMAIL_FROM` (appka ju nečíta) zmazaná.
+- Zvyšné body v mail-testeri sú neaktívne: `FROM_FMBLA_NEWDOM28` (dočasná penalizácia za novú doménu — sama zmizne) a chýbajúci `List-Unsubscribe` (irelevantné pre transakčné maily). **Netreba riešiť.**
+- TODO drobnosť: odvolať testovaciu pozvánku na `test-y0ie7157d@srv1.mail-tester.com`; zvážiť `EMAIL_PROVIDER` aj pre Preview (teraz len Production → preview deploye posielajú cez stub).
+
 **Stále otvorené z 2026-06-09 (EU compliance):** P1 `LOAN_PROTOCOL_SIGNED` v audit logu, P2 `LOAN_PROTOCOL_CREATED` v retention, P2 REUSE/SPDX hlavičky, P3 WCAG marketing site — viď nižšie.
 
 ---
