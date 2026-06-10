@@ -139,8 +139,16 @@ export async function renderLabelSheetPdf(
 
   const embedFont = await pdfDoc.embedFont(font, { subset: true });
 
-  // Embedovanie loga raz — znovu sa použije pre každý štítok
-  const logoImage = logo ? await pdfDoc.embedPng(logo) : null;
+  // Embedovanie loga raz — znovu sa použije pre každý štítok.
+  // Formát určujeme z magic bytes (JPEG začína FF D8), nie z prípony —
+  // tenant logo môže byť PNG alebo JPEG (loadLogo oba pustí). embedPng na
+  // JPEG bajtoch by hodil výnimku (rovnaký bug ako kedysi v protokole).
+  const isJpeg = logo != null && logo.length > 2 && logo[0] === 0xff && logo[1] === 0xd8;
+  const logoImage = logo
+    ? isJpeg
+      ? await pdfDoc.embedJpg(logo)
+      : await pdfDoc.embedPng(logo)
+    : null;
 
   // Rozdeliť assety na stránky
   const pageGroups: LabelAssetInput[][] = [];
