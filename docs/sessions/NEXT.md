@@ -1,5 +1,22 @@
 # NEXT
 
+## Aktuálny stav (2026-06-10)
+
+**Detail majetku — kompletná dávka HOTOVÁ a nasadená** (941/941 testov green). Detail: `docs/sessions/2026-06-10-asset-detail-fixes.md`.
+
+- Protokol PDF: serialNumber + kategória v snapshote ✅
+- `appBaseUrl` + verejný `publicAssetLookup` nastaviteľné v Organizácia → QR kódy a štítky; QR/štítky bez 409 (env/default fallback) ✅
+- Audit log tab na detaile majetku (`GET /v1/assets/:id/audit`) ✅
+- Prílohy + foto majetku (Vercel Blob), hlavné foto na hero karte ✅
+- Auth-aware QR sken: prihlásený → interný detail; anonymný → lost&found len s kontaktom (bez identity majetku) ✅
+- Opravené: PDF štítok 500 (JPEG logo), multipart double-register, prázdny QR náhľad (credentialed fetch)
+
+**Follow-upy (nice-to-have):** audit eventy pre prílohy (chýba enum akcia), EXIF strip, súkromné blob URL pre citlivé doklady, živé odskúšanie Zebra ZPL vetvy (ADR-0027).
+
+**Stále otvorené z 2026-06-09 (EU compliance):** P1 `LOAN_PROTOCOL_SIGNED` v audit logu, P2 `LOAN_PROTOCOL_CREATED` v retention, P2 REUSE/SPDX hlavičky, P3 WCAG marketing site — viď nižšie.
+
+---
+
 ## Aktuálny stav (2026-06-09)
 
 **P1 a P2 z predošlého plánu sú hotové** (overené v kóde 2026-06-09):

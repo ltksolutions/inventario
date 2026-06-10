@@ -2,7 +2,7 @@
 
 **Dátum:** 2026-06-10
 **Autor:** Janika + asistent
-**Stav:** NÁVRH — čaká na schválenie rozsahu
+**Stav:** ✅ HOTOVÉ — všetky 3 prúdy implementované, otestované (941/941) a nasadené. Session log: `2026-06-10-asset-detail-fixes.md`.
 
 ## Kontext
 

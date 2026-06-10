@@ -13,6 +13,11 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- **Detail majetku — Audit log, Prílohy/foto, QR/štítky (2026-06-10)**:
+  - `appBaseUrl` a verejný „lost & found" lookup (`publicAssetLookup`) nastaviteľné v Organizácia → QR kódy a štítky; `resolveAppBaseUrl` fallback (per-tenant → env `APP_BASE_URL` → default) odstránil 409 pri QR/štítkoch.
+  - **Audit log** na detaile majetku — `GET /v1/assets/:id/audit` (ASSET_MANAGER/ADMIN) + UI časová os zmien; `AuditLogRepository.findByTarget/countByTarget`.
+  - **Prílohy a foto majetku** — nový attachments modul (Vercel Blob): `POST/GET /v1/assets/:id/attachments`, `DELETE /v1/attachments/:id`, `PATCH /v1/attachments/:id/primary`; upload (PNG/JPEG/WEBP/PDF, max 20 MB), galéria, hlavné foto na hero karte (`Attachment.isPrimary`).
+  - **Auth-aware QR sken** — prihlásený člen tenanta → interný detail majetku (`GET /v1/assets/by-token/:publicToken`); neprihlásený → verejná stránka len s organizáciou a kontaktom na vrátenie (bez identity majetku).
 - **6 P0 design mockupov** (`docs/design/screens/`) — plne interaktívne high-fidelity HTML mockupy všetkých kritických obrazoviek aplikácie:
   - `01-login.html` — multi-tenant login s brand switcher-om a Microsoft SSO
   - `02-dashboard.html` — role-aware dashboard (Employee/Manager/Admin views)
@@ -80,6 +85,10 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Fixed
 
+- **Preberací protokol PDF** — `serialNumber` a `category` sa už správne zapisujú do snapshotu (predtým hardcoded `null`/`''`); podpísané protokoly ostávajú nemenné.
+- **PDF štítok 500** — `renderLabelSheetPdf` embedoval logo natvrdo `embedPng`; JPEG tenant logo → výnimka. Teraz detekcia magic bytes → `embedJpg`/`embedPng` (rovnaký bug ako kedysi v protokole).
+- **Boot 500 `FST_ERR_CTP_ALREADY_PRESENT`** — `@fastify/multipart` registrovaný dvakrát (logo + prílohy); teraz raz globálne v `server.ts`.
+- **QR náhľad prázdny** — `<img src>` pri cross-origin neposlal auth cookie; načítava sa cez credentialed fetch (blob URL).
 - Marketingová navigation — hamburger menu sa teraz zobrazuje aj na tablete (768 px), nielen na mobile (375 px). Pridané breakpointy: 1100 px (nav-links → hamburger), 700 px (skry nav-right items), 480 px (skry brand tag).
 - Nav-links text wrap fix — `white-space: nowrap` aby sa "Pre koho" / "O projekte" nezalamovali na viácero riadkov pri stredných breakpoint-och.
 - Logo upgrade — jednoduché písmeno "I" nahradené plnohodnotným SVG (3 horizontálne čiary klesá sa šírkou + modrý accent dot). Použité v nav, footri a favicon.
