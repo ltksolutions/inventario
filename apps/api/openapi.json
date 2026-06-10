@@ -567,6 +567,11 @@
                     ],
                     "additionalProperties": false,
                     "nullable": true
+                  },
+                  "appBaseUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
@@ -1338,6 +1343,11 @@
                   "settings": {
                     "type": "object",
                     "additionalProperties": {}
+                  },
+                  "appBaseUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
@@ -2420,6 +2430,106 @@
         }
       }
     },
+    "/v1/assets/{id}/audit": {
+      "get": {
+        "summary": "Audit log majetku",
+        "tags": [
+          "Assets"
+        ],
+        "description": "Záznamy auditu pre konkrétny majetok (najnovšie prvé), stránkované. Len ASSET_MANAGER/ADMIN. 404 ak majetok neexistuje v tenantovi.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "in": "query",
+            "name": "skip",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "skip": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "limit",
+                        "skip",
+                        "hasMore"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/assets/{id}/qr": {
       "get": {
         "summary": "Generuj QR kod pre asset (ADR-0021)",
@@ -2459,6 +2569,163 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/v1/assets/{id}/attachments": {
+      "get": {
+        "summary": "Zoznam príloh majetku",
+        "tags": [
+          "Attachments"
+        ],
+        "description": "Prílohy (foto, doklady) naviazané na majetok, najnovšie prvé.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Nahrať prílohu majetku (ASSET_MANAGER/ADMIN)",
+        "tags": [
+          "Attachments"
+        ],
+        "description": "Multipart upload jedného súboru (PNG/JPEG/WEBP → foto, PDF → doklad). Max 20 MB. Súbor sa uloží do Vercel Blob, metadata do DB.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/v1/attachments/{id}/primary": {
+      "patch": {
+        "summary": "Nastaviť prílohu ako hlavné foto (ASSET_MANAGER/ADMIN)",
+        "tags": [
+          "Attachments"
+        ],
+        "description": "Označí ASSET_PHOTO ako hlavné foto entity; ostatné sa odznačia.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attachments/{id}": {
+      "delete": {
+        "summary": "Zmazať prílohu (ASSET_MANAGER/ADMIN)",
+        "tags": [
+          "Attachments"
+        ],
+        "description": "Soft-delete metadata + odstránenie blobu z úložiska (best-effort).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true
+                }
+              }
+            }
           }
         }
       }
