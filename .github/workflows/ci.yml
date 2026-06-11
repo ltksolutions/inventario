@@ -183,7 +183,24 @@ jobs:
         run: pnpm --filter @inventario/api openapi:export:offline -- --check
 
   # ─────────────────────────────────────────────────────────────────
-  # Job 4: Commitlint — overiť, že commit messages spĺňajú konvenciu
+  # Job 4b: REUSE 3.3 compliance — každý tracked súbor musí mať licenciu
+  # + copyright (inline SPDX hlavička alebo .reuse/REUSE.toml). Beží aj
+  # pre dependabota (žiadne secrets, žiadny pnpm install).
+  # ─────────────────────────────────────────────────────────────────
+  reuse:
+    name: REUSE Compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: REUSE lint
+        uses: fsfe/reuse-action@v5
+
+  # ─────────────────────────────────────────────────────────────────
+  # Job 5: Commitlint — overiť, že commit messages spĺňajú konvenciu
   # (len pre PR, na main commity sa už nedá vrátiť)
   # ─────────────────────────────────────────────────────────────────
   commitlint:
