@@ -16,15 +16,9 @@ import { describe, expect, it } from 'vitest';
 import { PublicAssetViewSchema } from '../../src/schemas/asset.js';
 
 describe('PublicAssetViewSchema — whitelist invariant (ADR-0021 K6)', () => {
-  it('obsahuje PRESNE tychto 5 poli a nic ine', () => {
+  it('obsahuje PRESNE tychto 3 polia a nic ine', () => {
     const actualKeys = Object.keys(PublicAssetViewSchema.shape).sort();
-    const expectedKeys = [
-      'foundContact',
-      'inventoryNumber',
-      'name',
-      'organisationLogoUrl',
-      'organisationName',
-    ].sort();
+    const expectedKeys = ['foundContact', 'organisationLogoUrl', 'organisationName'].sort();
     expect(actualKeys).toEqual(expectedKeys);
   });
 
@@ -32,8 +26,6 @@ describe('PublicAssetViewSchema — whitelist invariant (ADR-0021 K6)', () => {
     const result = PublicAssetViewSchema.safeParse({
       organisationName: 'SFZ',
       organisationLogoUrl: 'https://cdn.inventario.estate/sfz-logo.png',
-      inventoryNumber: 'LT-2026-0001',
-      name: 'Lenovo ThinkPad X1',
       foundContact: {
         email: 'majetok@futbalsfz.sk',
         phone: '+421900000000',
@@ -47,19 +39,35 @@ describe('PublicAssetViewSchema — whitelist invariant (ADR-0021 K6)', () => {
     const result = PublicAssetViewSchema.safeParse({
       organisationName: 'Test Org',
       organisationLogoUrl: null,
-      inventoryNumber: 'TEST-001',
-      name: 'Test Asset',
       foundContact: null,
     });
     expect(result.success).toBe(true);
+  });
+
+  it('NEPREZENTUJE identitu majetku — odmietne name a inventoryNumber (ADR-0021)', () => {
+    // Jadro invariantu: verejný lost&found NESMIE odhaliť názov ani inv. číslo.
+    // Strict mode → akékoľvek pole identity majetku spôsobí zlyhanie validácie.
+    const withName = PublicAssetViewSchema.safeParse({
+      organisationName: 'SFZ',
+      organisationLogoUrl: null,
+      foundContact: null,
+      name: 'Lenovo ThinkPad X1',
+    });
+    expect(withName.success).toBe(false);
+
+    const withInventoryNumber = PublicAssetViewSchema.safeParse({
+      organisationName: 'SFZ',
+      organisationLogoUrl: null,
+      foundContact: null,
+      inventoryNumber: 'LT-2026-0001',
+    });
+    expect(withInventoryNumber.success).toBe(false);
   });
 
   it('odmietne extra pole (strict mode)', () => {
     const result = PublicAssetViewSchema.safeParse({
       organisationName: 'SFZ',
       organisationLogoUrl: null,
-      inventoryNumber: 'LT-001',
-      name: 'Laptop',
       foundContact: null,
       // Toto pole nesmie pretiec do verejneho DTO
       internalNotes: 'TAJNE POZNAMKY',
@@ -70,8 +78,6 @@ describe('PublicAssetViewSchema — whitelist invariant (ADR-0021 K6)', () => {
   it('odmietne chybajuce povinne pole', () => {
     const result = PublicAssetViewSchema.safeParse({
       organisationLogoUrl: null,
-      inventoryNumber: 'LT-001',
-      name: 'Laptop',
       foundContact: null,
       // chyba organisationName
     });
