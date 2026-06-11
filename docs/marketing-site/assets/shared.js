@@ -116,9 +116,9 @@
                                 Otvorená multi-tenant platforma pre evidenciu a vypožičiavanie majetku. Bez <span lang="en">vendor lock-in</span>.
                             </p>
                             <div style="display: flex; gap: 0.5rem; margin-top: 1.25rem; flex-wrap: wrap;">
-                                <span class="badge badge-white">🇪🇺 EUPL-1.2</span>
-                                <span class="badge badge-white">✓ REUSE 3.3</span>
-                                <span class="badge badge-white">🔒 GDPR</span>
+                                <span class="badge badge-white"><span aria-hidden="true">🇪🇺</span> EUPL-1.2</span>
+                                <span class="badge badge-white"><span aria-hidden="true">✓</span> REUSE 3.3</span>
+                                <span class="badge badge-white"><span aria-hidden="true">🔒</span> GDPR</span>
                             </div>
                         </div>
                         <div>

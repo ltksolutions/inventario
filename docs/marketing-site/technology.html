@@ -86,35 +86,35 @@ Inventario marketing site · Technológia
             <div class="grid grid-3 grid-gap-lg">
 
                 <div class="card tech-stack-card">
-                    <div class="icon">⚡</div>
+                    <div class="icon" aria-hidden="true">⚡</div>
                     <h3>Backend</h3>
                     <p class="brand-muted" style="font-size: 0.88rem;">Fastify (Node.js) s TypeScript. Zod schémy. Native MongoDB driver bez ORM.</p>
                     <code>TypeScript · Fastify · Zod</code>
                 </div>
 
                 <div class="card tech-stack-card">
-                    <div class="icon">🍃</div>
+                    <div class="icon" aria-hidden="true">🍃</div>
                     <h3>Databáza</h3>
                     <p class="brand-muted" style="font-size: 0.88rem;">MongoDB Atlas v EU regióne. Compound indexy pre tenant isolation. Native transakcie pre kritické operácie.</p>
                     <code>MongoDB · Atlas Flex</code>
                 </div>
 
                 <div class="card tech-stack-card">
-                    <div class="icon">🎨</div>
+                    <div class="icon" aria-hidden="true">🎨</div>
                     <h3>Frontend</h3>
                     <p class="brand-muted" style="font-size: 0.88rem;">Next.js (App Router) s React Server Components. Tailwind CSS s design tokens. Plne SSR-friendly.</p>
                     <code>Next.js · React · Tailwind</code>
                 </div>
 
                 <div class="card tech-stack-card">
-                    <div class="icon">🔐</div>
+                    <div class="icon" aria-hidden="true">🔐</div>
                     <h3>Autentifikácia</h3>
                     <p class="brand-muted" style="font-size: 0.88rem;">Microsoft Entra ID (multi-tenant). JWT verifikácia s JWKS rotation. JIT user provisioning.</p>
                     <code>Entra ID · OIDC · JWT</code>
                 </div>
 
                 <div class="card tech-stack-card">
-                    <div class="icon">🤖</div>
+                    <div class="icon" aria-hidden="true">🤖</div>
                     <h3>MCP server</h3>
                     <p class="brand-muted" style="font-size: 0.88rem;">Model Context Protocol server pre AI integrácie. Pripraví Inventario pre Claude, ChatGPT a iné agenty.</p>
                     <code>MCP · OpenAPI 3.1</code>
@@ -122,7 +122,7 @@ Inventario marketing site · Technológia
                 </div>
 
                 <div class="card tech-stack-card">
-                    <div class="icon">☁️</div>
+                    <div class="icon" aria-hidden="true">☁️</div>
                     <h3>Hosting</h3>
                     <p class="brand-muted" style="font-size: 0.88rem;">Vercel (EU región: fra1 Frankfurt, cdg1 Paríž). MongoDB Atlas EU. Plne GDPR-compliant infraštruktúra.</p>
                     <code>Vercel · EU región</code>
@@ -193,7 +193,7 @@ Inventario marketing site · Technológia
             <div class="grid grid-2 grid-gap-lg">
 
                 <div class="card">
-                    <h3>🛡️ RBAC na úrovni routes</h3>
+                    <h3><span aria-hidden="true">🛡️</span> RBAC na úrovni routes</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         Tri roly: <strong>EMPLOYEE</strong>, <strong>ASSET_MANAGER</strong>, <strong>ADMIN</strong>.
                         Každá HTTP route má explicitne deklarovanú požadovanú rolu. Fastify middleware
@@ -202,7 +202,7 @@ Inventario marketing site · Technológia
                 </div>
 
                 <div class="card">
-                    <h3>📝 Append-only audit log</h3>
+                    <h3><span aria-hidden="true">📝</span> Append-only audit log</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         Každá CRUD operácia sa zapíše do <code class="mono">audit_log</code> kolekcie spolu s actor-om,
                         cieľom, timestampom, IP adresou a JSON diff-om zmien. Logy sa nedajú meniť ani mazať
@@ -211,7 +211,7 @@ Inventario marketing site · Technológia
                 </div>
 
                 <div class="card">
-                    <h3>🔒 End-to-end TLS</h3>
+                    <h3><span aria-hidden="true">🔒</span> End-to-end TLS</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         HTTPS všade. Vercel automaticky generuje TLS certifikáty cez Let's Encrypt.
                         MongoDB Atlas používa TLS pre database connections. JWT tokens sú podpísané asymetrickou kryptografiou.
@@ -219,7 +219,7 @@ Inventario marketing site · Technológia
                 </div>
 
                 <div class="card">
-                    <h3>🗄️ Encrypted at rest</h3>
+                    <h3><span aria-hidden="true">🗄️</span> Encrypted at rest</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         MongoDB Atlas šifruje všetky dáta na disku cez AES-256. Vercel filesystem storage tiež šifrovaný.
                         Žiadne nešifrované backupy alebo logy.
@@ -227,7 +227,7 @@ Inventario marketing site · Technológia
                 </div>
 
                 <div class="card">
-                    <h3>⚙️ MongoDB transactions</h3>
+                    <h3><span aria-hidden="true">⚙️</span> MongoDB transactions</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         Kritické operácie (vytvorenie majetku + audit log, schválenie výpožičky + statusy)
                         bežia v transakciách. Žiadne čiastočne aplikované zmeny — buď všetko, alebo nič.
@@ -235,7 +235,7 @@ Inventario marketing site · Technológia
                 </div>
 
                 <div class="card">
-                    <h3>🎯 Coordinated Vulnerability Disclosure</h3>
+                    <h3><span aria-hidden="true">🎯</span> Coordinated Vulnerability Disclosure</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         Verejne dokumentovaný CVD policy v <a href="https://github.com/ltksolutions/inventario/blob/main/SECURITY.md" target="_blank">SECURITY.md</a>.
                         Bezpečnostné správy môžu byť posielané cez GitHub Security Advisories alebo na email.
@@ -258,7 +258,7 @@ Inventario marketing site · Technológia
 
                 <div class="card">
                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-                        <span class="badge">🇪🇺 EUPL-1.2</span>
+                        <span class="badge"><span aria-hidden="true">🇪🇺</span> EUPL-1.2</span>
                     </div>
                     <h3>European Union Public Licence</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
@@ -269,7 +269,7 @@ Inventario marketing site · Technológia
 
                 <div class="card">
                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-                        <span class="badge">✓ REUSE 3.3</span>
+                        <span class="badge"><span aria-hidden="true">✓</span> REUSE 3.3</span>
                     </div>
                     <h3>REUSE 3.3 Software Specification</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
@@ -280,7 +280,7 @@ Inventario marketing site · Technológia
 
                 <div class="card">
                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-                        <span class="badge">🔒 GDPR</span>
+                        <span class="badge"><span aria-hidden="true">🔒</span> GDPR</span>
                     </div>
                     <h3>GDPR Article 30 Records</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
@@ -292,7 +292,7 @@ Inventario marketing site · Technológia
 
                 <div class="card">
                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-                        <span class="badge">♿ WCAG 2.1 AA</span>
+                        <span class="badge"><span aria-hidden="true">♿</span> WCAG 2.1 AA</span>
                     </div>
                     <h3>Accessibility (zákon 95/2019)</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
@@ -303,7 +303,7 @@ Inventario marketing site · Technológia
 
                 <div class="card">
                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-                        <span class="badge">📜 DCO</span>
+                        <span class="badge"><span aria-hidden="true">📜</span> DCO</span>
                     </div>
                     <h3>Developer Certificate of Origin</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
@@ -314,7 +314,7 @@ Inventario marketing site · Technológia
 
                 <div class="card">
                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-                        <span class="badge">📦 SBOM</span>
+                        <span class="badge"><span aria-hidden="true">📦</span> SBOM</span>
                     </div>
                     <h3>Software Bill of Materials</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
@@ -378,20 +378,20 @@ Inventario marketing site · Technológia
 
             <div class="grid grid-3 grid-gap-lg">
                 <div class="card">
-                    <h3>📘 OpenAPI 3.1 spec</h3>
+                    <h3><span aria-hidden="true">📘</span> OpenAPI 3.1 spec</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         Plne dokumentované REST API s príkladmi requestov a responses. Auto-generované z Zod schém v backende.
                     </p>
                 </div>
                 <div class="card">
-                    <h3>🤖 MCP server <span class="badge" style="background: #fef3c7; color: #92400e; border-color: #fde68a; font-size: 0.65rem; vertical-align: middle; margin-left: 0.25rem;">V roadmape</span></h3>
+                    <h3><span aria-hidden="true">🤖</span> MCP server <span class="badge" style="background: #fef3c7; color: #92400e; border-color: #fde68a; font-size: 0.65rem; vertical-align: middle; margin-left: 0.25rem;">V roadmape</span></h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         Model Context Protocol server pre AI agentov (Claude, ChatGPT, vlastné agenty).
                         Pripravujeme infraštruktúru pre budúci chatbot v aplikácii. Plánované vo v0.7 (Q1 2027).
                     </p>
                 </div>
                 <div class="card">
-                    <h3>🔌 Webhooks (v roadmape)</h3>
+                    <h3><span aria-hidden="true">🔌</span> Webhooks (v roadmape)</h3>
                     <p class="brand-muted" style="font-size: 0.92rem;">
                         Event-driven integrácie: notifikácie pri schválení výpožičky, ASSET_CREATED do Slack-u,
                         notify Microsoft Teams pri po-termínových položkách.

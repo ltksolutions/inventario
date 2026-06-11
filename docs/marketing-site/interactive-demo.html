@@ -786,7 +786,7 @@ UX:
     <!-- ════════════════ HERO ════════════════ -->
     <section class="demo-hero">
         <div class="demo-hero-inner">
-            <div class="demo-eyebrow">🖥️ Verejné demo · v0.3 mockupy</div>
+            <div class="demo-eyebrow"><span aria-hidden="true">🖥️</span> Verejné demo · v0.3 mockupy</div>
             <h1>
                 Vidieť je <em>pochopiť</em>.<br />
                 Klikni a presvedč sa.
@@ -845,15 +845,15 @@ UX:
                 <div class="control-group">
                     <span class="control-label">Viewport:</span>
                     <button class="control-btn" data-viewport="mobile" title="375 × 720 (iPhone)">
-                        <span class="icon">📱</span>
+                        <span class="icon" aria-hidden="true">📱</span>
                         <span>Mobile</span>
                     </button>
                     <button class="control-btn" data-viewport="tablet" title="800 × 900 (iPad)">
-                        <span class="icon">💻</span>
+                        <span class="icon" aria-hidden="true">💻</span>
                         <span>Tablet</span>
                     </button>
                     <button class="control-btn active" data-viewport="desktop" title="1280 × 800 (Desktop)">
-                        <span class="icon">🖥️</span>
+                        <span class="icon" aria-hidden="true">🖥️</span>
                         <span>Desktop</span>
                     </button>
                 </div>
@@ -903,15 +903,15 @@ UX:
                 <div class="control-group">
                     <span class="control-label">Viewport:</span>
                     <button class="control-btn" data-viewport="mobile">
-                        <span class="icon">📱</span>
+                        <span class="icon" aria-hidden="true">📱</span>
                         <span>Mobile</span>
                     </button>
                     <button class="control-btn" data-viewport="tablet">
-                        <span class="icon">💻</span>
+                        <span class="icon" aria-hidden="true">💻</span>
                         <span>Tablet</span>
                     </button>
                     <button class="control-btn active" data-viewport="desktop">
-                        <span class="icon">🖥️</span>
+                        <span class="icon" aria-hidden="true">🖥️</span>
                         <span>Desktop</span>
                     </button>
                 </div>
@@ -927,7 +927,7 @@ UX:
                 <div class="screen-card-thumb">
                     <div class="screen-card-thumb-overlay"></div>
                     <div class="screen-card-num">01 · Login</div>
-                    <div class="screen-card-thumb-icon">🔐</div>
+                    <div class="screen-card-thumb-icon" aria-hidden="true">🔐</div>
                 </div>
                 <div class="screen-card-body">
                     <h3 class="screen-card-title">Prihlásenie</h3>
@@ -944,7 +944,7 @@ UX:
                 <div class="screen-card-thumb">
                     <div class="screen-card-thumb-overlay"></div>
                     <div class="screen-card-num">02 · Dashboard</div>
-                    <div class="screen-card-thumb-icon">📊</div>
+                    <div class="screen-card-thumb-icon" aria-hidden="true">📊</div>
                 </div>
                 <div class="screen-card-body">
                     <h3 class="screen-card-title">Dashboard (role-aware)</h3>
@@ -961,7 +961,7 @@ UX:
                 <div class="screen-card-thumb">
                     <div class="screen-card-thumb-overlay"></div>
                     <div class="screen-card-num">03 · Majetok</div>
-                    <div class="screen-card-thumb-icon">📦</div>
+                    <div class="screen-card-thumb-icon" aria-hidden="true">📦</div>
                 </div>
                 <div class="screen-card-body">
                     <h3 class="screen-card-title">Zoznam majetku</h3>
@@ -978,7 +978,7 @@ UX:
                 <div class="screen-card-thumb">
                     <div class="screen-card-thumb-overlay"></div>
                     <div class="screen-card-num">04 · Detail</div>
-                    <div class="screen-card-thumb-icon">🔍</div>
+                    <div class="screen-card-thumb-icon" aria-hidden="true">🔍</div>
                 </div>
                 <div class="screen-card-body">
                     <h3 class="screen-card-title">Detail majetku</h3>
@@ -995,7 +995,7 @@ UX:
                 <div class="screen-card-thumb">
                     <div class="screen-card-thumb-overlay"></div>
                     <div class="screen-card-num">05 · Vypožičať</div>
-                    <div class="screen-card-thumb-icon">📝</div>
+                    <div class="screen-card-thumb-icon" aria-hidden="true">📝</div>
                 </div>
                 <div class="screen-card-body">
                     <h3 class="screen-card-title">Žiadosť o výpožičku</h3>
@@ -1012,7 +1012,7 @@ UX:
                 <div class="screen-card-thumb">
                     <div class="screen-card-thumb-overlay"></div>
                     <div class="screen-card-num">06 · Moje</div>
-                    <div class="screen-card-thumb-icon">📚</div>
+                    <div class="screen-card-thumb-icon" aria-hidden="true">📚</div>
                 </div>
                 <div class="screen-card-body">
                     <h3 class="screen-card-title">Moje výpožičky</h3>
@@ -1277,7 +1277,7 @@ UX:
             btn.setAttribute('data-screen', screen.id);
             btn.setAttribute('title', `${screen.num} · ${screen.title}`);
             btn.innerHTML = `
-                <span class="sticky-thumb-icon">${screen.icon}</span>
+                <span class="sticky-thumb-icon" aria-hidden="true">${screen.icon}</span>
                 <span class="sticky-thumb-num">${screen.num}</span>
             `;
             btn.addEventListener('click', () => openScreen(screen.id));

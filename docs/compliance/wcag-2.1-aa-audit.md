@@ -214,12 +214,25 @@ V JS update: `document.getElementById('demo-status').textContent = 'Načítaná 
 
 ## Plán fixov
 
-| Priorita | Nálezy     | Plánované do                | Effort |
-| -------- | ---------- | --------------------------- | ------ |
-| **P1**   | #1, #2, #3 | Phase D — pred Slice #4     | ~2 hod |
-| **P2**   | #4, #5, #6 | Phase E — tech debt cleanup | ~1 hod |
+| Priorita | Nálezy     | Plánované do                | Effort | Stav                 |
+| -------- | ---------- | --------------------------- | ------ | -------------------- |
+| **P1**   | #1, #2, #3 | Phase D — pred Slice #4     | ~2 hod | ✅ HOTOVÉ 2026-06-11 |
+| **P2**   | #4, #5, #6 | Phase E — tech debt cleanup | ~1 hod | ✅ HOTOVÉ 2026-06-11 |
 
 P1 fixy sa robia v rámci Phase D ešte pred uzavretím tejto fázy. P2 fixy idú do **technical debt** sekcie v `NEXT.md` a sú riešené v Phase E pred Slice #4 launchom.
+
+### ✅ Stav fixov (2026-06-11)
+
+Všetkých 6 nálezov (#1–#6) je vyriešených v `docs/marketing-site/`:
+
+- **#1 aria-hidden** — všetky dekoratívne SVG (nav/footer/GitHub/chevron) aj emoji (badge prvky, „PRE KOHO" ikony, technology feature-ikony + nadpisy, sub-processors vlajky, interactive-demo a demo viewport ikony) majú `aria-hidden="true"`. Sémantické tabuľkové `✓` v cenníku a CSS `::before` glyfy ostávajú zámerne nedotknuté (nesú informáciu / sú už pre AT neviditeľné).
+- **#2 `<main>` landmark** — všetkých 6 obsahových stránok má `<main id="main">`. (`demo.html` = noindex iframe wrapper, `og-image.html` = noindex šablóna na PNG — `<main>` netreba.)
+- **#3 kontrast linkov** — nový semantic token `--brand-link #1f6699` (4.6:1 na bielej) pre body-text linky; `--brand-accent` ostáva pre dekoratívne UI.
+- **#4 skip-link** — `injectNavAndFooter()` v `shared.js` vkladá „Preskočiť na hlavný obsah" ako prvý prvok `<body>` (cieli `#main`).
+- **#5 `lang="en"`** — anglické termíny označené na kľúčových miestach (hero, about, technology, pricing, interactive-demo, footer).
+- **#6 `aria-live`** — interactive-demo má `#demo-announce` `role="status" aria-live="polite"` pre ohlasovanie zmien obrazovky/viewportu.
+
+Pozn.: väčšina #2–#6 už bola nasadená v skoršej iterácii; v tejto session sa doplnil najmä `aria-hidden` na zvyšné dekoratívne emoji a aria-label na viewport tlačidlá v `demo.html`.
 
 ## Apps/web (Slice #4) WCAG plán
 
