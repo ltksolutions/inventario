@@ -22,6 +22,7 @@ import { createHash } from 'node:crypto';
 import { del, put } from '@vercel/blob';
 import { z } from 'zod';
 
+import { stripImageMetadata } from '../../lib/strip-image-metadata.js';
 import { BadRequestError, HttpError, NotFoundError } from '../../plugins/error-handler.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 
@@ -189,9 +190,15 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         throw new HttpError(500, 'Upload nie je nakonfigurovaný (chýba BLOB_READ_WRITE_TOKEN).');
       }
 
-      const sha256 = createHash('sha256').update(buffer).digest('hex');
+      // Privacy: pri fotkách odstráň EXIF/XMP metadata (GPS, zariadenie, čas)
+      // pred uložením. PDF doklady ostávajú nedotknuté. sha256 sa počíta až
+      // z očisteného bufferu (to je presne to, čo uložíme do Blobu).
+      const storedBuffer =
+        detected.kind === 'image' ? stripImageMetadata(buffer, detected.ext) : buffer;
+
+      const sha256 = createHash('sha256').update(storedBuffer).digest('hex');
       const blobPath = `attachments/${tenantId}/${id}/${Date.now()}.${detected.ext}`;
-      const { url } = await put(blobPath, buffer, {
+      const { url } = await put(blobPath, storedBuffer, {
         access: 'public',
         contentType: detected.contentType,
         token: blobToken,
@@ -204,7 +211,7 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         storageKey: url,
         bucket: 'sfz-asset-attachments',
         mimeType: detected.contentType,
-        sizeBytes: buffer.byteLength,
+        sizeBytes: storedBuffer.byteLength,
         sha256,
         attachmentType: detected.kind === 'image' ? 'ASSET_PHOTO' : 'ASSET_DOCUMENT',
         linkedTo: { entityType: 'Asset', entityId: id },

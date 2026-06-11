@@ -42,6 +42,7 @@ import { put, del } from '@vercel/blob';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { stripImageMetadata } from '../../lib/strip-image-metadata.js';
 import { BadRequestError, HttpError } from '../../plugins/error-handler.js';
 
 import { OrganisationsRepository } from './organisations.repository.js';
@@ -611,8 +612,11 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Nahraj do Blobu. Cesta: logos/{organisationId}/{timestamp}.{ext}
       // — timestamp zaručí unikátnosť a obchádza CDN cache starého loga.
+      // Privacy: odstráň EXIF/XMP metadata z loga pred uložením.
+      const storedBuffer = stripImageMetadata(buffer, detected.ext);
+
       const blobPath = `logos/${organisationId}/${Date.now()}.${detected.ext}`;
-      const { url } = await put(blobPath, buffer, {
+      const { url } = await put(blobPath, storedBuffer, {
         access: 'public',
         contentType: detected.contentType,
         token: blobToken,
