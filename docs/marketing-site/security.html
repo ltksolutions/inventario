@@ -1,0 +1,170 @@
+<!--
+SPDX-FileCopyrightText: 2026 LTK Solutions, s.r.o.
+SPDX-License-Identifier: CC-BY-4.0
+
+Inventario marketing site · Bezpečnosť a súkromie (whitepaper)
+-->
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bezpečnosť a súkromie · Inventario</title>
+    <meta name="description" content="Ako Inventario chráni vaše dáta: šifrovanie, multi-tenant izolácia, dátová lokalita v EÚ, GDPR, sub-processori, zálohovanie a obnova. Verejný security & privacy whitepaper." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/shared.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Bezpečnosť a súkromie · Inventario" />
+    <meta property="og:description" content="Šifrovanie, multi-tenant izolácia, dátová lokalita v EÚ, GDPR a obnova po havárii — security & privacy whitepaper platformy Inventario." />
+    <meta property="og:url" content="https://inventario.estate/security" />
+    <meta property="og:image" content="https://inventario.estate/assets/og-image.png" />
+    <meta property="og:site_name" content="Inventario" />
+    <meta property="og:locale" content="sk_SK" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <style>
+        .wp-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .wp-table td, .wp-table th { padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border, #e5e7eb); text-align: left; vertical-align: top; font-size: 0.9rem; }
+        .wp-table th { color: var(--text-secondary, #6b7a8d); font-weight: 600; }
+        .wp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+        .wp-card { background: white; border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 1.25rem 1.5rem; }
+        .wp-card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+        .wp-card p { margin: 0; color: var(--text-secondary, #6b7a8d); font-size: 0.875rem; }
+    </style>
+</head>
+<body data-page="security">
+
+    <main id="main">
+
+    <!-- HERO -->
+    <section class="hero-gradient">
+        <div class="container" style="padding: 4rem 1.5rem;">
+            <div class="mono-label" style="color: rgba(255,255,255,0.6); margin-bottom: 0.75rem;">BEZPEČNOSŤ &amp; SÚKROMIE</div>
+            <h1 style="color: white; max-width: 760px;">Vaše dáta v bezpečí, v EÚ.</h1>
+            <p class="lead-white" style="max-width: 680px; margin-top: 1rem;">
+                Ako Inventario chráni osobné údaje a evidenciu majetku — šifrovanie, prísna izolácia
+                medzi zákazníkmi, dátová lokalita v Európskej únii a plný súlad s GDPR.
+            </p>
+            <div style="display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap; align-items: center;">
+                <span class="badge badge-white">Verzia 1.0</span>
+                <span class="badge badge-white"><span aria-hidden="true">🇪🇺</span> Dáta v EÚ</span>
+                <span class="badge badge-white"><span aria-hidden="true">🔒</span> GDPR</span>
+                <span class="badge badge-white">Open source · EUPL-1.2</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- DÁTOVÁ LOKALITA -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">DÁTOVÁ LOKALITA</div>
+            <h2>Všetko uložené v Európskej únii.</h2>
+            <p style="color: var(--text-secondary, #6b7a8d); margin-top: 0.5rem;">
+                Primárne uloženie údajov je celé v EÚ. Cezhraničné prenosy (OAuth prihlásenie, US dodávatelia)
+                sú kryté EU-US Data Privacy Framework a štandardnými zmluvnými doložkami (SCCs).
+            </p>
+            <table class="wp-table">
+                <tr><th>Vrstva</th><th>Poskytovateľ</th><th>Región</th></tr>
+                <tr><td>Frontend + API</td><td>Vercel</td><td>Paríž (FR) · Frankfurt (DE)</td></tr>
+                <tr><td>Databáza (osobné údaje)</td><td>MongoDB Atlas</td><td>AWS eu-central-1 Frankfurt (DE)</td></tr>
+                <tr><td>Transakčné e-maily</td><td>Ecomail.cz</td><td>Česká republika</td></tr>
+            </table>
+        </div>
+    </section>
+
+    <!-- ŠIFROVANIE -->
+    <section class="section">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">ŠIFROVANIE</div>
+            <h2>Šifrované v pokoji aj pri prenose.</h2>
+            <table class="wp-table">
+                <tr><th>Vrstva</th><th>Mechanizmus</th></tr>
+                <tr><td>Dáta v pokoji (at-rest)</td><td>AES-256 (vrátane záloh)</td></tr>
+                <tr><td>Prenos (in-transit)</td><td>TLS 1.3 + HSTS preload</td></tr>
+                <tr><td>Heslá</td><td>argon2id</td></tr>
+                <tr><td>MFA / TOTP secrets</td><td>AES-256-GCM</td></tr>
+                <tr><td>Relácie</td><td>JWT RS256 v HttpOnly + Secure cookie</td></tr>
+            </table>
+        </div>
+    </section>
+
+    <!-- KĽÚČOVÉ KONTROLY -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">KĽÚČOVÉ KONTROLY</div>
+            <h2>Bezpečnosť zabudovaná do architektúry.</h2>
+            <div class="wp-grid">
+                <div class="wp-card"><h3>Multi-tenant izolácia</h3><p>Identifikátor organizácie sa nastavuje len na serveri z overeného tokenu. Cudzí-tenant zdroj vráti 404. Pokryté 17 izolačnými testami.</p></div>
+                <div class="wp-card"><h3>MFA &amp; RBAC</h3><p>TOTP viacfaktorové overenie (per-tenant politika) a rolový model s 5 úrovňami vynucovaný na API.</p></div>
+                <div class="wp-card"><h3>Audit log</h3><p>Append-only záznam každej významnej akcie (kto-čo-kedy, IP). Zapisovaný atomicky v transakcii.</p></div>
+                <div class="wp-card"><h3>Threat model (STRIDE)</h3><p>32 analyzovaných hrozieb, 0 vysokých reziduálnych rizík, 4 stredné s mitigáciami.</p></div>
+                <div class="wp-card"><h3>Bezpečný vývoj</h3><p>PR review, CI brána (lint, testy, CodeQL), SBOM, Dependabot, ročné penetračné testy.</p></div>
+                <div class="wp-card"><h3>Minimalizácia údajov</h3><p>Z nahrávaných fotiek sa odstraňujú EXIF/GPS metadáta. Žiadne osobitné kategórie údajov.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GDPR -->
+    <section class="section">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">GDPR</div>
+            <h2>Súkromie podľa GDPR.</h2>
+            <p style="color: var(--text-secondary, #6b7a8d); margin-top: 0.5rem;">
+                LTK Solutions je <strong>sprostredkovateľ</strong>, zákazník je <strong>prevádzkovateľ</strong>.
+                Práva dotknutých osôb sú implementované priamo v aplikácii: prístup/export (čl. 20),
+                oprava (čl. 16), výmaz (čl. 17) a obmedzenie spracúvania (čl. 18).
+            </p>
+            <div class="notice-box" style="margin-top: 1.25rem;">
+                <strong>Pre obstarávanie a due diligence:</strong> k dispozícii máme DPA (čl. 28),
+                záznamy o spracovateľských činnostiach (čl. 30), verejný register
+                <a href="/sub-processors">sub-processorov</a> a
+                <a href="/dpia">DPIA Reference Pack</a> (pomoc s posúdením vplyvu podľa čl. 35).
+            </div>
+        </div>
+    </section>
+
+    <!-- RETENCIA + DR -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">UCHOVÁVANIE &amp; OBNOVA</div>
+            <h2>Jasné lehoty, pripravená obnova.</h2>
+            <table class="wp-table">
+                <tr><th>Oblasť</th><th>Hodnota</th></tr>
+                <tr><td>Audit — bežné akcie</td><td>24 mesiacov (potom pseudonymizácia)</td></tr>
+                <tr><td>Audit — security / GDPR udalosti</td><td>60 mesiacov</td></tr>
+                <tr><td>Evidenčné dáta po ukončení</td><td>60 mesiacov</td></tr>
+                <tr><td>Zálohy databázy</td><td>90 dní, point-in-time recovery</td></tr>
+                <tr><td>RPO / RTO</td><td>≤ 24 h / ≤ 8 h (DR test prešiel)</td></tr>
+                <tr><td>Notifikácia porušenia zákazníkovi</td><td>do 24 hodín od zistenia</td></tr>
+            </table>
+        </div>
+    </section>
+
+    <!-- KONTAKT -->
+    <section class="section">
+        <div class="container-narrow">
+            <div class="card" style="background: white;">
+                <h3 style="margin-top: 0;">Kontakt</h3>
+                <table class="wp-table">
+                    <tr><td style="width: 260px;">Bezpečnostné incidenty</td><td><a href="mailto:security@inventario.estate">security@inventario.estate</a></td></tr>
+                    <tr><td>Súkromie / GDPR</td><td><a href="mailto:privacy@inventario.estate">privacy@inventario.estate</a></td></tr>
+                    <tr><td>Právne / zmluvy (DPA)</td><td><a href="mailto:legal@inventario.estate">legal@inventario.estate</a></td></tr>
+                    <tr><td>Zdrojový kód</td><td><a href="https://github.com/ltksolutions/inventario" target="_blank" rel="noopener">github.com/ltksolutions/inventario <span aria-hidden="true">↗</span></a></td></tr>
+                </table>
+                <p style="margin-top: 1.5rem; margin-bottom: 0; font-size: 0.8rem; color: var(--text-secondary, #6b7a8d);">
+                    <strong>LTK Solutions, s.r.o.</strong> · Banícka 1894/17, 968 01 Nová Baňa ·
+                    IČO: 45 949 310 · IČ DPH: SK2023148017
+                </p>
+            </div>
+        </div>
+    </section>
+
+    </main>
+
+    <script src="assets/shared.js"></script>
+</body>
+</html>

@@ -148,7 +148,9 @@
                             </ul>
                             <h4 class="footer-heading" style="margin-top: 1.5rem;">Právne</h4>
                             <ul class="footer-links">
+                                <li><a href="/security">Bezpečnosť a súkromie</a></li>
                                 <li><a href="/sub-processors">Sub-procesori (GDPR)</a></li>
+                                <li><a href="/dpia">DPIA Reference Pack</a></li>
                             </ul>
                         </div>
                     </div>

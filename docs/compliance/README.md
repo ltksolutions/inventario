@@ -71,13 +71,13 @@ Tento adresár obsahuje compliance dokumentáciu LTK Solutions, s.r.o. pre platf
 
 ### ✅ Fáza 1 kompletná — všetky dokumenty pre go-live SFZ pilot
 
-### ⏳ Pripravované — Fáza 2 (pred ďalšími tenant-mi po SFZ)
+### ✅ Fáza 2 — hotové (2026-06-11)
 
-- **Security & Privacy Whitepaper** (verejný PDF — sales enabler, šetrí customer due diligence)
-- **Data Retention Schedule** (detailný per-category dokument nad rámec sumáru v ROPA)
-- **Information Security Policy** (interný)
-- **DPIA Reference Pack** publikovaný na https://inventario.estate/dpia (verejná verzia DPIA template)
-- **Audit log retention job** — automatická pseudonymizácia po 24/60/84 mes (impl. — viac v NEXT.md)
+- **Security & Privacy Whitepaper** ([`security-privacy-whitepaper.md`](./security-privacy-whitepaper.md)) — verejný, na https://inventario.estate/security
+- **Data Retention Schedule** ([`data-retention-schedule.md`](./data-retention-schedule.md)) — detailný per-category plán nad rámec sumáru v ROPA
+- **Information Security Policy** ([`information-security-policy.md`](./information-security-policy.md)) — interný riadiaci dokument (SOC 2 / ISO 27001 baseline)
+- **DPIA Reference Pack** ([`dpia-reference-pack.md`](./dpia-reference-pack.md)) — verejný, na https://inventario.estate/dpia
+- **Audit log retention job** — automatická pseudonymizácia po 24/60/84 mes (implementované, viď NEXT.md)
 
 ### 📅 Plánované v budúcnosti
 

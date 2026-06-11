@@ -8,6 +8,8 @@
 - ✅ P2 REUSE 3.3 (SPDX hlavičky + `.reuse/REUSE.toml`)
 - ✅ P3 WCAG #1–#6 marketing site
 - ✅ Audit eventy pre prílohy (`ASSET_ATTACHMENT_*`)
+- ✅ Pre-GA batch 2: reuse lint v CI · EXIF strip · attachments testy · apps/web a11y
+- ✅ P3 Compliance Fáza 2 — 4 dokumenty (retention schedule, infosec policy, security whitepaper, DPIA reference pack) + verejný web `/security` a `/dpia`. Session: `docs/sessions/2026-06-11-p3-compliance-docs.md`
 
 **Pre-GA kvalita — HOTOVÉ 2026-06-11 (batch 2):** ~~`reuse lint` do CI~~ ✅ (job `reuse` cez `fsfe/reuse-action@v5` v `ci.yml`); ~~`apps/web` WCAG~~ ✅ (jsx-a11y už bol zapojený, lint čistý — `@axe-core/cli` proti deployed URL ostáva ako budúci krok); ~~integračné testy pre attachments~~ ✅ (`tests/integration/attachments.test.ts`, `@vercel/blob` mock); ~~EXIF strip~~ ✅ (`lib/strip-image-metadata.ts` pure-JS, zapojený v attachments + logo upload, unit testy).
 

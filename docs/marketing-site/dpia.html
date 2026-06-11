@@ -1,0 +1,154 @@
+<!--
+SPDX-FileCopyrightText: 2026 LTK Solutions, s.r.o.
+SPDX-License-Identifier: CC-BY-4.0
+
+Inventario marketing site · DPIA Reference Pack
+-->
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DPIA Reference Pack · Inventario</title>
+    <meta name="description" content="Pomôcka pre prevádzkovateľa pri posúdení vplyvu na ochranu údajov (DPIA, čl. 35 GDPR) pre nasadenie Inventaria. Threshold test, predvyplnené technické fakty, riziká a opatrenia." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/shared.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="DPIA Reference Pack · Inventario" />
+    <meta property="og:description" content="Pomôcka pre prevádzkovateľa s posúdením vplyvu na ochranu údajov (DPIA, čl. 35 GDPR) pre Inventario." />
+    <meta property="og:url" content="https://inventario.estate/dpia" />
+    <meta property="og:image" content="https://inventario.estate/assets/og-image.png" />
+    <meta property="og:site_name" content="Inventario" />
+    <meta property="og:locale" content="sk_SK" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <style>
+        .dpia-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .dpia-table td, .dpia-table th { padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border, #e5e7eb); text-align: left; vertical-align: top; font-size: 0.9rem; }
+        .dpia-table th { color: var(--text-secondary, #6b7a8d); font-weight: 600; }
+        .dpia-step { background: white; border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 1.25rem 1.5rem; margin-top: 1rem; }
+        .dpia-step h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+        .dpia-step p { margin: 0 0 0.5rem; color: var(--text-secondary, #6b7a8d); font-size: 0.9rem; }
+    </style>
+</head>
+<body data-page="dpia">
+
+    <main id="main">
+
+    <!-- HERO -->
+    <section class="hero-gradient">
+        <div class="container" style="padding: 4rem 1.5rem;">
+            <div class="mono-label" style="color: rgba(255,255,255,0.6); margin-bottom: 0.75rem;">GDPR · ČL. 35</div>
+            <h1 style="color: white; max-width: 760px;">DPIA Reference Pack.</h1>
+            <p class="lead-white" style="max-width: 680px; margin-top: 1rem;">
+                Pomôcka pre vás ako prevádzkovateľa, keď zvažujete alebo vypracúvate posúdenie vplyvu
+                na ochranu údajov (DPIA) pre svoje nasadenie Inventaria.
+            </p>
+            <div style="display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap; align-items: center;">
+                <span class="badge badge-white">Verzia 1.0</span>
+                <span class="badge badge-white">EDPB WP248</span>
+                <span class="badge badge-white"><span aria-hidden="true">🔒</span> GDPR čl. 35</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- INFO BOX -->
+    <section class="section" style="background: var(--bg-page, #f8fafc); padding-bottom: 0;">
+        <div class="container-narrow">
+            <div class="notice-box">
+                <strong>Toto nie je hotová DPIA ani právne poradenstvo.</strong> Je to referenčná pomôcka
+                s predvyplnenými technickými faktami o platforme. LTK Solutions je sprostredkovateľ a podľa
+                čl. 28 ods. 3 písm. f) vám poskytuje súčinnosť. Plnú editovateľnú šablónu vám pošleme na
+                vyžiadanie: <a href="mailto:privacy@inventario.estate">privacy@inventario.estate</a>.
+            </div>
+        </div>
+    </section>
+
+    <!-- KROK 1 -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">KROK 1</div>
+            <h2>Potrebujete vôbec DPIA?</h2>
+            <p style="color: var(--text-secondary, #6b7a8d); margin-top: 0.5rem;">
+                DPIA je povinná, ak spracovanie pravdepodobne predstavuje vysoké riziko pre práva a slobody
+                osôb (čl. 35 ods. 1). Spočítajte, koľko kritérií EDPB (WP248) platí — pri 2 a viac zvyčajne treba DPIA.
+            </p>
+            <div class="dpia-step">
+                <h3>Pre typické nasadenie Inventaria zvyčajne DPIA netreba</h3>
+                <p>Evidencia majetku organizácie, bežní zamestnanci, žiadne profilovanie ani osobitné kategórie údajov.</p>
+                <p><strong>Pozor:</strong> ak spracúvate údaje <strong>maloletých</strong> (kluby, školy) alebo vo veľkom rozsahu, DPIA odporúčame.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- KROK 2 -->
+    <section class="section">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">KROK 2</div>
+            <h2>Popis spracovania (predvyplnené).</h2>
+            <table class="dpia-table">
+                <tr><th>Položka</th><th>Hodnota</th></tr>
+                <tr><td>Účel</td><td>Evidencia majetku a správa vypožičiavania</td></tr>
+                <tr><td>Povaha</td><td>Multi-tenant SaaS, dáta v EÚ</td></tr>
+                <tr><td>Kategórie údajov</td><td>Identifikačné, kontaktné, účtové, autentifikačné, custody majetku, podpis protokolu, audit metadáta. Žiadne osobitné kategórie (čl. 9).</td></tr>
+                <tr><td>Dotknuté osoby</td><td>Zamestnanci a spolupracovníci; pri kluboch/školách možní maloletí (cez rodiča)</td></tr>
+                <tr><td>Sub-processori</td><td><a href="/sub-processors">Verejný register</a> — Vercel, MongoDB, Ecomail, Microsoft, Google</td></tr>
+                <tr><td>Uchovávanie</td><td>Podľa Data Retention Schedule</td></tr>
+            </table>
+        </div>
+    </section>
+
+    <!-- KROK 3 -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">KROK 3</div>
+            <h2>Riziká a opatrenia platformy.</h2>
+            <table class="dpia-table">
+                <tr><th>Riziko pre práva osôb</th><th>Opatrenie</th></tr>
+                <tr><td>Cross-tenant únik dát</td><td>Server-side tenant scoping, 404 na cudzie dáta, 17 izolačných testov</td></tr>
+                <tr><td>Únik prihlasovacích údajov</td><td>argon2id heslá, AES-256-GCM MFA, per-tenant MFA politika</td></tr>
+                <tr><td>Strata / zmena dát</td><td>Denné zálohy (90 dní), point-in-time recovery, append-only audit log</td></tr>
+                <tr><td>Prenos mimo EÚ</td><td>Primárne uloženie v EÚ; US dodávatelia kryti DPF + SCCs</td></tr>
+            </table>
+            <p style="color: var(--text-secondary, #6b7a8d); margin-top: 1rem;">
+                Platformový threat model: <strong>32 hrozieb, 0 vysokých reziduálnych rizík</strong>.
+            </p>
+        </div>
+    </section>
+
+    <!-- KROK 4 -->
+    <section class="section">
+        <div class="container-narrow">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">KROK 4</div>
+            <h2>Práva osôb a konzultácia s úradom.</h2>
+            <p style="color: var(--text-secondary, #6b7a8d); margin-top: 0.5rem;">
+                Inventario poskytuje nástroje na výkon práv dotknutých osôb (prístup/export, oprava, výmaz, obmedzenie).
+                Ak DPIA aj po opatreniach indikuje vysoké reziduálne riziko, prevádzkovateľ konzultuje
+                <strong>Úrad na ochranu osobných údajov SR</strong> (dataprotection.gov.sk) pred začatím spracovania (čl. 36).
+            </p>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section" style="background: var(--bg-page, #f8fafc);">
+        <div class="container-narrow">
+            <div class="card" style="background: white;">
+                <h3 style="margin-top: 0;">Chcete plnú DPIA šablónu?</h3>
+                <p style="color: var(--text-secondary, #6b7a8d);">
+                    Editovateľnú predvyplnenú šablónu (vrátane threshold testu a 7 rizikových scenárov)
+                    vám pošleme pri onboardingu alebo na vyžiadanie.
+                </p>
+                <p style="margin-bottom: 0;"><a href="mailto:privacy@inventario.estate">privacy@inventario.estate</a></p>
+            </div>
+        </div>
+    </section>
+
+    </main>
+
+    <script src="assets/shared.js"></script>
+</body>
+</html>

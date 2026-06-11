@@ -219,30 +219,25 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ---
 
-## 🟢 P3 — Compliance Fáza 2 dokumenty
+## 🟢 P3 — Compliance Fáza 2 dokumenty ✅ DONE (2026-06-11)
 
-> Nie kód, ale „dorobiť" v zmysle dopísať. Roadmap v [`compliance/README.md`](./compliance/README.md).
+> Nie kód, ale „dorobiť" v zmysle dopísať. Roadmap v [`compliance/README.md`](./compliance/README.md). Všetky 4 dokumenty hotové + verejný web (security.html, dpia.html) + odkazy vo footeri. Session: `docs/sessions/2026-06-11-p3-compliance-docs.md`.
 
-### 9. Security & Privacy Whitepaper
+### 9. Security & Privacy Whitepaper ✅ DONE (2026-06-11)
 
-- **Model:** Opus
-- **Rozsah:** verejný PDF — sales enabler, šetrí customer due diligence
+- `compliance/security-privacy-whitepaper.md` + verejná stránka https://inventario.estate/security
 
-### 10. Data Retention Schedule (detail)
+### 10. Data Retention Schedule (detail) ✅ DONE (2026-06-11)
 
-- **Model:** Haiku / Sonnet
-- **Rozsah:** detailný per-category dokument nad rámec sumáru v ROPA sekcia 6
+- `compliance/data-retention-schedule.md` — per-category lehoty z `retention.service.ts` (24/60/84 m), pseudonymizácia, zálohy/logy
 
-### 11. Information Security Policy
+### 11. Information Security Policy ✅ DONE (2026-06-11)
 
-- **Model:** Opus
-- **Rozsah:** interný dokument
+- `compliance/information-security-policy.md` — interný (access control, šifrovanie, secure SDLC, DR, incident response)
 
-### 12. DPIA Reference Pack
+### 12. DPIA Reference Pack ✅ DONE (2026-06-11)
 
-- **Model:** Haiku
-- **Rozsah:** verejná verzia DPIA template, publikovaná na `inventario.estate/dpia`
-- **Súvis:** vychádza z hotového [`legal/dpia-template.md`](./compliance/legal/dpia-template.md)
+- `compliance/dpia-reference-pack.md` + verejná stránka https://inventario.estate/dpia (z `legal/dpia-template.md`)
 
 ---
 
