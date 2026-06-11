@@ -21,7 +21,14 @@
 - Zvyšné body v mail-testeri sú neaktívne: `FROM_FMBLA_NEWDOM28` (dočasná penalizácia za novú doménu — sama zmizne) a chýbajúci `List-Unsubscribe` (irelevantné pre transakčné maily). **Netreba riešiť.**
 - TODO drobnosť: odvolať testovaciu pozvánku na `test-y0ie7157d@srv1.mail-tester.com`; zvážiť `EMAIL_PROVIDER` aj pre Preview (teraz len Production → preview deploye posielajú cez stub).
 
-**Stále otvorené z 2026-06-09 (EU compliance):** P1 `LOAN_PROTOCOL_SIGNED` v audit logu, P2 `LOAN_PROTOCOL_CREATED` v retention, P2 REUSE/SPDX hlavičky, P3 WCAG marketing site — viď nižšie.
+**Stále otvorené z 2026-06-09 (EU compliance):** ~~P1 `LOAN_PROTOCOL_SIGNED`~~ ✅ HOTOVÉ (2026-06-11), ~~P2 `LOAN_PROTOCOL_CREATED` v retention~~ ✅ HOTOVÉ (2026-06-11), zostáva P2 REUSE/SPDX hlavičky, P3 WCAG marketing site — viď nižšie.
+
+### ✅ P1 + P2 audit log — HOTOVÉ (2026-06-11)
+
+- Nová audit akcia `LOAN_PROTOCOL_SIGNED` v `audit-log.ts` enum + nový `target.entityType` `'LoanProtocol'`.
+- `protocols.routes.ts` sign endpoint loguje **každý podpis zvlášť** (handover/receive) po úspešnom `repo.update`: `entityType: 'LoanProtocol'`, `legalBasis: 'contract'` (default pre LOAN\_), snapshot (protocolNumber, type, loanId, signedSide, method, transitionedToSigned), metadata (ipAddress, bothSigned, newStatus). Plugin dependency rozšírená o `'audit'`.
+- Retention `CRUD_ACTIONS` doplnené o `LOAN_PROTOCOL_CREATED` **aj** `LOAN_PROTOCOL_SIGNED` (24m bucket → pseudonymizácia).
+- Overené: shared-types rebuild (tsc), `tsc --noEmit` api ✅, eslint protocols+retention ✅. **Lokálne ešte spustiť:** `pnpm openapi:export` (bez nových paths, ale refresh) a `pnpm test`.
 
 ---
 
@@ -60,13 +67,13 @@
 
 Stav preverený voči deklaráciám na inventario.estate (EUPL-1.2 · REUSE 3.3 · GDPR ready · WCAG 2.1 AA).
 
-### 🔴 P1 — Audit log: chýba LOAN_PROTOCOL_SIGNED
+### ✅ P1 — Audit log: LOAN_PROTOCOL_SIGNED (HOTOVÉ 2026-06-11, viď vyššie)
 
 `protocols.routes.ts` (POST `/v1/loans/:id/protocols/:protocolId/sign`) nemá žiadne volanie `auditLog.record`. Prechod DRAFT → SIGNED je kľúčová právna udalosť — kto, kedy, akým spôsobom potvrdil prevzatie/vrátenie majetku.
 
 **Fix:** Pridať `LOAN_PROTOCOL_SIGNED` do `protocols.routes.ts` po úspešnom podpise (po zápise do DB), s `target.entityType: 'LoanProtocol'`, `target.entityId: protocolId`, `severity: 'INFO'`, `legalBasis: 'legitimate_interest'`. Taktiež pridať `LOAN_PROTOCOL_SIGNED` do `CRUD_ACTIONS` v `retention.service.ts`.
 
-### 🟡 P2 — Audit log: LOAN_PROTOCOL_CREATED chýba v retention
+### ✅ P2 — Audit log: LOAN_PROTOCOL_CREATED v retention (HOTOVÉ 2026-06-11, viď vyššie)
 
 Akcia `LOAN_PROTOCOL_CREATED` je logovaná v kóde, ale **chýba v `CRUD_ACTIONS`** zozname v `retention.service.ts` → nikdy sa nepseudonymizuje. Fix: pridať jeden riadok do `CRUD_ACTIONS` array.
 

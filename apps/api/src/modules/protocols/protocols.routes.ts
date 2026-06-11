@@ -354,6 +354,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const ipAddress = getClientIp(request.ip);
       const newSignatures = { ...protocol.signatures };
+      let signedSide: 'handover' | 'receive';
 
       // K6: fixovať reálny snapshot podpisujúcej strany v čase podpisu.
       // K4 vkladá pri borrowerovi prázdny snapshot (bez DB lookupu v tx) —
@@ -378,6 +379,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
         if (!newParties.handover.snapshot.displayName) {
           newParties.handover = { ...newParties.handover, snapshot: actorSnapshot };
         }
+        signedSide = 'handover';
       } else if (isReceiveParty && !protocol.signatures.receive) {
         newSignatures.receive = {
           signedAt: now,
@@ -388,6 +390,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
         if (!newParties.receive.snapshot.displayName) {
           newParties.receive = { ...newParties.receive, snapshot: actorSnapshot };
         }
+        signedSide = 'receive';
       } else {
         throw new ForbiddenError('Táto strana protokolu už podpísala.');
       }
@@ -424,6 +427,32 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!updated) throw new NotFoundError('LoanProtocol', protocolId);
+
+      // Audit (EU compliance): podpis protokolu je kľúčová právna udalosť —
+      // kto, kedy, akým spôsobom, z akej IP potvrdil prevzatie/vrátenie majetku.
+      // Logujeme KAŽDÝ podpis zvlášť (nie len finálny prechod DRAFT→SIGNED),
+      // aby bol zachytený aj podpis prvej strany v čase.
+      await fastify.auditLog.record(actor, request, {
+        action: 'LOAN_PROTOCOL_SIGNED',
+        target: {
+          entityType: 'LoanProtocol',
+          entityId: protocolId,
+          snapshot: {
+            protocolNumber: protocol.protocolNumber,
+            protocolType: protocol.type,
+            loanId: String(protocol.loanId),
+            signedSide,
+            method: 'CLICK_TO_SIGN',
+            transitionedToSigned: bothSigned,
+          },
+        },
+        description:
+          signedSide === 'handover'
+            ? 'Odovzdávajúca strana podpísala preberací protokol.'
+            : 'Preberajúca strana podpísala preberací protokol.',
+        metadata: { ipAddress, bothSigned, newStatus },
+      });
+
       return protocolToApiShape(updated);
     },
   );
@@ -536,5 +565,5 @@ async function loadOrganisation(db: Db, organisationId: string): Promise<Organis
 
 export default fp(protocolsRoutes, {
   name: 'protocols-routes',
-  dependencies: ['mongo', 'auth', 'loan-requests-routes'],
+  dependencies: ['mongo', 'auth', 'audit', 'loan-requests-routes'],
 });

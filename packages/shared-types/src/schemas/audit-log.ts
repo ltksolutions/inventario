@@ -93,6 +93,7 @@ export const AuditLogSchema = z.object({
     'LOAN_CREATED_DIRECT', // ADR-0023: direct loan without prior request
     'LOAN_REQUEST_FULFILLED', // ADR-0026: vydanie z katalógovej žiadosti
     'LOAN_PROTOCOL_CREATED', // ADR-0022: dodatočné vytvorenie protokolu (backfill)
+    'LOAN_PROTOCOL_SIGNED', // ADR-0022: podpis preberacieho protokolu (CLICK_TO_SIGN)
 
     // Stock movements (BULK položky — ADR-0020)
     'STOCK_RECEIVED',
@@ -149,6 +150,7 @@ export const AuditLogSchema = z.object({
         'AssetCondition',
         'Loan',
         'LoanRequest',
+        'LoanProtocol',
         'StockMovement',
         'Category',
         'Location',
