@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Integration tests for the Inventario JWT cookie auth gate — Slice #6c K17.
  *

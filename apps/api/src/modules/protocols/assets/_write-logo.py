@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+# SPDX-License-Identifier: EUPL-1.2
+
 # Jednorazový script — spusti raz, potom zmaž.
 # Dekóduje base64 PNG a uloží ho ako binárny súbor.
 import base64, os

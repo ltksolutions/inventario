@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+# SPDX-License-Identifier: EUPL-1.2
+
 # ============================================================================
 # Diagnostic: get an Entra ID token, decode it, print key claims and call
 # the protected API. Prints WHAT the server sees and WHY it might reject.

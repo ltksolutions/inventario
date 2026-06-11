@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * K9 ADR-0013 — Backfill authProviders on pre-Slice-#6 Entra ID users.
  *

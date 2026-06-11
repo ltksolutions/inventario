@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Unit tests for OAuth state helpers (K3 ADR-0013).
  *

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * @deprecated Statický enum typov majetku — NAHRADENÝ per-tenant
  * kolekciou `asset_types` (AssetTypeEntry). Kategórie aj majetok

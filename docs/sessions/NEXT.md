@@ -21,7 +21,13 @@
 - Zvyšné body v mail-testeri sú neaktívne: `FROM_FMBLA_NEWDOM28` (dočasná penalizácia za novú doménu — sama zmizne) a chýbajúci `List-Unsubscribe` (irelevantné pre transakčné maily). **Netreba riešiť.**
 - TODO drobnosť: odvolať testovaciu pozvánku na `test-y0ie7157d@srv1.mail-tester.com`; zvážiť `EMAIL_PROVIDER` aj pre Preview (teraz len Production → preview deploye posielajú cez stub).
 
-**Stále otvorené z 2026-06-09 (EU compliance):** ~~P1 `LOAN_PROTOCOL_SIGNED`~~ ✅ HOTOVÉ (2026-06-11), ~~P2 `LOAN_PROTOCOL_CREATED` v retention~~ ✅ HOTOVÉ (2026-06-11), zostáva P2 REUSE/SPDX hlavičky, P3 WCAG marketing site — viď nižšie.
+**EU compliance — VŠETKO HOTOVÉ (2026-06-11):** ~~P1 `LOAN_PROTOCOL_SIGNED`~~ ✅, ~~P2 `LOAN_PROTOCOL_CREATED` v retention~~ ✅, ~~P2 REUSE/SPDX hlavičky~~ ✅, ~~P3 WCAG marketing site~~ ✅ — viď nižšie.
+
+### ✅ P2 REUSE 3.3 + P3 WCAG — HOTOVÉ (2026-06-11)
+
+- **REUSE/SPDX:** Inline SPDX hlavičky doplnené do 114 zdrojových súborov (`.ts/.js/.sh/.py`, EUPL-1.2); `.reuse/REUSE.toml` pokrýva nekomentovateľné súbory (JSON/YAML/config = EUPL-1.2, .md/.cff/assety = CC-BY-4.0, .ttf = LicenseRef-DejaVu). Opravená diakritika „Jan"→„Ján" v 7 hlavičkách. **`reuse lint` = 622/622 compliant.** Pozn.: `reuse` CLI pridať do CI (`pipx install reuse` + `reuse lint`).
+- **WCAG:** všetkých 6 nálezov (#1–#6) vyriešených v `docs/marketing-site/`. Detail v `docs/compliance/wcag-2.1-aa-audit.md`. Väčšina #2–#6 už bola nasadená skôr; doplnený hlavne `aria-hidden` na dekoratívne emoji (badge prvky, technology/sub-processors, interactive-demo) a aria-label na viewport tlačidlá v `demo.html`.
+- Overené: shared-types + api `tsc` ✅, eslint ✅, reuse lint ✅.
 
 ### ✅ P1 + P2 audit log — HOTOVÉ (2026-06-11)
 

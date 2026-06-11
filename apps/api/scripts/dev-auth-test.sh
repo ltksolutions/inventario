@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+# SPDX-License-Identifier: EUPL-1.2
+
 # ============================================================================
 # Local dev: get an Entra ID access token via OAuth 2.0 device code flow
 # and exercise the protected API endpoints end-to-end.

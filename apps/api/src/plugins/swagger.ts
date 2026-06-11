@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Swagger / OpenAPI plugin — generates OpenAPI 3.1 spec from Fastify route
  * schemas and exposes interactive Swagger UI at /docs.

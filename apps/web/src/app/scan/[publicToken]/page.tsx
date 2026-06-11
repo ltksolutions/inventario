@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Jan Letko / LTK Solutions
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 // SPDX-License-Identifier: CC-BY-4.0
 
 import { ScanPage } from '@/components/ScanPage';

@@ -1,0 +1,62 @@
+version = 1
+
+# REUSE 3.3 bulk anotácie pre súbory, ktoré nemôžu (alebo nemajú zmysel)
+# niesť inline SPDX hlavičku — konfigurácia, dáta, binárne assety, fonty.
+# Zdrojový kód (.ts/.tsx/.js/.sh/.py) a väčšina .md/.html/.css/.svg nesú
+# hlavičku inline; tieto anotácie len dopĺňajú zvyšok (precedence = aggregate).
+#
+# Mapovanie: kód a konfigurácia = EUPL-1.2, dokumentácia a marketing assety
+# = CC-BY-4.0, font DejaVu = LicenseRef-DejaVu.
+
+# ── Konfigurácia a dáta (EUPL-1.2) ──────────────────────────────────────────
+[[annotations]]
+path = [
+  "**/*.json",
+  "**/*.yml",
+  "**/*.yaml",
+  "**/*.toml",
+  "**/*.example",
+  "**/.npmrc",
+  "**/.nvmrc",
+  "**/.prettierrc",
+  "**/.prettierignore",
+  "**/.editorconfig",
+  "**/.gitignore",
+  "**/.gitattributes",
+  ".github/CODEOWNERS",
+  ".husky/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ján Letko / LTK Solutions"
+SPDX-License-Identifier = "EUPL-1.2"
+
+# ── Dokumentácia a textové assety (CC-BY-4.0) ───────────────────────────────
+[[annotations]]
+path = [
+  "**/*.md",
+  "**/*.mdx",
+  "**/*.cff",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ján Letko / LTK Solutions"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# ── Binárne / obrazové assety (CC-BY-4.0) ───────────────────────────────────
+[[annotations]]
+path = [
+  "**/*.png",
+  "**/*.jpg",
+  "**/*.jpeg",
+  "**/*.ico",
+  "**/*.pdf",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ján Letko / LTK Solutions"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# ── Fonty (DejaVu — vlastná licencia) ───────────────────────────────────────
+[[annotations]]
+path = ["**/*.ttf"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "DejaVu fonts team"
+SPDX-License-Identifier = "LicenseRef-DejaVu"

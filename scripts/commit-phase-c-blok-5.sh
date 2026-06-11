@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+# SPDX-License-Identifier: EUPL-1.2
+
 #
 # Phase C Blok 5 commit script — three separate commits, no push.
 #

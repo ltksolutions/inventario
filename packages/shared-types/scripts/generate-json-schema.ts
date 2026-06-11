@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Generuje JSON Schema z Zod schém pre použitie v Mongo `$jsonSchema` validátoroch.
  *

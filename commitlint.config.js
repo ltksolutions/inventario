@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 // commitlint.config.js — Conventional Commits enforcement
 // https://commitlint.js.org/
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Integration tests — Loan Requests (ADR-0026: katalógové žiadosti + oddelené vydávanie).
  *

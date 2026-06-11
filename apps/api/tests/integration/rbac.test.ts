@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Integration tests for RBAC on /v1/assets endpoints — Slice #6c K17.
  * Authorization: cookie-based (inv_access) instead of Bearer token.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 import { describe, expect, it } from 'vitest';
 
 import { AssetCondition } from '../../src/enums/asset-type.js';

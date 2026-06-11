@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Integration tests — POST/GET endpoints pre skladové pohyby BULK položiek.
  * Slice #5a K5.

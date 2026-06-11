@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * @sfz/shared-types — Single source of truth pre dátový model SFZ Asset Management.
  *

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+// SPDX-License-Identifier: EUPL-1.2
+
 /**
  * Stavy žiadosti o zápožičku (ADR-0026 — katalógové žiadosti + oddelené vydávanie).
  *
