@@ -299,6 +299,19 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Pozn.:** Dva ďalšie „TODO" v `memberships.routes.ts` (riadky ~25, ~398) NIE sú nedorobky — sú to opisné/meta komentáre potvrdzujúce, že audit event sa emituje inde a pre `post/:id/default` nie je potrebný. Neriešiť.
 - **Model:** Sonnet/Haiku, podľa potreby pri najbližšom dotyku príslušných súborov.
 
+### 25. Zosúladiť dokumentáciu + marketingový web so skutočnou appkou
+
+- **Stav:** otvorené (2026-06-11). **Dôležité pred ďalšími tenantmi / verejným spustením.**
+- **Kontext:** appka (`apps/web` + `apps/api`) sa od pôvodných mockupov a marketingových textov reálne vyvinula (detail majetku, prílohy/foto, QR/štítky, protokoly, audit, branding, MFA, per-tenant OAuth, …). Marketingový web (`docs/marketing-site/`) aj časť dokumentácie boli písané skôr a môžu obsahovať zastarané screenshoty, funkčné tvrdenia a sľuby, ktoré už nesedia s realitou.
+- **Čo treba:**
+  - [ ] Prejsť reálne nasadenú appku obrazovku po obrazovke a spísať skutočný feature set (zdroj pravdy = produkcia, nie mockupy `docs/design/screens/`).
+  - [ ] Aktualizovať marketingový web (`docs/marketing-site/`: index, use-cases, technology, pricing, about, interactive-demo) — texty, feature listy, „čoskoro" badge vs. reálne hotové, screenshoty/`product-screens`.
+  - [ ] Skontrolovať konzistenciu pricing tierov s reálne dostupnými funkciami.
+  - [ ] Aktualizovať používateľskú dokumentáciu / user-guides, ak existujú nezrovnalosti voči appke.
+  - [ ] Over interactive-demo (mockupy v iframe) — či zodpovedá aktuálnemu UI, prípadne nahradiť reálnymi screenshotmi.
+- **Model:** Sonnet (audit appky + copy), Haiku (mechanické úpravy textov).
+- **Blocker:** NIE pre SFZ pilot, ale ÁNO pred marketingovým spustením / oslovením ďalších tenantov (verejný web nesmie sľubovať nehotové veci).
+
 ---
 
 ## Ako čítať tento backlog
