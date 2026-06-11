@@ -290,6 +290,15 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Stav:** ✅ implementované — migrácia `2026-06-07-memberships-partial-index.ts` (drop + recreate s `partialFilterExpression: { deletedAt: null }`, názov indexu zachovaný), registrovaná v `runner.ts` (ADR-0029), `MembershipsRepository.ensureIndexes()` aktualizovaný. _(Potvrdiť dobehnutie migrácie na prod.)_
 - **Kontext (pôvodný):** Index pokrýval všetky dokumenty vrátane soft-deleted; bez partial filtra mohol race v `reactivate()` fallbacku vyhodiť E11000.
 
+### 24. TECH-DEBT: drobné kódové TODO (nízka priorita, žiadny blocker)
+
+- **Stav:** evidované 2026-06-11 (skenom `TODO/FIXME` v `*.ts/tsx`). Žiadny nie je bug.
+- **Rozsah:**
+  - [ ] `apps/api/tests/helpers/test-jwt-loader.ts` — odstrániť helper + `createTokenSigner()` call sites, keď sa všetky testy zmigrujú na `provisionUser()` (testovací tech-debt, postupná migrácia).
+  - [ ] `packages/shared-types/src/enums/user-role.ts` — doplniť chýbajúci dokument o rolách (napr. `docs/architecture/roles.md`) a opraviť odkaz „(TODO: vytvoriť tento dokument)".
+- **Pozn.:** Dva ďalšie „TODO" v `memberships.routes.ts` (riadky ~25, ~398) NIE sú nedorobky — sú to opisné/meta komentáre potvrdzujúce, že audit event sa emituje inde a pre `post/:id/default` nie je potrebný. Neriešiť.
+- **Model:** Sonnet/Haiku, podľa potreby pri najbližšom dotyku príslušných súborov.
+
 ---
 
 ## Ako čítať tento backlog
