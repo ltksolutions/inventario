@@ -9,7 +9,9 @@
 - ✅ P3 WCAG #1–#6 marketing site
 - ✅ Audit eventy pre prílohy (`ASSET_ATTACHMENT_*`)
 
-**Otvorené (nice-to-have / pre-GA):** pridať `reuse lint` do CI; `apps/web` WCAG audit pred launchom; integračné testy pre attachments modul; EXIF strip; súkromné blob URL pre citlivé doklady; Zebra ZPL test (ADR-0027); smoke + DR test; E2E protokolov s 2 účtami; `EMAIL_PROVIDER=ecomail` pre Preview; odvolať mail-tester pozvánku.
+**Pre-GA kvalita — HOTOVÉ 2026-06-11 (batch 2):** ~~`reuse lint` do CI~~ ✅ (job `reuse` cez `fsfe/reuse-action@v5` v `ci.yml`); ~~`apps/web` WCAG~~ ✅ (jsx-a11y už bol zapojený, lint čistý — `@axe-core/cli` proti deployed URL ostáva ako budúci krok); ~~integračné testy pre attachments~~ ✅ (`tests/integration/attachments.test.ts`, `@vercel/blob` mock); ~~EXIF strip~~ ✅ (`lib/strip-image-metadata.ts` pure-JS, zapojený v attachments + logo upload, unit testy).
+
+**Otvorené (nice-to-have / pre-GA):** `@axe-core/cli` v CI proti deployed apps/web; súkromné blob URL pre citlivé doklady; Zebra ZPL test (ADR-0027); smoke + DR test; E2E protokolov s 2 účtami; `EMAIL_PROVIDER=ecomail` pre Preview; odvolať mail-tester pozvánku.
 
 ---
 
