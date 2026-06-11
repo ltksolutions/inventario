@@ -1,5 +1,18 @@
 # NEXT
 
+## Aktuálny stav (2026-06-11)
+
+**EU compliance je kompletne uzavreté** + audit eventy pre prílohy. Session log: `docs/sessions/2026-06-11-eu-compliance-p1-p2-p3-attachments-audit.md`. Commity: `c816787`, `be7ab64`, `d9b100a`, `1cfa838`, `efbddfb`. Testy 941 passed | 2 skipped; reuse lint 622/622.
+
+- ✅ P1 audit `LOAN_PROTOCOL_SIGNED` + retencia (P2)
+- ✅ P2 REUSE 3.3 (SPDX hlavičky + `.reuse/REUSE.toml`)
+- ✅ P3 WCAG #1–#6 marketing site
+- ✅ Audit eventy pre prílohy (`ASSET_ATTACHMENT_*`)
+
+**Otvorené (nice-to-have / pre-GA):** pridať `reuse lint` do CI; `apps/web` WCAG audit pred launchom; integračné testy pre attachments modul; EXIF strip; súkromné blob URL pre citlivé doklady; Zebra ZPL test (ADR-0027); smoke + DR test; E2E protokolov s 2 účtami; `EMAIL_PROVIDER=ecomail` pre Preview; odvolať mail-tester pozvánku.
+
+---
+
 ## Aktuálny stav (2026-06-10)
 
 **Detail majetku — kompletná dávka HOTOVÁ a nasadená** (941/941 testov green). Detail: `docs/sessions/2026-06-10-asset-detail-fixes.md`.

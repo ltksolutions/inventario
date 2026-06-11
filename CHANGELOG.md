@@ -13,6 +13,12 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- **EU compliance — P1/P2/P3 + audit prílohy (2026-06-11)**:
+  - **Audit log — `LOAN_PROTOCOL_SIGNED`** (P1): podpis preberacieho protokolu sa loguje (každý podpis zvlášť, cieľ `entityType: 'LoanProtocol'`, `legalBasis: contract`); `LOAN_PROTOCOL_CREATED` aj `LOAN_PROTOCOL_SIGNED` doplnené do retencie (P2).
+  - **Audit log — prílohy majetku**: nové akcie `ASSET_ATTACHMENT_ADDED` / `_REMOVED` / `_SET_PRIMARY`; `attachments.routes.ts` loguje upload/delete/set-primary s cieľom `Asset` (zobrazí sa v audit tabe detailu majetku); doplnené do retencie.
+  - **REUSE 3.3 compliance** (P2): inline SPDX hlavičky v 114 zdrojových súboroch (EUPL-1.2) + `.reuse/REUSE.toml` pre nekomentovateľné súbory (config = EUPL-1.2, docs/assety = CC-BY-4.0, font = LicenseRef-DejaVu); `reuse lint` 622/622 compliant.
+  - **WCAG 2.1 AA marketing site** (P3): uzavreté nálezy #1–#6 — `aria-hidden` na dekoratívne emoji/SVG, `<main>` landmark, `--brand-link` kontrast token, skip-link, `lang="en"`, `aria-live` v interactive demo.
+
 - **Detail majetku — Audit log, Prílohy/foto, QR/štítky (2026-06-10)**:
   - `appBaseUrl` a verejný „lost & found" lookup (`publicAssetLookup`) nastaviteľné v Organizácia → QR kódy a štítky; `resolveAppBaseUrl` fallback (per-tenant → env `APP_BASE_URL` → default) odstránil 409 pri QR/štítkoch.
   - **Audit log** na detaile majetku — `GET /v1/assets/:id/audit` (ASSET_MANAGER/ADMIN) + UI časová os zmien; `AuditLogRepository.findByTarget/countByTarget`.
