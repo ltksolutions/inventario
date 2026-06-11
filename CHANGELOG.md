@@ -19,6 +19,15 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
   - **REUSE 3.3 compliance** (P2): inline SPDX hlavičky v 114 zdrojových súboroch (EUPL-1.2) + `.reuse/REUSE.toml` pre nekomentovateľné súbory (config = EUPL-1.2, docs/assety = CC-BY-4.0, font = LicenseRef-DejaVu); `reuse lint` 622/622 compliant.
   - **WCAG 2.1 AA marketing site** (P3): uzavreté nálezy #1–#6 — `aria-hidden` na dekoratívne emoji/SVG, `<main>` landmark, `--brand-link` kontrast token, skip-link, `lang="en"`, `aria-live` v interactive demo.
 
+- **Pre-GA kvalita (2026-06-11)**:
+  - **EXIF/XMP strip** (`lib/strip-image-metadata.ts`, pure-JS): z nahrávaných obrázkov (prílohy majetku + logo tenanta) sa odstraňujú GPS/zariadenie metadáta pred uložením do Blobu. + unit testy.
+  - **REUSE lint v CI** — nový job `reuse` (`fsfe/reuse-action`) v `ci.yml`.
+  - **Integračné testy príloh** (`tests/integration/attachments.test.ts`) — upload/RBAC/primary/delete/audit eventy/EXIF/cross-tenant, mock `@vercel/blob`.
+
+- **Compliance Fáza 2 dokumenty (2026-06-11)**:
+  - **Data Retention Schedule**, **Information Security Policy**, **Security & Privacy Whitepaper**, **DPIA Reference Pack** (`docs/compliance/`).
+  - Verejné stránky https://inventario.estate/security a https://inventario.estate/dpia + odkazy vo footeri.
+
 - **Detail majetku — Audit log, Prílohy/foto, QR/štítky (2026-06-10)**:
   - `appBaseUrl` a verejný „lost & found" lookup (`publicAssetLookup`) nastaviteľné v Organizácia → QR kódy a štítky; `resolveAppBaseUrl` fallback (per-tenant → env `APP_BASE_URL` → default) odstránil 409 pri QR/štítkoch.
   - **Audit log** na detaile majetku — `GET /v1/assets/:id/audit` (ASSET_MANAGER/ADMIN) + UI časová os zmien; `AuditLogRepository.findByTarget/countByTarget`.
