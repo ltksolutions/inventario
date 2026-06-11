@@ -72,6 +72,9 @@ export const AuditLogSchema = z.object({
     'ASSET_STATUS_CHANGED',
     'ASSET_LOCATION_CHANGED',
     'ASSET_DISPOSED',
+    'ASSET_ATTACHMENT_ADDED', // ADR-0028: príloha (foto/doklad) pridaná k majetku
+    'ASSET_ATTACHMENT_REMOVED', // ADR-0028: príloha zmazaná (soft-delete + blob)
+    'ASSET_ATTACHMENT_SET_PRIMARY', // ADR-0028: príloha označená ako hlavné foto
 
     // Category (slice #3)
     'CATEGORY_CREATED',

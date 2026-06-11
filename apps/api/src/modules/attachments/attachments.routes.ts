@@ -221,6 +221,28 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
       };
 
       const inserted = await attachmentsRepo.insert(doc);
+
+      // Audit: príloha pridaná k majetku. Cieľ = Asset, aby sa záznam
+      // zobrazil v audit tabe detailu majetku (GET /v1/assets/:id/audit).
+      await fastify.auditLog.record(request.currentUser, request, {
+        action: 'ASSET_ATTACHMENT_ADDED',
+        target: {
+          entityType: 'Asset',
+          entityId: id,
+          snapshot: {
+            attachmentId: String(inserted._id),
+            originalFilename: doc.originalFilename,
+            attachmentType: doc.attachmentType,
+            mimeType: doc.mimeType,
+            sizeBytes: doc.sizeBytes,
+          },
+        },
+        description:
+          doc.attachmentType === 'ASSET_PHOTO'
+            ? 'Pridaná fotografia k majetku.'
+            : 'Pridaný doklad k majetku.',
+      });
+
       return reply.status(201).send(toApiShape(inserted));
     },
   );
@@ -257,6 +279,19 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         id,
       );
 
+      await fastify.auditLog.record(request.currentUser, request, {
+        action: 'ASSET_ATTACHMENT_SET_PRIMARY',
+        target: {
+          entityType: existing.linkedTo.entityType,
+          entityId: String(existing.linkedTo.entityId),
+          snapshot: {
+            attachmentId: id,
+            originalFilename: existing.originalFilename,
+          },
+        },
+        description: 'Príloha označená ako hlavné foto majetku.',
+      });
+
       return reply.status(204).send(null);
     },
   );
@@ -284,6 +319,23 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
       if (!existing || existing.deletedAt) throw new NotFoundError('Attachment', id);
 
       await attachmentsRepo.softDelete(tenantId, id, actorId);
+
+      await fastify.auditLog.record(request.currentUser, request, {
+        action: 'ASSET_ATTACHMENT_REMOVED',
+        target: {
+          entityType: existing.linkedTo.entityType,
+          entityId: String(existing.linkedTo.entityId),
+          snapshot: {
+            attachmentId: id,
+            originalFilename: existing.originalFilename,
+            attachmentType: existing.attachmentType,
+          },
+        },
+        description:
+          existing.attachmentType === 'ASSET_PHOTO'
+            ? 'Zmazaná fotografia majetku.'
+            : 'Zmazaný doklad majetku.',
+      });
 
       // Best-effort zmazanie blobu — zlyhanie nesmie rozbiť odpoveď.
       const blobToken = process.env['BLOB_READ_WRITE_TOKEN'];

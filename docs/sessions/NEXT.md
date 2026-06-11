@@ -11,7 +11,13 @@
 - Auth-aware QR sken: prihlásený → interný detail; anonymný → lost&found len s kontaktom (bez identity majetku) ✅
 - Opravené: PDF štítok 500 (JPEG logo), multipart double-register, prázdny QR náhľad (credentialed fetch)
 
-**Follow-upy (nice-to-have):** audit eventy pre prílohy (chýba enum akcia), EXIF strip, súkromné blob URL pre citlivé doklady, živé odskúšanie Zebra ZPL vetvy (ADR-0027).
+**Follow-upy (nice-to-have):** ~~audit eventy pre prílohy~~ ✅ HOTOVÉ (2026-06-11), EXIF strip, súkromné blob URL pre citlivé doklady, živé odskúšanie Zebra ZPL vetvy (ADR-0027).
+
+### ✅ Audit eventy pre prílohy — HOTOVÉ (2026-06-11)
+
+- Nové akcie `ASSET_ATTACHMENT_ADDED` / `_REMOVED` / `_SET_PRIMARY` v `audit-log.ts` enum (prefix `ASSET_` → legalBasis `contract`).
+- `attachments.routes.ts` loguje všetky 3 write operácie (POST/DELETE/PATCH primary) cez `fastify.auditLog.record` — **cieľ `entityType: 'Asset'`**, aby sa záznamy zobrazili v audit tabe detailu majetku (`GET /v1/assets/:id/audit`). Snapshot: attachmentId, originalFilename, attachmentType, mime, size.
+- Doplnené do retention `CRUD_ACTIONS` (24m). Overené: tsc + eslint ✅. Pozn.: attachments modul nemá integračné testy — kandidát na doplnenie.
 
 ### ✅ E-mail notifikácie overené (2026-06-10)
 
