@@ -173,7 +173,11 @@ export function RegisterPage(): JSX.Element {
             {/* Provider */}
             <Field label="Spôsob prihlásenia" htmlFor="provider" required>
               <div className="mt-1 grid grid-cols-2 gap-2">
-                {(['google', 'apple', 'microsoft', 'email'] as Provider[]).map((p) => (
+                {(
+                  (process.env['NEXT_PUBLIC_APPLE_ENABLED'] === 'true'
+                    ? ['google', 'apple', 'microsoft', 'email']
+                    : ['google', 'microsoft', 'email']) as Provider[]
+                ).map((p) => (
                   <button
                     key={p}
                     type="button"

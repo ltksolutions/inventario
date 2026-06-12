@@ -316,7 +316,11 @@ export function AuthSettingsContent(): JSX.Element {
                 Vyberte, akými kontami sa môžu členovia prihlásiť. Aspoň jeden musí ostať povolený.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                {(['GOOGLE', 'APPLE', 'MICROSOFT', 'EMAIL'] as AuthProvider[]).map((provider) => {
+                {(
+                  (process.env['NEXT_PUBLIC_APPLE_ENABLED'] === 'true'
+                    ? ['GOOGLE', 'APPLE', 'MICROSOFT', 'EMAIL']
+                    : ['GOOGLE', 'MICROSOFT', 'EMAIL']) as AuthProvider[]
+                ).map((provider) => {
                   const enabled = settings.allowedAuthProviders.includes(provider);
                   const isLast = settings.allowedAuthProviders.length === 1 && enabled;
                   return (
