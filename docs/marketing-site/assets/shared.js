@@ -156,7 +156,7 @@
                     </div>
                     <div class="footer-bottom">
                         <div class="footer-license">
-                            v0.3 · EUPL-1.2 · © 2026 LTK Solutions
+                            EUPL-1.2 · © 2026 LTK Solutions
                         </div>
                         <div class="footer-ecosystem">
                             Member of the

@@ -299,18 +299,24 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Pozn.:** Dva ďalšie „TODO" v `memberships.routes.ts` (riadky ~25, ~398) NIE sú nedorobky — sú to opisné/meta komentáre potvrdzujúce, že audit event sa emituje inde a pre `post/:id/default` nie je potrebný. Neriešiť.
 - **Model:** Sonnet/Haiku, podľa potreby pri najbližšom dotyku príslušných súborov.
 
-### 25. Zosúladiť dokumentáciu + marketingový web so skutočnou appkou
+### 25. Zosúladiť dokumentáciu + marketingový web so skutočnou appkou — ČIASTOČNE (2026-06-12)
 
-- **Stav:** otvorené (2026-06-11). **Dôležité pred ďalšími tenantmi / verejným spustením.**
-- **Kontext:** appka (`apps/web` + `apps/api`) sa od pôvodných mockupov a marketingových textov reálne vyvinula (detail majetku, prílohy/foto, QR/štítky, protokoly, audit, branding, MFA, per-tenant OAuth, …). Marketingový web (`docs/marketing-site/`) aj časť dokumentácie boli písané skôr a môžu obsahovať zastarané screenshoty, funkčné tvrdenia a sľuby, ktoré už nesedia s realitou.
-- **Čo treba:**
-  - [ ] Prejsť reálne nasadenú appku obrazovku po obrazovke a spísať skutočný feature set (zdroj pravdy = produkcia, nie mockupy `docs/design/screens/`).
-  - [ ] Aktualizovať marketingový web (`docs/marketing-site/`: index, use-cases, technology, pricing, about, interactive-demo) — texty, feature listy, „čoskoro" badge vs. reálne hotové, screenshoty/`product-screens`.
-  - [ ] Skontrolovať konzistenciu pricing tierov s reálne dostupnými funkciami.
-  - [ ] Aktualizovať používateľskú dokumentáciu / user-guides, ak existujú nezrovnalosti voči appke.
-  - [ ] Over interactive-demo (mockupy v iframe) — či zodpovedá aktuálnemu UI, prípadne nahradiť reálnymi screenshotmi.
-- **Model:** Sonnet (audit appky + copy), Haiku (mechanické úpravy textov).
-- **Blocker:** NIE pre SFZ pilot, ale ÁNO pred marketingovým spustením / oslovením ďalších tenantov (verejný web nesmie sľubovať nehotové veci).
+- **Stav:** Audit + textové opravy webu **HOTOVÉ** (2026-06-12). Discrepancy report: `docs/sessions/2026-06-12-marketing-app-discrepancy-audit.md`. Zostávajú screenshoty + drobnosti v appke.
+- **Kontext:** appka sa vyvinula nad rámec pôvodných mockupov; marketingový web obsahoval overclaimy a zastarané čísla.
+- **Hotové (2026-06-12):**
+  - [x] Inventár reálnych funkcií appky + tvrdení webu → discrepancy report.
+  - [x] Overclaimy označené „v roadmape" (bulk import CSV, export reportov CSV/PDF/XLSX, multi-level approval, webhooks, cross-org/child-tenant) — index, pricing, use-cases, interactive-demo.
+  - [x] Opravené čísla: testy 257→962, REUSE 175→632, free tier zjednotený na 10, odstránená stará verzia v0.3.
+  - [x] Google OAuth označený ako „Dostupné" (bol mylne „v roadmape").
+  - [x] Demo tenanti — caveat „ilustračné scenáre" (SFZ = reálny pilot).
+  - [x] „100 % Real UI" → „hi-fi mockupy" (interactive-demo).
+  - [x] Bug v `demo.html` (prepínač stránok `${page}.html`).
+- **Zostáva:**
+  - [ ] **Reálne screenshoty** zo živej appky (`app.inventario.estate`, login cez Chrome) → nahradiť/aktualizovať `product-screens/_*.html` mockupy (obsahujú aj staré „257", „v0.3"). Vyžaduje prístup do živej appky.
+  - [ ] **Apple Sign-In tlačidlo v appke** (`apps/web` register/auth-settings) je zobrazené, ale endpoint je gated → 503. Skryť/disable kým nie sú Apple env vars (produktové rozhodnutie).
+  - [ ] Prejsť `apps/docs` (MDX) — `product-ui-tour.mdx`, `about.mdx` na rovnaké nezrovnalosti.
+- **Model:** Sonnet (audit + copy), Haiku (mechanické úpravy).
+- **Blocker:** NIE pre SFZ pilot, ÁNO pred marketingovým spustením.
 
 ---
 

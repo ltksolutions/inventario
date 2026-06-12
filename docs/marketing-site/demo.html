@@ -174,7 +174,7 @@ V produkcii (inventario.estate/) sa servuje index.html priamo bez wrappera.
         document.querySelectorAll('[data-page-btn]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const page = btn.dataset.pageBtn;
-                pageFrame.src = page === "home" ? "index.html" : `.html`;
+                pageFrame.src = page === "home" ? "index.html" : `${page}.html`;
                 document.querySelectorAll('[data-page-btn]').forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
             });
