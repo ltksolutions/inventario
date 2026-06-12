@@ -312,7 +312,7 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] „100 % Real UI" → „hi-fi mockupy" (interactive-demo).
   - [x] Bug v `demo.html` (prepínač stránok `${page}.html`).
 - **Zostáva:**
-  - [ ] **Reálne screenshoty** zo živej appky (`app.inventario.estate`, login cez Chrome) → nahradiť/aktualizovať `product-screens/_*.html` mockupy (obsahujú aj staré „257", „v0.3"). Vyžaduje prístup do živej appky.
+  - [~] **Screenshoty:** Stale čísla v mockupoch opravené (`product-screens/_login-page.html`: 257→962, odstránené v0.3). **Reálne raster screenshoty zatiaľ NEUROBENÉ** — zistené 2026-06-12: produkčný SFZ tenant má reálne mená/PII + len 2 položky (nevhodné pre verejný web; GDPR). Odporúčanie: spraviť screenshoty z **demo tenanta** so seed dátami (fiktívne mená), nie z produkcie; až potom zvážiť nahradenie HTML mockupov rasterom. Pozn.: v Cowork session sa screenshot neukladá na disk — bude treba ručný export alebo CI screenshot pipeline.
   - [x] **Apple Sign-In tlačidlo v appke** — env-gated (`NEXT_PUBLIC_APPLE_ENABLED`), skryté v RegisterPage + AuthSettingsContent kým nie je nakonfigurované (2026-06-12).
   - [x] `apps/docs` MDX (about, index, product-ui-tour) — opravené čísla (REUSE 632, odstránené v0.3), „Aktuálny stav" prepísaný na produkciu LIVE, export/i18n → roadmap (2026-06-12).
 - **Model:** Sonnet (audit + copy), Haiku (mechanické úpravy).
