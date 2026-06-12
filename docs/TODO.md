@@ -312,7 +312,9 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] „100 % Real UI" → „hi-fi mockupy" (interactive-demo).
   - [x] Bug v `demo.html` (prepínač stránok `${page}.html`).
 - **Zostáva:**
-  - [~] **Screenshoty:** Stale čísla v mockupoch opravené (`product-screens/_login-page.html`: 257→962, odstránené v0.3). **Reálne raster screenshoty zatiaľ NEUROBENÉ** — zistené 2026-06-12: produkčný SFZ tenant má reálne mená/PII + len 2 položky (nevhodné pre verejný web; GDPR). Odporúčanie: spraviť screenshoty z **demo tenanta** so seed dátami (fiktívne mená), nie z produkcie; až potom zvážiť nahradenie HTML mockupov rasterom. Pozn.: v Cowork session sa screenshot neukladá na disk — bude treba ručný export alebo CI screenshot pipeline.
+  - [~] **Screenshoty:** Stale čísla v mockupoch opravené (`product-screens/_login-page.html`: 257→962, odstránené v0.3). **Reálne raster screenshoty zatiaľ NEUROBENÉ** — produkčný SFZ tenant má reálne mená/PII + len 2 položky (nevhodné pre verejný web; GDPR).
+  - [x] **Seed demo tenant skript** — `apps/api/scripts/seed-demo-tenant.ts` (`pnpm --filter @inventario/api seed:demo`). Idempotentný, dry-run default, `--confirm`/`--reset`, scoped len na demo org, pridá `jan.letko@futbalsfz.sk` ako ADMIN člena + fiktívnych členov; ~25 položiek (SERIALIZED+BULK so stock ledger), kategórie, lokality, 2 výpožičky, 1 PENDING žiadosť. (2026-06-12)
+  - [ ] **Spustiť seed na prod** (Janika) → prepnúť org v appke → spraviť screenshoty 6 obrazoviek → nahradiť/aktualizovať `product-screens` mockupy. Pozn.: Cowork screenshot neukladá na disk — ručný export alebo CI screenshot pipeline.
   - [x] **Apple Sign-In tlačidlo v appke** — env-gated (`NEXT_PUBLIC_APPLE_ENABLED`), skryté v RegisterPage + AuthSettingsContent kým nie je nakonfigurované (2026-06-12).
   - [x] `apps/docs` MDX (about, index, product-ui-tour) — opravené čísla (REUSE 632, odstránené v0.3), „Aktuálny stav" prepísaný na produkciu LIVE, export/i18n → roadmap (2026-06-12).
 - **Model:** Sonnet (audit + copy), Haiku (mechanické úpravy).
