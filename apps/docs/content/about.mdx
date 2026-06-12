@@ -42,7 +42,7 @@ Pivot zahŕňal:
 - **Rebrand**: SFZ Asset Management → **Inventario**
 - **Multi-tenancy**: pridanie `organisationId` ako tenant izolátor
 - **Open source**: EUPL-1.2 licencia (oficiálne EU odporúčaná)
-- **REUSE 3.3 compliance**: 175/175 súborov compliant
+- **REUSE 3.3 compliance**: SPDX hlavičky vo všetkých súboroch (machine-verifikovateľné)
 - **Brand identity**: nový vizuálny systém zdielaný so SportUp ekosystémom
 - **Marketing web**: 5-stránkový web nasadený na `inventario.estate`
 - **Pricing model**: Hybrid C (Free, Pro Small fixné ceny, Pro Standard+ Kontakt) + Annual Contract pre verejný sektor
@@ -51,13 +51,11 @@ Po jednom dni práce bolo **inventario.estate LIVE** s open-source kódom, brand
 
 ### Q3 2026 — Plánovaný launch v1.0
 
-Aktuálny stav (máj 2026) je **v0.3** — backend hotový po Slice #3, frontend (`apps/web`) v príprave. Plánovaný **v1.0 launch** je **Q3 2026** spolu s:
+Aktuálny stav (jún 2026): **produkcia je LIVE** a beží **SFZ pilot**. Backend aj frontend (`apps/web`) sú hotové — evidencia majetku, výpožičky + preberacie protokoly (PDF + podpis), QR kódy a tlač štítkov (PDF/Zebra), sklad (BULK/SERIALIZED), audit log + retencia, prílohy/foto, per-tenant branding, MFA/TOTP + passkeys, OAuth (Microsoft + Google). Plánovaný **verejný v1.0 launch** je **Q3 2026** spolu s:
 
-- Frontend v Next.js + shadcn/ui
-- Mobile-friendly UI pre QR scanning
-- Verejný GitHub repo (aktuálne semi-public)
 - Founding customer program (-25 % prvý rok pre prvých 10 zákazníkov)
-- Documentation site (toto čo práve čítate) s plnou referenciou
+- Plne verejný GitHub repo
+- Rozšírenia podľa roadmapy (bulk import, reportové exporty, webhooks, MCP server)
 
 Detaily v [ROADMAP.md](https://github.com/ltksolutions/inventario/blob/main/ROADMAP.md).
 
@@ -103,7 +101,7 @@ Dokumentácia (README, BRAND.md, marketing-site, tento web) je pod **[CC-BY-4.0]
 
 ### REUSE 3.3 compliance
 
-Inventario je **100% REUSE 3.3 compliant** (175/175 súborov). To znamená:
+Inventario je **100% REUSE 3.3 compliant** (632/632 súborov). To znamená:
 
 - Každý súbor má **SPDX-FileCopyrightText** hlavičku
 - Každý súbor má **SPDX-License-Identifier** hlavičku
@@ -122,7 +120,7 @@ Veríme, že **softvér pre verejný sektor by nemal byť vendor lock-in**. Mest
 Inventario rieši toto cez:
 
 1. **Open source kód** — môžete si ho stiahnuť a forkovať
-2. **Open formáty** — CSV, JSON exports, OpenAPI spec
+2. **Open formáty** — JSON export (osobné údaje) + OpenAPI spec (reportový CSV/XLSX export v roadmape)
 3. **Open standards** — REST API, OIDC/OAuth2, MongoDB (standardná NoSQL)
 4. **Transparentnosť** — verejný roadmap, public issue tracker, ADRs
 
@@ -131,7 +129,7 @@ Inventario rieši toto cez:
 Inventario je vyvinuté **na Slovensku, pre Slovensko**, ale dizajnované s **EU rozšírením** v mysli:
 
 - EUPL-1.2 funguje vo všetkých EU krajinách
-- i18n pripravené (SK + EN v prvej fáze, ďalšie jazyky v Q4 2026)
+- i18n plánované (zatiaľ len SK; EN a ďalšie jazyky v roadmape)
 - GDPR compliance od dňa 1
 - WCAG 2.1 AA accessibility v slice #4
 - EU-only hosting (Vercel Frankfurt, MongoDB Atlas Frankfurt/Dublin)
@@ -142,7 +140,7 @@ Vyvíjame **vo verejnosti** — publikujeme session summaries, ADRs, roadmapy. V
 
 ## Sponzori a granty
 
-Inventario v0.3 bolo financované cez:
+Inventario bolo financované cez:
 
 - **SFZ** — pôvodný vývoj (október 2025 – máj 2026)
 - **LTK Solutions** — pivot na open-source (máj 2026 – súčasnosť)

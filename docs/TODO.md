@@ -313,8 +313,8 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] Bug v `demo.html` (prepínač stránok `${page}.html`).
 - **Zostáva:**
   - [ ] **Reálne screenshoty** zo živej appky (`app.inventario.estate`, login cez Chrome) → nahradiť/aktualizovať `product-screens/_*.html` mockupy (obsahujú aj staré „257", „v0.3"). Vyžaduje prístup do živej appky.
-  - [ ] **Apple Sign-In tlačidlo v appke** (`apps/web` register/auth-settings) je zobrazené, ale endpoint je gated → 503. Skryť/disable kým nie sú Apple env vars (produktové rozhodnutie).
-  - [ ] Prejsť `apps/docs` (MDX) — `product-ui-tour.mdx`, `about.mdx` na rovnaké nezrovnalosti.
+  - [x] **Apple Sign-In tlačidlo v appke** — env-gated (`NEXT_PUBLIC_APPLE_ENABLED`), skryté v RegisterPage + AuthSettingsContent kým nie je nakonfigurované (2026-06-12).
+  - [x] `apps/docs` MDX (about, index, product-ui-tour) — opravené čísla (REUSE 632, odstránené v0.3), „Aktuálny stav" prepísaný na produkciu LIVE, export/i18n → roadmap (2026-06-12).
 - **Model:** Sonnet (audit + copy), Haiku (mechanické úpravy).
 - **Blocker:** NIE pre SFZ pilot, ÁNO pred marketingovým spustením.
 
