@@ -314,7 +314,9 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Zostáva:**
   - [~] **Screenshoty:** Stale čísla v mockupoch opravené (`product-screens/_login-page.html`: 257→962, odstránené v0.3). **Reálne raster screenshoty zatiaľ NEUROBENÉ** — produkčný SFZ tenant má reálne mená/PII + len 2 položky (nevhodné pre verejný web; GDPR).
   - [x] **Seed demo tenant skript** — `apps/api/scripts/seed-demo-tenant.ts` (`pnpm --filter @inventario/api seed:demo`). Idempotentný, dry-run default, `--confirm`/`--reset`, scoped len na demo org, pridá `jan.letko@futbalsfz.sk` ako ADMIN člena + fiktívnych členov; ~25 položiek (SERIALIZED+BULK so stock ledger), kategórie, lokality, 2 výpožičky, 1 PENDING žiadosť. (2026-06-12)
-  - [ ] **Spustiť seed na prod** (Janika) → prepnúť org v appke → spraviť screenshoty 6 obrazoviek → nahradiť/aktualizovať `product-screens` mockupy. Pozn.: Cowork screenshot neukladá na disk — ručný export alebo CI screenshot pipeline.
+  - [x] **Seed spustený na prod** (2026-06-12) — demo org `6a2c40e51166ed11b3c31160` v DB `inventario`. Overené: 17 majetku, 7 členov (6 demo + admin jan.letko), 2 výpožičky, 5 stock movements, 1 PENDING žiadosť.
+  - [ ] **Screenshoty** — prepnúť org v appke na „ŠK Demo Inventário" → 6 obrazoviek → nahradiť/aktualizovať `product-screens` mockupy. Pozn.: Cowork screenshot neukladá na disk — ručný export alebo CI screenshot pipeline.
+  - [ ] **Vyčistiť demo z prod neskôr** (ak treba): `seed:demo -- --confirm --reset` zmaže len demo org dáta, alebo manuálne.
   - [x] **Apple Sign-In tlačidlo v appke** — env-gated (`NEXT_PUBLIC_APPLE_ENABLED`), skryté v RegisterPage + AuthSettingsContent kým nie je nakonfigurované (2026-06-12).
   - [x] `apps/docs` MDX (about, index, product-ui-tour) — opravené čísla (REUSE 632, odstránené v0.3), „Aktuálny stav" prepísaný na produkciu LIVE, export/i18n → roadmap (2026-06-12).
 - **Model:** Sonnet (audit + copy), Haiku (mechanické úpravy).
