@@ -15,6 +15,8 @@
 - ✅ Docs sync: `docs/README.md`, `architecture/README.md` + `data-model.md` (NestJS→Fastify, Next 14→15, Production LIVE), root README + ROADMAP
 - ✅ Rebrand „SFZ Asset Management" → „Inventario" v 19 živých súboroch
 - ✅ `docs/api/openapi.yaml` regenerovaný z kanonického `apps/api/openapi.json` (61 pathov)
+- ✅ Marketing nav: orezaný prepínač jazykov opravený (`flex-shrink:0`, breakpoint 1100→1240) — `80cf7df`
+- ✅ App `/loans` (Žiadosti): nadpis „Výpožičky"→„Žiadosti", stĺpec „Žiadateľ" (z `useMembers`), detail žiadosti `/loans/request/[id]` + `useLoanRequest` — `0f9fb8e`
 
 **Otvorené:** MCP server (Slice #10, Q1 2027); drobnosti (bulk invite CSV, per-tenant email provider override, `test-jwt-loader` → `provisionUser()` migrácia). **Ops (mimo kódu):** Apple Developer creds + `APPLE_*` env; rotácia prod Mongo hesla; voliteľné vyčistenie demo dát z prod.
 

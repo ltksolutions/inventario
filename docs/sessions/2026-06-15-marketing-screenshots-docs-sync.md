@@ -80,7 +80,28 @@ regenerovaný z JSON-u na 61 pathov + hlavička „generovaný súbor".
 - `docs/compliance/wcag-2.1-aa-audit.md` ešte referuje odstránené `interactive-demo` —
   je to datovaný snapshot, ponechané ako historický záznam.
 
+## Doplnené (popoludní)
+
+### 8. Marketing nav — orezaný prepínač jazykov (`80cf7df`)
+
+`shared.css`: `.lang-switch` má `overflow: hidden` a v tesnom desktop nave (7 odkazov +
+brand + tlačidlo > 1180 px kontajner) ho flexbox stláčal → „EN" sa orezalo. Fix:
+`flex-shrink: 0` na `.lang-switch` + `.nav-right`, `white-space: nowrap` na tlačidlá,
+breakpoint hamburgeru `1100 → 1240 px`.
+
+### 9. App — stránka Žiadosti: nadpis, žiadateľ, detail (`0f9fb8e`)
+
+Tri nahlásené nedostatky na `/loans`:
+
+- nadpis „Výpožičky" → **„Žiadosti"** (zhoda s menu) v `LoansContent.tsx`;
+- nový stĺpec **„Žiadateľ"** — meno z `useMembers` (server vracia len ID), + beneficiár ak sa líši;
+- **detail žiadosti** — nová stránka `/loans/request/[id]` + `LoanRequestDetailContent` +
+  hook `useLoanRequest(id)` nad existujúcim `GET /v1/loan-requests/:id`; odkaz „Detail" v každom riadku.
+
+Riešené FE-only (žiadny backend). tsc + eslint zelené, pre-commit hooky prešli.
+Pozn.: detail je read-only — akcie ostávajú v zozname (možný budúci doplnok).
+
 ## Commity (2026-06-15)
 
 `c120490` · `a0764e3` · `18401e5` · `f3508ee` · `38c62c5` · `263b74b` · `23bb589` ·
-`eff1987` · `c420aca` · `52f0677` (+ tento „poupratuj" docs commit).
+`eff1987` · `c420aca` · `52f0677` · `a0e535b` · `80cf7df` · `0f9fb8e` (+ tento „poupratuj" docs commit).
