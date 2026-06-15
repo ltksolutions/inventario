@@ -1,1696 +1,4456 @@
+# GENEROVANÝ SÚBOR — needituj ručne.
+# Zdroj pravdy: apps/api/openapi.json (export z Fastify swagger).
+# Regenerácia: pnpm --filter @inventario/api openapi:export  (vytvorí openapi.json),
+#   potom konverzia JSON→YAML do tohto súboru.
+# SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+# SPDX-License-Identifier: EUPL-1.2
+
 openapi: 3.1.0
-
 info:
-  title: SFZ Asset Management API
-  description: |
-    Interný systém Slovenského futbalového zväzu na evidenciu
-    a vypožičiavanie majetku.
-
-    ## Princípy
-    - REST + JSON
-    - OIDC autentifikácia cez Microsoft Entra ID
-    - Cursor-based pagination
-    - Problem Details (RFC 7807) pre chyby
-    - Idempotency-Key pre kritické POST operácie
-
-    Detaily viď [README](README.md).
-  version: 1.0.0-draft
+  title: Inventario API
+  description:
+    REST API for Inventario — a multi-tenant, white-label asset management platform for sports
+    federations, municipalities, schools, and clubs. Open-source under EUPL-1.2.
+  version: 0.1.0
   contact:
-    name: SFZ IT
-    email: it@futbalsfz.sk
+    name: Inventario · LTK Solutions
+    url: https://inventario.sportup.sk
+    email: inventario@sportup.sk
   license:
-    name: MIT
-    url: https://github.com/futbalsfz/Asset-Management/blob/main/LICENSE
-
-servers:
-  - url: https://api.assets.futbalsfz.sk/api/v1
-    description: Produkcia
-  - url: https://api.assets.staging.futbalsfz.sk/api/v1
-    description: Staging
-  - url: http://localhost:3000/api/v1
-    description: Lokálny vývoj
-
-tags:
-  - name: Auth
-    description: Autentifikácia a získanie informácií o aktuálnom používateľovi
-  - name: Users
-    description: Správa používateľov
-  - name: Assets
-    description: Karty majetku
-  - name: Categories
-    description: Číselník kategórií
-  - name: Locations
-    description: Číselník lokalít
-  - name: LoanRequests
-    description: Žiadosti o vypožičanie
-  - name: Loans
-    description: Aktívne a historické zápožičky
-  - name: Protocols
-    description: PDF protokoly a podpisy
-  - name: Notifications
-    description: In-app notifikácie
-  - name: Reports
-    description: Reporty a exporty
-  - name: Health
-    description: Health checks a metriky
-
-security:
-  - bearerAuth: []
-
-paths:
-  # ===== Health =====
-  /health:
-    get:
-      tags: [Health]
-      summary: Health check
-      security: []
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, enum: [ok] }
-                  timestamp: { type: string, format: date-time }
-                  version: { type: string }
-
-  /ready:
-    get:
-      tags: [Health]
-      summary: Readiness check (DB, dependencies)
-      security: []
-      responses:
-        "200": { description: Ready }
-        "503": { description: Not ready }
-
-  # ===== Auth =====
-  /auth/login:
-    get:
-      tags: [Auth]
-      summary: Iniciovať OIDC login flow (redirect na Entra ID)
-      security: []
-      parameters:
-        - in: query
-          name: returnUrl
-          schema: { type: string }
-      responses:
-        "302":
-          description: Redirect na Entra ID
-
-  /auth/callback:
-    get:
-      tags: [Auth]
-      summary: OIDC callback z Entra ID
-      security: []
-      parameters:
-        - in: query
-          name: code
-          required: true
-          schema: { type: string }
-        - in: query
-          name: state
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Login úspešný, tokeny vrátené
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AuthResult" }
-
-  /auth/refresh:
-    post:
-      tags: [Auth]
-      summary: Refresh access tokenu
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [refreshToken]
-              properties:
-                refreshToken: { type: string }
-      responses:
-        "200":
-          description: Nový access token
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AuthResult" }
-
-  /auth/logout:
-    post:
-      tags: [Auth]
-      summary: Odhlásenie (invalidácia refresh tokenu)
-      responses:
-        "204": { description: Odhlásený }
-
-  /auth/me:
-    get:
-      tags: [Auth]
-      summary: Informácie o aktuálnom prihlásenom používateľovi
-      responses:
-        "200":
-          description: Aktuálny používateľ
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-
-  # ===== Users =====
-  /users:
-    get:
-      tags: [Users]
-      summary: Zoznam používateľov
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Sort"
-        - in: query
-          name: search
-          schema: { type: string }
-        - in: query
-          name: type
-          schema: { type: string, enum: [internal, external] }
-        - in: query
-          name: role
-          schema: { $ref: "#/components/schemas/UserRole" }
-        - in: query
-          name: status
-          schema: { type: string, enum: [active, suspended, deactivated] }
-      responses:
-        "200":
-          description: Zoznam používateľov
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UserListResponse" }
-    post:
-      tags: [Users]
-      summary: Vytvoriť externého používateľa
-      description: |
-        Interní používatelia (zamestnanci SFZ) vznikajú automaticky pri prvom
-        prihlásení cez Entra ID SSO. Tento endpoint slúži len pre externých.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateExternalUserRequest" }
-      responses:
-        "201":
-          description: Vytvorený
-          headers:
-            Location:
-              schema: { type: string }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-        "409": { $ref: "#/components/responses/Conflict" }
-
-  /users/{userId}:
-    parameters:
-      - $ref: "#/components/parameters/UserId"
-    get:
-      tags: [Users]
-      summary: Detail používateľa
-      responses:
-        "200":
-          description: Používateľ
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-        "404": { $ref: "#/components/responses/NotFound" }
-    patch:
-      tags: [Users]
-      summary: Aktualizovať používateľa
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/UpdateUserRequest" }
-      responses:
-        "200":
-          description: Aktualizovaný
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-
-  /users/{userId}/loans:
-    parameters:
-      - $ref: "#/components/parameters/UserId"
-    get:
-      tags: [Users]
-      summary: Zápožičky používateľa
-      parameters:
-        - in: query
-          name: status
-          schema: { type: string, enum: [active, returned, all], default: active }
-      responses:
-        "200":
-          description: Zoznam zápožičiek
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanListResponse" }
-
-  # ===== Categories =====
-  /categories:
-    get:
-      tags: [Categories]
-      summary: Zoznam kategórií
-      responses:
-        "200":
-          description: Zoznam
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/Category" }
-    post:
-      tags: [Categories]
-      summary: Vytvoriť kategóriu
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateCategoryRequest" }
-      responses:
-        "201":
-          description: Vytvorená
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Category" }
-
-  /categories/{categoryId}:
-    parameters:
-      - in: path
-        name: categoryId
-        required: true
-        schema: { type: string }
-    get:
-      tags: [Categories]
-      summary: Detail kategórie
-      responses:
-        "200":
-          description: Kategória
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Category" }
-    patch:
-      tags: [Categories]
-      summary: Aktualizovať kategóriu
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/UpdateCategoryRequest" }
-      responses:
-        "200":
-          description: Aktualizovaná
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Category" }
-
-  # ===== Locations =====
-  /locations:
-    get:
-      tags: [Locations]
-      summary: Zoznam lokalít
-      responses:
-        "200":
-          description: Zoznam
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/Location" }
-    post:
-      tags: [Locations]
-      summary: Vytvoriť lokalitu
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateLocationRequest" }
-      responses:
-        "201":
-          description: Vytvorená
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Location" }
-
-  /locations/{locationId}:
-    parameters:
-      - in: path
-        name: locationId
-        required: true
-        schema: { type: string }
-    get:
-      tags: [Locations]
-      responses:
-        "200":
-          description: Lokalita
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Location" }
-    patch:
-      tags: [Locations]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/UpdateLocationRequest" }
-      responses:
-        "200":
-          description: Aktualizovaná
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Location" }
-
-  # ===== Assets =====
-  /assets:
-    get:
-      tags: [Assets]
-      summary: Vyhľadávanie a zoznam majetku
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Sort"
-        - in: query
-          name: search
-          description: Full-text v názve, popise, sériovom čísle, tagoch
-          schema: { type: string }
-        - in: query
-          name: status
-          schema: { $ref: "#/components/schemas/AssetStatus" }
-        - in: query
-          name: categoryId
-          schema: { type: string }
-        - in: query
-          name: locationId
-          schema: { type: string }
-        - in: query
-          name: assignedToUserId
-          schema: { type: string }
-        - in: query
-          name: tags
-          description: Čiarkou oddelený zoznam tagov (AND match)
-          schema: { type: string }
-        - in: query
-          name: includeDisposed
-          schema: { type: boolean, default: false }
-      responses:
-        "200":
-          description: Zoznam
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AssetListResponse" }
-    post:
-      tags: [Assets]
-      summary: Zaevidovať nový majetok
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateAssetRequest" }
-      responses:
-        "201":
-          description: Vytvorený
-          headers:
-            Location: { schema: { type: string } }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Asset" }
-
-  /assets/bulk-import:
-    post:
-      tags: [Assets]
-      summary: Hromadný import majetku z CSV
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file]
-              properties:
-                file:
-                  type: string
-                  format: binary
-                dryRun:
-                  type: boolean
-                  description: Ak true, len validuje, neukladá
-      responses:
-        "200":
-          description: Výsledok importu
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BulkImportResult" }
-
-  /assets/lookup/qr/{qrCode}:
-    parameters:
-      - in: path
-        name: qrCode
-        required: true
-        schema: { type: string }
-    get:
-      tags: [Assets]
-      summary: Vyhľadať majetok podľa QR kódu
-      responses:
-        "200":
-          description: Asset
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Asset" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
-  /assets/lookup/inventory/{inventoryNumber}:
-    parameters:
-      - in: path
-        name: inventoryNumber
-        required: true
-        schema: { type: string }
-    get:
-      tags: [Assets]
-      summary: Vyhľadať majetok podľa inventárneho čísla
-      responses:
-        "200":
-          description: Asset
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Asset" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
-  /assets/{assetId}:
-    parameters:
-      - $ref: "#/components/parameters/AssetId"
-    get:
-      tags: [Assets]
-      summary: Detail majetku
-      responses:
-        "200":
-          description: Asset
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Asset" }
-        "404": { $ref: "#/components/responses/NotFound" }
-    patch:
-      tags: [Assets]
-      summary: Aktualizovať majetok
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/UpdateAssetRequest" }
-      responses:
-        "200":
-          description: Aktualizovaný
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Asset" }
-
-  /assets/{assetId}/dispose:
-    parameters:
-      - $ref: "#/components/parameters/AssetId"
-    post:
-      tags: [Assets]
-      summary: Vyradiť majetok
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reason]
-              properties:
-                reason: { type: string, minLength: 5 }
-      responses:
-        "200":
-          description: Vyradený
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Asset" }
-
-  /assets/{assetId}/history:
-    parameters:
-      - $ref: "#/components/parameters/AssetId"
-    get:
-      tags: [Assets]
-      summary: História pohybov položky
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-      responses:
-        "200":
-          description: História
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AssetHistoryListResponse" }
-
-  /assets/{assetId}/qr:
-    parameters:
-      - $ref: "#/components/parameters/AssetId"
-    get:
-      tags: [Assets]
-      summary: Stiahnuť QR kód ako PNG/SVG
-      parameters:
-        - in: query
-          name: format
-          schema: { type: string, enum: [png, svg, pdf], default: png }
-        - in: query
-          name: size
-          schema: { type: integer, default: 256 }
-      responses:
-        "200":
-          description: QR kód
-          content:
-            image/png: { schema: { type: string, format: binary } }
-            image/svg+xml: { schema: { type: string } }
-            application/pdf: { schema: { type: string, format: binary } }
-
-  /assets/{assetId}/photos:
-    parameters:
-      - $ref: "#/components/parameters/AssetId"
-    post:
-      tags: [Assets]
-      summary: Pridať fotografiu k majetku
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file]
-              properties:
-                file: { type: string, format: binary }
-                isPrimary: { type: boolean, default: false }
-      responses:
-        "201":
-          description: Pridaná
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Attachment" }
-
-  # ===== Loan Requests =====
-  /loan-requests:
-    get:
-      tags: [LoanRequests]
-      summary: Zoznam žiadostí o vypožičanie
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - in: query
-          name: status
-          schema: { type: string, enum: [pending, approved, rejected, cancelled, fulfilled] }
-        - in: query
-          name: requesterId
-          schema: { type: string }
-      responses:
-        "200":
-          description: Zoznam
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanRequestListResponse" }
-    post:
-      tags: [LoanRequests]
-      summary: Vytvoriť žiadosť o vypožičanie
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateLoanRequestRequest" }
-      responses:
-        "201":
-          description: Vytvorená
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanRequest" }
-        "409":
-          description: Niektoré položky nie sú dostupné
-          content:
-            application/problem+json:
-              schema: { $ref: "#/components/schemas/ProblemDetails" }
-
-  /loan-requests/{requestId}:
-    parameters:
-      - in: path
-        name: requestId
-        required: true
-        schema: { type: string }
-    get:
-      tags: [LoanRequests]
-      responses:
-        "200":
-          description: Detail
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanRequest" }
-
-  /loan-requests/{requestId}/approve:
-    parameters:
-      - in: path
-        name: requestId
-        required: true
-        schema: { type: string }
-    post:
-      tags: [LoanRequests]
-      summary: Schváliť žiadosť
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                comment: { type: string }
-      responses:
-        "200":
-          description: Schválená
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanRequest" }
-
-  /loan-requests/{requestId}/reject:
-    parameters:
-      - in: path
-        name: requestId
-        required: true
-        schema: { type: string }
-    post:
-      tags: [LoanRequests]
-      summary: Zamietnuť žiadosť
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [comment]
-              properties:
-                comment: { type: string, minLength: 5 }
-      responses:
-        "200":
-          description: Zamietnutá
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanRequest" }
-
-  /loan-requests/{requestId}/cancel:
-    parameters:
-      - in: path
-        name: requestId
-        required: true
-        schema: { type: string }
-    post:
-      tags: [LoanRequests]
-      summary: Zrušiť vlastnú žiadosť
-      responses:
-        "200":
-          description: Zrušená
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanRequest" }
-
-  # ===== Loans =====
-  /loans:
-    get:
-      tags: [Loans]
-      summary: Zoznam zápožičiek
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - in: query
-          name: status
-          schema: { type: string, enum: [active, partially_returned, returned, overdue] }
-        - in: query
-          name: borrowerId
-          schema: { type: string }
-        - in: query
-          name: overdue
-          schema: { type: boolean }
-      responses:
-        "200":
-          description: Zoznam
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanListResponse" }
-    post:
-      tags: [Loans]
-      summary: Vydať majetok (zo schválenej žiadosti alebo rýchle vypožičanie)
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateLoanRequest" }
-      responses:
-        "201":
-          description: Vytvorená zápožička + PDF protokol
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanWithProtocol" }
-
-  /loans/{loanId}:
-    parameters:
-      - in: path
-        name: loanId
-        required: true
-        schema: { type: string }
-    get:
-      tags: [Loans]
-      responses:
-        "200":
-          description: Detail
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Loan" }
-
-  /loans/{loanId}/extend:
-    parameters:
-      - in: path
-        name: loanId
-        required: true
-        schema: { type: string }
-    post:
-      tags: [Loans]
-      summary: Predĺžiť zápožičku
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [newDueAt]
-              properties:
-                newDueAt: { type: string, format: date-time }
-                reason: { type: string }
-      responses:
-        "200":
-          description: Predĺžená
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Loan" }
-
-  /loans/{loanId}/return:
-    parameters:
-      - in: path
-        name: loanId
-        required: true
-        schema: { type: string }
-    post:
-      tags: [Loans]
-      summary: Vrátiť majetok (celý alebo čiastočne)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ReturnLoanRequest" }
-      responses:
-        "200":
-          description: Vrátený + return protokol
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanWithProtocol" }
-
-  # ===== Protocols =====
-  /protocols/{protocolId}:
-    parameters:
-      - in: path
-        name: protocolId
-        required: true
-        schema: { type: string }
-    get:
-      tags: [Protocols]
-      summary: Metadata protokolu
-      responses:
-        "200":
-          description: Protokol
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanProtocol" }
-
-  /protocols/{protocolId}/pdf:
-    parameters:
-      - in: path
-        name: protocolId
-        required: true
-        schema: { type: string }
-    get:
-      tags: [Protocols]
-      summary: Stiahnuť PDF protokol
-      responses:
-        "200":
-          description: PDF
-          content:
-            application/pdf:
-              schema: { type: string, format: binary }
-
-  /protocols/{protocolId}/sign:
-    parameters:
-      - in: path
-        name: protocolId
-        required: true
-        schema: { type: string }
-    post:
-      tags: [Protocols]
-      summary: Elektronicky podpísať protokol
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [method]
-              properties:
-                method: { type: string, enum: [click, drawn] }
-                signatureImageBase64:
-                  type: string
-                  description: Base64 PNG pre method=drawn
-      responses:
-        "200":
-          description: Podpísaný
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanProtocol" }
-
-  # ===== Notifications =====
-  /notifications:
-    get:
-      tags: [Notifications]
-      summary: In-app notifikácie aktuálneho používateľa
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - in: query
-          name: unreadOnly
-          schema: { type: boolean, default: false }
-      responses:
-        "200":
-          description: Zoznam
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/NotificationListResponse" }
-
-  /notifications/{notificationId}/read:
-    parameters:
-      - in: path
-        name: notificationId
-        required: true
-        schema: { type: string }
-    post:
-      tags: [Notifications]
-      summary: Označiť ako prečítané
-      responses:
-        "204": { description: OK }
-
-  /notifications/read-all:
-    post:
-      tags: [Notifications]
-      summary: Označiť všetky ako prečítané
-      responses:
-        "204": { description: OK }
-
-  # ===== Reports =====
-  /reports/assets/export:
-    get:
-      tags: [Reports]
-      summary: Export majetku do CSV
-      parameters:
-        - in: query
-          name: status
-          schema: { $ref: "#/components/schemas/AssetStatus" }
-        - in: query
-          name: categoryId
-          schema: { type: string }
-        - in: query
-          name: locationId
-          schema: { type: string }
-      responses:
-        "200":
-          description: CSV export
-          content:
-            text/csv:
-              schema: { type: string }
-
-  /reports/overdue-loans:
-    get:
-      tags: [Reports]
-      summary: Zápožičky po splatnosti
-      responses:
-        "200":
-          description: Zoznam
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LoanListResponse" }
-
-  /reports/asset-utilization:
-    get:
-      tags: [Reports]
-      summary: Štatistika využitia majetku (fáza 2)
-      parameters:
-        - in: query
-          name: from
-          schema: { type: string, format: date }
-        - in: query
-          name: to
-          schema: { type: string, format: date }
-        - in: query
-          name: categoryId
-          schema: { type: string }
-      responses:
-        "200":
-          description: Štatistiky
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UtilizationReport" }
-
+    name: EUPL-1.2
+    url: https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: |
-        JWT získaný cez Entra ID OIDC flow.
-        Pre externých používateľov možnosť Personal Access Tokens.
-
-  parameters:
-    Limit:
-      in: query
-      name: limit
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 25
-
-    Cursor:
-      in: query
-      name: cursor
-      schema: { type: string }
-      description: Cursor z predchádzajúcej stránky
-
-    Sort:
-      in: query
-      name: sort
-      schema: { type: string }
-      description: "Čiarkou oddelený zoznam: field:asc|desc"
-      examples:
-        byDate: { value: "createdAt:desc" }
-        byName: { value: "name:asc" }
-
-    UserId:
-      in: path
-      name: userId
-      required: true
-      schema: { type: string }
-
-    AssetId:
-      in: path
-      name: assetId
-      required: true
-      schema: { type: string }
-
-    IdempotencyKey:
-      in: header
-      name: Idempotency-Key
-      required: false
-      schema: { type: string, format: uuid }
-
-  responses:
-    NotFound:
-      description: Entita neexistuje
-      content:
-        application/problem+json:
-          schema: { $ref: "#/components/schemas/ProblemDetails" }
-
-    Unauthorized:
-      description: Chýbajúci alebo neplatný token
-      content:
-        application/problem+json:
-          schema: { $ref: "#/components/schemas/ProblemDetails" }
-
-    Forbidden:
-      description: Nedostatok oprávnení
-      content:
-        application/problem+json:
-          schema: { $ref: "#/components/schemas/ProblemDetails" }
-
-    Conflict:
-      description: Konflikt stavu
-      content:
-        application/problem+json:
-          schema: { $ref: "#/components/schemas/ProblemDetails" }
-
-  schemas:
-    # ===== Common =====
-    ProblemDetails:
-      type: object
-      properties:
-        type: { type: string, format: uri }
-        title: { type: string }
-        status: { type: integer }
-        detail: { type: string }
-        instance: { type: string }
-        requestId: { type: string }
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              field: { type: string }
-              code: { type: string }
-              message: { type: string }
-      required: [title, status]
-
-    Pagination:
-      type: object
-      properties:
-        nextCursor: { type: string, nullable: true }
-        hasMore: { type: boolean }
-        limit: { type: integer }
-
-    LocalizedString:
-      type: object
-      properties:
-        sk: { type: string }
-        en: { type: string }
-      required: [sk]
-
-    Money:
-      type: object
-      properties:
-        amount: { type: number }
-        currency: { type: string, default: EUR }
-      required: [amount, currency]
-
-    # ===== Auth =====
-    AuthResult:
-      type: object
-      required: [accessToken, refreshToken, expiresIn, user]
-      properties:
-        accessToken: { type: string }
-        refreshToken: { type: string }
-        expiresIn: { type: integer, description: Sekundy do expirácie }
-        tokenType: { type: string, default: Bearer }
-        user: { $ref: "#/components/schemas/User" }
-
-    # ===== User =====
-    UserRole:
-      type: string
-      enum: [admin, asset_manager, team_manager, employee, external]
-
-    UserStatus:
-      type: string
-      enum: [active, suspended, deactivated]
-
-    UserType:
-      type: string
-      enum: [internal, external]
-
-    User:
-      type: object
-      required: [id, email, displayName, type, roles, status]
-      properties:
-        id: { type: string }
-        email: { type: string, format: email }
-        displayName: { type: string }
-        firstName: { type: string }
-        lastName: { type: string }
-        type: { $ref: "#/components/schemas/UserType" }
-        roles:
-          type: array
-          items: { $ref: "#/components/schemas/UserRole" }
-        status: { $ref: "#/components/schemas/UserStatus" }
-        organization:
-          type: object
-          properties:
-            department: { type: string, nullable: true }
-            jobTitle: { type: string, nullable: true }
-            managerId: { type: string, nullable: true }
-        externalAccount:
-          type: object
-          nullable: true
-          properties:
-            organization: { type: string }
-            contactPhone: { type: string, nullable: true }
-            expiresAt: { type: string, format: date-time, nullable: true }
-        preferences:
-          type: object
-          properties:
-            locale: { type: string, enum: [sk, en] }
-            notifications:
+      description:
+        "Microsoft Entra ID access token (v2.0). Multi-tenant: the JWT `tid` claim resolves
+        the Organisation; the `oid` claim resolves the User. See apps/api/README.md for the device code
+        flow."
+  schemas: {}
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      tags:
+        - Health
+      description: Returns 200 if the API process is alive. Does not check dependencies.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ok
+                  uptime:
+                    type: number
+                    description: Process uptime in seconds
+                  timestamp:
+                    type: string
+                    format: date-time
+                required:
+                  - status
+                  - uptime
+                  - timestamp
+                additionalProperties: false
+  /health/ready:
+    get:
+      summary: Readiness probe
+      tags:
+        - Health
+      description: Returns 200 if the API can serve requests (DB reachable).
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - not_ready
+                  checks:
+                    type: object
+                    properties:
+                      mongo:
+                        type: string
+                        enum:
+                          - ok
+                          - fail
+                    required:
+                      - mongo
+                    additionalProperties: false
+                  timestamp:
+                    type: string
+                    format: date-time
+                required:
+                  - status
+                  - checks
+                  - timestamp
+                additionalProperties: false
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - not_ready
+                  checks:
+                    type: object
+                    properties:
+                      mongo:
+                        type: string
+                        enum:
+                          - ok
+                          - fail
+                    required:
+                      - mongo
+                    additionalProperties: false
+                  timestamp:
+                    type: string
+                    format: date-time
+                required:
+                  - status
+                  - checks
+                  - timestamp
+                additionalProperties: false
+  /v1/organisations/current:
+    get:
+      summary: Get the current tenant (self)
+      tags:
+        - Organisations
+      description:
+        Returns the authenticated member's own organisation, including billing and branding.
+        The organisation id comes from the actor JWT claim, not a URL parameter — a member can only ever
+        read their own tenant.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    patch:
+      summary: Update the current tenant (self, ADMIN)
+      tags:
+        - Organisations
+      description:
+        Tenant admin updates their own organisation's name, contact email and billing details.
+        plan/status/slug are NOT editable here (platform-operator only). Records an audit event with a
+        per-field diff. Requires ADMIN role within the tenant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
               type: object
               properties:
-                email: { type: boolean }
-                inApp: { type: boolean }
-                digestFrequency: { type: string, enum: [off, daily, weekly] }
-        lastLoginAt: { type: string, format: date-time, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    UserListResponse:
-      type: object
-      required: [data, pagination]
-      properties:
-        data:
-          type: array
-          items: { $ref: "#/components/schemas/User" }
-        pagination: { $ref: "#/components/schemas/Pagination" }
-
-    CreateExternalUserRequest:
-      type: object
-      required: [email, firstName, lastName, organization]
-      properties:
-        email: { type: string, format: email }
-        firstName: { type: string }
-        lastName: { type: string }
-        organization: { type: string }
-        contactPhone: { type: string }
-        expiresAt: { type: string, format: date-time }
-        roles:
-          type: array
-          items: { $ref: "#/components/schemas/UserRole" }
-          default: [external]
-
-    UpdateUserRequest:
-      type: object
-      properties:
-        firstName: { type: string }
-        lastName: { type: string }
-        roles:
-          type: array
-          items: { $ref: "#/components/schemas/UserRole" }
-        status: { $ref: "#/components/schemas/UserStatus" }
-        preferences:
-          type: object
-
-    # ===== Category =====
-    Category:
-      type: object
-      required: [id, code, name, customFieldsSchema]
-      properties:
-        id: { type: string }
-        code: { type: string }
-        name: { $ref: "#/components/schemas/LocalizedString" }
-        description: { type: string, nullable: true }
-        parentCategoryId: { type: string, nullable: true }
-        icon: { type: string, nullable: true }
-        inventoryNumberPrefix: { type: string, nullable: true }
-        customFieldsSchema:
-          type: array
-          items: { $ref: "#/components/schemas/CustomFieldDefinition" }
-        active: { type: boolean }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    CustomFieldDefinition:
-      type: object
-      required: [fieldName, label, type]
-      properties:
-        fieldName: { type: string }
-        label: { $ref: "#/components/schemas/LocalizedString" }
-        type: { type: string, enum: [text, number, boolean, date, select] }
-        required: { type: boolean, default: false }
-        defaultValue: {}
-        options:
-          type: array
-          items: { type: string }
-        validation:
-          type: object
-          properties:
-            min: { type: number }
-            max: { type: number }
-            pattern: { type: string }
-        order: { type: integer }
-
-    CreateCategoryRequest:
-      type: object
-      required: [code, name]
-      properties:
-        code: { type: string, pattern: "^[a-z0-9_]+$" }
-        name: { $ref: "#/components/schemas/LocalizedString" }
-        description: { type: string }
-        parentCategoryId: { type: string }
-        icon: { type: string }
-        inventoryNumberPrefix: { type: string }
-        customFieldsSchema:
-          type: array
-          items: { $ref: "#/components/schemas/CustomFieldDefinition" }
-
-    UpdateCategoryRequest:
-      type: object
-      properties:
-        name: { $ref: "#/components/schemas/LocalizedString" }
-        description: { type: string }
-        icon: { type: string }
-        active: { type: boolean }
-        customFieldsSchema:
-          type: array
-          items: { $ref: "#/components/schemas/CustomFieldDefinition" }
-
-    # ===== Location =====
-    Location:
-      type: object
-      required: [id, code, name, type, active]
-      properties:
-        id: { type: string }
-        code: { type: string }
-        name: { type: string }
-        type: { type: string, enum: [office, warehouse, training_facility, external, other] }
-        address:
-          type: object
-          nullable: true
-          properties:
-            street: { type: string, nullable: true }
-            city: { type: string, nullable: true }
-            postalCode: { type: string, nullable: true }
-            country: { type: string }
-        parentLocationId: { type: string, nullable: true }
-        managerUserId: { type: string, nullable: true }
-        active: { type: boolean }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    CreateLocationRequest:
-      type: object
-      required: [code, name, type]
-      properties:
-        code: { type: string }
-        name: { type: string }
-        type: { type: string, enum: [office, warehouse, training_facility, external, other] }
-        address: { type: object }
-        parentLocationId: { type: string }
-        managerUserId: { type: string }
-
-    UpdateLocationRequest:
-      type: object
-      properties:
-        name: { type: string }
-        address: { type: object }
-        managerUserId: { type: string }
-        active: { type: boolean }
-
-    # ===== Asset =====
-    AssetStatus:
-      type: string
-      enum: [available, reserved, borrowed, in_service, disposed, lost]
-
-    Asset:
-      type: object
-      required: [id, inventoryNumber, name, categoryId, status, locationId]
-      properties:
-        id: { type: string }
-        inventoryNumber: { type: string }
-        externalInventoryNumber: { type: string, nullable: true }
-        qrCode: { type: string }
-        barcodeEan: { type: string, nullable: true }
-        name: { type: string }
-        description: { type: string, nullable: true }
-        categoryId: { type: string }
-        subcategoryId: { type: string, nullable: true }
-        manufacturer: { type: string, nullable: true }
-        model: { type: string, nullable: true }
-        serialNumber: { type: string, nullable: true }
-        status: { $ref: "#/components/schemas/AssetStatus" }
-        locationId: { type: string }
-        assignedToUserId: { type: string, nullable: true }
-        responsibleUserId: { type: string, nullable: true }
-        customFields:
-          type: object
-          additionalProperties: true
-        acquisition:
-          type: object
-          properties:
-            date: { type: string, format: date, nullable: true }
-            price: { $ref: "#/components/schemas/Money" }
-            supplier: { type: string, nullable: true }
-            purchaseOrderNumber: { type: string, nullable: true }
-            warrantyUntil: { type: string, format: date, nullable: true }
-        tags:
-          type: array
-          items: { type: string }
-        primaryPhotoId: { type: string, nullable: true }
-        photoIds:
-          type: array
-          items: { type: string }
-        documentIds:
-          type: array
-          items: { type: string }
-        notes: { type: string, nullable: true }
-        disposal:
-          type: object
-          nullable: true
-          properties:
-            date: { type: string, format: date-time }
-            reason: { type: string }
-            disposedByUserId: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    AssetListResponse:
-      type: object
-      required: [data, pagination]
-      properties:
-        data:
-          type: array
-          items: { $ref: "#/components/schemas/Asset" }
-        pagination: { $ref: "#/components/schemas/Pagination" }
-
-    CreateAssetRequest:
-      type: object
-      required: [name, categoryId, locationId]
-      properties:
-        name: { type: string }
-        description: { type: string }
-        categoryId: { type: string }
-        subcategoryId: { type: string }
-        externalInventoryNumber: { type: string }
-        manufacturer: { type: string }
-        model: { type: string }
-        serialNumber: { type: string }
-        locationId: { type: string }
-        responsibleUserId: { type: string }
-        customFields: { type: object, additionalProperties: true }
-        acquisition: { type: object }
-        tags:
-          type: array
-          items: { type: string }
-        notes: { type: string }
-
-    UpdateAssetRequest:
-      type: object
-      properties:
-        name: { type: string }
-        description: { type: string }
-        categoryId: { type: string }
-        manufacturer: { type: string }
-        model: { type: string }
-        serialNumber: { type: string }
-        locationId: { type: string }
-        responsibleUserId: { type: string }
-        customFields: { type: object, additionalProperties: true }
-        acquisition: { type: object }
-        tags:
-          type: array
-          items: { type: string }
-        notes: { type: string }
-
-    AssetHistoryEntry:
-      type: object
-      properties:
-        id: { type: string }
-        eventType: { type: string }
-        changes:
-          type: array
-          items:
-            type: object
-            properties:
-              field: { type: string }
-              oldValue: {}
-              newValue: {}
-        triggeredByUserId: { type: string, nullable: true }
-        relatedLoanId: { type: string, nullable: true }
-        notes: { type: string, nullable: true }
-        timestamp: { type: string, format: date-time }
-
-    AssetHistoryListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items: { $ref: "#/components/schemas/AssetHistoryEntry" }
-        pagination: { $ref: "#/components/schemas/Pagination" }
-
-    BulkImportResult:
-      type: object
-      properties:
-        totalRows: { type: integer }
-        successCount: { type: integer }
-        errorCount: { type: integer }
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              row: { type: integer }
-              field: { type: string }
-              message: { type: string }
-        dryRun: { type: boolean }
-
-    Attachment:
-      type: object
-      properties:
-        id: { type: string }
-        filename: { type: string }
-        mimeType: { type: string }
-        size: { type: integer }
-        url: { type: string, description: Krátko platná pre-signed URL }
-        uploadedAt: { type: string, format: date-time }
-
-    # ===== Loan Request =====
-    LoanRequest:
-      type: object
-      required: [id, requestNumber, requesterId, items, status]
-      properties:
-        id: { type: string }
-        requestNumber: { type: string }
-        requesterId: { type: string }
-        onBehalfOfUserId: { type: string, nullable: true }
-        items:
-          type: array
-          items:
-            type: object
-            properties:
-              assetId: { type: string }
-              quantity: { type: integer, default: 1 }
-        requestedFrom: { type: string, format: date-time }
-        requestedUntil: { type: string, format: date-time }
-        purpose: { type: string }
-        status:
-          type: string
-          enum: [pending, approved, rejected, cancelled, fulfilled]
-        approval:
-          type: object
-          nullable: true
-          properties:
-            approverId: { type: string }
-            decidedAt: { type: string, format: date-time }
-            comment: { type: string, nullable: true }
-        loanId: { type: string, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    LoanRequestListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items: { $ref: "#/components/schemas/LoanRequest" }
-        pagination: { $ref: "#/components/schemas/Pagination" }
-
-    CreateLoanRequestRequest:
-      type: object
-      required: [items, requestedFrom, requestedUntil, purpose]
-      properties:
-        onBehalfOfUserId: { type: string }
-        items:
-          type: array
-          minItems: 1
-          items:
-            type: object
-            required: [assetId]
-            properties:
-              assetId: { type: string }
-              quantity: { type: integer, default: 1 }
-        requestedFrom: { type: string, format: date-time }
-        requestedUntil: { type: string, format: date-time }
-        purpose: { type: string, minLength: 3 }
-
-    # ===== Loan =====
-    LoanItem:
-      type: object
-      properties:
-        assetId: { type: string }
-        inventoryNumber: { type: string }
-        name: { type: string }
-        returnedAt: { type: string, format: date-time, nullable: true }
-        returnCondition:
-          type: string
-          enum: [ok, damaged, incomplete, lost]
-          nullable: true
-        returnNotes: { type: string, nullable: true }
-        returnedByUserId: { type: string, nullable: true }
-
-    Loan:
-      type: object
-      required: [id, loanNumber, borrowerId, items, status, borrowedAt, dueAt]
-      properties:
-        id: { type: string }
-        loanNumber: { type: string }
-        loanRequestId: { type: string, nullable: true }
-        borrowerId: { type: string }
-        issuedByUserId: { type: string }
-        items:
-          type: array
-          items: { $ref: "#/components/schemas/LoanItem" }
-        borrowedAt: { type: string, format: date-time }
-        dueAt: { type: string, format: date-time }
-        returnedAt: { type: string, format: date-time, nullable: true }
-        status:
-          type: string
-          enum: [active, partially_returned, returned, overdue]
-        pickupProtocolId: { type: string }
-        returnProtocolIds:
-          type: array
-          items: { type: string }
-        loanType:
-          type: string
-          enum: [standard, quick, bulk]
-        notes: { type: string, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    LoanListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items: { $ref: "#/components/schemas/Loan" }
-        pagination: { $ref: "#/components/schemas/Pagination" }
-
-    LoanWithProtocol:
-      allOf:
-        - $ref: "#/components/schemas/Loan"
-        - type: object
-          properties:
-            protocol: { $ref: "#/components/schemas/LoanProtocol" }
-
-    CreateLoanRequest:
-      oneOf:
-        - type: object
-          title: From approved request
-          required: [loanRequestId, assetIds]
-          properties:
-            loanRequestId: { type: string }
-            assetIds:
-              type: array
-              items: { type: string }
-              description: |
-                Konkrétne asset IDs sa naskenujú/vyberú v okamihu vydania.
-                Musia byť podmnožinou items v loan request-e.
-            notes: { type: string }
-        - type: object
-          title: Quick loan (bez predošlej žiadosti)
-          required: [borrowerId, assetIds, dueAt]
-          properties:
-            borrowerId: { type: string }
-            assetIds:
-              type: array
-              minItems: 1
-              items: { type: string }
-            dueAt: { type: string, format: date-time }
-            purpose: { type: string }
-            loanType: { type: string, enum: [quick], default: quick }
-
-    ReturnLoanRequest:
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          minItems: 1
-          items:
-            type: object
-            required: [assetId, condition]
-            properties:
-              assetId: { type: string }
-              condition:
-                type: string
-                enum: [ok, damaged, incomplete, lost]
-              notes: { type: string }
-              damagePhotoAttachmentIds:
-                type: array
-                items: { type: string }
-
-    # ===== Protocol =====
-    LoanProtocol:
-      type: object
-      properties:
-        id: { type: string }
-        loanId: { type: string }
-        type: { type: string, enum: [pickup, return, partial_return] }
-        protocolNumber: { type: string }
-        fileSize: { type: integer }
-        status: { type: string, enum: [pending_signatures, completed] }
-        signatures:
-          type: array
-          items:
-            type: object
-            properties:
-              signerUserId: { type: string }
-              signerRole: { type: string, enum: [borrower, issuer] }
-              signedAt: { type: string, format: date-time }
-              method: { type: string, enum: [click, drawn] }
-        createdAt: { type: string, format: date-time }
-
-    # ===== Notifications =====
-    Notification:
-      type: object
-      properties:
-        id: { type: string }
-        type: { type: string }
-        title: { $ref: "#/components/schemas/LocalizedString" }
-        body: { $ref: "#/components/schemas/LocalizedString" }
-        actionUrl: { type: string, nullable: true }
-        priority: { type: string, enum: [low, normal, high, critical] }
-        readAt: { type: string, format: date-time, nullable: true }
-        createdAt: { type: string, format: date-time }
-
-    NotificationListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items: { $ref: "#/components/schemas/Notification" }
-        pagination: { $ref: "#/components/schemas/Pagination" }
-        unreadCount: { type: integer }
-
-    # ===== Reports =====
-    UtilizationReport:
-      type: object
-      properties:
-        period:
-          type: object
-          properties:
-            from: { type: string, format: date }
-            to: { type: string, format: date }
-        topUsed:
-          type: array
-          items:
-            type: object
-            properties:
-              assetId: { type: string }
-              inventoryNumber: { type: string }
-              name: { type: string }
-              loanCount: { type: integer }
-              totalDays: { type: integer }
-        unused:
-          type: array
-          items:
-            type: object
-            properties:
-              assetId: { type: string }
-              inventoryNumber: { type: string }
-              name: { type: string }
-              daysSinceLastLoan: { type: integer, nullable: true }
-        byCategory:
-          type: array
-          items:
-            type: object
-            properties:
-              categoryId: { type: string }
-              loanCount: { type: integer }
-              utilizationPercentage: { type: number }
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                primaryContactEmail:
+                  type: string
+                  format: email
+                  nullable: true
+                billing:
+                  type: object
+                  properties:
+                    legalName:
+                      type: string
+                      maxLength: 200
+                      nullable: true
+                      default: null
+                    ico:
+                      type: string
+                      pattern: ^\d{8}$
+                      nullable: true
+                      default: null
+                    dic:
+                      type: string
+                      pattern: ^\d{10}$
+                      nullable: true
+                      default: null
+                    isVatPayer:
+                      type: boolean
+                      default: false
+                    icDph:
+                      allOf:
+                        - type: string
+                        - type: string
+                          pattern: ^SK\d{10}$
+                      nullable: true
+                      default: null
+                    businessRegistration:
+                      type: string
+                      maxLength: 300
+                      nullable: true
+                      default: null
+                    iban:
+                      allOf:
+                        - type: string
+                        - type: string
+                          pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
+                      nullable: true
+                      default: null
+                    billingEmail:
+                      type: string
+                      format: email
+                      nullable: true
+                      default: null
+                    registeredAddress:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        city:
+                          type: string
+                          minLength: 1
+                          maxLength: 120
+                        postalCode:
+                          type: string
+                          minLength: 1
+                          maxLength: 16
+                        countryCode:
+                          type: string
+                          pattern: ^[A-Z]{2}$
+                          default: SK
+                      required:
+                        - street
+                        - city
+                        - postalCode
+                      additionalProperties: false
+                      nullable: true
+                      default: null
+                    mailingAddress:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        city:
+                          type: string
+                          minLength: 1
+                          maxLength: 120
+                        postalCode:
+                          type: string
+                          minLength: 1
+                          maxLength: 16
+                        countryCode:
+                          type: string
+                          pattern: ^[A-Z]{2}$
+                          default: SK
+                      required:
+                        - street
+                        - city
+                        - postalCode
+                      additionalProperties: false
+                      nullable: true
+                      default: null
+                  additionalProperties: false
+                  nullable: true
+                brandKit:
+                  type: object
+                  properties:
+                    presetId:
+                      type: string
+                      maxLength: 64
+                      nullable: true
+                      default: null
+                    logoUrl:
+                      type: string
+                      format: uri
+                      nullable: true
+                      default: null
+                    faviconUrl:
+                      type: string
+                      format: uri
+                      nullable: true
+                      default: null
+                    primary:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    primaryFg:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    accent:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    accentFg:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    logoDot:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    fontFamilySans:
+                      type: string
+                      enum:
+                        - system-ui
+                        - Inter
+                        - Open Sans
+                        - Roboto
+                        - Lato
+                      nullable: true
+                      default: null
+                  additionalProperties: false
+                  nullable: true
+                foundContactInfo:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                      format: email
+                      nullable: true
+                      default: null
+                    phone:
+                      type: string
+                      maxLength: 30
+                      nullable: true
+                      default: null
+                    message:
+                      type: string
+                      maxLength: 500
+                      nullable: true
+                      default: null
+                  additionalProperties: false
+                  nullable: true
+                inventoryNumberFormat:
+                  type: object
+                  properties:
+                    prefix:
+                      type: string
+                      pattern: ^[A-Z]{1,5}$
+                    padding:
+                      type: integer
+                      minimum: 1
+                      maximum: 8
+                      default: 4
+                    includeYear:
+                      type: boolean
+                      default: true
+                    resetYearly:
+                      type: boolean
+                      default: true
+                  required:
+                    - prefix
+                  additionalProperties: false
+                  nullable: true
+                protocolSettings:
+                  type: object
+                  properties:
+                    paperSize:
+                      type: string
+                      enum:
+                        - A4
+                        - LETTER
+                    numberFormat:
+                      type: object
+                      properties:
+                        prefix:
+                          type: string
+                          pattern: ^[A-Z]{1,5}$
+                        padding:
+                          type: integer
+                          minimum: 3
+                          maximum: 8
+                        initialSeq:
+                          type: integer
+                          minimum: 1
+                      required:
+                        - prefix
+                        - padding
+                        - initialSeq
+                      additionalProperties: false
+                      nullable: true
+                  additionalProperties: false
+                  nullable: true
+                allowedAuthProviders:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - GOOGLE
+                      - APPLE
+                      - MICROSOFT
+                      - EMAIL
+                  minItems: 1
+                memberJoinPolicy:
+                  type: string
+                  enum:
+                    - INVITE_ONLY
+                    - DOMAIN_RESTRICTED
+                    - OPEN
+                autoJoinDomains:
+                  type: array
+                  items:
+                    type: string
+                    pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
+                entraTenantId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                microsoftOAuth:
+                  type: object
+                  properties:
+                    clientId:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    clientSecret:
+                      type: string
+                      maxLength: 500
+                    tenantMode:
+                      type: string
+                      maxLength: 64
+                      nullable: true
+                  required:
+                    - clientId
+                  additionalProperties: false
+                  nullable: true
+                appBaseUrl:
+                  type: string
+                  format: uri
+                  nullable: true
+                publicAssetLookup:
+                  type: boolean
+              additionalProperties: false
+              description:
+                "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing,
+                branding, auth doména)."
+        description:
+          "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding,
+          auth doména)."
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/organisations/current/logo:
+    post:
+      summary: Upload tenant logo (self, ADMIN)
+      tags:
+        - Organisations
+      description:
+        Tenant admin uploads a logo image (PNG, JPEG or WEBP, max 512 KB) for their own organisation.
+        The file is validated by magic bytes, stored in Vercel Blob, and the resulting public URL is written
+        to brandKit.logoUrl. Any previous logo blob is deleted. Available on all plans. Requires ADMIN
+        role.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/organisations:
+    get:
+      summary: List organisations (admin)
+      tags:
+        - Organisations
+      description:
+        "Returns a paginated list of organisations sorted by displayName. Soft-deleted are
+        excluded by default; pass `includeDeleted=true` to see them. Optional filters: status, plan. Requires
+        ADMIN role."
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - ACTIVE
+              - SUSPENDED
+              - ARCHIVED
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: string
+            enum:
+              - FREE
+              - PRO
+              - ENTERPRISE
+          in: query
+          name: plan
+          required: false
+        - schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+              - "1"
+              - "0"
+          in: query
+          name: includeDeleted
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+    post:
+      summary: Create a new organisation (admin onboarding)
+      tags:
+        - Organisations
+      description:
+        Onboards a new tenant before their first SSO login. Slug + entraTenantId must both
+        be globally unique. The alternative workflow is JIT provisioning on first contact, but explicit
+        creation lets admins configure branding and plan upfront. Requires ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                slug:
+                  type: string
+                  minLength: 2
+                  maxLength: 40
+                  pattern: ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$
+                entraTenantId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  default: null
+                customDomain:
+                  type: string
+                  maxLength: 253
+                  pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
+                  nullable: true
+                  default: null
+                status:
+                  type: string
+                  enum:
+                    - ACTIVE
+                    - SUSPENDED
+                    - ARCHIVED
+                  default: ACTIVE
+                plan:
+                  type: string
+                  enum:
+                    - FREE
+                    - PRO
+                    - ENTERPRISE
+                  default: FREE
+                primaryContactEmail:
+                  type: string
+                  format: email
+                  nullable: true
+                  default: null
+                brandKit:
+                  type: object
+                  properties:
+                    presetId:
+                      type: string
+                      maxLength: 64
+                      nullable: true
+                      default: null
+                    logoUrl:
+                      type: string
+                      format: uri
+                      nullable: true
+                      default: null
+                    faviconUrl:
+                      type: string
+                      format: uri
+                      nullable: true
+                      default: null
+                    primary:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    primaryFg:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    accent:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    accentFg:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    logoDot:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    fontFamilySans:
+                      type: string
+                      enum:
+                        - system-ui
+                        - Inter
+                        - Open Sans
+                        - Roboto
+                        - Lato
+                      nullable: true
+                      default: null
+                  additionalProperties: false
+                  nullable: true
+                  default: null
+                billing:
+                  type: object
+                  properties:
+                    legalName:
+                      type: string
+                      maxLength: 200
+                      nullable: true
+                      default: null
+                    ico:
+                      type: string
+                      pattern: ^\d{8}$
+                      nullable: true
+                      default: null
+                    dic:
+                      type: string
+                      pattern: ^\d{10}$
+                      nullable: true
+                      default: null
+                    isVatPayer:
+                      type: boolean
+                      default: false
+                    icDph:
+                      allOf:
+                        - type: string
+                        - type: string
+                          pattern: ^SK\d{10}$
+                      nullable: true
+                      default: null
+                    businessRegistration:
+                      type: string
+                      maxLength: 300
+                      nullable: true
+                      default: null
+                    iban:
+                      allOf:
+                        - type: string
+                        - type: string
+                          pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
+                      nullable: true
+                      default: null
+                    billingEmail:
+                      type: string
+                      format: email
+                      nullable: true
+                      default: null
+                    registeredAddress:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        city:
+                          type: string
+                          minLength: 1
+                          maxLength: 120
+                        postalCode:
+                          type: string
+                          minLength: 1
+                          maxLength: 16
+                        countryCode:
+                          type: string
+                          pattern: ^[A-Z]{2}$
+                          default: SK
+                      required:
+                        - street
+                        - city
+                        - postalCode
+                      additionalProperties: false
+                      nullable: true
+                      default: null
+                    mailingAddress:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        city:
+                          type: string
+                          minLength: 1
+                          maxLength: 120
+                        postalCode:
+                          type: string
+                          minLength: 1
+                          maxLength: 16
+                        countryCode:
+                          type: string
+                          pattern: ^[A-Z]{2}$
+                          default: SK
+                      required:
+                        - street
+                        - city
+                        - postalCode
+                      additionalProperties: false
+                      nullable: true
+                      default: null
+                  additionalProperties: false
+                  nullable: true
+                  default: null
+                settings:
+                  type: object
+                  additionalProperties: {}
+                  default: {}
+              required:
+                - displayName
+                - slug
+              additionalProperties: false
+              description: Telo pre vytvorenie organizácie (tenanta).
+        description: Telo pre vytvorenie organizácie (tenanta).
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/organisations/{id}:
+    get:
+      summary: Get a single organisation by ID (admin)
+      tags:
+        - Organisations
+      description: Returns one organisation by _id. 404 if not found or soft-deleted. Requires ADMIN role.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    patch:
+      summary: Update an organisation (admin)
+      tags:
+        - Organisations
+      description:
+        Partial update — only provided fields are changed. Slug and entraTenantId are NOT updatable
+        (stable identifiers). Custom domain uniqueness is revalidated on change. Records an audit event
+        with a per-field diff. Requires ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                customDomain:
+                  type: string
+                  maxLength: 253
+                  pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
+                  nullable: true
+                status:
+                  type: string
+                  enum:
+                    - ACTIVE
+                    - SUSPENDED
+                    - ARCHIVED
+                plan:
+                  type: string
+                  enum:
+                    - FREE
+                    - PRO
+                    - ENTERPRISE
+                primaryContactEmail:
+                  type: string
+                  format: email
+                  nullable: true
+                brandKit:
+                  type: object
+                  properties:
+                    presetId:
+                      type: string
+                      maxLength: 64
+                      nullable: true
+                      default: null
+                    logoUrl:
+                      type: string
+                      format: uri
+                      nullable: true
+                      default: null
+                    faviconUrl:
+                      type: string
+                      format: uri
+                      nullable: true
+                      default: null
+                    primary:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    primaryFg:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    accent:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    accentFg:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    logoDot:
+                      type: string
+                      pattern: ^#[0-9a-fA-F]{6}$
+                      nullable: true
+                      default: null
+                    fontFamilySans:
+                      type: string
+                      enum:
+                        - system-ui
+                        - Inter
+                        - Open Sans
+                        - Roboto
+                        - Lato
+                      nullable: true
+                      default: null
+                  additionalProperties: false
+                  nullable: true
+                billing:
+                  type: object
+                  properties:
+                    legalName:
+                      type: string
+                      maxLength: 200
+                      nullable: true
+                      default: null
+                    ico:
+                      type: string
+                      pattern: ^\d{8}$
+                      nullable: true
+                      default: null
+                    dic:
+                      type: string
+                      pattern: ^\d{10}$
+                      nullable: true
+                      default: null
+                    isVatPayer:
+                      type: boolean
+                      default: false
+                    icDph:
+                      allOf:
+                        - type: string
+                        - type: string
+                          pattern: ^SK\d{10}$
+                      nullable: true
+                      default: null
+                    businessRegistration:
+                      type: string
+                      maxLength: 300
+                      nullable: true
+                      default: null
+                    iban:
+                      allOf:
+                        - type: string
+                        - type: string
+                          pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
+                      nullable: true
+                      default: null
+                    billingEmail:
+                      type: string
+                      format: email
+                      nullable: true
+                      default: null
+                    registeredAddress:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        city:
+                          type: string
+                          minLength: 1
+                          maxLength: 120
+                        postalCode:
+                          type: string
+                          minLength: 1
+                          maxLength: 16
+                        countryCode:
+                          type: string
+                          pattern: ^[A-Z]{2}$
+                          default: SK
+                      required:
+                        - street
+                        - city
+                        - postalCode
+                      additionalProperties: false
+                      nullable: true
+                      default: null
+                    mailingAddress:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        city:
+                          type: string
+                          minLength: 1
+                          maxLength: 120
+                        postalCode:
+                          type: string
+                          minLength: 1
+                          maxLength: 16
+                        countryCode:
+                          type: string
+                          pattern: ^[A-Z]{2}$
+                          default: SK
+                      required:
+                        - street
+                        - city
+                        - postalCode
+                      additionalProperties: false
+                      nullable: true
+                      default: null
+                  additionalProperties: false
+                  nullable: true
+                settings:
+                  type: object
+                  additionalProperties: {}
+                appBaseUrl:
+                  type: string
+                  format: uri
+                  nullable: true
+                publicAssetLookup:
+                  type: boolean
+              additionalProperties: false
+              description: Čiastočná aktualizácia organizácie; všetky polia voliteľné.
+        description: Čiastočná aktualizácia organizácie; všetky polia voliteľné.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      summary: Soft-delete an organisation (admin)
+      tags:
+        - Organisations
+      description:
+        Marks the organisation as deleted. Tenant data remains in place (soft-delete is a tombstone,
+        not a purge), but no user from this tenant can log in. Records a WARNING-severity audit event.
+        Requires ADMIN role.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/me:
+    get:
+      summary: Get the currently authenticated user
+      tags:
+        - Users
+      description:
+        Returns the user record corresponding to the JWT bearer. Creates a new user record
+        on first call (JIT provisioning) with the default `EMPLOYEE` role and binds it to the tenant resolved
+        from the JWT `tid` claim. Subsequent calls return the existing record and update `lastLoginAt`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  email:
+                    type: string
+                  firstName:
+                    type: string
+                  lastName:
+                    type: string
+                  displayName:
+                    type: string
+                  accountType:
+                    type: string
+                  roles:
+                    type: array
+                    items:
+                      type: string
+                  isActive:
+                    type: boolean
+                  lastLoginAt:
+                    type: string
+                    nullable: true
+                  preferences:
+                    type: object
+                    additionalProperties: {}
+                  createdAt:
+                    type: string
+                required:
+                  - _id
+                  - email
+                  - firstName
+                  - lastName
+                  - displayName
+                  - accountType
+                  - roles
+                  - isActive
+                  - lastLoginAt
+                  - preferences
+                  - createdAt
+                additionalProperties: false
+    patch:
+      summary: Update own profile (GDPR Art. 16)
+      tags:
+        - Users
+      description:
+        'Self-service partial update of the authenticated user''s profile. Permitted fields:
+        `firstName`, `lastName`, `displayName`, `preferences`. Forbidden fields (roles, email, isActive,
+        …) are excluded from this schema — include them in the body and they will be rejected with 400.
+        If `firstName` or `lastName` is updated without an explicit `displayName`, the server auto-derives
+        `"{firstName} {lastName}"`. Emits a USER_UPDATED audit event with a diff of changed fields.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                lastName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                preferences:
+                  type: object
+                  additionalProperties: {}
+              additionalProperties: false
+              description:
+                Self-service profile update (GDPR čl. 16); firstName, lastName, displayName,
+                preferences.
+        description: Self-service profile update (GDPR čl. 16); firstName, lastName, displayName, preferences.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/me/export:
+    get:
+      summary: Export personal data (GDPR Art. 20)
+      tags:
+        - Users
+      description:
+        "Returns a structured JSON export of all personal data held for the currently authenticated
+        user. Covers: full profile, all tenant memberships, and all audit log entries where the user is
+        the actor. Secrets (passwordHash, mfaSecret, mfaRecoveryCodes) are always excluded. Emits a DATA_EXPORT_REQUESTED
+        audit event (GDPR Art. 30). Any authenticated user may call this endpoint for their own data only."
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exportedAt:
+                    type: string
+                  profile:
+                    type: object
+                    additionalProperties: {}
+                  memberships:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  auditLog:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                required:
+                  - exportedAt
+                  - profile
+                  - memberships
+                  - auditLog
+                additionalProperties: false
+  /v1/users:
+    get:
+      summary: List users (admin)
+      tags:
+        - Users
+      description:
+        "Returns a paginated list of users sorted by displayName. Soft-deleted users are always
+        excluded. Optional filters: role, isActive, q (free-text across email + displayName + firstName
+        + lastName, case-insensitive). Requires ADMIN role."
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - EMPLOYEE
+              - ASSET_MANAGER
+              - ADMIN
+              - EXTERNAL
+          in: query
+          name: role
+          required: false
+        - schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+              - "1"
+              - "0"
+          in: query
+          name: isActive
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          in: query
+          name: q
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+  /v1/users/{id}:
+    get:
+      summary: Get a single user by ID (admin)
+      tags:
+        - Users
+      description: Returns one user by _id. 404 if not found or soft-deleted. Requires ADMIN role.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    patch:
+      summary: Update a user (admin)
+      tags:
+        - Users
+      description:
+        "Partial update of a user. Exposes `isActive` (and profile fields). Role changes go
+        through PATCH /v1/memberships/:id (ADR-0029). Guardrails: admins cannot deactivate themselves,
+        and the last active ADMIN cannot be deactivated (promote another user to ADMIN first). Records
+        USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. Requires ADMIN role."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isActive:
+                  type: boolean
+              additionalProperties: false
+              description: Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id.
+        description: Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/users/{id}/mfa:
+    delete:
+      summary: Reset MFA for a user (admin)
+      tags:
+        - Users
+      description:
+        Clears MFA enrollment for the target user. Use when a user has lost access to their
+        authenticator app. The user must re-enroll on next login. Admin cannot reset their own MFA via
+        this endpoint — use POST /v1/auth/mfa/disable. Records MFA_RESET_BY_ADMIN audit event. Requires
+        ADMIN role.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: MFA reset successfully
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+                description: MFA reset successfully
+  /v1/users/{id}/restriction:
+    post:
+      summary: Set or clear processing restriction (admin, GDPR Art. 18)
+      tags:
+        - Users
+      description:
+        "Sets (`restrict: true`) or clears (`restrict: false`) the GDPR Art. 18 processing-restriction
+        flag on a user. A restricted user's data is retained but further processing is blocked: the auth
+        middleware rejects mutating requests (POST/PATCH/DELETE) with 403 while still allowing reads (GET).
+        Optional `reason` is recorded for compliance. Emits USER_RESTRICTED or USER_UNRESTRICTED audit
+        event. Idempotent calls (already in the requested state) return 400. Requires ADMIN role."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                restrict:
+                  type: boolean
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  nullable: true
+              required:
+                - restrict
+              additionalProperties: false
+              description: Set/clear processing restriction (GDPR Art. 18).
+        description: Set/clear processing restriction (GDPR Art. 18).
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/assets:
+    get:
+      summary: List assets
+      tags:
+        - Assets
+      description: Paginated list of assets (newest first). Soft-deleted excluded.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+    post:
+      summary: Create a new asset
+      tags:
+        - Assets
+      description:
+        Server generuje inventoryNumber z Organisation.inventoryNumberFormat a publicToken
+        cez CSPRNG. Tenant musi mat nastaveny inventoryNumberFormat - inak 400. Vyzaduje ASSET_MANAGER
+        alebo ADMIN.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serialNumber:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                  default: null
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                description:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  default: null
+                categoryId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                condition:
+                  type: string
+                locationId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                manufacturer:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                  default: null
+                model:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                  default: null
+                acquiredAt:
+                  type: string
+                  format: date-time
+                acquisitionCost:
+                  type: number
+                  minimum: 0
+                  maximum: 1000000
+                  nullable: true
+                  default: null
+                warrantyUntil:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  default: null
+                specs:
+                  type: object
+                  additionalProperties: {}
+                  default: {}
+                tags:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                  default: []
+                imageIds:
+                  type: array
+                  items:
+                    type: string
+                    pattern: ^[a-f\d]{24}$
+                  default: []
+                internalNotes:
+                  type: string
+                  maxLength: 5000
+                  nullable: true
+                  default: null
+                isLoanable:
+                  type: boolean
+                  default: true
+                requiresApproval:
+                  type: boolean
+                  default: true
+                trackingMode:
+                  type: string
+                  enum:
+                    - SERIALIZED
+                    - BULK
+                  default: SERIALIZED
+              required:
+                - name
+                - categoryId
+                - condition
+                - locationId
+                - acquiredAt
+              additionalProperties: false
+              description: Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server
+        description: Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/assets/{id}:
+    get:
+      summary: Get a single asset by ID
+      tags:
+        - Assets
+      description: 404 if not found or soft-deleted.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    patch:
+      summary: Update an existing asset
+      tags:
+        - Assets
+      description: Partial update. inventoryNumber a publicToken su nemenné.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serialNumber:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                  default: null
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                description:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  default: null
+                categoryId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                status:
+                  type: string
+                  enum:
+                    - AVAILABLE
+                    - RESERVED
+                    - BORROWED
+                    - IN_SERVICE
+                    - DISPOSED
+                    - LOST
+                condition:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                locationId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                currentLoanId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                  nullable: true
+                  default: null
+                manufacturer:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                  default: null
+                model:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                  default: null
+                acquiredAt:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 timestamp v UTC
+                acquisitionCost:
+                  type: number
+                  minimum: 0
+                  maximum: 1000000
+                  nullable: true
+                  default: null
+                warrantyUntil:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 timestamp v UTC
+                  nullable: true
+                  default: null
+                specs:
+                  type: object
+                  additionalProperties: {}
+                  default: {}
+                tags:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                  default: []
+                imageIds:
+                  type: array
+                  items:
+                    type: string
+                    pattern: ^[a-f\d]{24}$
+                    description: MongoDB ObjectId (24 hex znakov)
+                  default: []
+                internalNotes:
+                  type: string
+                  maxLength: 5000
+                  nullable: true
+                  default: null
+                isLoanable:
+                  type: boolean
+                  default: true
+                requiresApproval:
+                  type: boolean
+                  default: true
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      summary: Soft-delete an asset
+      tags:
+        - Assets
+      description: Nastavi deletedAt/deletedBy. Vyzaduje ADMIN.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/assets/by-token/{publicToken}:
+    get:
+      summary: Rozlíš majetok podľa QR tokenu (interné, prihlásené)
+      tags:
+        - Assets
+      description:
+        Vráti id majetku pre daný publicToken v rámci tenanta aktéra. 404 ak token neexistuje
+        alebo patrí inému tenantovi.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          in: path
+          name: publicToken
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                required:
+                  - id
+                additionalProperties: false
+  /v1/assets/{id}/audit:
+    get:
+      summary: Audit log majetku
+      tags:
+        - Assets
+      description:
+        Záznamy auditu pre konkrétny majetok (najnovšie prvé), stránkované. Len ASSET_MANAGER/ADMIN.
+        404 ak majetok neexistuje v tenantovi.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+  /v1/assets/{id}/qr:
+    get:
+      summary: Generuj QR kod pre asset (ADR-0021)
+      tags:
+        - Assets
+      description:
+        "On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. Vyzaduje
+        nastaveny appBaseUrl na Organisation - inak 409. format=svg (default) alebo png."
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - svg
+              - png
+            default: svg
+          in: query
+          name: format
+          required: false
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+  /v1/assets/{id}/attachments:
+    get:
+      summary: Zoznam príloh majetku
+      tags:
+        - Attachments
+      description: Prílohy (foto, doklady) naviazané na majetok, najnovšie prvé.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                required:
+                  - data
+                additionalProperties: false
+    post:
+      summary: Nahrať prílohu majetku (ASSET_MANAGER/ADMIN)
+      tags:
+        - Attachments
+      description:
+        Multipart upload jedného súboru (PNG/JPEG/WEBP → foto, PDF → doklad). Max 20 MB. Súbor
+        sa uloží do Vercel Blob, metadata do DB.
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+  /v1/attachments/{id}/primary:
+    patch:
+      summary: Nastaviť prílohu ako hlavné foto (ASSET_MANAGER/ADMIN)
+      tags:
+        - Attachments
+      description: Označí ASSET_PHOTO ako hlavné foto entity; ostatné sa odznačia.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/attachments/{id}:
+    delete:
+      summary: Zmazať prílohu (ASSET_MANAGER/ADMIN)
+      tags:
+        - Attachments
+      description: Soft-delete metadata + odstránenie blobu z úložiska (best-effort).
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/public/scan/{publicToken}:
+    get:
+      summary: Verejny lost & found lookup po QR tokene (ADR-0021)
+      tags:
+        - Public
+      description:
+        Bez autentifikacie. Vracia minimalne informacie o najdenom majetku. 404 ak tenant nema
+        zapnuty publicAssetLookup ALEBO token neexistuje (no oracle).
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          in: path
+          name: publicToken
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organisationName:
+                    type: string
+                  organisationLogoUrl:
+                    type: string
+                    format: uri
+                    nullable: true
+                  foundContact:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                        nullable: true
+                      phone:
+                        type: string
+                        nullable: true
+                      message:
+                        type: string
+                        nullable: true
+                    required:
+                      - email
+                      - phone
+                      - message
+                    additionalProperties: false
+                    nullable: true
+                required:
+                  - organisationName
+                  - organisationLogoUrl
+                  - foundContact
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+                additionalProperties: false
+  /v1/asset-conditions:
+    get:
+      summary: List asset conditions
+      tags:
+        - AssetConditions
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+    post:
+      summary: Create asset condition
+      tags:
+        - AssetConditions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                slug:
+                  type: string
+                  pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+                  maxLength: 200
+                icon:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                  default: null
+                color:
+                  type: string
+                  pattern: ^#[0-9a-fA-F]{6}$
+                  nullable: true
+                  default: null
+                isActive:
+                  type: boolean
+                  default: true
+                sortOrder:
+                  type: integer
+                  default: 0
+              required:
+                - name
+              additionalProperties: false
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/asset-conditions/{id}:
+    get:
+      summary: Get asset condition by ID
+      tags:
+        - AssetConditions
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    patch:
+      summary: Update asset condition
+      tags:
+        - AssetConditions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                slug:
+                  type: string
+                  pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+                  maxLength: 200
+                icon:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                  default: null
+                color:
+                  type: string
+                  pattern: ^#[0-9a-fA-F]{6}$
+                  nullable: true
+                  default: null
+                isActive:
+                  type: boolean
+                  default: true
+                sortOrder:
+                  type: integer
+                  default: 0
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      summary: Delete asset condition (ADMIN only, FK protected)
+      tags:
+        - AssetConditions
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/categories:
+    get:
+      summary: List categories
+      tags:
+        - Categories
+      description:
+        "Returns a paginated list of categories, sorted by sortOrder then name. Soft-deleted
+        categories are excluded. Optional filters: parentId, isActive."
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            pattern: ^([a-f\d]{24}|null)$
+          in: query
+          name: parentId
+          required: false
+        - schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+              - "1"
+              - "0"
+          in: query
+          name: isActive
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+    post:
+      summary: Create a new category
+      tags:
+        - Categories
+      description:
+        Creates a new category. Slug must be unique. If parentId is supplied, the parent must
+        exist. Requires ASSET_MANAGER or ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                slug:
+                  type: string
+                  pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+                  maxLength: 200
+                parentId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  nullable: true
+                  default: null
+                description:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                  default: null
+                icon:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                  default: null
+                color:
+                  type: string
+                  pattern: ^#[0-9a-fA-F]{6}$
+                  nullable: true
+                  default: null
+                approverIds:
+                  type: array
+                  items:
+                    type: string
+                    pattern: ^[a-f\d]{24}$
+                  default: []
+                requiresApprovalByDefault:
+                  type: boolean
+                  default: true
+                maxLoanDays:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 3650
+                  nullable: true
+                  default: null
+                isActive:
+                  type: boolean
+                  default: true
+                sortOrder:
+                  type: integer
+                  default: 0
+              required:
+                - name
+              additionalProperties: false
+              description: Telo pre vytvorenie kategórie; slug je voliteľný (server odvodí z name).
+        description: Telo pre vytvorenie kategórie; slug je voliteľný (server odvodí z name).
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/categories/{id}:
+    get:
+      summary: Get a single category by ID
+      tags:
+        - Categories
+      description: Returns one category by its _id. 404 if not found or soft-deleted.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    patch:
+      summary: Update an existing category
+      tags:
+        - Categories
+      description:
+        Partial update — only provided fields are changed. Slug uniqueness and parent existence
+        are revalidated on change. Records an audit event with a per-field diff. Requires ASSET_MANAGER
+        or ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                slug:
+                  type: string
+                  pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+                  maxLength: 200
+                parentId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                  nullable: true
+                  default: null
+                description:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                  default: null
+                icon:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                  default: null
+                color:
+                  type: string
+                  pattern: ^#[0-9a-fA-F]{6}$
+                  nullable: true
+                  default: null
+                approverIds:
+                  type: array
+                  items:
+                    type: string
+                    pattern: ^[a-f\d]{24}$
+                    description: MongoDB ObjectId (24 hex znakov)
+                  default: []
+                requiresApprovalByDefault:
+                  type: boolean
+                  default: true
+                maxLoanDays:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 3650
+                  nullable: true
+                  default: null
+                isActive:
+                  type: boolean
+                  default: true
+                sortOrder:
+                  type: integer
+                  default: 0
+              additionalProperties: false
+              description: Čiastočná aktualizácia kategórie; všetky polia voliteľné.
+        description: Čiastočná aktualizácia kategórie; všetky polia voliteľné.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      summary: Soft-delete a category
+      tags:
+        - Categories
+      description:
+        Marks a category as deleted. Refuses deletion if the category has any non-deleted child
+        categories (would orphan them), or if any non-deleted assets reference it. Requires ADMIN role.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/locations:
+    get:
+      summary: List locations
+      tags:
+        - Locations
+      description:
+        "Returns a paginated list of locations, sorted by name. Soft-deleted locations are
+        excluded. Optional filters: parentId, type, isActive."
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            pattern: ^([a-f\d]{24}|null)$
+          in: query
+          name: parentId
+          required: false
+        - schema:
+            type: string
+            enum:
+              - HEADQUARTERS
+              - BRANCH
+              - WAREHOUSE
+              - OFFICE
+              - STADIUM
+              - TRAINING_CENTER
+              - EXTERNAL
+              - IN_TRANSIT
+          in: query
+          name: type
+          required: false
+        - schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+              - "1"
+              - "0"
+          in: query
+          name: isActive
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+    post:
+      summary: Create a new location
+      tags:
+        - Locations
+      description:
+        Creates a new location. Slug must be unique (or derived from name if omitted). If parentId
+        is supplied, the parent must exist and the resulting depth must not exceed the hierarchy limit.
+        Requires ASSET_MANAGER or ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                slug:
+                  type: string
+                  pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+                  maxLength: 200
+                type:
+                  type: string
+                  enum:
+                    - HEADQUARTERS
+                    - BRANCH
+                    - WAREHOUSE
+                    - OFFICE
+                    - STADIUM
+                    - TRAINING_CENTER
+                    - EXTERNAL
+                    - IN_TRANSIT
+                address:
+                  type: object
+                  properties:
+                    street:
+                      type: string
+                      maxLength: 200
+                    city:
+                      type: string
+                      maxLength: 100
+                    postalCode:
+                      type: string
+                      maxLength: 20
+                    country:
+                      type: string
+                      minLength: 2
+                      maxLength: 2
+                      default: SK
+                  additionalProperties: false
+                  nullable: true
+                  default: null
+                coordinates:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                      minimum: -90
+                      maximum: 90
+                    lng:
+                      type: number
+                      minimum: -180
+                      maximum: 180
+                  required:
+                    - lat
+                    - lng
+                  additionalProperties: false
+                  nullable: true
+                  default: null
+                parentId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  nullable: true
+                  default: null
+                description:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  default: null
+                managerId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  nullable: true
+                  default: null
+                isActive:
+                  type: boolean
+                  default: true
+              required:
+                - name
+                - type
+              additionalProperties: false
+              description: Telo pre vytvorenie lokality; slug je voliteľný (server odvodí z name).
+        description: Telo pre vytvorenie lokality; slug je voliteľný (server odvodí z name).
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/locations/{id}:
+    get:
+      summary: Get a single location by ID
+      tags:
+        - Locations
+      description: Returns one location by its _id. 404 if not found or soft-deleted.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    patch:
+      summary: Update an existing location
+      tags:
+        - Locations
+      description:
+        Partial update — only provided fields are changed. Slug uniqueness, parent existence,
+        and hierarchy invariants (cycle, depth) are revalidated on change. Records an audit event with
+        a per-field diff. Requires ASSET_MANAGER or ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                slug:
+                  type: string
+                  pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+                  maxLength: 200
+                type:
+                  type: string
+                  enum:
+                    - HEADQUARTERS
+                    - BRANCH
+                    - WAREHOUSE
+                    - OFFICE
+                    - STADIUM
+                    - TRAINING_CENTER
+                    - EXTERNAL
+                    - IN_TRANSIT
+                address:
+                  type: object
+                  properties:
+                    street:
+                      type: string
+                      maxLength: 200
+                    city:
+                      type: string
+                      maxLength: 100
+                    postalCode:
+                      type: string
+                      maxLength: 20
+                    country:
+                      type: string
+                      minLength: 2
+                      maxLength: 2
+                      default: SK
+                  additionalProperties: false
+                  nullable: true
+                  default: null
+                coordinates:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                      minimum: -90
+                      maximum: 90
+                    lng:
+                      type: number
+                      minimum: -180
+                      maximum: 180
+                  required:
+                    - lat
+                    - lng
+                  additionalProperties: false
+                  nullable: true
+                  default: null
+                parentId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                  nullable: true
+                  default: null
+                description:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  default: null
+                managerId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                  nullable: true
+                  default: null
+                isActive:
+                  type: boolean
+                  default: true
+              additionalProperties: false
+              description: Čiastočná aktualizácia lokality; všetky polia voliteľné.
+        description: Čiastočná aktualizácia lokality; všetky polia voliteľné.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      summary: Soft-delete a location
+      tags:
+        - Locations
+      description:
+        Marks a location as deleted. Refuses deletion if the location has any non-deleted child
+        locations (would orphan them), or if any non-deleted assets reference it. Requires ADMIN role.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/loan-requests:
+    get:
+      summary: List loan requests
+      tags:
+        - Loan Requests
+      description:
+        Vráti stránkovaný zoznam žiadostí. EMPLOYEE vidí len vlastné. ASSET_MANAGER a ADMIN
+        vidia všetky v rámci tenanta.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - PENDING
+              - APPROVED
+              - PARTIALLY_FULFILLED
+              - FULFILLED
+              - CLOSED
+              - REJECTED
+              - CANCELLED
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: query
+          name: requesterId
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+    post:
+      summary: Create a loan request (katalógová žiadosť, ADR-0026)
+      tags:
+        - Loan Requests
+      description:
+        Vytvorí novú katalógovú žiadosť (kategória + množstvo). Žiadosť nerezervuje majetok
+        — správca vydá pri fulfil. Každý EMPLOYEE môže podať žiadosť.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                purpose:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                plannedFrom:
+                  type: string
+                  format: date-time
+                plannedTo:
+                  type: string
+                  format: date-time
+                  nullable: true
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      categoryId:
+                        type: string
+                        pattern: ^[a-f\d]{24}$
+                      quantityRequested:
+                        type: integer
+                        minimum: 1
+                      note:
+                        type: string
+                        maxLength: 1000
+                        nullable: true
+                    required:
+                      - categoryId
+                      - quantityRequested
+                    additionalProperties: false
+                  minItems: 1
+                  maxItems: 50
+                idempotencyKey:
+                  type: string
+                  maxLength: 100
+                beneficiaryId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+              required:
+                - purpose
+                - plannedFrom
+                - items
+              additionalProperties: false
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/loan-requests/{id}:
+    get:
+      summary: Get a loan request by ID
+      tags:
+        - Loan Requests
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      summary: Cancel a loan request
+      tags:
+        - Loan Requests
+      description:
+        "Zruší PENDING žiadosť. ADR-0026: nič sa neuvoľňuje (nebola rezervácia). Môže len autor
+        žiadosti alebo ADMIN."
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/loan-requests/{id}/approve:
+    post:
+      summary: Approve a loan request
+      tags:
+        - Loan Requests
+      description:
+        "Schváli PENDING žiadosť (stav → APPROVED). ADR-0026: schválenie UŽ NEVYTVÁRA Loan
+        — to sa deje pri fulfil. Vyžaduje ASSET_MANAGER alebo ADMIN."
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/loan-requests/{id}/fulfil:
+    post:
+      summary: Fulfil a loan request (vydanie, ADR-0026)
+      tags:
+        - Loan Requests
+      description:
+        Vydá majetok z APPROVED / PARTIALLY_FULFILLED žiadosti. Správca mapuje položky žiadosti
+        na konkrétne kusy (SERIALIZED) alebo BULK množstvo. Vznikne nový Loan. Žiadosť prejde do PARTIALLY_FULFILLED
+        / FULFILLED / CLOSED. Vyžaduje ASSET_MANAGER alebo ADMIN.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          requestItemIndex:
+                            type: integer
+                            minimum: 0
+                          type:
+                            type: string
+                            enum:
+                              - SERIALIZED
+                          assetIds:
+                            type: array
+                            items:
+                              type: string
+                              pattern: ^[a-f\d]{24}$
+                            minItems: 1
+                        required:
+                          - requestItemIndex
+                          - type
+                          - assetIds
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          requestItemIndex:
+                            type: integer
+                            minimum: 0
+                          type:
+                            type: string
+                            enum:
+                              - BULK
+                          bulkItemId:
+                            type: string
+                            pattern: ^[a-f\d]{24}$
+                          quantity:
+                            type: integer
+                            minimum: 1
+                        required:
+                          - requestItemIndex
+                          - type
+                          - bulkItemId
+                          - quantity
+                        additionalProperties: false
+                  minItems: 1
+                dueAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  default: null
+                closeRemainder:
+                  type: boolean
+                  default: false
+                notes:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  default: null
+              required:
+                - items
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/loan-requests/{id}/reject:
+    post:
+      summary: Reject a loan request
+      tags:
+        - Loan Requests
+      description:
+        "Zamietne PENDING žiadosť. ADR-0026: žiadna rezervácia — nič sa neuvoľňuje. Vyžaduje
+        ASSET_MANAGER alebo ADMIN."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+              required:
+                - reason
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/loans/my:
+    get:
+      summary: List my active and historical loans
+      tags:
+        - Loans
+      description:
+        "Returns a paginated list of loans for the currently authenticated user. Includes `isOverdue:
+        boolean` computed field on each loan. Available to any authenticated user."
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - ACTIVE
+              - RETURNED
+              - DAMAGED
+              - LOST
+          in: query
+          name: status
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+  /v1/loans:
+    get:
+      summary: List loans
+      tags:
+        - Loans
+      description:
+        "Returns a paginated list of loans. EMPLOYEE sees only their own loans. ASSET_MANAGER
+        and ADMIN see all loans in the tenant, optionally filtered by `status`, `borrowerId`, or `assetId`.
+        Each loan includes `isOverdue: boolean` computed field."
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - ACTIVE
+              - RETURNED
+              - DAMAGED
+              - LOST
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: query
+          name: borrowerId
+          required: false
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: query
+          name: assetId
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+    post:
+      summary: Create a direct loan (without a prior request)
+      tags:
+        - Loans
+      description:
+        Creates a loan immediately, without requiring a LoanRequest. Asset goes directly AVAILABLE
+        → BORROWED. Use for walk-in handover when the borrower is physically present. `requestId` is null
+        on the resulting Loan. Requires ASSET_MANAGER or ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                borrowerId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      assetId:
+                        type: string
+                        pattern: ^[a-f\d]{24}$
+                        description: MongoDB ObjectId (24 hex znakov)
+                    required:
+                      - assetId
+                    additionalProperties: false
+                  minItems: 1
+                  maxItems: 50
+                purpose:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                dueAt:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 timestamp v UTC
+                  nullable: true
+                  default: null
+                notes:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  default: null
+              required:
+                - borrowerId
+                - items
+                - purpose
+              additionalProperties: false
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/loans/{id}:
+    get:
+      summary: Get a loan by ID
+      tags:
+        - Loans
+      description:
+        "Returns a single loan with `isOverdue: boolean` computed field. Accessible to the
+        borrower or any ASSET_MANAGER / ADMIN."
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/loans/{id}/return:
+    post:
+      summary: Return a loan
+      tags:
+        - Loans
+      description:
+        "Processes the return of an ACTIVE loan. For each item, `requiresService: true` moves
+        the asset to IN_SERVICE; otherwise AVAILABLE. Loan transitions to RETURNED (all ok) or DAMAGED
+        (any requiresService). Requires ASSET_MANAGER or ADMIN role."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                returnedTo:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      assetId:
+                        type: string
+                        pattern: ^[a-f\d]{24}$
+                        description: MongoDB ObjectId (24 hex znakov)
+                      condition:
+                        type: string
+                        enum:
+                          - NEW
+                          - EXCELLENT
+                          - GOOD
+                          - FAIR
+                          - POOR
+                          - UNUSABLE
+                      note:
+                        type: string
+                        maxLength: 1000
+                        nullable: true
+                        default: null
+                      photoIds:
+                        type: array
+                        items:
+                          type: string
+                          pattern: ^[a-f\d]{24}$
+                          description: MongoDB ObjectId (24 hex znakov)
+                        default: []
+                      requiresService:
+                        type: boolean
+                        default: false
+                    required:
+                      - assetId
+                      - condition
+                    additionalProperties: false
+                notes:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  default: null
+              required:
+                - returnedTo
+                - items
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/loans/{id}/lost:
+    post:
+      summary: Mark a loan as lost
+      tags:
+        - Loans
+      description:
+        Marks an ACTIVE loan as LOST. All borrowed assets move to LOST status. This action
+        is irreversible — create a new asset record if the item is eventually found and returned to service.
+        Requires ASSET_MANAGER or ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+              required:
+                - reason
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                enum:
+                  - "null"
+                nullable: true
+  /v1/protocols:
+    get:
+      summary: Zoznam preberacích protokolov
+      tags:
+        - Protocols
+      description:
+        Stránkovaný zoznam protokolov tenanta, najnovšie prvé. ASSET_MANAGER/ADMIN vidí všetky
+        protokoly organizácie, EMPLOYEE len tie, kde je odovzdávajúcou alebo preberajúcou stranou. Filtrovateľné
+        podľa `type` a `status`.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - HANDOVER
+              - RETURN
+              - AMENDMENT
+          in: query
+          name: type
+          required: false
+        - schema:
+            type: string
+            enum:
+              - DRAFT
+              - SIGNED
+              - AMENDED
+              - VOIDED
+          in: query
+          name: status
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+  /v1/loans/{id}/protocols:
+    post:
+      summary: Dodatočne vytvoriť protokol k výpožičke (backfill)
+      tags:
+        - Protocols
+      description:
+        Vytvorí DRAFT protokol pre existujúcu výpožičku, ktorá ho ešte nemá — určené pre výpožičky
+        vzniknuté pred zavedením protokolov. HANDOVER vyžaduje loan bez handoverProtocolId; RETURN vyžaduje
+        vrátený loan bez returnProtocolId. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - HANDOVER
+                    - RETURN
+              required:
+                - type
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    get:
+      summary: Zoznam protokolov k výpožičke
+      tags:
+        - Protocols
+      description:
+        Vráti všetky protokoly (HANDOVER + RETURN) viazané na danú výpožičku. Prístupné borrowerovi
+        daného Loan alebo ASSET_MANAGER/ADMIN.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                required:
+                  - data
+                additionalProperties: false
+  /v1/protocols/{protocolId}:
+    get:
+      summary: Metadata protokolu (JSON)
+      tags:
+        - Protocols
+      description:
+        Vráti JSON záznam protokolu (číslo, strany, stav, podpisy). Prístupné účastníkovi protokolu
+        (handover/receive strana) alebo ASSET_MANAGER/ADMIN.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: protocolId
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/protocols/{protocolId}/pdf:
+    get:
+      summary: PDF protokolu (on-demand render)
+      tags:
+        - Protocols
+      description:
+        Vyrenderuje PDF protokolu zo záznamu a vráti ho ako application/pdf. Render je deterministický
+        — rovnaký záznam → vždy identický PDF. pdfSha256 sa dopočíta a uloží po prvom stiahnutí (lazy).
+        Prístupné účastníkovi protokolu alebo ASSET_MANAGER/ADMIN.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: protocolId
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+  /v1/protocols/{protocolId}/sign:
+    post:
+      summary: Podpísať protokol (CLICK_TO_SIGN)
+      tags:
+        - Protocols
+      description:
+        Zapíše podpis prihlásená strana (handover alebo receive). Keď sú obe strany podpísané,
+        protokol prejde DRAFT → SIGNED a pdfSha256 sa fixuje (hash záväznej podpísanej verzie). Každá
+        strana môže podpísať len svoju rolu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                  enum:
+                    - CLICK_TO_SIGN
+              required:
+                - method
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: protocolId
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/labels/sheet:
+    get:
+      summary: Avery PDF hárok so štítkami (on-demand)
+      tags:
+        - Labels
+      description:
+        "Vygeneruje PDF s mriežkou QR štítkov pre zvolené assety. Každý štítok obsahuje QR
+        kód (appBaseUrl/scan/publicToken), inventoryNumber a názov. Preset avery-l7160: 3×8 = 24 štítkov/A4
+        (default). Preset avery-l7163: 2×7 = 14 štítkov/A4. Vyžaduje nastavený appBaseUrl na Organisation
+        — inak 409."
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: assetIds
+          required: true
+        - schema:
+            type: string
+            enum:
+              - avery-l7160
+              - avery-l7163
+            default: avery-l7160
+          in: query
+          name: preset
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+  /v1/assets/{id}/label:
+    get:
+      summary: ZPL string pre jeden štítok (on-demand)
+      tags:
+        - Labels
+      description:
+        Vygeneruje ZPL string pre jeden asset. Odovzdajte ho Zebra Browser Print agentovi na
+        doručenie na termotlačiareň. Rozmery a DPI sa berú z Organisation.labelPrinting configu. format=zpl
+        je povinný.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - zpl
+          in: query
+          name: format
+          required: true
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  zpl:
+                    type: string
+                required:
+                  - zpl
+                additionalProperties: false
+  /v1/labels/zpl:
+    post:
+      summary: ZPL stringy pre dávku štítkov
+      tags:
+        - Labels
+      description:
+        Vygeneruje ZPL string pre každý asset v dávke (max 200). Vracia pole { assetId, zpl
+        } — frontend ich odovzdá Browser Print agentovi.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assetIds:
+                  type: array
+                  items:
+                    type: string
+                    pattern: ^[a-f\d]{24}$
+                  minItems: 1
+                  maxItems: 200
+              required:
+                - assetIds
+              additionalProperties: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  labels:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetId:
+                          type: string
+                        zpl:
+                          type: string
+                      required:
+                        - assetId
+                        - zpl
+                      additionalProperties: false
+                required:
+                  - labels
+                additionalProperties: false
+  /v1/invitations:
+    post:
+      responses:
+        "200":
+          description: Default Response
+    get:
+      responses:
+        "200":
+          description: Default Response
+  /v1/invitations/{id}:
+    delete:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+  /v1/invitations/{id}/resend:
+    post:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+  /v1/auth/invitations/{token}:
+    get:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: token
+          required: true
+      responses:
+        "200":
+          description: Default Response
+  /v1/auth/accept-invitation:
+    post:
+      responses:
+        "200":
+          description: Default Response
+  /v1/members:
+    get:
+      responses:
+        "200":
+          description: Default Response
+  /v1/memberships:
+    get:
+      responses:
+        "200":
+          description: Default Response
+  /v1/memberships/{id}:
+    get:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+    patch:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+    delete:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+  /v1/memberships/{id}/default:
+    post:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+  /v1/stock:
+    get:
+      summary: Prehľad skladu — všetky BULK položky tenanta
+      tags:
+        - Stock
+      description:
+        Vráti zoznam všetkých BULK položiek tenanta s aktuálnym zostatkom a množstvom posledného
+        príjmu (pre farebné indikátory). Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        inventoryNumber:
+                          type: string
+                        name:
+                          type: string
+                        quantityOnHand:
+                          type: integer
+                          nullable: true
+                        categoryId:
+                          type: string
+                        locationId:
+                          type: string
+                        lastReceiptQuantity:
+                          type: integer
+                          nullable: true
+                      required:
+                        - _id
+                        - inventoryNumber
+                        - name
+                        - quantityOnHand
+                        - categoryId
+                        - locationId
+                        - lastReceiptQuantity
+                      additionalProperties: false
+                  total:
+                    type: integer
+                    minimum: 0
+                required:
+                  - data
+                  - total
+                additionalProperties: false
+  /v1/stock/{itemId}/movements:
+    get:
+      summary: Zoznam skladových pohybov položky
+      tags:
+        - Stock
+      description:
+        Vracia paginovaný zoznam pohybov pre BULK položku, zoradených od najnovšieho. Len pre
+        položky s trackingMode === BULK.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - RECEIPT
+              - LOAN_OUT
+              - LOAN_RETURN
+              - ADJUSTMENT
+          in: query
+          name: type
+          required: false
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: itemId
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
+  /v1/stock/{itemId}/receive:
+    post:
+      summary: Príjem na sklad (RECEIPT)
+      tags:
+        - Stock
+      description:
+        Zaúčtuje príjem kusov na sklad. Kladné množstvo. Aktualizuje `quantityOnHand` na položke
+        a zapíše do ledgera. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
+                locationId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                reason:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                  default: null
+                note:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                  default: null
+              required:
+                - quantity
+                - locationId
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: itemId
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/stock/{itemId}/adjust:
+    post:
+      summary: Ručná korekcia inventúry (ADJUSTMENT)
+      tags:
+        - Stock
+      description:
+        Zaúčtuje ručnú korekciu skladového množstva (kladnú aj zápornú). Dôvod je povinný.
+        Nesmie stiahnut zostatok pod nulu. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+                locationId:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+                note:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                  default: null
+              required:
+                - quantity
+                - locationId
+                - reason
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: itemId
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /v1/stock/{itemId}/reconcile:
+    post:
+      summary: Reconciliation — overenie konzistencie cache vs ledger
+      tags:
+        - Stock
+      description:
+        Overí že `asset.quantityOnHand` (cache) súhlasí so `sum(stock_movements.quantity)`
+        (zdroj pravdy). Ak nie, opraví cache. Diagnostická operácia — vyžaduje ADMIN rolu.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: itemId
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itemId:
+                    type: string
+                  ledgerBalance:
+                    type: integer
+                  cacheWas:
+                    type: integer
+                    nullable: true
+                  wasConsistent:
+                    type: boolean
+                required:
+                  - itemId
+                  - ledgerBalance
+                  - cacheWas
+                  - wasConsistent
+                additionalProperties: false
+  /v1/system/retention/run:
+    post:
+      responses:
+        "200":
+          description: Default Response
+  /:
+    get:
+      responses:
+        "200":
+          description: Default Response
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+  - url: https://api.inventario.sportup.sk
+    description: Production (planned Q3 2026)
+tags:
+  - name: Health
+    description: Liveness and readiness probes
+  - name: Organisations
+    description:
+      Tenant lifecycle management. Each Organisation is a tenant boundary; all other resources
+      are scoped to exactly one Organisation.
+  - name: Users
+    description:
+      User accounts and current-user lookup. JIT-provisioned on first login via Microsoft Entra
+      ID. Tenant-scoped per Organisation.
+  - name: Assets
+    description: Physical asset inventory — devices, equipment, vehicles, supplies.
+  - name: Categories
+    description: Hierarchical asset categorisation per tenant. Slugs are unique within an Organisation.
+  - name: Locations
+    description: Hierarchical physical location tree per tenant. Slugs are unique within an Organisation.
+externalDocs:
+  description: Inventario documentation
+  url: https://docs.inventario.sportup.sk
