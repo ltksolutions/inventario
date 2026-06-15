@@ -1166,6 +1166,30 @@ export function useLoanRequests(
   });
 }
 
+/** GET /v1/loan-requests/:id — EMPLOYEE sees own, manager sees all (service checks ownership). */
+export function useLoanRequest(id: string | null): UseQueryResult<LoanRequestSummary, Error> {
+  const { isAuthenticated } = useAuth();
+  const genericGet = apiClient.GET as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useQuery<LoanRequestSummary, Error>({
+    queryKey: ['loan-request', id],
+    enabled: isAuthenticated && !!id,
+    queryFn: async () => {
+      const { data, error } = await genericGet('/v1/loan-requests/{id}', {
+        params: { path: { id: id as string } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load loan request');
+      }
+      return data as unknown as LoanRequestSummary;
+    },
+  });
+}
+
 interface LoansListOptions {
   status?: string;
   limit?: number;

@@ -17,6 +17,7 @@ import {
   useCanManageLoans,
   useLoanRequests,
   useMe,
+  useMembers,
   useRejectLoanRequest,
 } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
@@ -70,11 +71,17 @@ export function LoansContent(): JSX.Element {
   });
   const requests = requestsQuery.data?.data ?? [];
 
+  // Meno žiadateľa/beneficiára — server vracia len ID, doplníme z členov org.
+  const membersQuery = useMembers();
+  const memberNameById = new Map<string, string>(
+    (membersQuery.data?.data ?? []).map((m) => [m._id, m.displayName]),
+  );
+
   return (
     <div>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Výpožičky</h1>
+          <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Žiadosti</h1>
           <p className="mt-1 text-sm text-text-secondary">
             {canManage
               ? 'Žiadosti o výpožičky od zamestnancov tenantu.'
@@ -131,6 +138,7 @@ export function LoansContent(): JSX.Element {
           requests={requests}
           currentUserId={me.data?._id ?? ''}
           canManage={canManage}
+          memberNameById={memberNameById}
         />
       )}
     </div>
@@ -145,18 +153,23 @@ function RequestsTable({
   requests,
   currentUserId,
   canManage,
+  memberNameById,
 }: {
   requests: readonly LoanRequestSummary[];
   currentUserId: string;
   canManage: boolean;
+  memberNameById: Map<string, string>;
 }): JSX.Element {
   return (
     <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
-      <table className="w-full min-w-[700px] text-sm">
+      <table className="w-full min-w-[800px] text-sm">
         <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
           <tr>
             <th scope="col" className="px-4 py-3">
               Položky
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Žiadateľ
             </th>
             <th scope="col" className="px-4 py-3">
               Účel
@@ -179,6 +192,7 @@ function RequestsTable({
               request={req}
               currentUserId={currentUserId}
               canManage={canManage}
+              memberNameById={memberNameById}
             />
           ))}
         </tbody>
@@ -196,11 +210,18 @@ function RequestRow({
   request,
   currentUserId,
   canManage,
+  memberNameById,
 }: {
   request: LoanRequestSummary;
   currentUserId: string;
   canManage: boolean;
+  memberNameById: Map<string, string>;
 }): JSX.Element {
+  const requesterName = memberNameById.get(request.requesterId) ?? '—';
+  const beneficiaryName =
+    request.beneficiaryId && request.beneficiaryId !== request.requesterId
+      ? (memberNameById.get(request.beneficiaryId) ?? null)
+      : null;
   const approve = useApproveLoanRequest();
   const reject = useRejectLoanRequest();
   const cancel = useCancelLoanRequest();
@@ -271,6 +292,12 @@ function RequestRow({
             })}
           </div>
         </td>
+        <td className="px-4 py-3">
+          <span className="text-sm text-text-primary">{requesterName}</span>
+          {beneficiaryName && (
+            <span className="block text-xs text-text-muted">pre {beneficiaryName}</span>
+          )}
+        </td>
         <td className="px-4 py-3 text-text-secondary">{request.purpose}</td>
         <td className="px-4 py-3 text-xs text-text-secondary">
           {request.plannedTo == null
@@ -292,6 +319,12 @@ function RequestRow({
         </td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2">
+            <Link
+              href={`/loans/request/${request._id}`}
+              className="text-xs font-medium text-brand-primary underline-offset-2 hover:underline"
+            >
+              Detail
+            </Link>
             {/* Odkliky na vzniknuté výpožičky */}
             {request.resultingLoanIds.map((loanId, idx) => (
               <Link
@@ -358,7 +391,7 @@ function RequestRow({
       {/* Reject reason inline form */}
       {rejectOpen && (
         <tr className="bg-red-50">
-          <td colSpan={5} className="px-4 py-3">
+          <td colSpan={6} className="px-4 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="flex-1">
                 <label
@@ -405,7 +438,7 @@ function RequestRow({
       {/* Row-level error (approve/cancel) */}
       {rowError && !rejectOpen && (
         <tr className="bg-danger-bg">
-          <td colSpan={5} className="px-4 py-2 text-xs text-danger-fg">
+          <td colSpan={6} className="px-4 py-2 text-xs text-danger-fg">
             {rowError}
           </td>
         </tr>
