@@ -1,6 +1,6 @@
 # Support
 
-Ako získať pomoc s SFZ Asset Management.
+Ako získať pomoc s Inventario.
 
 ---
 

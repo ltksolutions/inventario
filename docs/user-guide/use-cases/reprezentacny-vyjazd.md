@@ -13,7 +13,7 @@ Reprezentačný výjazd je v SFZ veľmi častý a logisticky náročný proces. 
 - **IT techniku** – notebooky pre analytikov, kameru pre záznam tréningov, tablety pre trénerov
 - **Komunikačné zariadenia** – rádiové stanice pre lavičkový tím
 
-Pred zavedením SFZ Asset Management sa táto evidencia robila v Exceli a kombinácii e-mailov. Často sa stávalo, že sa nejaká položka po návrate „stratila vo víre" a doplatila sa až o pol roka neskôr. Tento scenár ukazuje, ako celý proces vyzerá v novom systéme – od plánovania po vrátenie.
+Pred zavedením Inventario sa táto evidencia robila v Exceli a kombinácii e-mailov. Často sa stávalo, že sa nejaká položka po návrate „stratila vo víre" a doplatila sa až o pol roka neskôr. Tento scenár ukazuje, ako celý proces vyzerá v novom systéme – od plánovania po vrátenie.
 
 ## Aktéri
 
@@ -26,7 +26,7 @@ Pred zavedením SFZ Asset Management sa táto evidencia robila v Exceli a kombin
 
 ### 📅 14 dní pred výjazdom: Plánovanie a žiadosť
 
-Peter dostane oficiálne potvrdenie zápasu a začína plánovať. Prihlási sa do SFZ Asset Management a v sekcii **Tímové žiadosti** vytvorí **hromadnú žiadosť o zápožičku**.
+Peter dostane oficiálne potvrdenie zápasu a začína plánovať. Prihlási sa do Inventario a v sekcii **Tímové žiadosti** vytvorí **hromadnú žiadosť o zápožičku**.
 
 V žiadosti vyplní:
 

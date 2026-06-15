@@ -1,5 +1,5 @@
 <!--
-Ďakujeme za príspevok do SFZ Asset Management! 🎉
+Ďakujeme za príspevok do Inventario! 🎉
 Vyplň prosím čo najviac z nasledujúcich sekcií.
 -->
 

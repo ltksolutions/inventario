@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * @sfz/shared-types — Single source of truth pre dátový model SFZ Asset Management.
+ * @sfz/shared-types — Single source of truth pre dátový model Inventario.
  *
  * Tento balíček obsahuje:
  * - **Zod schémy** — runtime validácia + TypeScript typová inferencia v jednom

@@ -1,9 +1,9 @@
 # Tvoje prvé prihlásenie
 
 > ⏱️ **Trvanie:** 5 minút
-> 🎯 **Cieľ:** Po tomto sprievodcovi sa vieš prihlásiť do **SFZ Asset Management**, poznáš hlavnú navigáciu a vieš, kde nájdeš svoj pridelený majetok a aktívne zápožičky.
+> 🎯 **Cieľ:** Po tomto sprievodcovi sa vieš prihlásiť do **Inventario**, poznáš hlavnú navigáciu a vieš, kde nájdeš svoj pridelený majetok a aktívne zápožičky.
 
-Vitaj v **SFZ Asset Management** – internej aplikácii SFZ na evidenciu a požičiavanie majetku. Či už si nový zamestnanec, tréner alebo externý spolupracovník, tento krátky sprievodca ťa prevedie tvojím prvým prihlásením a ukáže ti, kde nájdeš to najdôležitejšie.
+Vitaj v **Inventario** – internej aplikácii SFZ na evidenciu a požičiavanie majetku. Či už si nový zamestnanec, tréner alebo externý spolupracovník, tento krátky sprievodca ťa prevedie tvojím prvým prihlásením a ukáže ti, kde nájdeš to najdôležitejšie.
 
 ## Čo budeš potrebovať
 
@@ -102,7 +102,7 @@ Môžeš filtrovať podľa:
 
 Skvelé! Práve si:
 
-- ✅ Po prvý raz sa prihlásil do SFZ Asset Management
+- ✅ Po prvý raz sa prihlásil do Inventario
 - ✅ Spoznal hlavnú navigáciu
 - ✅ Overil si svoj profil
 - ✅ Videl, aký majetok máš k dispozícii

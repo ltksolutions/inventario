@@ -1,6 +1,6 @@
 # Use Cases – Reálne scenáre zo SFZ
 
-Use cases sú **rozprávaním**, nie návodom. Ukazujú, ako sa SFZ Asset Management používa v reálnych situáciách – od začiatku až do konca, s konkrétnymi ľuďmi v konkrétnych roliach.
+Use cases sú **rozprávaním**, nie návodom. Ukazujú, ako sa Inventario používa v reálnych situáciách – od začiatku až do konca, s konkrétnymi ľuďmi v konkrétnych roliach.
 
 ## Pre koho je táto sekcia
 

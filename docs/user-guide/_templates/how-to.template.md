@@ -18,7 +18,7 @@ Premenné na vyplnenie sú v {{ dvojitých zložených zátvorkách }}.
 
 ## Predpoklady
 
-- {{ napr. Aktívny účet v SFZ Asset Management }}
+- {{ napr. Aktívny účet v Inventario }}
 - {{ napr. Schválené oprávnenie na danú kategóriu majetku }}
 - {{ napr. Nemáš inú aktívnu zápožičku rovnakého typu majetku }}
 

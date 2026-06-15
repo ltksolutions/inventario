@@ -1,4 +1,4 @@
-# Docker Compose pre lokálny vývoj SFZ Asset Management
+# Docker Compose pre lokálny vývoj Inventario
 #
 # Spustenie:
 #   docker compose -f infra/docker-compose.yml up -d

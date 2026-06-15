@@ -25,7 +25,7 @@ Tento scenár ukazuje, ako predstihnúť problémy vďaka:
 
 ### 📅 Týždeň pred nástupom: HR zakladá zápožičku vopred
 
-Lucia z HR dostane od Igora potvrdenie, že Marián nastúpi 1. apríla na pozíciu „Analytik mládežníckeho rozvoja". V SFZ Asset Management klikne na **Šablóny zápožičiek** a vyberie predpripravenú šablónu **„Onboarding — Analytik"**, ktorá obsahuje:
+Lucia z HR dostane od Igora potvrdenie, že Marián nastúpi 1. apríla na pozíciu „Analytik mládežníckeho rozvoja". V Inventario klikne na **Šablóny zápožičiek** a vyberie predpripravenú šablónu **„Onboarding — Analytik"**, ktorá obsahuje:
 
 - Notebook MacBook Air M3 (alebo ekvivalent)
 - iPhone (pracovný mobil)
@@ -59,7 +59,7 @@ Tomáš dostane notifikáciu o novej žiadosti od HR. Otvorí ju a vidí presný
 
 Vďaka integrácii s Microsoft Entra ID sa **Mariánov účet** automaticky vytvorí, keď ho IT pridá do AD skupiny „SFZ Employees". Marián dostane:
 
-- **Welcome e-mail** od SFZ Asset Management s linkom na aktiváciu
+- **Welcome e-mail** od Inventario s linkom na aktiváciu
 - Inštrukcie pre prvé prihlásenie (rovnaké ako pri každom novom zamestnancovi)
 
 V tom okamihu sa **zápožička z placeholderu prepojí na reálny účet** Mariána.

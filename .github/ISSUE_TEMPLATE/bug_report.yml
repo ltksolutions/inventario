@@ -1,5 +1,5 @@
 name: 🐛 Bug report
-description: Nahlás bug v systéme SFZ Asset Management
+description: Nahlás bug v systéme Inventario
 title: "[Bug]: "
 labels: ["bug", "triage"]
 body:

@@ -1,6 +1,6 @@
 # Lokálna infraštruktúra
 
-Tento adresár obsahuje konfiguráciu pre lokálne dev prostredie SFZ Asset Management.
+Tento adresár obsahuje konfiguráciu pre lokálne dev prostredie Inventario.
 
 ## Štart
 

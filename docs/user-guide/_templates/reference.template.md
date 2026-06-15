@@ -14,7 +14,7 @@ Premenné na vyplnenie sú v {{ dvojitých zložených zátvorkách }}.
 
 {{ Jedna-dve vety na úvod – čo je v tomto dokumente a kedy ho použiť.
 Napríklad: „Tento dokument obsahuje úplný zoznam možných stavov majetku
-a zápožičiek v systéme SFZ Asset Management. Použi ho ako rýchlu referenciu,
+a zápožičiek v systéme Inventario. Použi ho ako rýchlu referenciu,
 keď si nie si istý, čo daný stav znamená alebo aký prechod je možný." }}
 
 ## {{ Kategória 1 – napr. "Stavy majetku" }}

@@ -17,7 +17,7 @@ Komentáre v <!-- ... --> odstráň po vyplnení.
 > ⏱️ **Trvanie:** {{ napr. 5 minút }}
 > 🎯 **Cieľ:** {{ Jedna veta – čo budeš vedieť po dokončení. Napr. "Po tomto tutoriáli sa vieš prihlásiť do systému a poznáš jeho hlavnú navigáciu." }}
 
-{{ Krátky úvodný odsek – kontext, prečo to robíš. 2-3 vety, žiadna technika. Napríklad: „Vitaj v SFZ Asset Management! V tomto krátkom sprievodcovi si spolu prejdeme tvoje prvé prihlásenie a ukážeme si, kde nájdeš najdôležitejšie funkcie." }}
+{{ Krátky úvodný odsek – kontext, prečo to robíš. 2-3 vety, žiadna technika. Napríklad: „Vitaj v Inventario! V tomto krátkom sprievodcovi si spolu prejdeme tvoje prvé prihlásenie a ukážeme si, kde nájdeš najdôležitejšie funkcie." }}
 
 ## Čo budeš potrebovať
 
@@ -48,7 +48,7 @@ Komentáre v <!-- ... --> odstráň po vyplnení.
 
 ## Hotovo! 🎉
 
-{{ Jedna-dve vety o tom, čo si práve dosiahol. Napr. "Skvelé! Práve si sa po prvý raz prihlásil do SFZ Asset Management a videl hlavnú navigáciu. Teraz si pripravený na ďalšie kroky." }}
+{{ Jedna-dve vety o tom, čo si práve dosiahol. Napr. "Skvelé! Práve si sa po prvý raz prihlásil do Inventario a videl hlavnú navigáciu. Teraz si pripravený na ďalšie kroky." }}
 
 ## Čo ďalej?
 

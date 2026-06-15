@@ -1,6 +1,6 @@
 # @sfz/shared-types
 
-> **Single source of truth** pre dátový model SFZ Asset Management.
+> **Single source of truth** pre dátový model Inventario.
 
 ## Filozofia
 

@@ -6,7 +6,7 @@
 
 ## Predpoklady
 
-- Máš aktívny účet v SFZ Asset Management
+- Máš aktívny účet v Inventario
 - Si prihlásený (ak nie, pozri si [Tvoje prvé prihlásenie](../getting-started/prve-prihlasenie.md))
 - Tvoja rola má oprávnenie na požičiavanie danej kategórie majetku
 

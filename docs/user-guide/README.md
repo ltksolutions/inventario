@@ -1,6 +1,6 @@
 # Používateľská príručka
 
-Vitaj v príručke pre **SFZ Asset Management** – internej aplikácii Slovenského futbalového zväzu na evidenciu a požičiavanie majetku.
+Vitaj v príručke pre **Inventario** – internej aplikácii Slovenského futbalového zväzu na evidenciu a požičiavanie majetku.
 
 > 💡 Si tu prvýkrát? Pozri si [Tvoje prvé prihlásenie](./getting-started/prve-prihlasenie.md).
 
@@ -61,7 +61,7 @@ Slovník pojmov, prehľad rolí a oprávnení, stavy majetku, atď.
 
 ## Pre koho je príručka
 
-V SFZ Asset Management rozlišujeme niekoľko **rolí používateľov**. Každá rola má iné oprávnenia a iné typické úlohy:
+V Inventario rozlišujeme niekoľko **rolí používateľov**. Každá rola má iné oprávnenia a iné typické úlohy:
 
 | Rola                      | Typický používateľ                | Hlavné úlohy                                        |
 | ------------------------- | --------------------------------- | --------------------------------------------------- |

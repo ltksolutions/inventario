@@ -1,6 +1,6 @@
 # Slovník pojmov
 
-Vysvetlenie pojmov, ktoré používame v SFZ Asset Management. Pojmy sú zoradené **abecedne**.
+Vysvetlenie pojmov, ktoré používame v Inventario. Pojmy sú zoradené **abecedne**.
 
 > 💡 Hľadáš konkrétny stav majetku alebo zápožičky? Pozri [Stavy majetku a zápožičiek](./stavy.md).
 

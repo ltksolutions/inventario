@@ -1,4 +1,4 @@
-# Getting Started – Krok za krokom do SFZ Asset Management
+# Getting Started – Krok za krokom do Inventario
 
 Vitaj v sekcii **Getting Started**. Tu nájdeš tutoriály pre tých, ktorí systém vidia prvýkrát.
 
