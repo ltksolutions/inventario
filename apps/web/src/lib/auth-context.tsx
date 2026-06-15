@@ -22,6 +22,7 @@
  *   switchOrg()             — POST /v1/auth/switch-organisation + refresh
  */
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -119,6 +120,7 @@ const API_BASE_URL = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhos
 
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [activeMembership, setActiveMembership] = useState<ActiveMembership | null>(null);
   const [availableOrganisations, setAvailableOrganisations] = useState<AvailableOrganisation[]>([]);
@@ -216,8 +218,11 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       }
       // Re-fetch me to get new membership + roles
       await fetchMe();
+      // Invalidate all tenant-scoped query cache so every page refetches
+      // data from the newly active organisation (fixes stale data after switch).
+      await queryClient.invalidateQueries();
     },
-    [fetchMe],
+    [fetchMe, queryClient],
   );
 
   return (
