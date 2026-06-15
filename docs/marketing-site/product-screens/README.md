@@ -39,6 +39,6 @@ z `interactive-demo.html` (marketing wrapper s tenant + viewport switcherom).
 Po nasadení reálnej aplikácie sme mockupy aj `interactive-demo.html` **odstránili**
 a nahradili ich skutočnými zábermi.
 
-> Pozn.: `docs/design/screens/_*.html` (originály mockupov) a
-> `scripts/copy-product-screens.sh` (ich sync) sú tým pádom **legacy** a už sa
-> v marketing site nepoužívajú.
+> Pozn.: spolu s nimi sme odstránili aj zdroj mockupov `docs/design/screens/`
+> (design exploration) a sync skript `scripts/copy-product-screens.sh`, keďže
+> už nemajú využitie.
