@@ -1,5 +1,27 @@
 # NEXT
 
+## Aktuálny stav (2026-06-15)
+
+**Marketing screenshoty + odstránenie dema + kompletný docs sync — HOTOVÉ.** Session log:
+`docs/sessions/2026-06-15-marketing-screenshots-docs-sync.md`. Commity: `c120490`, `a0764e3`,
+`18401e5`, `f3508ee`, `38c62c5`, `263b74b`, `23bb589`, `eff1987`, `c420aca`, `52f0677`.
+
+- ✅ Tenant switcher kontrast v tmavej hlavičke (`AppShell.tsx`)
+- ✅ 6 reálnych screenshotov demo tenanta „ŠK Demo Inventário" → `product-screens/real_*.png`
+- ✅ Nová stránka `/screenshots` (galéria + lightbox) + homepage hero pozadie (dashboard) + pás „Zo živej aplikácie" (3 browser karty)
+- ✅ Odstránené `interactive-demo.html` + 6 HTML mockupov + legacy `docs/design/screens/` + `copy-product-screens.sh`
+- ✅ TODO.md zosúladený — ADR-0028 (branding), ADR-0030 (auth/identity, vrátane Apple kódu), ADR-0031 (per-tenant MS OAuth) overené DONE v kóde
+- ✅ Nový `docs/user-guide/reference/role-opravnenia.md` (matica oprávnení)
+- ✅ Docs sync: `docs/README.md`, `architecture/README.md` + `data-model.md` (NestJS→Fastify, Next 14→15, Production LIVE), root README + ROADMAP
+- ✅ Rebrand „SFZ Asset Management" → „Inventario" v 19 živých súboroch
+- ✅ `docs/api/openapi.yaml` regenerovaný z kanonického `apps/api/openapi.json` (61 pathov)
+
+**Otvorené:** MCP server (Slice #10, Q1 2027); drobnosti (bulk invite CSV, per-tenant email provider override, `test-jwt-loader` → `provisionUser()` migrácia). **Ops (mimo kódu):** Apple Developer creds + `APPLE_*` env; rotácia prod Mongo hesla; voliteľné vyčistenie demo dát z prod.
+
+> Pozn.: 4× `docs/marketing-site/.fuse_hidden…` v git status sú FUSE/mount artefakty (nie naše súbory) — netreba commitovať.
+
+---
+
 ## Aktuálny stav (2026-06-11)
 
 **EU compliance je kompletne uzavreté** + audit eventy pre prílohy. Session log: `docs/sessions/2026-06-11-eu-compliance-p1-p2-p3-attachments-audit.md`. Commity: `c816787`, `be7ab64`, `d9b100a`, `1cfa838`, `efbddfb`. Testy 941 passed | 2 skipped; reuse lint 622/622.
