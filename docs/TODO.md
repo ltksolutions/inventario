@@ -12,12 +12,12 @@ SPDX-License-Identifier: CC-BY-4.0
 > [`docs/sessions/NEXT.md`](./sessions/NEXT.md). Testovanie sa rieši priebežne pri každej
 > položke (workflow pravidlo: testy s každou zmenou) — preto tu nie je samostatná „testovacia" sekcia.
 
-| Atribút                   | Hodnota                                                                                                              |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-06-09 (#18 + #19 overené DONE; Ecomail spam fix; CI fix auto-join isNew; ďalej e-mail notif protokol na podpis) |
-| **Stav projektu**         | Production LIVE ✅ — SFZ pilot aktívne testovaný                                                                     |
-| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr                                          |
-| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs                                 |
+| Atribút                   | Hodnota                                                                                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-06-15 (#25 marketing screenshoty + `/screenshots`, demo odstránené; zosúladené stale checkboxy — ADR-0028/0030/0031 + member extras overené DONE priamo v kóde) |
+| **Stav projektu**         | Production LIVE ✅ — SFZ pilot aktívne testovaný                                                                                                                     |
+| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr                                                                                          |
+| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs                                                                                 |
 
 ---
 
@@ -169,10 +169,10 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Rozhodnutia (Q1–Q6):** Zod = zdroj pravdy (+`logoDot`, žiadna migrácia) · logo v1 = externá HTTPS URL (upload v2) · farby/font klientsky cez `data-tenant` + injektovaný `<style>` (FOUC ok v1) · WCAG tvrdé odmietnutie <4.5:1 · logo=všetky plány, farby/font=Pro+ · v1 rozsah bez uploadu/SSR/favicon
 - **Model:** Sonnet (B1–B9), Haiku/Sonnet (B10 docs)
 - **Rozsah — 10 blokov v 4 fázach (detail v ADR-0028 „Implementačný plán“):**
-  - [ ] **Fáza 1 — schéma + backend (~1.5 dňa):** B1 `HexColorSchema` + `logoDot`, zladiť JSON schému · B2 WCAG kontrast util + testy · B3 PATCH `brandKit` + plán gating + WCAG + logo URL check + audit · B4 integračné testy (gating, kontrast, SVG, happy path)
-  - [ ] **Fáza 2 — runtime (~1 deň):** B5 `BrandProvider` (`data-tenant` + `<style>`, koniec `unknown`) · B6 logo v `AppShell` headeri (fallback wordmark)
-  - [ ] **Fáza 3 — admin UI (~1 deň):** B7 „Branding" sekcia (logo URL + náhľad, farby, font) · B8 živý náhľad + kontrast indikátor + plán gating
-  - [ ] **Fáza 4 — testy + docs (~0.5 dňa):** B9 frontend testy + openapi regen · B10 milestone/session + user-guide „Nastavenie loga a farieb"
+  - [x] **Fáza 1 — schéma + backend:** B1 `HexColorSchema` + `logoDot` · B2 WCAG kontrast util (`apps/api/src/lib/contrast.ts`) + testy · B3 PATCH `brandKit` + WCAG + audit · B4 integračné testy (`organisations-branding.test.ts`) ✅
+  - [x] **Fáza 2 — runtime:** B5 `BrandProvider` (`apps/web/src/lib/BrandProvider.tsx`, `data-tenant` + `<style>`) · B6 logo v `AppShell` headeri (fallback wordmark) ✅
+  - [x] **Fáza 3 — admin UI:** B7 „Branding" sekcia v `OrganisationSettingsContent` (logo + farby + font) · B8 živý náhľad + kontrast indikátor ✅
+  - [x] **Fáza 4 — testy + docs:** B9 frontend testy + openapi regen · B10 session 2026-06-02/03 + presety (`brand-presets.test.ts`) ✅
 - **Pozn.:** nie je blocker pre pilot (default brand funguje), ale **logo na protokoloch/štítkoch je viditeľná pilotná bolesť**. Po dokončení SFZ nastaviť `logoUrl` (PNG, nie SVG). FREE pilot dostane logo; farby vyžadujú dočasné povýšenie plánu.
 - **Zdieľa:** `loadLogo()` (ADR-0022) — featura ho len odomkne tým, že `logoUrl` sa dá nastaviť.
 
@@ -188,13 +188,13 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Rozhodnutia:** registrácia = e-mail + Google + Apple + Microsoft (rovnocenné, bez Entra framingu) · Entra → per-tenant doménová politika cez existujúce polia (`allowedAuthProviders`, `memberJoinPolicy`, `autoJoinDomains`, `entraTenantId`) — aditívne, žiadne nové polia · pozvánka má vždy prednosť (INVITE_ONLY default) · SFZ migrácia = dátová úprava 1 Organisation dokumentu bez odhlásenia členov · SAML/OIDC enterprise SSO = mimo rozsahu
 - **Model:** Sonnet (D1–D6), Haiku (D7 docs)
 - **Rozsah — 7 blokov (detail v ADR-0030 „Implementačný plán“):**
-  - [ ] **D1** — backend Apple Sign-In (Arctic `form_post`, odstrániť 503 z registrácie aj loginu)
-  - [ ] **D2** — auth flow: `entraTenantId` reštrikcia (`tid` z id_token claimu, NIE Graph `/me`) + `autoJoinDomains` do accept-invite/login
-  - [ ] **D3** — admin UI „Prihlasovanie a domény" (allowedAuthProviders, memberJoinPolicy, autoJoinDomains, entraTenantId)
-  - [ ] **D4** — frontend registračná obrazovka: 4 neutrálne možnosti, odstrániť Entra framing
-  - [ ] **D5** — SFZ migrácia + overenie firemného MS prihlásenia členov cez nový model
-  - [ ] **D6** — testy (Apple flow, tid reštrikcia, domain auto-join opt-in, invite prednosť, SFZ scenár)
-  - [ ] **D7** — docs: ADR-0004 superseded note, user-guide „Povolenie firemnej domény", milestone/session
+  - [x] **D1** — backend Apple Sign-In hotový (`apple-auth.routes.ts`, 768 r., Arctic `form_post`). ⚠️ Beží len keď sú nastavené `APPLE_CLIENT_ID/TEAM_ID/KEY_ID/PRIVATE_KEY` — inak korektný 503 fallback. **Zostáva ops krok: Apple Developer účet + env premenné** (nie kód).
+  - [x] **D2** — auth flow: `entraTenantId` reštrikcia + `autoJoinDomains` (`apps/api/src/lib/auto-join.ts`) ✅
+  - [x] **D3** — admin UI „Prihlasovanie a domény" (`AuthSettingsContent`, `/settings/auth`) ✅
+  - [x] **D4** — frontend registračná obrazovka: neutrálne možnosti (`RegisterPage`) ✅
+  - [x] **D5** — SFZ migrácia + overenie firemného MS prihlásenia ✅
+  - [x] **D6** — testy (`entra-domain-restriction`, `auto-join`, `oauth-domain-autojoin`, `auth-register`, `apple-auth`) ✅
+  - [x] **D7** — docs: ADR-0030 + session ✅
 - **Riziká:** SFZ login regresiu overiť pred deployom · `tid` z id_token (nie Graph) · `accountType: ENTRA_ID` sa dnes mätúco nastavuje aj pre Google self-serve (drobný tech-debt)
 - **Blocker:** NIE pre pilot (default funguje), ale rieši reálnu pilotnú bolesť (Entra dnes de-facto povinné pre SFZ)
 
@@ -205,14 +205,14 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Rozhodnutia:** per-tenant `oauthCredentials` (nullable) na Organisation · `clientSecret` šifrovaný AES-256-GCM (vzor `mfa-crypto`, nový `OAUTH_SECRET_ENCRYPTION_KEY`) · write-only cez API (read path strip, `hasSecret` boolean) · OAuth provider sa stavia per-request (koniec boot-time mapy) · env fallback pre tenantov bez vlastnej app (SFZ pilot sa nerozbije) · tenant routing pri logine cez `?org=<slug>` hint · Microsoft only (Google slot pripravený, Apple mimo rozsahu) · KMS mimo rozsahu (voliteľný budúci backend kľúča)
 - **Model:** Sonnet (E1–E7), Haiku (E8 docs); E4 tenant routing prípadne Opus ak sa otvorí návrhová otázka
 - **Rozsah — 8 blokov (detail v ADR-0031 „Implementačný plán“):**
-  - [ ] **E1** — shared-types: `OrgOAuthProviderCredentialsSchema` + `OrgOAuthCredentialsSchema`, `oauthCredentials` na Organisation, OpenAPI regen
-  - [ ] **E2** — `oauth-crypto.ts` (AES-256-GCM), `OAUTH_SECRET_ENCRYPTION_KEY` do config + `.env.example` + `turbo.json globalEnv`
-  - [ ] **E3** — `resolveProviderCredentials()` + per-request Arctic inštancia, refactor `oauth.routes.ts` z boot-time mapy
-  - [ ] **E4** — tenant routing: `?org=<slug>` hint, `orgId`+`source` do OAuth state, callback stavia identickú inštanciu
-  - [ ] **E5** — API: `oauthCredentials` do `OrganisationSelfServicePatch` + šifrovanie pri zápise + read path strip
-  - [ ] **E6** — Admin UI sekcia „Microsoft aplikácia" v `/settings/auth` (clientId, write-only secret, tenantMode, stav, odstránenie)
-  - [ ] **E7** — testy (crypto round-trip, tenant→fallback resolúcia, login cez per-tenant app, read path strip, SFZ fallback)
-  - [ ] **E8** — docs: user-guide „Vlastná Microsoft aplikácia" (Azure setup), milestone/session, nadväznosť note do ADR-0030
+  - [x] **E1** — shared-types: `OrgOAuthProviderCredentialsSchema` + `OrgOAuthCredentialsSchema`, `oauthCredentials` na Organisation ✅
+  - [x] **E2** — `oauth-crypto.ts` (AES-256-GCM), `OAUTH_SECRET_ENCRYPTION_KEY` v configu ✅
+  - [x] **E3** — `oauth-provider-resolver.ts` (per-request Arctic inštancia, koniec boot-time mapy) ✅
+  - [x] **E4** — tenant routing: `?org=<slug>` hint, `orgId`+`source` v OAuth state ✅
+  - [x] **E5** — API: `oauthCredentials` v patchi + šifrovanie + read path strip ✅
+  - [x] **E6** — Admin UI „Microsoft aplikácia" v `/settings/auth` (`AuthSettingsContent`) ✅
+  - [x] **E7** — testy (`oauth-crypto`, `oauth-provider-resolver`, `microsoft-oauth-credentials`) ✅
+  - [x] **E8** — docs: ADR-0031 + go-live session 2026-06-04 ✅
 - **Riziká:** rotácia `OAUTH_SECRET_ENCRYPTION_KEY` = re-encrypt migračný skript · redirect URI mismatch v tenant Azure App · callback musí postaviť identickú Arctic inštanciu (orgId+source v state) · bez `?org` hintu spadne na platformovú app (mätúce pri tenante s entraTenantId)
 - **Blocker:** NIE pre pilot (env fallback drží SFZ login); rieši škálovanie na tenantov s vlastným Entra/IT
 - **Go-live (2026-06-04):** nasadzovanie do reálu — nová Azure app (platformová, multitenant), `User.Read` scope doplnený (fix 403 z Graph /me), openapi regen. Živý Microsoft login test prebieha. Session [`2026-06-04-microsoft-oauth-golive.md`](./sessions/2026-06-04-microsoft-oauth-golive.md)
@@ -249,10 +249,10 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Pozn.:** nové funkčnosti nad rámec hotového Slice #6c (invitations) — otvoria sa, keď reálny tenant požiada. SFZ pilot ich nepotrebuje.
 - **Rozsah:**
   - [x] Resend invitation (nový token pre expired/lost e-mail) — ✅ DONE 2026-06-03 (backend už existoval, doplnené frontend tlačidlo; session [`2026-06-03-post-deploy-fixes.md`](./sessions/2026-06-03-post-deploy-fixes.md))
-  - [ ] Per-email domain exception (pozvať mimo `allowedDomains` s explicitnou výnimkou)
-  - [ ] Email change verification (overovací flow pri zmene e-mailu)
-  - [ ] Bulk invite cez CSV
-  - [ ] Per-tenant email provider override (vlastný Resend namiesto default Ecomail)
+  - [x] Per-email domain exception — ✅ DONE (`invitations.routes.ts`, `orgSettings.invitations.exceptions[]` oproti `allowedDomains`)
+  - [x] Email change verification — ✅ DONE (`emailChangePendingTo/Token/ExpiresAt` v schéme, `/change-email` + `/confirm-email-change` routes, `EmailChangePanel` UI)
+  - [ ] Bulk invite cez CSV — otvorené
+  - [ ] Per-tenant email provider override (vlastný Resend namiesto default Ecomail) — otvorené; provider sa dnes volí globálne cez `EMAIL_PROVIDER` env, org schéma nemá override
 
 ### 14. Slice #10 — MCP server
 
