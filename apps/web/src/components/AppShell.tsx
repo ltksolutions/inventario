@@ -280,10 +280,10 @@ function TenantSwitcher({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1 rounded-lg border border-white/25 px-2 py-1 text-xs font-medium text-brand-primary-fg/90 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+        className="flex items-center gap-1.5 rounded-lg border border-white/40 bg-white/15 px-2.5 py-1 text-xs font-semibold text-brand-primary-fg transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
       >
-        <Building2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-        <span className="max-w-[140px] truncate">{currentOrgName}</span>
+        <Building2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-90" />
+        <span className="max-w-[160px] truncate">{currentOrgName}</span>
         <ChevronDown
           aria-hidden="true"
           className={cn('h-3 w-3 transition', open && 'rotate-180')}
