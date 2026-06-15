@@ -386,6 +386,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .nav-mobile-toggle {
@@ -428,6 +429,10 @@ body {
   overflow: hidden;
   font-size: 0.75rem;
   font-weight: 600;
+  flex-shrink: 0;
+}
+.lang-switch button {
+  white-space: nowrap;
 }
 .lang-switch button {
   background: none;
@@ -621,7 +626,7 @@ ul.checklist li::before {
 /* ──────────────────────────────────────────────────────────────
  * Responsive (mobile-first via media queries scaling DOWN)
  * ─────────────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
+@media (max-width: 1240px) {
   /* Desktop nav-links would overflow with brand + lang switch + buttons — switch to hamburger menu */
   .nav-links {
     display: none;
