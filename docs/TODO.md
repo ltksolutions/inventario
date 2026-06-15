@@ -301,7 +301,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### 25. Zosúladiť dokumentáciu + marketingový web so skutočnou appkou — ČIASTOČNE (2026-06-12)
 
-- **Stav:** Audit + textové opravy webu **HOTOVÉ** (2026-06-12). Discrepancy report: `docs/sessions/2026-06-12-marketing-app-discrepancy-audit.md`. Zostávajú screenshoty + drobnosti v appke.
+- **Stav:** **HOTOVÉ** (2026-06-15). Audit + textové opravy webu (2026-06-12), reálne screenshoty + stránka `/screenshots` + odstránenie demo/mockupov (2026-06-15). Discrepancy report: `docs/sessions/2026-06-12-marketing-app-discrepancy-audit.md`. Zostáva už len voliteľné vyčistenie demo dát z prod.
 - **Kontext:** appka sa vyvinula nad rámec pôvodných mockupov; marketingový web obsahoval overclaimy a zastarané čísla.
 - **Hotové (2026-06-12):**
   - [x] Inventár reálnych funkcií appky + tvrdení webu → discrepancy report.
@@ -315,7 +315,9 @@ SPDX-License-Identifier: CC-BY-4.0
   - [~] **Screenshoty:** Stale čísla v mockupoch opravené (`product-screens/_login-page.html`: 257→962, odstránené v0.3). **Reálne raster screenshoty zatiaľ NEUROBENÉ** — produkčný SFZ tenant má reálne mená/PII + len 2 položky (nevhodné pre verejný web; GDPR).
   - [x] **Seed demo tenant skript** — `apps/api/scripts/seed-demo-tenant.ts` (`pnpm --filter @inventario/api seed:demo`). Idempotentný, dry-run default, `--confirm`/`--reset`, scoped len na demo org, pridá `jan.letko@futbalsfz.sk` ako ADMIN člena + fiktívnych členov; ~25 položiek (SERIALIZED+BULK so stock ledger), kategórie, lokality, 2 výpožičky, 1 PENDING žiadosť. (2026-06-12)
   - [x] **Seed spustený na prod** (2026-06-12) — demo org `6a2c40e51166ed11b3c31160` v DB `inventario`. Overené: 17 majetku, 7 členov (6 demo + admin jan.letko), 2 výpožičky, 5 stock movements, 1 PENDING žiadosť.
-  - [ ] **Screenshoty** — prepnúť org v appke na „ŠK Demo Inventário" → 6 obrazoviek → nahradiť/aktualizovať `product-screens` mockupy. Pozn.: Cowork screenshot neukladá na disk — ručný export alebo CI screenshot pipeline.
+  - [x] **Reálne screenshoty HOTOVÉ** (2026-06-15) — 6 obrazoviek demo tenanta odfotené cez Chrome + macOS `screencapture` (page-only, orezané), zdroj `product-screens/real_*.png`, web-optimalizované JPG `assets/screens/` + hero `assets/hero-dashboard.jpg`.
+  - [x] **Nová stránka `/screenshots`** (galéria + lightbox) + homepage hero pozadie (stmavený dashboard) + pás „Zo živej aplikácie"; nav/pätička „Demo"→„Screenshoty". (2026-06-15)
+  - [x] **Odstránené interaktívne demo** — `interactive-demo.html`, 6 HTML mockupov v `product-screens/`, legacy `docs/design/screens/` (13 súborov) + `scripts/copy-product-screens.sh`. (2026-06-15)
   - [ ] **Vyčistiť demo z prod neskôr** (ak treba): `seed:demo -- --confirm --reset` zmaže len demo org dáta, alebo manuálne.
   - [x] **Apple Sign-In tlačidlo v appke** — env-gated (`NEXT_PUBLIC_APPLE_ENABLED`), skryté v RegisterPage + AuthSettingsContent kým nie je nakonfigurované (2026-06-12).
   - [x] `apps/docs` MDX (about, index, product-ui-tour) — opravené čísla (REUSE 632, odstránené v0.3), „Aktuálny stav" prepísaný na produkciu LIVE, export/i18n → roadmap (2026-06-12).
