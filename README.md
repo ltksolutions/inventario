@@ -123,12 +123,12 @@ Inventario/
 │   ├── functional-spec.md    # ✅ Funkčná špecifikácia
 │   ├── architecture/         # ✅ Dátový model, MCP server spec
 │   ├── api/                  # ✅ OpenAPI 3.1
-│   ├── decisions/            # ✅ Architecture Decision Records (13×)
-│   ├── design/               # ✅ Design tokens + mockupy
+│   ├── decisions/            # ✅ Architecture Decision Records (30+)
+│   ├── user-guide/           # ✅ Používateľská príručka (getting-started, how-to, reference)
 │   ├── milestones/           # ✅ Slice-by-slice milestone docs
-│   ├── sessions/             # ✅ Session plány (work-in-progress)
-│   ├── compliance/           # ✅ GDPR, DPA, ROPA, sub-processors, DR plan
-│   └── marketing-site/       # ✅ inventario.estate (static HTML)
+│   ├── sessions/             # ✅ Session plány + denné súhrny (NEXT.md = aktuálny stav)
+│   ├── compliance/           # ✅ GDPR, DPA, ROPA, DPIA, retencia, sub-processors
+│   └── marketing-site/       # ✅ inventario.estate (static HTML) + /screenshots
 ├── infra/
 │   ├── docker-compose.yml    # ✅ Lokálna Mongo + MailHog + MinIO
 │   └── vercel/               # ✅ Deployment docs pre Vercel

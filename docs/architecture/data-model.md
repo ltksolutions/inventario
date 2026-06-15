@@ -7,7 +7,7 @@
 | **Posledná aktualizácia** | máj 2026                  |
 | **Databáza**              | MongoDB Atlas (Cloud)     |
 
-Tento dokument popisuje dátový model systému SFZ Asset Management. Všetky kolekcie sú v MongoDB; schémy sú definované pomocou **Zod** v `packages/shared-types/` a vynucované na úrovni aplikačnej vrstvy (NestJS).
+Tento dokument popisuje dátový model platformy **Inventario**. Všetky kolekcie sú v MongoDB; schémy sú definované pomocou **Zod** v `packages/shared-types/` a vynucované na úrovni aplikačnej vrstvy (Fastify).
 
 ## Obsah
 

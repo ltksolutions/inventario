@@ -295,7 +295,7 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Stav:** evidované 2026-06-11 (skenom `TODO/FIXME` v `*.ts/tsx`). Žiadny nie je bug.
 - **Rozsah:**
   - [ ] `apps/api/tests/helpers/test-jwt-loader.ts` — odstrániť helper + `createTokenSigner()` call sites, keď sa všetky testy zmigrujú na `provisionUser()` (testovací tech-debt, postupná migrácia).
-  - [ ] `packages/shared-types/src/enums/user-role.ts` — doplniť chýbajúci dokument o rolách (napr. `docs/architecture/roles.md`) a opraviť odkaz „(TODO: vytvoriť tento dokument)".
+  - [x] ✅ DONE (2026-06-15) — vytvorený `docs/user-guide/reference/role-opravnenia.md` (matica oprávnení per rola z reálnych `requireRole`/`requireMinRole` guardov), odstránený „(TODO: vytvoriť tento dokument)" odkaz v `user-role.ts`, README reference aktualizované.
 - **Pozn.:** Dva ďalšie „TODO" v `memberships.routes.ts` (riadky ~25, ~398) NIE sú nedorobky — sú to opisné/meta komentáre potvrdzujúce, že audit event sa emituje inde a pre `post/:id/default` nie je potrebný. Neriešiť.
 - **Model:** Sonnet/Haiku, podľa potreby pri najbližšom dotyku príslušných súborov.
 
@@ -312,7 +312,7 @@ SPDX-License-Identifier: CC-BY-4.0
   - [x] „100 % Real UI" → „hi-fi mockupy" (interactive-demo).
   - [x] Bug v `demo.html` (prepínač stránok `${page}.html`).
 - **Zostáva:**
-  - [~] **Screenshoty:** Stale čísla v mockupoch opravené (`product-screens/_login-page.html`: 257→962, odstránené v0.3). **Reálne raster screenshoty zatiaľ NEUROBENÉ** — produkčný SFZ tenant má reálne mená/PII + len 2 položky (nevhodné pre verejný web; GDPR).
+  - [x] **Screenshoty:** vyriešené cez dedikovaný **demo tenant „ŠK Demo Inventário"** (fiktívne dáta, žiadne PII) — viď nižšie. SFZ prod tenant sa nepoužil (reálne mená/PII; GDPR).
   - [x] **Seed demo tenant skript** — `apps/api/scripts/seed-demo-tenant.ts` (`pnpm --filter @inventario/api seed:demo`). Idempotentný, dry-run default, `--confirm`/`--reset`, scoped len na demo org, pridá `jan.letko@futbalsfz.sk` ako ADMIN člena + fiktívnych členov; ~25 položiek (SERIALIZED+BULK so stock ledger), kategórie, lokality, 2 výpožičky, 1 PENDING žiadosť. (2026-06-12)
   - [x] **Seed spustený na prod** (2026-06-12) — demo org `6a2c40e51166ed11b3c31160` v DB `inventario`. Overené: 17 majetku, 7 členov (6 demo + admin jan.letko), 2 výpožičky, 5 stock movements, 1 PENDING žiadosť.
   - [x] **Reálne screenshoty HOTOVÉ** (2026-06-15) — 6 obrazoviek demo tenanta odfotené cez Chrome + macOS `screencapture` (page-only, orezané), zdroj `product-screens/real_*.png`, web-optimalizované JPG `assets/screens/` + hero `assets/hero-dashboard.jpg`.

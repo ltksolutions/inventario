@@ -7,21 +7,24 @@ Tento adresár obsahuje všetku projektovú dokumentáciu. Dokumentácia je verz
 ```
 docs/
 ├── functional-spec.md          # Funkčná špecifikácia (hlavný dokument)
+├── TODO.md                      # Implementačný backlog (čo treba dorobiť)
 ├── architecture/               # Architektonické dokumenty
-│   ├── README.md               # Prehľad
-│   ├── overview.md             # C4 high-level pohľad
+│   ├── README.md               # Prehľad architektúry + tech rozhodnutia
 │   ├── data-model.md           # MongoDB kolekcie a vzťahy
-│   ├── security.md             # Bezpečnostná architektúra
-│   └── mcp-server.md           # Špecifikácia MCP servera
+│   └── mcp-server.md           # Špecifikácia MCP servera (Slice #10)
 ├── api/
 │   ├── openapi.yaml            # OpenAPI 3.1 špecifikácia
 │   └── README.md               # Pravidlá API designu
-├── workflows/                  # Diagramy a popis workflow-ov
-│   └── README.md
-└── decisions/                  # Architecture Decision Records (ADR)
-    ├── README.md
-    ├── template.md             # Šablóna pre nové ADR
-    └── 0001-monorepo-pnpm-turbo.md
+├── decisions/                  # Architecture Decision Records (ADR, 30+)
+│   ├── README.md
+│   ├── template.md             # Šablóna pre nové ADR
+│   └── 00xx-*.md               # jednotlivé rozhodnutia
+├── user-guide/                 # Používateľská príručka (getting-started, how-to, reference, use-cases)
+├── compliance/                 # GDPR (ROPA, DPA, DPIA), retencia, security/privacy, sub-procesori
+├── milestones/                 # Slice-by-slice milestone dokumenty
+├── sessions/                   # Pracovné session plány + denné súhrny (NEXT.md = aktuálny stav)
+├── marketing-site/             # inventario.estate (statický web) + /screenshots
+└── assets/                     # Brand assety, obrázky
 ```
 
 ## Konvencie

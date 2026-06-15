@@ -6,7 +6,7 @@ Vyhľadávacia referencia — slovník, prehľady, tabuľky. Sem chodíš, **ke�
 
 - 📚 [**Stavy majetku a zápožičiek**](./stavy.md) — úplný zoznam stavov, ich farby, prechody
 - 📖 [**Slovník pojmov**](./slovnik.md) _(TODO)_ — definície všetkých termínov používaných v aplikácii
-- 🔑 [**Role a oprávnenia**](./role-opravnenia.md) _(TODO)_ — kto môže čo
+- 🔑 [**Role a oprávnenia**](./role-opravnenia.md) — kto môže čo (matica oprávnení per rola)
 - 🏷️ [**Skratky a označenia**](./skratky.md) _(TODO)_ — prefixy inventárnych čísel, kódy lokalít
 - ⌨️ [**Klávesové skratky**](./klavesove-skratky.md) _(TODO)_
 - 🌐 [**API endpointy**](../../api/) — pre integrátorov a vývojárov
@@ -24,4 +24,4 @@ Referencia je typicky:
 
 ---
 
-<sub>Posledná aktualizácia: 2025-01</sub>
+<sub>Posledná aktualizácia: 2026-06</sub>

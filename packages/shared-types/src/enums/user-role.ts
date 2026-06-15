@@ -5,7 +5,6 @@
  * Role používateľov v systéme.
  *
  * Detailný rozpis oprávnení per rola je v docs/user-guide/reference/role-opravnenia.md
- * (TODO: vytvoriť tento dokument)
  *
  * ADR-0029: rola je per-membership JEDNA hodnota (nie pole). Roly tvoria
  * lineárnu hierarchiu úrovní prístupu — ADMIN dedí ASSET_MANAGER, ten dedí
