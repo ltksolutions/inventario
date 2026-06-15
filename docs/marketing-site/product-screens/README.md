@@ -3,50 +3,42 @@ SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# `product-screens/` — Inventario UI mockupy pre verejné demo
+# `product-screens/` — reálne screenshoty zo živej aplikácie
 
-Tento priečinok obsahuje **6 self-contained HTML mockupov** Inventario aplikácie, ktoré sa renderujú v `<iframe>` z [`../interactive-demo.html`](../interactive-demo.html).
+Tento priečinok obsahuje **6 reálnych screenshotov** z nasadenej aplikácie
+Inventario (demo tenant **„ŠK Demo Inventário"**, `app.inventario.estate`).
+Sú to zdrojové, plnorozlíšené PNG (retina, ~2778 px na šírku).
 
 ## Súbory
 
-| Súbor                     | Popis                                                    |
-| ------------------------- | -------------------------------------------------------- |
-| `_login-page.html`        | 01 · Multi-tenant SSO login                              |
-| `_dashboard-page.html`    | 02 · Role-aware dashboard (employee/asset_manager/admin) |
-| `_assets-list-page.html`  | 03 · Zoznam majetku s filtrami                           |
-| `_asset-detail-page.html` | 04 · Detail majetku s 5 tabmi                            |
-| `_loan-request-page.html` | 05 · 3-step wizard pre výpožičku                         |
-| `_my-loans-page.html`     | 06 · Osobné výpožičky (3 taby)                           |
+| Súbor                | Obrazovka            | Popis                                                       |
+| -------------------- | -------------------- | ----------------------------------------------------------- |
+| `real_dashboard.png` | Dashboard            | KPI karty + panel „Čaká na vás" so žiadosťami na schválenie |
+| `real_assets.png`    | Majetok              | Filtrovateľný zoznam položiek so stavmi a kategóriami       |
+| `real_stock.png`     | Sklad                | Hromadné (BULK) položky so skladovým zostatkom              |
+| `real_loans.png`     | Žiadosti / Výpožičky | Schvaľovacia queue (schváliť / zamietnuť)                   |
+| `real_my-loans.png`  | Moje výpožičky       | Osobný prehľad — aktívne, čakajúce, história                |
+| `real_protocols.png` | Preberacie protokoly | Protokoly o odovzdaní a vrátení majetku                     |
 
-## Vzťah k `/docs/design/screens/`
+## Kde sa používajú
 
-Tieto súbory sú **kópie** zo `docs/design/screens/_*.html`. Originál slúži ako interný design exploration, kópia tu je pre **verejné publikovanie** v marketing site bundli (deployovanom na Vercel).
+- **`/screenshots`** ([`../screenshots.html`](../screenshots.html)) — verejná galéria
+  všetkých 6 obrazoviek s lightboxom.
+- **Homepage** ([`../index.html`](../index.html)) — hero pozadie (stmavený dashboard)
+  a pás „Zo živej aplikácie".
 
-Pre **sync** (po editácii originálu) spusti:
+Pre web sa nepoužívajú tieto PNG priamo — sú zdrojom pre **web-optimalizované JPG**
+v [`../assets/screens/`](../assets/screens/) (šírka 1400 px) a hero podklad
+[`../assets/hero-dashboard.jpg`](../assets/hero-dashboard.jpg). Po výmene
+screenshotov pregeneruj JPG z týchto PNG.
 
-```bash
-bash scripts/copy-product-screens.sh
-```
+## História
 
-## URL parametre
+Pôvodne tu žilo **6 self-contained HTML mockupov** renderovaných v `<iframe>`
+z `interactive-demo.html` (marketing wrapper s tenant + viewport switcherom).
+Po nasadení reálnej aplikácie sme mockupy aj `interactive-demo.html` **odstránili**
+a nahradili ich skutočnými zábermi.
 
-Každý mockup podporuje:
-
-- `?tenant=<default|inter|pezinok|kremnica>` — branding (4 demo organizácie)
-- `?role=<employee|asset_manager|admin>` — len pre `_dashboard-page.html`, ovplyvňuje obsah
-
-Príklady:
-
-- `_login-page.html?tenant=pezinok` — Pezinok branding
-- `_dashboard-page.html?tenant=inter&role=asset_manager` — Inter asset manager view
-
-## Technológie
-
-Každý súbor je **self-contained**:
-
-- Tailwind CSS cez CDN (`https://cdn.tailwindcss.com`)
-- Poppins + JetBrains Mono cez Google Fonts
-- Brand farby cez CSS custom properties
-- Žiadne externé asset súbory, žiadne build kroky
-
-To znamená že fungujú aj **offline** (po prvom načítaní fontov + Tailwind), a **dajú sa kopírovať** do akéhokoľvek kontextu (Notion embed, prezentácia, blog post, atď.).
+> Pozn.: `docs/design/screens/_*.html` (originály mockupov) a
+> `scripts/copy-product-screens.sh` (ich sync) sú tým pádom **legacy** a už sa
+> v marketing site nepoužívajú.

@@ -1,0 +1,357 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
+SPDX-License-Identifier: CC-BY-4.0
+
+Inventario marketing site · Screenshoty zo živej aplikácie
+
+Galéria 6 reálnych obrazoviek z nasadenej aplikácie (demo tenant
+"ŠK Demo Inventário"). Nahradzuje pôvodné interaktívne hi-fi mockupy
+(interactive-demo.html) reálnymi zábermi. Obrázky sú web-optimalizované
+JPG v assets/screens/ (zdrojové PNG: product-screens/real_*.png).
+-->
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screenshoty · Inventario naživo</title>
+    <meta name="description" content="Reálne zábery zo živej aplikácie Inventario — dashboard, evidencia majetku, sklad, výpožičky, preberacie protokoly. Žiadne mockupy, skutočná nasadená appka." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/shared.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Screenshoty · Inventario naživo" />
+    <meta property="og:description" content="Reálne zábery zo živej aplikácie Inventario — dashboard, majetok, sklad, výpožičky, protokoly. Skutočná nasadená appka, nie mockupy." />
+    <meta property="og:url" content="https://inventario.estate/screenshots" />
+    <meta property="og:image" content="https://inventario.estate/assets/og-image.png" />
+    <meta property="og:locale" content="sk_SK" />
+
+    <style>
+        .shots-section { background: #f8f6f1; }
+        .shots-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.75rem;
+        }
+        .shot-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(26, 45, 71, 0.08);
+            border: 1px solid transparent;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
+            display: flex;
+            flex-direction: column;
+        }
+        .shot-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 34px -10px rgba(26, 45, 71, 0.22);
+            border-color: var(--brand-accent);
+        }
+        .shot-figure {
+            margin: 0;
+            position: relative;
+            cursor: zoom-in;
+            background: #1a2d47;
+            line-height: 0;
+        }
+        .shot-figure img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .shot-num {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: rgba(26, 45, 71, 0.72);
+            backdrop-filter: blur(6px);
+            color: white;
+            font-family: var(--font-mono, 'JetBrains Mono', monospace);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.55rem;
+            border-radius: 5px;
+            letter-spacing: 0.05em;
+        }
+        .shot-zoom {
+            position: absolute;
+            bottom: 0.75rem;
+            right: 0.75rem;
+            background: rgba(255, 255, 255, 0.92);
+            color: #1a2d47;
+            border-radius: 7px;
+            padding: 0.3rem 0.45rem;
+            display: inline-flex;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .shot-card:hover .shot-zoom { opacity: 1; }
+        .shot-body {
+            padding: 1.25rem 1.5rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        .shot-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--brand-primary);
+            margin: 0 0 0.4rem;
+        }
+        .shot-desc {
+            font-size: 0.9rem;
+            color: #6b7a8d;
+            line-height: 1.55;
+            margin: 0;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(15, 23, 35, 0.92);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .lightbox.open { display: flex; }
+        .lightbox img {
+            max-width: 100%;
+            max-height: 86vh;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.6);
+        }
+        .lightbox-caption {
+            position: absolute;
+            bottom: 1.25rem;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.9rem;
+            font-family: var(--font-mono, 'JetBrains Mono', monospace);
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.5rem;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .lightbox-close:hover { background: rgba(255, 255, 255, 0.22); }
+
+        .shots-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            padding: 0.4rem 0.9rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.85);
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body data-page="screenshots">
+
+    <main id="main">
+
+    <!-- ═══════════════════ HERO ═══════════════════ -->
+    <section class="hero-gradient">
+        <div class="container" style="padding: 4.5rem 1.5rem 4rem;">
+            <div class="mono-label" style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">SCREENSHOTY · ŽIVÁ APLIKÁCIA</div>
+            <h1 style="color: white; max-width: 760px;">
+                Žiadne mockupy. <span style="font-style: italic;">Skutočná</span> appka.
+            </h1>
+            <p class="lead-white" style="max-width: 640px; margin-top: 1.25rem; font-size: 1.15rem;">
+                Šesť obrazoviek priamo z nasadenej aplikácie — od dashboardu cez evidenciu majetku a sklad až po výpožičky a preberacie protokoly. Klikni na ktorýkoľvek záber pre zväčšenie.
+            </p>
+            <div class="shots-note">
+                <span aria-hidden="true">🏛️</span> Demo tenant: <strong>ŠK Demo Inventário</strong>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════ GALÉRIA ═══════════════════ -->
+    <section class="section shots-section">
+        <div class="container">
+            <div class="shots-grid">
+
+                <article class="shot-card">
+                    <figure class="shot-figure" data-full="assets/screens/dashboard.jpg" data-caption="Dashboard — prehľad organizácie">
+                        <span class="shot-num">01 · Dashboard</span>
+                        <img src="assets/screens/dashboard.jpg" alt="Dashboard Inventario — KPI karty (17 položiek majetku, 14 kategórií, 4 lokality), panel Čaká na vás so žiadosťou na schválenie." loading="lazy" width="1400" height="747" />
+                        <span class="shot-zoom" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+                        </span>
+                    </figure>
+                    <div class="shot-body">
+                        <h2 class="shot-title">Dashboard</h2>
+                        <p class="shot-desc">Prehľad celej organizácie na jednom mieste — počty majetku, kategórií, lokalít a aktívnych výpožičiek. Panel „Čaká na vás" zobrazuje žiadosti na schválenie priamo na ploche.</p>
+                    </div>
+                </article>
+
+                <article class="shot-card">
+                    <figure class="shot-figure" data-full="assets/screens/assets.jpg" data-caption="Majetok — evidencia položiek">
+                        <span class="shot-num">02 · Majetok</span>
+                        <img src="assets/screens/assets.jpg" alt="Zoznam majetku Inventario — 17 položiek s inventárnymi číslami DEMO-2026, stavmi (dostupné, vypožičané), kategóriami a lokalitami." loading="lazy" width="1400" height="745" />
+                        <span class="shot-zoom" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+                        </span>
+                    </figure>
+                    <div class="shot-body">
+                        <h2 class="shot-title">Evidencia majetku</h2>
+                        <p class="shot-desc">Filtrovateľný a vyhľadateľný zoznam všetkých položiek. Stavy sú farebne odlíšené, každá položka má unikátne inventárne číslo, kategóriu a lokalitu.</p>
+                    </div>
+                </article>
+
+                <article class="shot-card">
+                    <figure class="shot-figure" data-full="assets/screens/stock.jpg" data-caption="Sklad — hromadné položky a zásoby">
+                        <span class="shot-num">03 · Sklad</span>
+                        <img src="assets/screens/stock.jpg" alt="Sklad Inventario — KPI karty stavu zásob a tabuľka hromadných položiek (lopty, kužele, dresy) so skladovým zostatkom." loading="lazy" width="1400" height="747" />
+                        <span class="shot-zoom" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+                        </span>
+                    </figure>
+                    <div class="shot-body">
+                        <h2 class="shot-title">Sklad (hromadné položky)</h2>
+                        <p class="shot-desc">Pre množstevné položky (lopty, dresy, kužele) Inventario vedie skladový zostatok cez append-only ledger. Prehľad zásob: v poriadku, málo, prázdne.</p>
+                    </div>
+                </article>
+
+                <article class="shot-card">
+                    <figure class="shot-figure" data-full="assets/screens/loans.jpg" data-caption="Žiadosti — schvaľovacia queue">
+                        <span class="shot-num">04 · Žiadosti</span>
+                        <img src="assets/screens/loans.jpg" alt="Žiadosti o výpožičku v Inventario — žiadosť čakajúca na schválenie s tlačidlami Schváliť a Zamietnuť." loading="lazy" width="1400" height="743" />
+                        <span class="shot-zoom" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+                        </span>
+                    </figure>
+                    <div class="shot-body">
+                        <h2 class="shot-title">Žiadosti o výpožičku</h2>
+                        <p class="shot-desc">Schvaľovacia queue pre asset managera — žiadosti zamestnancov s účelom a termínom, schválenie alebo zamietnutie na jeden klik. Každá akcia ide do audit logu.</p>
+                    </div>
+                </article>
+
+                <article class="shot-card">
+                    <figure class="shot-figure" data-full="assets/screens/my-loans.jpg" data-caption="Moje výpožičky — osobný prehľad">
+                        <span class="shot-num">05 · Moje výpožičky</span>
+                        <img src="assets/screens/my-loans.jpg" alt="Moje výpožičky v Inventario — čakajúce žiadosti používateľa a prázdny stav aktívnych výpožičiek s výzvou požiadať o výpožičku." loading="lazy" width="1400" height="743" />
+                        <span class="shot-zoom" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+                        </span>
+                    </figure>
+                    <div class="shot-body">
+                        <h2 class="shot-title">Moje výpožičky</h2>
+                        <p class="shot-desc">Osobný prehľad zamestnanca — čo mám práve vypožičané, ktoré moje žiadosti čakajú na schválenie a celá história. Žiadosť o výpožičku jedným klikom.</p>
+                    </div>
+                </article>
+
+                <article class="shot-card">
+                    <figure class="shot-figure" data-full="assets/screens/protocols.jpg" data-caption="Preberacie protokoly">
+                        <span class="shot-num">06 · Protokoly</span>
+                        <img src="assets/screens/protocols.jpg" alt="Preberacie protokoly v Inventario — filtre podľa typu a stavu protokolu, prázdny stav s vysvetlením že protokoly vznikajú pri vydaní a vrátení." loading="lazy" width="1400" height="745" />
+                        <span class="shot-zoom" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+                        </span>
+                    </figure>
+                    <div class="shot-body">
+                        <h2 class="shot-title">Preberacie protokoly</h2>
+                        <p class="shot-desc">Protokoly o odovzdaní a vrátení majetku. Vznikajú automaticky pri vydaní a vrátení výpožičky a čakajú na elektronické potvrdenie oboch strán.</p>
+                    </div>
+                </article>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════ CTA ═══════════════════ -->
+    <section class="section" style="background: var(--brand-primary); color: white; text-align: center;">
+        <div class="container-narrow">
+            <h2 style="color: white;">Páči sa ti čo vidíš? Skús to.</h2>
+            <p class="lead-white" style="margin-bottom: 2rem;">
+                Free tier pokryje celú organizáciu do 10 používateľov. Žiadna kreditka, žiadny <span lang="en">vendor lock-in</span>.
+            </p>
+            <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+                <a href="https://app.inventario.estate/register" class="btn btn-primary" style="background: white; color: var(--brand-primary);">
+                    Registrovať sa zadarmo
+                </a>
+                <a href="/pricing" class="btn" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.25);">
+                    Pozrieť cenník
+                </a>
+            </div>
+        </div>
+    </section>
+
+    </main>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Zväčšený screenshot">
+        <button class="lightbox-close" id="lightbox-close" aria-label="Zavrieť (Esc)">×</button>
+        <img id="lightbox-img" src="" alt="" />
+        <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+
+    <script src="assets/shared.js"></script>
+    <script>
+        // ── Lightbox: klik na figure zväčší obrázok ──
+        (function () {
+            const lb = document.getElementById('lightbox');
+            const lbImg = document.getElementById('lightbox-img');
+            const lbCap = document.getElementById('lightbox-caption');
+            const lbClose = document.getElementById('lightbox-close');
+            let lastFocused = null;
+
+            function open(full, caption, alt) {
+                lastFocused = document.activeElement;
+                lbImg.src = full;
+                lbImg.alt = alt || caption || '';
+                lbCap.textContent = caption || '';
+                lb.classList.add('open');
+                lbClose.focus();
+            }
+            function close() {
+                lb.classList.remove('open');
+                lbImg.src = '';
+                if (lastFocused) lastFocused.focus();
+            }
+
+            document.querySelectorAll('.shot-figure').forEach((fig) => {
+                fig.setAttribute('tabindex', '0');
+                fig.setAttribute('role', 'button');
+                const img = fig.querySelector('img');
+                fig.setAttribute('aria-label', 'Zväčšiť: ' + (fig.dataset.caption || ''));
+                const trigger = () => open(fig.dataset.full, fig.dataset.caption, img ? img.alt : '');
+                fig.addEventListener('click', trigger);
+                fig.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(); }
+                });
+            });
+
+            lbClose.addEventListener('click', close);
+            lb.addEventListener('click', (e) => { if (e.target === lb) close(); });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && lb.classList.contains('open')) close();
+            });
+        })();
+    </script>
+</body>
+</html>

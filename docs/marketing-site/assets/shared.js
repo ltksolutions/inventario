@@ -13,7 +13,7 @@
   const NAV_LINKS = [
     { href: '/', page: 'home', label: 'Domov' },
     { href: '/use-cases', page: 'use-cases', label: 'Pre koho' },
-    { href: '/interactive-demo', page: 'demo', label: 'Demo' },
+    { href: '/screenshots', page: 'screenshots', label: 'Screenshoty' },
     { href: '/pricing', page: 'pricing', label: 'Cenník' },
     { href: '/technology', page: 'technology', label: 'Technológia' },
     { href: '/about', page: 'about', label: 'O projekte' },
@@ -135,7 +135,7 @@
                             <ul class="footer-links">
                                 <li><a href="${EXTERNAL_LINKS.docs}" target="_blank" rel="noopener">Dokumentácia <span aria-hidden="true">↗</span><span class="sr-only"> (otvorí v novom okne)</span></a></li>
                                 <li><a href="${EXTERNAL_LINKS.github}" target="_blank" rel="noopener">GitHub repo <span aria-hidden="true">↗</span><span class="sr-only"> (otvorí v novom okne)</span></a></li>
-                                <li><a href="/interactive-demo">Demo aplikácie</a></li>
+                                <li><a href="/screenshots">Screenshoty</a></li>
                                 <li><a href="${EXTERNAL_LINKS.docs}/architecture" target="_blank" rel="noopener">Architektúra <span aria-hidden="true">↗</span><span class="sr-only"> (otvorí v novom okne)</span></a></li>
                             </ul>
                         </div>
