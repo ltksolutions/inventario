@@ -33,6 +33,7 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 import { AssetDetailEditForm } from './AssetDetailEditForm';
 import { AssetDetailReadView } from './AssetDetailReadView';
 import { LabelPrintButton } from './LabelPrintButton';
+import { LoadingState } from './Spinner';
 import { StockPanel } from './StockPanel';
 import { TrackingModeBadge } from './TrackingModeBadge';
 
@@ -592,11 +593,7 @@ function LoanHistoryTab({ assetId }: { assetId: string }): JSX.Element {
   const loansQuery = useLoansForAsset(assetId);
 
   if (loansQuery.isLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   const loans = loansQuery.data ?? [];
@@ -759,11 +756,7 @@ function AuditLogTab({ assetId }: { assetId: string }): JSX.Element {
   });
 
   if (query.isLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (query.isError) {
@@ -1007,9 +1000,7 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
       )}
 
       {query.isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
-        </div>
+        <LoadingState />
       ) : query.isError ? (
         <div className="py-10 text-center">
           <Paperclip className="mx-auto h-10 w-10 text-text-muted" aria-hidden="true" />
@@ -1145,11 +1136,7 @@ function RelatedAssetsTab({
   const assetsQuery = useAssets({ limit: 20 });
 
   if (assetsQuery.isLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   const related = (assetsQuery.data?.data ?? []).filter(

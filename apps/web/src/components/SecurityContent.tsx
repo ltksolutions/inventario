@@ -37,6 +37,8 @@ import {
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { LoadingState } from './Spinner';
+
 import type { FormEvent, JSX } from 'react';
 
 import { useAuth } from '@/lib/auth-context';
@@ -113,11 +115,7 @@ export function SecurityContent(): JSX.Element {
   // ---------------------------------------------------------------------------
 
   if (loadingStatus || !statusLoaded) {
-    return (
-      <div className="flex h-48 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" aria-hidden="true" />
-      </div>
-    );
+    return <LoadingState className="min-h-48" />;
   }
 
   return (
@@ -271,9 +269,7 @@ function PasskeysPanel(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="mt-4 flex justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-text-muted" aria-hidden="true" />
-        </div>
+        <LoadingState label="Načítavam passkeys…" />
       ) : passkeys.length === 0 ? (
         <p className="mt-4 text-xs text-text-muted">
           Zatiaľ nemáte žiadne passkey-y. Kliknite na „+ Pridať passkey“ pre registráciu.

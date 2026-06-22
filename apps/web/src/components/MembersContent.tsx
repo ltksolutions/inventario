@@ -18,6 +18,8 @@
 import { Loader2, Pencil, Trash2, UserCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { LoadingState } from './Spinner';
+
 import type { JSX } from 'react';
 
 import { useAuth } from '@/lib/auth-context';
@@ -184,9 +186,7 @@ function MembersPanel({ currentUserId }: { currentUserId: string }): JSX.Element
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
       {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-text-muted" aria-hidden="true" />
-        </div>
+        <LoadingState className="min-h-32" label="Načítavam členov…" />
       ) : members.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border-subtle py-12 text-center">
           <p className="text-sm text-text-secondary">Žiadni členovia.</p>

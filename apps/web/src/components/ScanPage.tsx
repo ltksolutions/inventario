@@ -14,10 +14,12 @@
  * na mobilnom zariadení nálezcu.
  */
 
-import { AlertCircle, Building2, Loader2, Mail, Phone } from 'lucide-react';
+import { AlertCircle, Building2, Mail, Phone } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
+import { LoadingState } from './Spinner';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -118,12 +120,7 @@ export function ScanPage({ publicToken }: { publicToken: string }) {
 // ---------------------------------------------------------------------------
 
 function LoadingView() {
-  return (
-    <div className="flex flex-col items-center gap-4 py-16 text-gray-500">
-      <Loader2 className="w-8 h-8 animate-spin" />
-      <p className="text-sm">Načítavam...</p>
-    </div>
-  );
+  return <LoadingState className="py-16" label="Načítavam..." />;
 }
 
 function NotFoundView() {

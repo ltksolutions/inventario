@@ -19,6 +19,8 @@
 import { Loader2, Mail, RotateCcw, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { LoadingState } from './Spinner';
+
 import type { FormEvent, JSX } from 'react';
 
 import { useCanAdminUsers } from '@/lib/api-hooks';
@@ -87,11 +89,7 @@ export function InvitationsContent(): JSX.Element {
   const canAdmin = useCanAdminUsers();
 
   if (isLoading) {
-    return (
-      <div className="flex h-48 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" aria-hidden="true" />
-      </div>
-    );
+    return <LoadingState className="min-h-48" />;
   }
 
   if (!canAdmin) {
@@ -422,9 +420,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         )}
 
         {loading ? (
-          <div className="flex h-24 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-text-muted" aria-hidden="true" />
-          </div>
+          <LoadingState className="min-h-24" label="Načítavam pozvánky…" />
         ) : invitations.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border-subtle bg-surface-subtle py-10 text-center">
             <p className="text-sm text-text-secondary">Žiadne čakajúce pozvánky.</p>

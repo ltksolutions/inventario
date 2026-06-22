@@ -24,6 +24,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { LoadingState } from './Spinner';
+
 import type { FormEvent, JSX } from 'react';
 
 import { useAuth } from '@/lib/auth-context';
@@ -225,10 +227,7 @@ export function AcceptInvitePage(): JSX.Element {
   if (state === 'loading') {
     return (
       <main className="flex min-h-screen items-center justify-center bg-surface-page px-4">
-        <div className="flex flex-col items-center gap-3 text-text-secondary">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-primary" aria-hidden="true" />
-          <p className="text-sm">Overujem pozvánku…</p>
-        </div>
+        <LoadingState label="Overujem pozvánku…" />
       </main>
     );
   }

@@ -12,6 +12,8 @@
 import { KeyRound, Loader2, Save, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { LoadingState } from './Spinner';
+
 import type { FormEvent, JSX } from 'react';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
@@ -265,11 +267,7 @@ export function AuthSettingsContent(): JSX.Element {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-48 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" aria-hidden="true" />
-      </div>
-    );
+    return <LoadingState className="min-h-48" />;
   }
 
   if (!settings) {
