@@ -2079,3 +2079,61 @@ export async function fetchProtocolPdf(protocolId: string): Promise<Blob> {
   if (!res.ok) throw new Error('PDF protokolu sa nepodarilo stiahnuť.');
   return res.blob();
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard — agregovaný súhrn (jeden request namiesto ~10)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tvar odpovede `GET /v1/dashboard/summary`.
+ *
+ * Zlúči counts + zoznamy žiadostí, výpožičiek a DRAFT protokolov, ktoré
+ * dashboard predtým ťahal samostatnými requestmi. RBAC sa rieši na backende
+ * (zoznamy cez loansService, protokoly cez participantUserId pravidlo).
+ */
+export interface DashboardSummary {
+  counts: {
+    assets: number;
+    categories: number;
+    locations: number;
+    /** Aktívne výpožičky prihláseného používateľa. */
+    activeLoans: number;
+  };
+  loanRequests: {
+    pending: ListResponse<LoanRequestSummary>;
+    approved: ListResponse<LoanRequestSummary>;
+    partiallyFulfilled: ListResponse<LoanRequestSummary>;
+  };
+  protocols: {
+    draft: ListResponse<LoanProtocolSummary>;
+  };
+  loans: {
+    active: ListResponse<LoanSummary>;
+  };
+}
+
+/**
+ * GET /v1/dashboard/summary — jeden agregovaný request pre úvodnú obrazovku.
+ *
+ * Endpoint nie je v generovaných openapi typoch (api-types.ts), preto ide
+ * cez generický `apiClient.GET` cast (rovnaký vzor ako `useMembers`).
+ */
+export function useDashboardSummary(): UseQueryResult<DashboardSummary, Error> {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<DashboardSummary, Error>({
+    queryKey: ['dashboard-summary'],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const { data, error } = await genericGet('/v1/dashboard/summary', {});
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Failed to load dashboard summary',
+        );
+      }
+      if (!data) throw new Error('Empty response from /v1/dashboard/summary');
+      return data as unknown as DashboardSummary;
+    },
+  });
+}

@@ -11,7 +11,7 @@ import { StatCard } from './StatCard';
 
 import type { JSX, ReactNode } from 'react';
 
-import { useAssets, useCategories, useLocations, useMe, useMyLoans } from '@/lib/api-hooks';
+import { useDashboardSummary, useMe } from '@/lib/api-hooks';
 
 /**
  * Dashboard for authenticated users.
@@ -31,10 +31,7 @@ import { useAssets, useCategories, useLocations, useMe, useMyLoans } from '@/lib
  */
 export function DashboardContent(): JSX.Element {
   const me = useMe();
-  const assets = useAssets({ limit: 1 });
-  const categories = useCategories({ limit: 1 });
-  const locations = useLocations({ limit: 1 });
-  const loans = useMyLoans({ limit: 1, status: 'ACTIVE' });
+  const summary = useDashboardSummary();
 
   const greetingName = me.data?.firstName ?? me.data?.displayName ?? null;
 
@@ -59,37 +56,37 @@ export function DashboardContent(): JSX.Element {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Majetok"
-            value={assets.data?.pagination.total}
+            value={summary.data?.counts.assets}
             icon={<Boxes aria-hidden="true" className="h-5 w-5" />}
-            isLoading={assets.isLoading}
-            isError={assets.isError}
+            isLoading={summary.isLoading}
+            isError={summary.isError}
             hint="celkový počet položiek"
           />
           <StatCard
             label="Kategórie"
-            value={categories.data?.pagination.total}
+            value={summary.data?.counts.categories}
             icon={<Tags aria-hidden="true" className="h-5 w-5" />}
             tone="info"
-            isLoading={categories.isLoading}
-            isError={categories.isError}
+            isLoading={summary.isLoading}
+            isError={summary.isError}
             hint="aktívnych v taxonómii"
           />
           <StatCard
             label="Lokality"
-            value={locations.data?.pagination.total}
+            value={summary.data?.counts.locations}
             icon={<MapPin aria-hidden="true" className="h-5 w-5" />}
             tone="success"
-            isLoading={locations.isLoading}
-            isError={locations.isError}
+            isLoading={summary.isLoading}
+            isError={summary.isError}
             hint="evidovaných miest"
           />
           <StatCard
             label="Výpožičky"
-            value={loans.data?.pagination.total}
+            value={summary.data?.counts.activeLoans}
             icon={<ClipboardList aria-hidden="true" className="h-5 w-5" />}
             tone="warning"
-            isLoading={loans.isLoading}
-            isError={loans.isError}
+            isLoading={summary.isLoading}
+            isError={summary.isError}
             hint="aktívnych výpožičiek"
           />
         </div>
@@ -130,11 +127,7 @@ export function DashboardContent(): JSX.Element {
         </ul>
       </section>
 
-      {(assets.isError ||
-        categories.isError ||
-        locations.isError ||
-        loans.isError ||
-        me.isError) && (
+      {(summary.isError || me.isError) && (
         <div
           role="alert"
           className="mt-6 rounded-lg border border-danger-fg bg-danger-bg p-4 text-sm text-danger-fg"

@@ -40,7 +40,7 @@ import Link from 'next/link';
 import type { LoanProtocolSummary, LoanRequestSummary, LoanSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
-import { useCanManageLoans, useLoanRequests, useLoans, useMe, useProtocols } from '@/lib/api-hooks';
+import { useCanManageLoans, useDashboardSummary, useMe } from '@/lib/api-hooks';
 
 const MAX_ITEMS_PER_GROUP = 5;
 
@@ -73,34 +73,22 @@ export function PendingActionsPanel(): JSX.Element | null {
   const canManage = useCanManageLoans();
   const myId = me.data?._id ?? '';
 
-  // Žiadosti — EMPLOYEE dostane len vlastné (service), manager všetky.
-  const pendingRequests = useLoanRequests({ status: 'PENDING', limit: 50 });
-  const approvedRequests = useLoanRequests({ status: 'APPROVED', limit: 50 });
-  const partiallyFulfilled = useLoanRequests({ status: 'PARTIALLY_FULFILLED', limit: 50 });
+  // Jeden agregovaný request namiesto ~5 samostatných. Backend rieši RBAC:
+  // žiadosti/výpožičky cez loansService (EMPLOYEE len vlastné), protokoly
+  // cez participantUserId pravidlo.
+  const summary = useDashboardSummary();
 
-  // Protokoly v stave DRAFT — EMPLOYEE dostane len tie, kde je stranou.
-  const draftProtocols = useProtocols({ status: 'DRAFT', limit: 100 });
-
-  // Aktívne výpožičky — EMPLOYEE dostane len vlastné (service).
-  const activeLoans = useLoans({ status: 'ACTIVE', limit: 100 });
-
-  const isLoading =
-    me.isLoading ||
-    pendingRequests.isLoading ||
-    approvedRequests.isLoading ||
-    partiallyFulfilled.isLoading ||
-    draftProtocols.isLoading ||
-    activeLoans.isLoading;
+  const isLoading = me.isLoading || summary.isLoading;
 
   // ── Odvodené skupiny ──────────────────────────────────────────────────────
 
-  const pending = pendingRequests.data?.data ?? [];
+  const pending = summary.data?.loanRequests.pending.data ?? [];
   const toFulfil = [
-    ...(approvedRequests.data?.data ?? []),
-    ...(partiallyFulfilled.data?.data ?? []),
+    ...(summary.data?.loanRequests.approved.data ?? []),
+    ...(summary.data?.loanRequests.partiallyFulfilled.data ?? []),
   ];
 
-  const drafts = draftProtocols.data?.data ?? [];
+  const drafts = summary.data?.protocols.draft.data ?? [];
   /** Protokoly, kde je prihlásený používateľ nepodpísanou stranou. */
   const myUnsignedProtocols = drafts.filter(
     (p) =>
@@ -110,7 +98,7 @@ export function PendingActionsPanel(): JSX.Element | null {
   /** Zvyšné DRAFT protokoly — čaká sa na podpis niekoho iného (len manager). */
   const otherUnsignedCount = drafts.length - myUnsignedProtocols.length;
 
-  const overdueLoans = (activeLoans.data?.data ?? []).filter((l) => l.isOverdue);
+  const overdueLoans = (summary.data?.loans.active.data ?? []).filter((l) => l.isOverdue);
 
   const totalCount =
     pending.length +

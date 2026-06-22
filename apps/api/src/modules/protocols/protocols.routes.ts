@@ -474,11 +474,11 @@ function assertCanAccessProtocol(
   }
 }
 
-function isManagerOrAdmin(actor: { roles: string[] }): boolean {
+export function isManagerOrAdmin(actor: { roles: string[] }): boolean {
   return actor.roles.includes('ASSET_MANAGER') || actor.roles.includes('ADMIN');
 }
 
-function protocolToApiShape(doc: WithId<LoanProtocol>): Record<string, unknown> {
+export function protocolToApiShape(doc: WithId<LoanProtocol>): Record<string, unknown> {
   return { ...doc, _id: String(doc._id) };
 }
 
@@ -490,7 +490,7 @@ function protocolToApiShape(doc: WithId<LoanProtocol>): Record<string, unknown> 
  * Tu pre response doplníme aktuálne mená z users collection — DB dokument
  * sa NEMENÍ (snapshot fixuje až podpis).
  */
-async function enrichPartySnapshots(
+export async function enrichPartySnapshots(
   db: Db,
   protocols: WithId<LoanProtocol>[],
 ): Promise<Record<string, unknown>[]> {
