@@ -123,6 +123,12 @@ export class AssetsRepository {
         { name: 'organisationId_createdAt_desc' },
       ),
       this.collection.createIndex({ deletedAt: 1 }, { name: 'deletedAt' }),
+      // Tenant-scoped count of live rows ({organisationId, deletedAt:null}) —
+      // the dashboard summary stat card. Covers the count without scanning.
+      this.collection.createIndex(
+        { organisationId: 1, deletedAt: 1 },
+        { name: 'organisationId_deletedAt' },
+      ),
     ]);
   }
 

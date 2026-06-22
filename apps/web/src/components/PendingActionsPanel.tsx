@@ -40,7 +40,8 @@ import Link from 'next/link';
 import type { LoanProtocolSummary, LoanRequestSummary, LoanSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
-import { useCanManageLoans, useDashboardSummary, useMe } from '@/lib/api-hooks';
+import { useCanManageLoans, useDashboardSummary } from '@/lib/api-hooks';
+import { useAuth } from '@/lib/auth-context';
 
 const MAX_ITEMS_PER_GROUP = 5;
 
@@ -69,16 +70,17 @@ function requestItemsLabel(request: LoanRequestSummary): string {
 // ---------------------------------------------------------------------------
 
 export function PendingActionsPanel(): JSX.Element | null {
-  const me = useMe();
+  // User from the auth context (already loaded) — no extra /v1/me request.
+  const { user } = useAuth();
   const canManage = useCanManageLoans();
-  const myId = me.data?._id ?? '';
+  const myId = user?._id ?? '';
 
   // Jeden agregovaný request namiesto ~5 samostatných. Backend rieši RBAC:
   // žiadosti/výpožičky cez loansService (EMPLOYEE len vlastné), protokoly
   // cez participantUserId pravidlo.
   const summary = useDashboardSummary();
 
-  const isLoading = me.isLoading || summary.isLoading;
+  const isLoading = summary.isLoading;
 
   // ── Odvodené skupiny ──────────────────────────────────────────────────────
 

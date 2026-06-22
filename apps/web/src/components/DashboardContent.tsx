@@ -11,7 +11,8 @@ import { StatCard } from './StatCard';
 
 import type { JSX, ReactNode } from 'react';
 
-import { useDashboardSummary, useMe } from '@/lib/api-hooks';
+import { useDashboardSummary } from '@/lib/api-hooks';
+import { useAuth } from '@/lib/auth-context';
 
 /**
  * Dashboard for authenticated users.
@@ -30,10 +31,12 @@ import { useDashboardSummary, useMe } from '@/lib/api-hooks';
  *   list pages (K5+).
  */
 export function DashboardContent(): JSX.Element {
-  const me = useMe();
+  // User comes from the auth context (already fetched once on app load) —
+  // no separate /v1/me request just for the greeting.
+  const { user } = useAuth();
   const summary = useDashboardSummary();
 
-  const greetingName = me.data?.firstName ?? me.data?.displayName ?? null;
+  const greetingName = user?.firstName ?? user?.displayName ?? null;
 
   return (
     <div>
@@ -127,7 +130,7 @@ export function DashboardContent(): JSX.Element {
         </ul>
       </section>
 
-      {(summary.isError || me.isError) && (
+      {summary.isError && (
         <div
           role="alert"
           className="mt-6 rounded-lg border border-danger-fg bg-danger-bg p-4 text-sm text-danger-fg"
