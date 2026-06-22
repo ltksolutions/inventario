@@ -309,6 +309,34 @@ export class UsersRepository {
   }
 
   /**
+   * Find a user by their MongoDB `_id` WITHOUT tenant scoping. Soft-deleted
+   * users are EXCLUDED.
+   *
+   * Used by the admin read/write paths (`getById`, `update`) AFTER the
+   * service has confirmed an ACTIVE membership for the caller's tenant.
+   * Tenant access is therefore gated by the membership lookup, not by the
+   * User document's `organisationId` — which is wrong here: cross-tenant
+   * invited users carry their ORIGINAL `organisationId`, so the scoped
+   * `findById` returns null for them and the admin UI 404s (see the same
+   * note on `listByUserIds`). This method mirrors that membership-based
+   * resolution for single-user reads.
+   *
+   * Returns `null` if the id is malformed (not 24-hex), no match, or the
+   * user is soft-deleted. passwordHash + MFA secrets projected out.
+   */
+  async findByIdUnscoped(id: string, session?: ClientSession): Promise<WithId<User> | null> {
+    if (!ObjectId.isValid(id)) return null;
+
+    return this.collection.findOne(
+      { _id: new ObjectId(id) as unknown as User['_id'], deletedAt: null },
+      {
+        projection: PUBLIC_PROJECTION,
+        ...(session ? { session } : {}),
+      },
+    );
+  }
+
+  /**
    * List users matching the filter within the tenant, with pagination.
    * Soft-deleted are excluded by default. Sort defaults to
    * `displayName` ascending so the admin UI gets a stable alphabetical
@@ -390,6 +418,40 @@ export class UsersRepository {
       tenantFilter<User>(tenantId, {
         _id: new ObjectId(id) as unknown as User['_id'],
       } as Filter<User>),
+      { $set: patch },
+      {
+        returnDocument: 'after',
+        projection: PUBLIC_PROJECTION,
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
+
+  /**
+   * Apply a partial update by `_id` WITHOUT tenant scoping. Returns the
+   * updated doc or null if not found / soft-deleted / malformed id.
+   *
+   * Used by `UsersService.update` AFTER it has confirmed an ACTIVE
+   * membership for the caller's tenant (same reasoning as
+   * `findByIdUnscoped`): cross-tenant invited users carry their original
+   * `organisationId`, so the scoped `update()` cannot find them. The
+   * membership check in the service is the tenant access gate; this method
+   * must therefore only ever be called once that gate has passed.
+   *
+   * Caller is responsible for setting `updatedAt`/`updatedBy` in the patch.
+   * passwordHash + MFA secrets projected out of the returned document.
+   */
+  async updateByIdUnscoped(
+    id: string,
+    patch: UserUpdatePatch,
+    session?: ClientSession,
+  ): Promise<WithId<User> | null> {
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      { _id: new ObjectId(id) as unknown as User['_id'], deletedAt: null },
       { $set: patch },
       {
         returnDocument: 'after',

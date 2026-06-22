@@ -186,9 +186,14 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
         </header>
 
         <div className="px-6 py-5">
-          {userQuery.isLoading || !initialised ? (
-            <LoadingShimmer />
-          ) : userQuery.isError ? (
+          {/*
+            Order matters: check isError BEFORE the loading/!initialised
+            gate. `initialised` only flips once data arrives, so on an
+            errored query (e.g. 404) `!initialised` stays true forever —
+            putting the loading branch first would leave the dialog stuck
+            on the shimmer instead of surfacing the error.
+          */}
+          {userQuery.isError ? (
             <ErrorPanel
               message={
                 (userQuery.error as Error & { status?: number })?.status === 404
@@ -196,6 +201,8 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
                   : 'Detail používateľa sa nepodarilo načítať. Skúste znova.'
               }
             />
+          ) : userQuery.isLoading || !initialised ? (
+            <LoadingShimmer />
           ) : (
             <DialogBody
               selectedRole={selectedRole}

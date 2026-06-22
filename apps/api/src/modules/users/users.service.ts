@@ -258,7 +258,28 @@ export class UsersService {
 
   async getById(id: string, actor: WithId<User>): Promise<Record<string, unknown>> {
     const tenantId = String(actor.organisationId);
-    const doc = await this.repo.findById(tenantId, id);
+
+    // Tenant access is gated by ACTIVE membership (ADR-0029), NOT by the
+    // User document's organisationId. Cross-tenant invited users carry
+    // their ORIGINAL organisationId, so a tenant-scoped findById returns
+    // null for them — even though they show up in the membership-based
+    // list(). That mismatch made the admin edit dialog 404 on exactly
+    // those users. We resolve the membership first (access gate) and then
+    // load the user document unscoped.
+    const membership = this.membershipsRepo
+      ? await this.membershipsRepo.findActive({ userId: id, organisationId: tenantId })
+      : null;
+
+    // With membershipsRepo wired (normal path): membership is the access
+    // gate — no membership means the user is not part of this tenant, so
+    // 404 (don't leak the cross-tenant document). Without it (defensive
+    // wiring only), fall back to the legacy tenant-scoped lookup.
+    const doc = this.membershipsRepo
+      ? membership
+        ? await this.repo.findByIdUnscoped(id)
+        : null
+      : await this.repo.findById(tenantId, id);
+
     if (!doc) {
       throw new NotFoundError('User', id);
     }
@@ -267,20 +288,10 @@ export class UsersService {
     // reasoning as in list(): User.roles[] is legacy and may be null.
     // `membershipId` is included so the admin edit dialog can change
     // the role via PATCH /v1/memberships/:id without an extra lookup.
-    let membershipRoles: string[] = [];
-    let membershipId: string | null = null;
-    if (this.membershipsRepo) {
-      const membership = await this.membershipsRepo.findActive({
-        userId: id,
-        organisationId: tenantId,
-      });
-      membershipRoles = membership?.role ? [membership.role] : [];
-      membershipId = membership ? String(membership._id) : null;
-    }
     return {
       ...toApiShape(doc),
-      roles: membershipRoles,
-      membershipId,
+      roles: membership?.role ? [membership.role] : [],
+      membershipId: membership ? String(membership._id) : null,
     };
   }
 
@@ -491,9 +502,23 @@ export class UsersService {
     const tenantId = String(actor.organisationId);
 
     const updated = await this.runInTransaction(async (session) => {
-      // ----- Step 1: load target within the tenant -----
-      const before = await this.repo.findById(tenantId, id, session);
+      // ----- Step 1: load target, gated by ACTIVE membership -----
+      // Tenant access is gated by membership (ADR-0029), not by the User
+      // document's organisationId — cross-tenant invited users carry their
+      // original organisationId, so a tenant-scoped findById/update would
+      // 404 them (same fix as getById). Load unscoped, then require an
+      // active membership in the actor's tenant as the access gate.
+      const before = await this.repo.findByIdUnscoped(id, session);
       if (!before) {
+        throw new NotFoundError('User', id);
+      }
+
+      const targetMembership = await membershipsRepo.findActive(
+        { userId: String(before._id), organisationId: tenantId },
+        session,
+      );
+      if (!targetMembership) {
+        // Not a member of this tenant — 404, no cross-tenant leak.
         throw new NotFoundError('User', id);
       }
 
@@ -517,11 +542,8 @@ export class UsersService {
       // Membership.role (authoritative per ADR-0029) — User.roles[] is
       // stale and must NOT be used here.
       if (patch.isActive === false && before.isActive) {
-        const targetMembership = await membershipsRepo.findActive(
-          { userId: String(before._id), organisationId: tenantId },
-          session,
-        );
-        if ((targetMembership?.role as string | undefined) === UserRole.ADMIN) {
+        // Reuse the membership resolved in Step 1 (same tenant + user).
+        if ((targetMembership.role as string | undefined) === UserRole.ADMIN) {
           const remainingAdmins = await membershipsRepo.countActiveAdmins(
             tenantId,
             String(before._id),
@@ -543,7 +565,10 @@ export class UsersService {
         updatedBy: actorId,
       };
 
-      const after = await this.repo.update(tenantId, id, fullPatch, session);
+      // Write unscoped — access already gated by the membership check in
+      // Step 1 (cross-tenant invited users carry a foreign organisationId,
+      // so the tenant-scoped update() would not match them).
+      const after = await this.repo.updateByIdUnscoped(id, fullPatch, session);
       if (!after) {
         // Lost-update race: target was soft-deleted between the load
         // and the update. Surface as 404 to be consistent with the
