@@ -7,6 +7,8 @@ import { USER_ROLE_VALUES } from '@inventario/shared-types';
 import { AlertCircle, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { LoadingState } from './Spinner';
+
 import type { JSX, ReactNode } from 'react';
 
 import { useUpdateMembershipRole, useUpdateUser, useUser } from '@/lib/api-hooks';
@@ -202,7 +204,7 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
               }
             />
           ) : userQuery.isLoading || !initialised ? (
-            <LoadingShimmer />
+            <LoadingState label="Načítavam detail používateľa…" />
           ) : (
             <DialogBody
               selectedRole={selectedRole}
@@ -398,17 +400,6 @@ function Field({
       <span className="text-sm font-medium text-text-primary">{label}</span>
       {children}
       {hint ? <span className="text-xs text-text-muted">{hint}</span> : null}
-    </div>
-  );
-}
-
-function LoadingShimmer(): JSX.Element {
-  return (
-    <div aria-busy="true" aria-label="Načítavam detail" className="space-y-3">
-      <div className="h-4 w-24 animate-pulse rounded bg-surface-subtle" />
-      <div className="h-14 animate-pulse rounded-lg bg-surface-subtle" />
-      <div className="h-14 animate-pulse rounded-lg bg-surface-subtle" />
-      <div className="h-14 animate-pulse rounded-lg bg-surface-subtle" />
     </div>
   );
 }
