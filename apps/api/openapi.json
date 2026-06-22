@@ -5490,6 +5490,203 @@
         }
       }
     },
+    "/v1/dashboard/summary": {
+      "get": {
+        "summary": "Agregovaný súhrn pre dashboard",
+        "tags": [
+          "Dashboard"
+        ],
+        "description": "Zlúči counts (assets/categories/locations/activeLoans), zoznamy žiadostí (PENDING/APPROVED/PARTIALLY_FULFILLED), aktívne výpožičky a DRAFT protokoly do jednej odpovede. RBAC: zoznamy idú cez loansService (EMPLOYEE len vlastné), protokoly cez participantUserId pravidlo.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "assets": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "categories": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "locations": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "activeLoans": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "assets",
+                        "categories",
+                        "locations",
+                        "activeLoans"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "loanRequests": {
+                      "type": "object",
+                      "properties": {
+                        "pending": {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "pagination": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "data",
+                            "pagination"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "approved": {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "pagination": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "data",
+                            "pagination"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "partiallyFulfilled": {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "pagination": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "data",
+                            "pagination"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "pending",
+                        "approved",
+                        "partiallyFulfilled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "protocols": {
+                      "type": "object",
+                      "properties": {
+                        "draft": {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "pagination": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "data",
+                            "pagination"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "draft"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "loans": {
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "pagination": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "data",
+                            "pagination"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "active"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "counts",
+                    "loanRequests",
+                    "protocols",
+                    "loans"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/labels/sheet": {
       "get": {
         "summary": "Avery PDF hárok so štítkami (on-demand)",
