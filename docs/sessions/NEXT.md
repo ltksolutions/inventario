@@ -1,5 +1,30 @@
 # NEXT
 
+## Aktuálny stav (2026-06-23)
+
+**Séria Cowork opráv/vylepšení — HOTOVÉ a nasadené.** Session log:
+`docs/sessions/2026-06-23-edit-user-fix-dashboard-perf-category-picker.md`. Commity:
+`d084f0a`, `e55525a`, `7c7e376`, `14cf535`, `b78619d`, `26b1778`, `1e45370`, `11fed64`,
+`3b0448b`, `6f30954`.
+
+- ✅ Edit používateľa padal na 404 pre cross-tenant členov — `getById`/`update` (PATCH)
+  prepnuté na membership-gated prístup + `findByIdUnscoped`/`updateByIdUnscoped`; modal
+  zobrazuje chybu namiesto večného shimmeru
+- ✅ Zdieľaný `Spinner`/`LoadingState` (`Spinner.tsx`) + nasadený do edit modalu a 7
+  ďalších blokových loaderov
+- ✅ Dashboard perf: 1 request namiesto ~10 — `GET /v1/dashboard/summary` (reuse RBAC),
+  `useDashboardSummary`, indexy `{organisationId, deletedAt}`, `useMe`→`useAuth().user`
+- ✅ Pre-commit hook auto-regeneruje `apps/api/openapi.json` pri zmene `apps/api/src/`
+- ✅ Žiadosť: viditeľný popis príjemcu („Pre koho žiadate")
+- ✅ Zoskupený autocomplete výber kategórie (`Combobox` + `groupOf`/`visibleLimit` +
+  zdieľaný `buildGroupedCategoryOptions`) v žiadosti aj pridaní majetku
+
+**Otvorené:** `clearMfa`/`setRestriction` majú rovnaký org-scoped vzor (cross-tenant 404 —
+nice-to-have fix); edit formulár majetku stále na „cesta" labeloch `buildCategoryOptions`
+(možno prepnúť na zoskupený picker).
+
+---
+
 ## Aktuálny stav (2026-06-15)
 
 **Marketing screenshoty + odstránenie dema + kompletný docs sync — HOTOVÉ.** Session log:
