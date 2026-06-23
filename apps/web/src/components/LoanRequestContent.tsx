@@ -9,6 +9,7 @@ import { useState } from 'react';
 
 import type { JSX } from 'react';
 
+import { Combobox, type ComboboxOption } from '@/components/Combobox';
 import { SelectField } from '@/components/SelectField';
 import { useCategories, useCreateLoanRequest, useMe, useMembers } from '@/lib/api-hooks';
 
@@ -65,10 +66,49 @@ export function LoanRequestContent(): JSX.Element {
   const membersQuery = useMembers();
   const categoriesQuery = useCategories({ limit: 200 });
 
-  // --- Category options (len aktívne) ---
-  const categoryOptions = (categoriesQuery.data?.data ?? [])
-    .filter((c) => c.isActive)
-    .map((c) => ({ value: c._id, label: c.name }));
+  // --- Category options (len aktívne), zoskupené podľa root kategórie ---
+  // Vyberateľné sú LEN podkategórie (ADR: majetok sa zaraďuje do podkategórií).
+  // Root je iba hlavička skupiny; root bez podkategórií ostáva vyberateľný,
+  // aby sa nič nestratilo. Skupiny aj položky sú zoradené podľa názvu.
+  const activeCategories = (categoriesQuery.data?.data ?? []).filter((c) => c.isActive);
+  const collator = new Intl.Collator('sk', { sensitivity: 'base' });
+  const roots = activeCategories
+    .filter((c) => c.parentId === null)
+    .sort((a, b) => collator.compare(a.name, b.name));
+  const childrenByParent = new Map<string, typeof activeCategories>();
+  for (const c of activeCategories) {
+    if (c.parentId) {
+      const arr = childrenByParent.get(c.parentId) ?? [];
+      arr.push(c);
+      childrenByParent.set(c.parentId, arr);
+    }
+  }
+
+  const categoryOptions: ComboboxOption[] = [];
+  const categoryGroupById: Record<string, string> = {};
+  for (const root of roots) {
+    const kids = (childrenByParent.get(root._id) ?? [])
+      .slice()
+      .sort((a, b) => collator.compare(a.name, b.name));
+    if (kids.length > 0) {
+      for (const kid of kids) {
+        categoryOptions.push({ id: kid._id, label: kid.name });
+        categoryGroupById[kid._id] = root.name;
+      }
+    } else {
+      // Root bez podkategórií — ponúkneme ho samotný (pod vlastnou hlavičkou).
+      categoryOptions.push({ id: root._id, label: root.name });
+      categoryGroupById[root._id] = root.name;
+    }
+  }
+  // Osamotené podkategórie (rodič neexistuje / je neaktívny) → skupina „Ostatné".
+  const rootIds = new Set(roots.map((r) => r._id));
+  for (const c of activeCategories) {
+    if (c.parentId && !rootIds.has(c.parentId) && !(c._id in categoryGroupById)) {
+      categoryOptions.push({ id: c._id, label: c.name });
+      categoryGroupById[c._id] = 'Ostatné';
+    }
+  }
 
   // --- Items state ---
   const [items, setItems] = useState<RequestItemDraft[]>([makeEmptyItem()]);
@@ -214,13 +254,16 @@ export function LoanRequestContent(): JSX.Element {
                   className="rounded-xl border border-border-subtle bg-surface-card p-3"
                 >
                   <div className="flex items-start gap-3">
-                    {/* Kategória */}
+                    {/* Kategória — autocomplete, zoskupené podľa root kategórie */}
                     <div className="min-w-0 flex-1">
-                      <SelectField
-                        label="Kategória"
-                        value={item.categoryId}
-                        onChange={(v) => updateItem(item.key, { categoryId: v })}
-                        options={[{ value: '', label: 'Vyberte kategóriu…' }, ...categoryOptions]}
+                      <Combobox
+                        ariaLabel="Kategória"
+                        placeholder="Vyberte alebo začnite písať kategóriu…"
+                        value={item.categoryId || null}
+                        onChange={(v) => updateItem(item.key, { categoryId: v ?? '' })}
+                        options={categoryOptions}
+                        groupOf={(o) => categoryGroupById[o.id]}
+                        visibleLimit={100}
                         className="w-full"
                       />
                     </div>

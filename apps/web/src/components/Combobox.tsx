@@ -4,7 +4,7 @@
 'use client';
 
 import { Check, ChevronDown, Loader2, Pencil, X } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 
 import type { JSX, KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 
@@ -28,9 +28,22 @@ export interface ComboboxProps {
   className?: string;
   ariaLabel?: string;
   loading?: boolean;
+  /**
+   * Optional grouping. Returns the group label for an option; a header row
+   * is rendered before the first option of each group. The CALLER is
+   * responsible for ordering `options` so members of the same group are
+   * contiguous (and groups/options sorted as desired). Filtering by the
+   * search query preserves order, so empty groups disappear automatically.
+   */
+  groupOf?: (option: ComboboxOption) => string | undefined;
+  /**
+   * Max options shown before the "type to narrow" hint. Defaults to 10.
+   * Grouped pickers usually pass a higher value so all groups are visible.
+   */
+  visibleLimit?: number;
 }
 
-const VISIBLE_LIMIT = 10;
+const DEFAULT_VISIBLE_LIMIT = 10;
 
 export function Combobox({
   value,
@@ -45,7 +58,10 @@ export function Combobox({
   className,
   ariaLabel,
   loading = false,
+  groupOf,
+  visibleLimit,
 }: ComboboxProps): JSX.Element {
+  const limit = visibleLimit ?? DEFAULT_VISIBLE_LIMIT;
   const id = useId();
   const listId = `${id}-list`;
 
@@ -66,8 +82,8 @@ export function Combobox({
   const filtered = query.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase().trim()))
     : options;
-  const visible = filtered.slice(0, VISIBLE_LIMIT);
-  const hasMore = filtered.length > VISIBLE_LIMIT;
+  const visible = filtered.slice(0, limit);
+  const hasMore = filtered.length > limit;
   const totalAll = options.length;
 
   const queryTrimmed = query.trim();
@@ -290,103 +306,118 @@ export function Combobox({
               const isSelected = option.id === value;
               const isActive = idx === activeIndex;
               const isRenaming = renamingId === option.id;
+              const group = groupOf?.(option);
+              const prevGroup = idx > 0 ? groupOf?.(visible[idx - 1]!) : undefined;
+              const showHeader = group !== undefined && group !== prevGroup;
 
               return (
-                <li
-                  key={option.id}
-                  role="option"
-                  aria-selected={isSelected}
-                  tabIndex={-1}
-                  className={cn(
-                    'group flex items-center gap-2 px-3 py-2 text-sm',
-                    isActive && 'bg-surface-subtle',
-                    !isRenaming && 'cursor-pointer hover:bg-surface-subtle',
-                  )}
-                  onMouseEnter={() => setActiveIndex(idx)}
-                  onMouseDown={(e) => {
-                    // mousedown fires before blur on the search input, preventing
-                    // a race where the input blur causes a re-render before click fires.
-                    e.preventDefault();
-                    if (!isRenaming) selectOption(option.id);
-                  }}
-                  onKeyDown={(e) => {
-                    if ((e.key === 'Enter' || e.key === ' ') && !isRenaming) {
-                      e.preventDefault();
-                      selectOption(option.id);
-                    }
-                  }}
-                >
-                  <Check
-                    aria-hidden="true"
-                    className={cn(
-                      'h-4 w-4 shrink-0 text-brand-primary transition-opacity',
-                      isSelected ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-
-                  {isRenaming ? (
-                    <div
+                <Fragment key={option.id}>
+                  {showHeader && (
+                    <li
                       role="presentation"
-                      className="flex flex-1 items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      className={cn(
+                        'px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-text-muted',
+                        idx > 0 && 'mt-1 border-t border-border-subtle',
+                      )}
                     >
-                      <input
-                        ref={renameInputRef}
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            void commitRename(option.id);
-                          }
-                          if (e.key === 'Escape') {
-                            e.preventDefault();
-                            cancelRename();
-                          }
-                        }}
-                        className="flex-1 rounded border border-border-focus bg-surface-subtle px-2 py-0.5 text-sm text-text-primary focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        disabled={renameLoading}
-                        onClick={() => void commitRename(option.id)}
-                        className="rounded px-1.5 py-0.5 text-xs font-medium text-brand-primary hover:bg-surface-subtle disabled:opacity-50"
+                      {group}
+                    </li>
+                  )}
+                  <li
+                    role="option"
+                    aria-selected={isSelected}
+                    tabIndex={-1}
+                    className={cn(
+                      'group flex items-center gap-2 px-3 py-2 text-sm',
+                      isActive && 'bg-surface-subtle',
+                      !isRenaming && 'cursor-pointer hover:bg-surface-subtle',
+                    )}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onMouseDown={(e) => {
+                      // mousedown fires before blur on the search input, preventing
+                      // a race where the input blur causes a re-render before click fires.
+                      e.preventDefault();
+                      if (!isRenaming) selectOption(option.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ' ') && !isRenaming) {
+                        e.preventDefault();
+                        selectOption(option.id);
+                      }
+                    }}
+                  >
+                    <Check
+                      aria-hidden="true"
+                      className={cn(
+                        'h-4 w-4 shrink-0 text-brand-primary transition-opacity',
+                        isSelected ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+
+                    {isRenaming ? (
+                      <div
+                        role="presentation"
+                        className="flex flex-1 items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
                       >
-                        {renameLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Uložiť'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={cancelRename}
-                        className="rounded p-0.5 text-text-muted hover:text-text-primary"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="flex-1 truncate">{option.label}</span>
-                      {canRename && (
+                        <input
+                          ref={renameInputRef}
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void commitRename(option.id);
+                            }
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              cancelRename();
+                            }
+                          }}
+                          className="flex-1 rounded border border-border-focus bg-surface-subtle px-2 py-0.5 text-sm text-text-primary focus:outline-none"
+                        />
                         <button
                           type="button"
-                          aria-label={`Premenovať ${option.label}`}
-                          onClick={(e) => startRename(option, e)}
-                          className="shrink-0 rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-focus focus-visible:ring-offset-0"
-                          tabIndex={-1}
+                          disabled={renameLoading}
+                          onClick={() => void commitRename(option.id)}
+                          className="rounded px-1.5 py-0.5 text-xs font-medium text-brand-primary hover:bg-surface-subtle disabled:opacity-50"
                         >
-                          <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                          {renameLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Uložiť'}
                         </button>
-                      )}
-                    </>
-                  )}
-                </li>
+                        <button
+                          type="button"
+                          onClick={cancelRename}
+                          className="rounded p-0.5 text-text-muted hover:text-text-primary"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="flex-1 truncate">{option.label}</span>
+                        {canRename && (
+                          <button
+                            type="button"
+                            aria-label={`Premenovať ${option.label}`}
+                            onClick={(e) => startRename(option, e)}
+                            className="shrink-0 rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-focus focus-visible:ring-offset-0"
+                            tabIndex={-1}
+                          >
+                            <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </li>
+                </Fragment>
               );
             })}
 
             {hasMore && (
               <li className="px-3 py-1.5 text-xs text-text-muted">
-                Zobrazených {VISIBLE_LIMIT} z {filtered.length}. Píšte pre vyhľadanie.
+                Zobrazených {limit} z {filtered.length}. Píšte pre vyhľadanie.
               </li>
             )}
 
@@ -423,9 +454,9 @@ export function Combobox({
             )}
           </ul>
 
-          {!query && totalAll > VISIBLE_LIMIT && (
+          {!query && totalAll > limit && (
             <div className="border-t border-border-subtle px-3 py-1.5 text-xs text-text-muted">
-              Zobrazených {VISIBLE_LIMIT} z {totalAll}. Píšte pre vyhľadanie.
+              Zobrazených {limit} z {totalAll}. Píšte pre vyhľadanie.
             </div>
           )}
         </div>
