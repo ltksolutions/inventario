@@ -301,8 +301,15 @@ export function LoanRequestContent(): JSX.Element {
 
         {/* Beneficiary */}
         <div>
+          <span className="mb-1.5 block text-sm font-medium text-text-primary">
+            Pre koho žiadate
+          </span>
+          <p className="mb-1.5 text-xs text-text-secondary">
+            Osoba, ktorá si majetok vypožičia (príjemca). Predvolene ste to vy — ak žiadate za
+            niekoho iného, vyberte ho zo zoznamu.
+          </p>
           <SelectField
-            label="Pre koho — predvolene vy"
+            label="Pre koho žiadate (príjemca výpožičky)"
             value={effectiveBeneficiaryId}
             onChange={setBeneficiaryId}
             options={beneficiaryOptions}
