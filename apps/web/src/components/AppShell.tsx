@@ -12,8 +12,10 @@
  * auth context (POST /v1/auth/switch-organisation + refresh).
  *
  * New nav items:
- *   /settings/members       — admin member list (K21)
  *   /settings/organisations — user's org list / leave org (K22)
+ *
+ * Pozn.: správa členov (roly + odobratie z org) je zlúčená do
+ * `/users` (Používatelia) — samostatná stránka „Členovia" bola zrušená.
  */
 
 import {
@@ -69,7 +71,6 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/admin/tenants', label: 'Tenanti', icon: ShieldCheck, platformOnly: true },
   { href: '/settings/organisation', label: 'Organizácia', icon: Building2, adminOnly: true },
   { href: '/settings/auth', label: 'Prihlasovanie', icon: KeyRound, adminOnly: true },
-  { href: '/settings/members', label: 'Členovia', icon: Users, adminOnly: true },
   { href: '/settings/invitations', label: 'Pozvánky', icon: Mail },
   { href: '/settings/organisations', label: 'Moje organizácie', icon: Building2 },
   { href: '/settings/security', label: 'Bezpečnosť', icon: Lock },

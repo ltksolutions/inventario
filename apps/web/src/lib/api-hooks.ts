@@ -1000,6 +1000,40 @@ export function useUpdateMembershipRole(): UseMutationResult<
 }
 
 /**
+ * DELETE /v1/memberships/:id — remove a member from the current tenant
+ * (ADR-0029). Used by the admin user-edit dialog ("Odobrať z organizácie").
+ * Backend guardrails: the last active ADMIN can't be removed; errors surface
+ * verbatim. Invalidates the users list + single-user cache + members picker.
+ */
+export function useRemoveMembership(): UseMutationResult<
+  unknown,
+  Error,
+  { membershipId: string; userId: string }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation<unknown, Error, { membershipId: string; userId: string }>({
+    mutationFn: async ({ membershipId }) => {
+      const { data, error } = await apiClient.DELETE('/v1/memberships/{id}', {
+        params: { path: { id: membershipId } },
+      });
+      if (error) {
+        const errObj = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof errObj.message === 'string' ? errObj.message : 'Failed to remove member',
+        );
+      }
+      return data;
+    },
+    onSuccess: (_data, { userId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['user', userId] });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      void queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+  });
+}
+
+/**
  * Returns whether the current user can administer users (list +
  * edit). Backend reserves the whole admin users surface for ADMIN.
  *

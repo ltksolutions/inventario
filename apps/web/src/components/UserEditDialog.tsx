@@ -4,14 +4,19 @@
 'use client';
 
 import { USER_ROLE_VALUES } from '@inventario/shared-types';
-import { AlertCircle, Save, X } from 'lucide-react';
+import { AlertCircle, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { LoadingState } from './Spinner';
 
 import type { JSX, ReactNode } from 'react';
 
-import { useUpdateMembershipRole, useUpdateUser, useUser } from '@/lib/api-hooks';
+import {
+  useRemoveMembership,
+  useUpdateMembershipRole,
+  useUpdateUser,
+  useUser,
+} from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
 
 /**
@@ -70,16 +75,19 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
   const userQuery = useUser(userId);
   const updateUser = useUpdateUser();
   const updateRole = useUpdateMembershipRole();
+  const removeMembership = useRemoveMembership();
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const isPending = updateUser.isPending || updateRole.isPending;
-  // Submit-level error: either mutation's failure, surfaced verbatim.
-  const mutationError = updateRole.error ?? updateUser.error;
+  const isPending = updateUser.isPending || updateRole.isPending || removeMembership.isPending;
+  // Submit-level error: any mutation's failure, surfaced verbatim.
+  const mutationError = updateRole.error ?? updateUser.error ?? removeMembership.error;
 
   // Form state — initialised from the fetched user, then user-edited.
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [isActive, setIsActive] = useState(true);
   const [initialised, setInitialised] = useState(false);
+  // Two-step confirm for the destructive "remove from organisation" action.
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   // Initialise form state from fetched user, exactly once. We use a
   // `initialised` flag rather than a JSON.stringify dependency to
@@ -153,6 +161,23 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
       } catch {
         // Error surfaces via mutationError — dialog stays open so the
         // user can read the backend's message and adjust.
+      }
+    })();
+  }
+
+  // Remove the user from the current organisation (DELETE membership).
+  // Two-step confirm; backend enforces the last-admin guardrail and the
+  // message surfaces verbatim via mutationError.
+  function onRemove(): void {
+    if (!membershipId || isPending) {
+      return;
+    }
+    void (async () => {
+      try {
+        await removeMembership.mutateAsync({ membershipId, userId });
+        onClose();
+      } catch {
+        setConfirmRemove(false);
       }
     })();
   }
@@ -232,26 +257,69 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
           ) : null}
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-border-subtle bg-surface-page/50 px-6 py-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            ref={cancelButtonRef}
-            onClick={onClose}
-            disabled={isPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            Zrušiť
-          </button>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={patch === null || isPending || !initialised}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
-            aria-live="polite"
-          >
-            <Save aria-hidden="true" className="h-4 w-4" />
-            {isPending ? 'Ukladám…' : 'Uložiť zmeny'}
-          </button>
+        <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface-page/50 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Destructive: remove from organisation (membership delete). Hidden
+              for self and when no active membership was resolved. */}
+          <div className="flex items-center gap-2">
+            {membershipId && !isSelf ? (
+              confirmRemove ? (
+                <>
+                  <span className="text-sm text-text-secondary">Naozaj odobrať?</span>
+                  <button
+                    type="button"
+                    onClick={onRemove}
+                    disabled={isPending}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-danger-fg px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  >
+                    <Trash2 aria-hidden="true" className="h-4 w-4" />
+                    {removeMembership.isPending ? 'Odoberám…' : 'Áno, odobrať'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemove(false)}
+                    disabled={isPending}
+                    className="rounded-lg px-2 py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary disabled:opacity-50"
+                  >
+                    Späť
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemove(true)}
+                  disabled={isPending}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-danger-fg transition hover:bg-danger-bg disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  <Trash2 aria-hidden="true" className="h-4 w-4" />
+                  Odobrať z organizácie
+                </button>
+              )
+            ) : (
+              <span />
+            )}
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              ref={cancelButtonRef}
+              onClick={onClose}
+              disabled={isPending}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Zrušiť
+            </button>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={patch === null || isPending || !initialised}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+              aria-live="polite"
+            >
+              <Save aria-hidden="true" className="h-4 w-4" />
+              {isPending ? 'Ukladám…' : 'Uložiť zmeny'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
