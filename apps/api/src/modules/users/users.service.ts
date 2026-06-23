@@ -638,6 +638,30 @@ export class UsersService {
   // -------------------------------------------------------------------------
 
   /**
+   * Load a target user for an admin write, gating tenant access by ACTIVE
+   * membership (ADR-0029) rather than User.organisationId — cross-tenant
+   * invited users carry a foreign organisationId, so a tenant-scoped lookup
+   * would 404 them. Returns null if not found OR not a member of the tenant
+   * (caller surfaces that as 404, no cross-tenant leak). Falls back to the
+   * scoped lookup only when membershipsRepo isn't wired (defensive).
+   */
+  private async loadTenantMember(
+    id: string,
+    tenantId: string,
+    session: ClientSession,
+  ): Promise<WithId<User> | null> {
+    if (!this.membershipsRepo) {
+      return this.repo.findById(tenantId, id, session);
+    }
+    const membership = await this.membershipsRepo.findActive(
+      { userId: id, organisationId: tenantId },
+      session,
+    );
+    if (!membership) return null;
+    return this.repo.findByIdUnscoped(id, session);
+  }
+
+  /**
    * Admin clears MFA for a target user within the same tenant.
    *
    * Use cases:
@@ -665,7 +689,7 @@ export class UsersService {
     }
 
     await this.runInTransaction(async (session) => {
-      const target = await this.repo.findById(tenantId, id, session);
+      const target = await this.loadTenantMember(id, tenantId, session);
       if (!target) {
         throw new NotFoundError('User', id);
       }
@@ -675,12 +699,10 @@ export class UsersService {
       }
 
       const now = new Date().toISOString();
-      const after = await this.repo.clearMfa(
-        tenantId,
-        id,
-        { updatedAt: now, updatedBy: actorId },
-        session,
-      );
+      const mfaPatch = { updatedAt: now, updatedBy: actorId };
+      const after = this.membershipsRepo
+        ? await this.repo.clearMfaByIdUnscoped(id, mfaPatch, session)
+        : await this.repo.clearMfa(tenantId, id, mfaPatch, session);
       if (!after) {
         throw new NotFoundError('User', id);
       }
@@ -742,7 +764,7 @@ export class UsersService {
     const tenantId = String(actor.organisationId);
 
     const updated = await this.runInTransaction(async (session) => {
-      const before = await this.repo.findById(tenantId, id, session);
+      const before = await this.loadTenantMember(id, tenantId, session);
       if (!before) {
         throw new NotFoundError('User', id);
       }
@@ -755,18 +777,16 @@ export class UsersService {
       }
 
       const now = new Date().toISOString();
-      const after = await this.repo.setRestriction(
-        tenantId,
-        id,
-        {
-          isRestricted: restrict,
-          restrictedAt: restrict ? now : null,
-          restrictionReason: restrict ? reason : null,
-          updatedAt: now,
-          updatedBy: actorId,
-        },
-        session,
-      );
+      const restrictionArgs = {
+        isRestricted: restrict,
+        restrictedAt: restrict ? now : null,
+        restrictionReason: restrict ? reason : null,
+        updatedAt: now,
+        updatedBy: actorId,
+      };
+      const after = this.membershipsRepo
+        ? await this.repo.setRestrictionByIdUnscoped(id, restrictionArgs, session)
+        : await this.repo.setRestriction(tenantId, id, restrictionArgs, session);
       if (!after) {
         throw new NotFoundError('User', id);
       }

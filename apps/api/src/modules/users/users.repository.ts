@@ -551,4 +551,78 @@ export class UsersRepository {
 
     return result ?? null;
   }
+
+  /**
+   * Like `clearMfa` but by `_id` WITHOUT tenant scoping. Tenant access MUST
+   * be gated by the caller (active-membership check) — see `findByIdUnscoped`.
+   * Needed because cross-tenant invited users carry a foreign `organisationId`,
+   * so the scoped `clearMfa` cannot find them.
+   */
+  async clearMfaByIdUnscoped(
+    id: string,
+    patch: { updatedAt: string; updatedBy: string },
+    session?: ClientSession,
+  ): Promise<WithId<User> | null> {
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      { _id: new ObjectId(id) as unknown as User['_id'], deletedAt: null },
+      {
+        $set: {
+          mfaEnabled: false,
+          mfaSecret: null,
+          mfaRecoveryCodes: [],
+          mfaEnabledAt: null,
+          updatedAt: patch.updatedAt,
+          updatedBy: patch.updatedBy,
+        },
+      },
+      {
+        returnDocument: 'after',
+        projection: PUBLIC_PROJECTION,
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
+
+  /**
+   * Like `setRestriction` but by `_id` WITHOUT tenant scoping. Tenant access
+   * MUST be gated by the caller (active-membership check) — see
+   * `findByIdUnscoped`.
+   */
+  async setRestrictionByIdUnscoped(
+    id: string,
+    args: {
+      isRestricted: boolean;
+      restrictedAt: string | null;
+      restrictionReason: string | null;
+      updatedAt: string;
+      updatedBy: string;
+    },
+    session?: ClientSession,
+  ): Promise<WithId<User> | null> {
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      { _id: new ObjectId(id) as unknown as User['_id'], deletedAt: null },
+      {
+        $set: {
+          isRestricted: args.isRestricted,
+          restrictedAt: args.restrictedAt,
+          restrictionReason: args.restrictionReason,
+          updatedAt: args.updatedAt,
+          updatedBy: args.updatedBy,
+        },
+      },
+      {
+        returnDocument: 'after',
+        projection: PUBLIC_PROJECTION,
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
 }
