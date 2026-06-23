@@ -30,7 +30,7 @@ import {
   useRenameCategory,
   useRenameLocation,
 } from '@/lib/api-hooks';
-import { buildCategoryOptions } from '@/lib/category-tree';
+import { buildGroupedCategoryOptions } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
@@ -118,10 +118,12 @@ export function AssetCreateContent(): JSX.Element {
     );
   }
 
-  // Zlúčený číselník: jeden hierarchický výber kategórie. Root uzly
-  // (= bývalé "typy majetku") len zoskupujú — ponúkame iba podkategórie,
-  // s labelom obsahujúcim cestu (napr. "IT majetok › Notebooky").
-  const categories = buildCategoryOptions(categoriesQuery.data?.data ?? []);
+  // Zlúčený číselník: jeden výber kategórie, zoskupený podľa root kategórie
+  // (root = bývalý "typ majetku", len hlavička skupiny). Ponúkame podkategórie
+  // (root bez detí ostáva vyberateľný). Rovnaká logika ako v žiadosti.
+  const { options: categoryOptions, groupById: categoryGroupById } = buildGroupedCategoryOptions(
+    categoriesQuery.data?.data ?? [],
+  );
   const locations = (locationsQuery.data?.data ?? []).map((l) => ({
     id: l._id,
     label: l.name,
@@ -288,7 +290,9 @@ export function AssetCreateContent(): JSX.Element {
                 <Combobox
                   value={field.value}
                   onChange={field.onChange}
-                  options={categories}
+                  options={categoryOptions}
+                  groupOf={(o) => categoryGroupById[o.id]}
+                  visibleLimit={100}
                   canCreate={false}
                   canRename={canManage}
                   onRename={async (id, newLabel) => {
