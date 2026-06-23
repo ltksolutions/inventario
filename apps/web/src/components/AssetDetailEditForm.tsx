@@ -30,7 +30,7 @@ import {
   useRenameLocation,
   useUpdateAsset,
 } from '@/lib/api-hooks';
-import { buildCategoryOptions } from '@/lib/category-tree';
+import { buildGroupedCategoryOptions } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -100,9 +100,10 @@ export function AssetDetailEditForm({
   const renameAssetCondition = useRenameAssetCondition();
 
   const locationOptions = locations.map((l) => ({ id: l._id, label: l.name }));
-  // Zlúčený číselník: jeden hierarchický výber kategórie (len non-root
-  // uzly, label s cestou "Skupina › Podkategória").
-  const categoryOptions = buildCategoryOptions(categories);
+  // Zlúčený číselník: výber kategórie zoskupený podľa root kategórie
+  // (root = hlavička skupiny). Rovnaká logika ako v žiadosti aj create.
+  const { options: categoryOptions, groupById: categoryGroupById } =
+    buildGroupedCategoryOptions(categories);
   const assetConditionOptions = (assetConditionsQuery.data?.data ?? []).map((c) => ({
     id: c.slug,
     label: c.name,
@@ -229,6 +230,8 @@ export function AssetDetailEditForm({
                 value={field.value}
                 onChange={field.onChange}
                 options={categoryOptions}
+                groupOf={(o) => categoryGroupById[o.id]}
+                visibleLimit={100}
                 canCreate={false}
                 canRename={canManage}
                 onRename={async (id, newLabel) => {
