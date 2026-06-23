@@ -21,6 +21,10 @@
 - ✅ `clearMfa`/`setRestriction` prepnuté na membership-gated prístup (cross-tenant 404 fix)
   — `clearMfaByIdUnscoped`/`setRestrictionByIdUnscoped` + privátny `loadTenantMember`
   (`2d55554`, `0c00469`)
+- ✅ Zlúčené „Členovia" → „Používatelia": stránka `/settings/members` aj menu zrušené;
+  unikátna akcia „Odobrať z organizácie" (DELETE membership, `useRemoveMembership`)
+  presunutá do edit dialógu používateľa. Backend `/v1/memberships` endpointy ostávajú.
+  (`f9d0fd1`)
 
 **Otvorené:** — (všetky follow-upy z tejto série uzavreté)
 

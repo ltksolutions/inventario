@@ -90,6 +90,20 @@ nahradený rozšíreným `Combobox`om:
   (`buildGroupedCategoryOptions` + `Combobox groupOf`) — konzistentné so žiadosťou aj
   create; childless root teraz tiež vyberateľný. (`0c00469`)
 
+## Zlúčenie „Členovia" → „Používatelia" (`f9d0fd1`)
+
+Stránky `/settings/members` (Členovia) a `/users` (Používatelia) sa prekrývali — roly
+sa menili rovnakým endpointom `PATCH /v1/memberships/:id`. Jediná unikátna akcia
+„Členov" (odobratie člena z organizácie, `DELETE /v1/memberships/:id`) bola presunutá do
+edit dialógu používateľa.
+
+- `useRemoveMembership` hook (api-hooks).
+- `UserEditDialog`: deštruktívna akcia „Odobrať z organizácie" s dvojkrokovým potvrdením,
+  skrytá pre seba a keď nie je aktívne členstvo; chyby (last-admin) verbatim.
+- `AppShell`: položka menu „Členovia" odstránená.
+- Zmazané: `MembersContent.tsx` + `app/settings/members/page.tsx` (so súhlasom).
+- Backend `/v1/memberships` endpointy ostávajú (pozvánky, org flows).
+
 ## Otvorené / follow-up
 
 - Voliteľne zahrnúť `user` aj do `dashboard/summary` (teraz rieši `useAuth`).
