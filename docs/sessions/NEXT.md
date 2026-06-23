@@ -25,6 +25,10 @@
   unikátna akcia „Odobrať z organizácie" (DELETE membership, `useRemoveMembership`)
   presunutá do edit dialógu používateľa. Backend `/v1/memberships` endpointy ostávajú.
   (`f9d0fd1`)
+- ✅ Offboarding UX: edit dialóg jasne odporúča deaktiváciu pri odchode (história sa
+  zachová); „Odobrať z organizácie" v „danger zone" s vysvetlením + 2× potvrdenie +
+  5s odpočet pred finálnym krokom. Pripomienka: používateľ sa nikde nemaže natvrdo
+  (offboarding = `isActive=false`, odobratie membershipu je soft/obnoviteľné). (`2d49a10`)
 
 **Otvorené:** — (všetky follow-upy z tejto série uzavreté)
 
