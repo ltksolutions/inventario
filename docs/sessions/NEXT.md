@@ -17,11 +17,12 @@
 - ✅ Pre-commit hook auto-regeneruje `apps/api/openapi.json` pri zmene `apps/api/src/`
 - ✅ Žiadosť: viditeľný popis príjemcu („Pre koho žiadate")
 - ✅ Zoskupený autocomplete výber kategórie (`Combobox` + `groupOf`/`visibleLimit` +
-  zdieľaný `buildGroupedCategoryOptions`) v žiadosti aj pridaní majetku
+  zdieľaný `buildGroupedCategoryOptions`) v žiadosti, pridaní **aj** edit formulári majetku
+- ✅ `clearMfa`/`setRestriction` prepnuté na membership-gated prístup (cross-tenant 404 fix)
+  — `clearMfaByIdUnscoped`/`setRestrictionByIdUnscoped` + privátny `loadTenantMember`
+  (`2d55554`, `0c00469`)
 
-**Otvorené:** `clearMfa`/`setRestriction` majú rovnaký org-scoped vzor (cross-tenant 404 —
-nice-to-have fix); edit formulár majetku stále na „cesta" labeloch `buildCategoryOptions`
-(možno prepnúť na zoskupený picker).
+**Otvorené:** — (všetky follow-upy z tejto série uzavreté)
 
 ---
 

@@ -79,12 +79,19 @@ nahradený rozšíreným `Combobox`om:
   (`AssetCreateContent`, predtým „cesta" labely `buildCategoryOptions`).
 - `buildCategoryOptions`/`categoryPath` ponechané (používa edit formulár majetku).
 
+## Dotiahnutie follow-upov (tá istá session)
+
+- ✅ `clearMfa` / `setRestriction` (`users.service`) prepnuté na membership-gated prístup —
+  nový privátny `loadTenantMember` (membership gate + `findByIdUnscoped`, fallback na
+  scoped) + repository `clearMfaByIdUnscoped` / `setRestrictionByIdUnscoped`. Cross-tenant
+  členovia už nepadajú na 404; izolácia zachovaná (nečlen → 404). Bez zmeny API povrchu.
+  (`2d55554`)
+- ✅ Edit formulár majetku (`AssetDetailEditForm`) prepnutý na zoskupený picker
+  (`buildGroupedCategoryOptions` + `Combobox groupOf`) — konzistentné so žiadosťou aj
+  create; childless root teraz tiež vyberateľný. (`0c00469`)
+
 ## Otvorené / follow-up
 
-- `clearMfa` / `setRestriction` v `users.service` majú rovnaký org-scoped vzor ako bol
-  `getById` — pri cross-tenant členoch by padli na 404 (nice-to-have fix).
-- Edit formulár majetku (`AssetDetailEditForm`) stále používa „cesta" labely
-  `buildCategoryOptions` — pre úplnú konzistenciu možno prepnúť na zoskupený picker.
 - Voliteľne zahrnúť `user` aj do `dashboard/summary` (teraz rieši `useAuth`).
 
 ## Pozn. k prostrediu (Cowork sandbox)
@@ -98,4 +105,5 @@ nahradený rozšíreným `Combobox`om:
 ## Commity (2026-06-23)
 
 `d084f0a` · `e55525a` · `7c7e376` · `14cf535` · `b78619d` · `26b1778` · `1e45370` ·
-`11fed64` · `3b0448b` · `6f30954` (+ tento „poupratuj" docs commit).
+`11fed64` · `3b0448b` · `6f30954` · `b026405` (poupratuj) · `2d55554` · `0c00469`
+(dotiahnutie follow-upov + tento docs commit).
