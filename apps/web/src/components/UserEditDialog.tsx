@@ -86,8 +86,11 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [isActive, setIsActive] = useState(true);
   const [initialised, setInitialised] = useState(false);
-  // Two-step confirm for the destructive "remove from organisation" action.
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  // Destructive "remove from organisation" flow: 0 = idle, 1 = first confirm,
+  // 2 = final confirm (armed only after a 5s cool-off). Two deliberate
+  // confirmations + a timer so it can't fire on a reflex double-click.
+  const [removeStep, setRemoveStep] = useState<0 | 1 | 2>(0);
+  const [removeCountdown, setRemoveCountdown] = useState(0);
 
   // Initialise form state from fetched user, exactly once. We use a
   // `initialised` flag rather than a JSON.stringify dependency to
@@ -116,6 +119,24 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
   useEffect(() => {
     cancelButtonRef.current?.focus();
   }, []);
+
+  // 5-second cool-off before the final "remove from organisation" button arms.
+  useEffect(() => {
+    if (removeStep !== 2) {
+      return;
+    }
+    setRemoveCountdown(5);
+    const interval = setInterval(() => {
+      setRemoveCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [removeStep]);
 
   // membershipId is required for role changes. Null means the backend
   // couldn't resolve an ACTIVE membership — role editing is then
@@ -169,7 +190,8 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
   // Two-step confirm; backend enforces the last-admin guardrail and the
   // message surfaces verbatim via mutationError.
   function onRemove(): void {
-    if (!membershipId || isPending) {
+    // Only fires from the final step, after the 5s cool-off has elapsed.
+    if (!membershipId || isPending || removeStep !== 2 || removeCountdown > 0) {
       return;
     }
     void (async () => {
@@ -177,7 +199,9 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
         await removeMembership.mutateAsync({ membershipId, userId });
         onClose();
       } catch {
-        setConfirmRemove(false);
+        // Error surfaces via mutationError; reset the flow so the admin
+        // has to re-confirm deliberately.
+        setRemoveStep(0);
       }
     })();
   }
@@ -255,71 +279,112 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
               <span>{mutationError.message}</span>
             </div>
           ) : null}
-        </div>
 
-        <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface-page/50 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Destructive: remove from organisation (membership delete). Hidden
-              for self and when no active membership was resolved. */}
-          <div className="flex items-center gap-2">
-            {membershipId && !isSelf ? (
-              confirmRemove ? (
-                <>
-                  <span className="text-sm text-text-secondary">Naozaj odobrať?</span>
-                  <button
-                    type="button"
-                    onClick={onRemove}
-                    disabled={isPending}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-danger-fg px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    <Trash2 aria-hidden="true" className="h-4 w-4" />
-                    {removeMembership.isPending ? 'Odoberám…' : 'Áno, odobrať'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRemove(false)}
-                    disabled={isPending}
-                    className="rounded-lg px-2 py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary disabled:opacity-50"
-                  >
-                    Späť
-                  </button>
-                </>
-              ) : (
+          {/*
+            Danger zone — remove from organisation. Separated from the normal
+            save flow and clearly framed: deactivation (above) is the
+            recommended way to off-board; removal only drops membership and
+            never deletes the account or its history. Two confirmations + a
+            5-second cool-off before the final action arms.
+          */}
+          {userQuery.data && membershipId && !isSelf ? (
+            <div className="mt-6 rounded-lg border border-danger-fg/40 bg-danger-bg/40 p-4">
+              <h3 className="text-sm font-semibold text-text-primary">Odobrať z organizácie</h3>
+              <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                Odoberie používateľa z tejto organizácie. <strong>Nezmaže</strong> jeho účet ani
+                históriu (výpožičky, žiadosti, protokoly) — len členstvo, ktoré sa dá obnoviť
+                opätovnou pozvánkou. Pri skončení pracovného pomeru je vhodnejšie účet{' '}
+                <strong>deaktivovať</strong> (vyššie) — ostane v zozname a história sa zachová.
+              </p>
+
+              {removeStep === 0 ? (
                 <button
                   type="button"
-                  onClick={() => setConfirmRemove(true)}
+                  onClick={() => setRemoveStep(1)}
                   disabled={isPending}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-danger-fg transition hover:bg-danger-bg disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-danger-fg px-3 py-2 text-sm font-medium text-danger-fg transition hover:bg-danger-bg disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
                   <Trash2 aria-hidden="true" className="h-4 w-4" />
-                  Odobrať z organizácie
+                  Odobrať z organizácie…
                 </button>
-              )
-            ) : (
-              <span />
-            )}
-          </div>
+              ) : removeStep === 1 ? (
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm font-medium text-text-primary">
+                    Naozaj odobrať {userQuery.data.displayName} z organizácie? (krok 1 z 2)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRemoveStep(2)}
+                      disabled={isPending}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-danger-fg px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      Pokračovať
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRemoveStep(0)}
+                      disabled={isPending}
+                      className="rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary disabled:opacity-50"
+                    >
+                      Zrušiť
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm font-medium text-danger-fg">
+                    Posledné potvrdenie (krok 2 z 2) — táto akcia je definitívna.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onRemove}
+                      disabled={isPending || removeCountdown > 0}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-danger-fg px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      <Trash2 aria-hidden="true" className="h-4 w-4" />
+                      {removeMembership.isPending
+                        ? 'Odoberám…'
+                        : removeCountdown > 0
+                          ? `Počkajte… ${removeCountdown} s`
+                          : 'Odobrať definitívne'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRemoveStep(0)}
+                      disabled={removeMembership.isPending}
+                      className="rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary disabled:opacity-50"
+                    >
+                      Zrušiť
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              ref={cancelButtonRef}
-              onClick={onClose}
-              disabled={isPending}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              Zrušiť
-            </button>
-            <button
-              type="button"
-              onClick={onSubmit}
-              disabled={patch === null || isPending || !initialised}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
-              aria-live="polite"
-            >
-              <Save aria-hidden="true" className="h-4 w-4" />
-              {isPending ? 'Ukladám…' : 'Uložiť zmeny'}
-            </button>
-          </div>
+        <div className="flex flex-col-reverse gap-2 border-t border-border-subtle bg-surface-page/50 px-6 py-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            ref={cancelButtonRef}
+            onClick={onClose}
+            disabled={isPending}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            Zrušiť
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={patch === null || isPending || !initialised}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+            aria-live="polite"
+          >
+            <Save aria-hidden="true" className="h-4 w-4" />
+            {isPending ? 'Ukladám…' : 'Uložiť zmeny'}
+          </button>
         </div>
       </div>
     </div>
@@ -412,7 +477,7 @@ function DialogBody({
         hint={
           isSelf
             ? 'Nemôžete sa sami deaktivovať. Požiadajte iného administrátora.'
-            : 'Deaktivovaný účet nemôže pristupovať do aplikácie, ale jeho história zostane zachovaná.'
+            : 'Odporúčaný spôsob pri odchode zamestnanca: deaktivovaný účet sa nevie prihlásiť, ale ostáva v zozname a celá história (výpožičky, žiadosti, protokoly) sa zachová. Dá sa kedykoľvek reaktivovať.'
         }
       >
         {/*
