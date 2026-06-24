@@ -29,6 +29,13 @@
   zachová); „Odobrať z organizácie" v „danger zone" s vysvetlením + 2× potvrdenie +
   5s odpočet pred finálnym krokom. Pripomienka: používateľ sa nikde nemaže natvrdo
   (offboarding = `isActive=false`, odobratie membershipu je soft/obnoviteľné). (`2d49a10`)
+- ✅ E-mail notifikácia pri zmene roly: `sendRoleChangedEmail` (email.ts) + napojenie v
+  PATCH `/v1/memberships/:id` (fire-and-forget, self-zmena bez e-mailu). (`6f7dc40`)
+
+> Pozn.: pre-commit hook spúšťa plný `turbo typecheck` cez `tsconfig.eslint.json`
+> (vrátane `tests/**`) — pri pridaní metódy do `EmailService` interface treba doplniť
+> aj stub v `tests/unit/email-protocol-to-sign.test.ts`. Sandbox `tsc -p tsconfig.json`
+> testy nezahŕňa, preto to chytí až hook/CI; overuj cez `tsconfig.eslint.json`.
 
 **Otvorené:** — (všetky follow-upy z tejto série uzavreté)
 
