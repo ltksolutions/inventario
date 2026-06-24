@@ -104,6 +104,30 @@ edit dialógu používateľa.
 - Zmazané: `MembersContent.tsx` + `app/settings/members/page.tsx` (so súhlasom).
 - Backend `/v1/memberships` endpointy ostávajú (pozvánky, org flows).
 
+## Offboarding UX + bezpečné odobratie (`2d49a10`)
+
+Diskusia o „mazaní" používateľa → záver: používateľ sa nikde nemaže natvrdo (žiadny
+`DELETE /v1/users/:id`); offboarding = deaktivácia (`isActive=false`, blokuje login,
+zachová históriu), odobratie membershipu je soft a obnoviteľné.
+
+- Hint pri „Aktívny účet" jasne odporúča deaktiváciu pri odchode zamestnanca.
+- „Odobrať z organizácie" presunuté do „danger zone" s vysvetlením (nemaže účet ani
+  históriu, len členstvo).
+- Deštruktívna akcia: 2× potvrdenie (Odobrať… → Pokračovať → Odobrať definitívne) +
+  finálne tlačidlo zamknuté 5 s (odpočet „Počkajte… N s").
+
+## E-mail notifikácia pri zmene roly (`6f7dc40`)
+
+Keď admin zmení rolu člena (PATCH `/v1/memberships/:id`) a rola sa reálne zmení,
+dotknutému používateľovi príde e-mail.
+
+- `email.ts`: `sendRoleChangedEmail` + šablóna `roleChangedEmailHtml`.
+- `memberships.routes`: fire-and-forget po update + audite; self-zmena bez e-mailu;
+  rola → SK label.
+- Pre-commit hook chytil chýbajúci stub v `tests/unit/email-protocol-to-sign.test.ts`
+  (pridanie metódy do `EmailService` interface) — doplnené. Pozn.: `tsconfig.eslint.json`
+  zahŕňa testy, sandbox `tsconfig.json` nie → overuj cez `tsconfig.eslint.json`.
+
 ## Otvorené / follow-up
 
 - Voliteľne zahrnúť `user` aj do `dashboard/summary` (teraz rieši `useAuth`).
@@ -120,4 +144,5 @@ edit dialógu používateľa.
 
 `d084f0a` · `e55525a` · `7c7e376` · `14cf535` · `b78619d` · `26b1778` · `1e45370` ·
 `11fed64` · `3b0448b` · `6f30954` · `b026405` (poupratuj) · `2d55554` · `0c00469`
-(dotiahnutie follow-upov + tento docs commit).
+(dotiahnutie follow-upov) · `f9d0fd1` (zlúčenie Členovia→Používatelia) · `2d49a10`
+(offboarding UX) · `6f7dc40` (e-mail pri zmene roly) + docs „poupratuj" commity.
