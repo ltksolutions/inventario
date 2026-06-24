@@ -46,6 +46,7 @@ function makeStubEmailService(): {
     sendLoanRejectedEmail: async () => {},
     sendLoanRequestPendingEmail: async () => {},
     sendLinkProviderEmail: async () => {},
+    sendRoleChangedEmail: async () => {},
     sendDirectLoanCreatedEmail: async () => {},
     sendProtocolToSignEmail: async (to, opts) => {
       // We test the real implementation by importing the plugin's service factory.

@@ -94,6 +94,19 @@ export interface EmailService {
    * @param verifyUrl  Full URL to /v1/auth/link-provider/verify?token=...
    * @param providerName  'google' | 'microsoft' — shown in email body
    */
+  /**
+   * Notifikácia dotknutému používateľovi, že mu admin zmenil rolu
+   * (oprávnenia) v organizácii.
+   */
+  sendRoleChangedEmail(
+    to: string,
+    opts: {
+      userName: string;
+      roleLabel: string;
+      changedByName: string;
+      frontendUrl: string;
+    },
+  ): Promise<void>;
   sendLinkProviderEmail(to: string, verifyUrl: string, providerName: string): Promise<void>;
   readonly providerName: EmailProvider['name'];
   readonly isConfigured: boolean;
@@ -260,6 +273,17 @@ const emailPlugin: FastifyPluginAsync = async (fastify) => {
         text:
           `${opts.recipientName}, máte ${typeLabel} protokol na podpis. ` +
           `Podpíšte ho na: ${opts.frontendUrl}/loans/${opts.loanId}`,
+      });
+    },
+
+    async sendRoleChangedEmail(to, opts) {
+      await provider.send({
+        to,
+        subject: 'Zmena vašej roly — Inventario',
+        html: roleChangedEmailHtml(opts),
+        text:
+          `${opts.userName}, ${opts.changedByName} zmenil/a vašu rolu na "${opts.roleLabel}". ` +
+          `${opts.frontendUrl}`,
       });
     },
 
@@ -458,6 +482,31 @@ function loanRejectedEmailHtml(opts: {
       <tr><td style="color:#1A2D47;font-size:14px;">${opts.reason}</td></tr>
     </table>
     ${btn(`${opts.frontendUrl}/requests`, 'Zobraziť moje žiadosti')}
+  `,
+  );
+}
+
+function roleChangedEmailHtml(opts: {
+  userName: string;
+  roleLabel: string;
+  changedByName: string;
+  frontendUrl: string;
+}): string {
+  return emailLayout(
+    'Zmena roly',
+    `
+    <h1 style="margin:0 0 8px;color:#1A2D47;font-size:22px;font-weight:700;">Vaša rola sa zmenila</h1>
+    <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+      <strong>${opts.userName}</strong>, administrátor <strong>${opts.changedByName}</strong> zmenil vašu rolu v aplikácii Inventario.
+    </p>
+    <table style="background-color:#F1F5F9;border-radius:6px;padding:16px 20px;margin:0 0 24px;width:100%;box-sizing:border-box;">
+      <tr><td style="color:#64748B;font-size:13px;padding-bottom:4px;">Nová rola</td></tr>
+      <tr><td style="color:#1A2D47;font-size:16px;font-weight:600;">${opts.roleLabel}</td></tr>
+    </table>
+    <p style="margin:0 0 24px;color:#64748B;font-size:13px;line-height:1.6;">
+      Ak si myslíte, že ide o omyl, kontaktujte administrátora svojej organizácie.
+    </p>
+    ${btn(`${opts.frontendUrl}`, 'Otvoriť Inventario')}
   `,
   );
 }

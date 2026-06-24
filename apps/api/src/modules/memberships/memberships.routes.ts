@@ -55,6 +55,14 @@ void MembershipIdParamsSchema; // Referenced in future typed routes
  * roles, status, mustChangePassword, notifications.
  * organizationalUnit + teams sú vynechané (rezervované pre neskorší slice).
  */
+/** Slovenské popisy rolí pre e-mailové notifikácie. */
+const ROLE_LABELS_SK: Record<string, string> = {
+  EMPLOYEE: 'Zamestnanec',
+  ASSET_MANAGER: 'Správca majetku',
+  ADMIN: 'Administrátor',
+  EXTERNAL: 'Externý',
+};
+
 const PatchMembershipBodySchema = z
   .object({
     role: z.enum(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as [UserRole, ...UserRole[]]),
@@ -274,6 +282,40 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       },
       createdAt: now,
     });
+
+    // E-mail notifikácia dotknutému používateľovi pri zmene roly (oprávnení).
+    // Fire-and-forget — zlyhanie e-mailu nesmie zhodiť PATCH. Self-zmenu
+    // (admin mení vlastnú rolu) nenotifikujeme.
+    if (
+      patch.role !== undefined &&
+      patch.role !== existing.role &&
+      existing.userId !== actorId &&
+      /^[a-f0-9]{24}$/i.test(existing.userId)
+    ) {
+      const targetUserId = existing.userId;
+      const newRole = patch.role;
+      void (async () => {
+        try {
+          const { ObjectId } = await import('mongodb');
+          const targetUser = await fastify.mongo.db
+            .collection('users')
+            .findOne({ _id: new ObjectId(targetUserId) } as never, {
+              projection: { email: 1, displayName: 1 },
+            });
+          const toEmail = targetUser?.['email'] as string | undefined;
+          if (toEmail) {
+            await fastify.emailService.sendRoleChangedEmail(toEmail, {
+              userName: (targetUser?.['displayName'] as string | undefined) ?? toEmail,
+              roleLabel: ROLE_LABELS_SK[newRole] ?? newRole,
+              changedByName: request.currentUser.displayName ?? request.currentUser.email,
+              frontendUrl: fastify.config.FRONTEND_BASE_URL ?? 'https://app.inventario.estate',
+            });
+          }
+        } catch (err) {
+          fastify.log.error({ err, membershipId: id }, 'Failed to send role-changed email');
+        }
+      })();
+    }
 
     fastify.log.info(
       { membershipId: id, actorId, patch: Object.keys(patch) },
