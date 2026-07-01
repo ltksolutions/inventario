@@ -1,5 +1,27 @@
 # NEXT
 
+## Aktuálny stav (2026-07-01)
+
+**Custom `DateField` (fix orezaného kalendára) — HOTOVÉ a nasadené.** Session log:
+`docs/sessions/2026-07-01-datefield-custom-picker.md`. Commit: `f481e58`.
+
+- ✅ Nahlásený bug: natívny `<input type="date">` sa pri dlhšom formulári žiadosti
+  otváral mimo viditeľnú oblasť (prekrytý tlačidlom/oknom). Nový vlastný
+  `DateField.tsx` (bez novej závislosti) — `createPortal` + `position: fixed`,
+  flip nahor/nadol podľa priestoru. Nasadené vo všetkých 4 miestach s natívnym
+  date inputom (žiadosť, fulfil žiadosti, nový/edit majetok). Detail: ADR-0033.
+- ❌ Popri tom zvážená a **zamietnutá** možnosť žiadať o výpožičku pre osobu, ktorá
+  ešte nie je v systéme (nový zamestnanec) — beneficiary musí zostať existujúci
+  `User`, bez výnimky. Zdokumentované ako zamietnutý ADR-0032 (referencia do
+  budúcnosti, neimplementované).
+- ℹ️ Commit + push tentokrát cez `Control your Mac` (osascript, Terminal na
+  reálnom Macu) na Jánovu žiadosť — zmena oproti zvyčajnému git MCP postupu.
+
+**Otvorené:** klávesnicová navigácia šípkami v `DateField` mriežke (fast-follow);
+a11y audit `DateField`; živé odskúšanie flip-up v prehliadači.
+
+---
+
 ## Aktuálny stav (2026-06-23)
 
 **Séria Cowork opráv/vylepšení — HOTOVÉ a nasadené.** Session log:
