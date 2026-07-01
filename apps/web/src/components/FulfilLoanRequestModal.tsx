@@ -9,6 +9,7 @@ import { useState } from 'react';
 import type { FulfilLoanRequestItem, LoanRequestSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
+import { DateField } from '@/components/DateField';
 import { useAssets, useFulfilLoanRequest } from '@/lib/api-hooks';
 
 /**
@@ -272,12 +273,11 @@ export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element
                   </div>
                 </div>
                 {dueType === 'fixed' && (
-                  <input
-                    type="date"
+                  <DateField
+                    label="Termín vrátenia"
                     value={dueAt}
-                    onChange={(e) => setDueAt(e.target.value)}
-                    aria-label="Termín vrátenia"
-                    className="h-9 rounded-lg border border-border-default bg-surface-card px-3 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    onChange={setDueAt}
+                    className="w-40"
                   />
                 )}
               </div>

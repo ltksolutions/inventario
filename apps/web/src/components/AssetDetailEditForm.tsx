@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import { Combobox } from './Combobox';
+import { DateField } from './DateField';
 import { SelectField } from './SelectField';
 import { TagsCombobox } from './TagsCombobox';
 
@@ -351,10 +352,18 @@ export function AssetDetailEditForm({
 
       <Section title="Nadobudnutie">
         <Field label="Dátum nadobudnutia" required>
-          <input
-            type="date"
-            {...register('acquiredAt', { required: true })}
-            className={inputClasses()}
+          <Controller
+            name="acquiredAt"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <DateField
+                label="Dátum nadobudnutia"
+                value={field.value}
+                onChange={field.onChange}
+                required
+              />
+            )}
           />
         </Field>
         <Field label="Nadobúdacia cena (€)" hint="Voliteľné. Použite desatinnú bodku alebo čiarku.">
@@ -371,7 +380,13 @@ export function AssetDetailEditForm({
           />
         </Field>
         <Field label="Záruka do">
-          <input type="date" {...register('warrantyUntil')} className={inputClasses()} />
+          <Controller
+            name="warrantyUntil"
+            control={control}
+            render={({ field }) => (
+              <DateField label="Záruka do" value={field.value} onChange={field.onChange} />
+            )}
+          />
         </Field>
       </Section>
 

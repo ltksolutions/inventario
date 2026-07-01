@@ -10,6 +10,7 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 
 import { Combobox } from '@/components/Combobox';
+import { DateField } from '@/components/DateField';
 import { SelectField } from '@/components/SelectField';
 import { useCategories, useCreateLoanRequest, useMe, useMembers } from '@/lib/api-hooks';
 import { buildGroupedCategoryOptions } from '@/lib/category-tree';
@@ -390,13 +391,13 @@ export function LoanRequestContent(): JSX.Element {
                 *
               </span>
             </label>
-            <input
+            <DateField
               id="planned-from"
-              type="date"
+              label="Od"
               value={plannedFrom}
               min={today}
-              onChange={(e) => setPlannedFrom(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+              onChange={setPlannedFrom}
+              required
             />
           </div>
 
@@ -411,13 +412,13 @@ export function LoanRequestContent(): JSX.Element {
                   *
                 </span>
               </label>
-              <input
+              <DateField
                 id="planned-to"
-                type="date"
+                label="Do"
                 value={plannedTo}
                 min={plannedFrom || today}
-                onChange={(e) => setPlannedTo(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                onChange={setPlannedTo}
+                required
               />
             </div>
           )}
