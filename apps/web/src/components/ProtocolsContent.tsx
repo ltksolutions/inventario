@@ -16,11 +16,11 @@
 
 import {
   AlertCircle,
-  ChevronRight,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
   FileSignature,
+  FileText,
   Search,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -346,10 +346,10 @@ function ProtocolsTable({
                     <Link
                       href={`/loans/${p.loanId}`}
                       aria-label="Detail výpožičky"
-                      className="inline-flex items-center gap-0.5 rounded text-xs font-medium text-brand-primary underline-offset-2 transition hover:underline"
+                      className="inline-flex items-center gap-1 rounded-lg border border-brand-primary bg-brand-primary/10 px-2.5 py-1.5 text-xs font-medium text-brand-primary transition hover:bg-brand-primary/20"
                     >
+                      <FileText aria-hidden="true" className="h-3.5 w-3.5" />
                       Výpožička
-                      <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
                     </Link>
                   </div>
                 </td>

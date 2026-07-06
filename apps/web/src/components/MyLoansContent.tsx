@@ -3,7 +3,7 @@
 
 'use client';
 
-import { AlertCircle, ChevronRight, Clock, Package, XCircle } from 'lucide-react';
+import { AlertCircle, Clock, Eye, Package, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -299,10 +299,10 @@ function LoansTable({
                   <Link
                     href={`/loans/${loan._id}`}
                     aria-label="Detail výpožičky"
-                    className="inline-flex items-center gap-0.5 rounded text-xs font-medium text-brand-primary underline-offset-2 transition hover:underline"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-surface-card px-2.5 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle"
                   >
+                    <Eye aria-hidden="true" className="h-3.5 w-3.5" />
                     Detail
-                    <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
                   </Link>
                 </td>
               </tr>
