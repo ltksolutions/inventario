@@ -1,5 +1,23 @@
 # NEXT
 
+## Aktuálny stav (2026-07-06, večer, pokračovanie) — perf `/assets` + autoscroll/focus
+
+Session log: `docs/sessions/2026-07-06-assets-perf-form-focus.md`.
+Commity: `e9b3061` (perf `/assets`), `1e18cde` (autoscroll+focus).
+
+- ✅ **`/assets` zoznam rýchlejší:** odstránený extra `useLoans({status:'ACTIVE', limit:500})`
+  dopyt aj s ním súvisiaci stĺpec "kto má vypožičané" a filter "Vypožičané kým"
+  (na žiadosť Janiky, plné odstránenie namiesto čiastočného).
+- ✅ **Autoscroll + focus na prvé chybné pole** vo formulároch Pridanie majetku
+  (`/assets/new`) a Editácia majetku — pri chýbajúcom povinnom poli mimo
+  viditeľnej plochy appka teraz odroluje a fokusne problémové pole. Nová
+  zdieľaná utilita `apps/web/src/lib/form-scroll.ts` (funguje aj pre
+  Controller-obalené custom komponenty, kde RHF `setFocus` zlyháva).
+  Zámerne postavené ako znovupoužiteľné pre ostatné formuláre (zatiaľ
+  neaplikované na Kategórie/Lokality dialógy ani žiadosť o výpožičku —
+  Janika to pre toto kolo nevybrala).
+- Oba nasadené, `get_runtime_errors` čisté.
+
 ## Aktuálny stav (2026-07-06, večer) — modul "Osoby"
 
 **Nový modul "Osoby" (osobná karta majetku) — HOTOVÝ a nasadený.**

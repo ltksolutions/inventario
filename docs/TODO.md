@@ -12,12 +12,12 @@ SPDX-License-Identifier: CC-BY-4.0
 > [`docs/sessions/NEXT.md`](./sessions/NEXT.md). Testovanie sa rieši priebežne pri každej
 > položke (workflow pravidlo: testy s každou zmenou) — preto tu nie je samostatná „testovacia" sekcia.
 
-| Atribút                   | Hodnota                                                                                                        |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Posledná aktualizácia** | 2026-07-06 (nový modul "Osoby" — osobná karta majetku, viď `docs/sessions/NEXT.md`; backlog nižšie beze zmeny) |
-| **Stav projektu**         | Production LIVE ✅ — SFZ pilot aktívne testovaný                                                               |
-| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr                                    |
-| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs                           |
+| Atribút                   | Hodnota                                                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Posledná aktualizácia** | 2026-07-06 (perf `/assets` + autoscroll/focus vo formulároch majetku, viď `docs/sessions/NEXT.md`; backlog nižšie beze zmeny) |
+| **Stav projektu**         | Production LIVE ✅ — SFZ pilot aktívne testovaný                                                                              |
+| **Legenda priorít**       | 🔴 P0 pilot · 🟠 P1 GDPR práva · 🟡 P2 ADR impl · 🟢 P3 docs · 🔵 P4 neskôr                                                   |
+| **Legenda modelu**        | Opus = architektúra/ADR/security · Sonnet = impl/CRUD/frontend · Haiku = scoped docs                                          |
 
 ---
 
