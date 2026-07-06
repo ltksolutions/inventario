@@ -228,10 +228,14 @@ export function AssetDetailReadView({
       {(asset.description || asset.tags.length > 0) && (
         <Section title="Popis a tagy">
           {asset.description ? (
-            <p className="text-sm leading-relaxed text-text-primary">{asset.description}</p>
+            <div className="px-5 py-3">
+              <p className="whitespace-pre-line text-sm leading-relaxed text-text-primary">
+                {asset.description}
+              </p>
+            </div>
           ) : null}
           {asset.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 px-5 py-3">
               {asset.tags.map((tag) => (
                 <span
                   key={tag}
