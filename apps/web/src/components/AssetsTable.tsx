@@ -34,9 +34,9 @@ import { cn } from '@/lib/cn';
  *   "no rows" empty state, so this component just renders rows.
  *
  * BULK vs SERIALIZED (ADR-0020):
- *   BULK (Množstevná) položky zobrazujú ikonku Warehouse pri inventárnom čísle a
- *   množstvo na sklade v stĺpci „Množstvo". SERIALIZED (Kusová) položky
- *   (default) majú v tom stĺpci „—".
+ *   Obe zobrazujú TrackingModeBadge pri inventárnom čísle (BULK = Warehouse
+ *   ikona, SERIALIZED = Tag ikona) — konzistentný vizuál. BULK naviac
+ *   zobrazuje množstvo na sklade v stĺpci „Množstvo", SERIALIZED tam má „—".
  */
 
 const STATUS_LABELS: Record<string, string> = {
@@ -114,7 +114,7 @@ export function AssetsTable({
                     >
                       {asset.inventoryNumber}
                     </Link>
-                    {isBulk && <TrackingModeBadge mode="BULK" variant="badge" />}
+                    <TrackingModeBadge mode={asset.trackingMode} variant="badge" />
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-text-primary">{asset.name}</td>
