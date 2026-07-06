@@ -31,6 +31,7 @@
 
 import crypto from 'node:crypto';
 
+import { roleSatisfies, UserRole } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
@@ -464,7 +465,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
 
 function assertCanAccessProtocol(
   protocol: WithId<LoanProtocol>,
-  actor: { _id: unknown; roles: string[] },
+  actor: { _id: unknown; role: UserRole },
 ): void {
   const actorId = String(actor._id);
   const isHandover = String(protocol.parties.handover.userId) === actorId;
@@ -474,8 +475,12 @@ function assertCanAccessProtocol(
   }
 }
 
-export function isManagerOrAdmin(actor: { roles: string[] }): boolean {
-  return actor.roles.includes('ASSET_MANAGER') || actor.roles.includes('ADMIN');
+export function isManagerOrAdmin(actor: { role: UserRole }): boolean {
+  // ADR-0029: autoritatívna rola je actor.role (z Membership), nie legacy
+  // actor.roles[] (User.roles), ktoré je na produkcii u časti dokumentov `null`
+  // (pozri auth.ts) — priamy .includes() na ňom bez tejto opravy hodí
+  // TypeError a rozbije /v1/protocols aj /v1/dashboard/summary.
+  return roleSatisfies(actor.role, UserRole.ASSET_MANAGER);
 }
 
 export function protocolToApiShape(doc: WithId<LoanProtocol>): Record<string, unknown> {
