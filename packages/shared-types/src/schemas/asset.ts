@@ -114,7 +114,7 @@ export const CreateAssetSchema = AssetSchema.omit({
    * Server vytvorí RECEIPT pohyb s týmto množstvom v rovnakej transakcii.
    * Pre SERIALIZED položky ignorované (množstvo je implicitne 1).
    */
-  initialQuantity: z.number().int().nonnegative().optional(),
+  initialQuantity: z.number().int().positive().optional(),
 });
 
 export type CreateAssetInput = z.infer<typeof CreateAssetSchema>;

@@ -2157,6 +2157,11 @@
                       "BULK"
                     ],
                     "default": "SERIALIZED"
+                  },
+                  "initialQuantity": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
                   }
                 },
                 "required": [

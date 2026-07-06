@@ -253,13 +253,21 @@ export function AssetCreateContent(): JSX.Element {
             >
               <input
                 type="number"
-                min="0"
+                min="1"
                 step="1"
                 {...register('initialQuantity', {
-                  required:
-                    watch('trackingMode') === 'BULK' ? 'Počiatočné množstvo je povinné.' : false,
-                  min: { value: 1, message: 'Množstvo musí byť aspoň 1.' },
                   valueAsNumber: true,
+                  // Explicitný `validate` namiesto `required`/`min` — react-hook-form
+                  // s `valueAsNumber: true` vie pri prázdnom/neplatnom vstupe poslať
+                  // `NaN`, ktoré `min`/`required` pravidlá TICHO PREPUSTIA (NaN
+                  // neprejde žiadnym číselným porovnaním, takže obe kontroly
+                  // vyhodnotia "OK"). `Number.isFinite` toto zachytí explicitne.
+                  validate: (value) => {
+                    if (watch('trackingMode') !== 'BULK') return true;
+                    if (!Number.isFinite(value)) return 'Počiatočné množstvo je povinné.';
+                    if (value < 1) return 'Množstvo musí byť aspoň 1.';
+                    return true;
+                  },
                 })}
                 className={inputCls()}
               />

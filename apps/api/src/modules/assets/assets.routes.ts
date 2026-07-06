@@ -78,6 +78,29 @@ const ApiCreateAssetBodySchema = z
     trackingMode: z
       .enum(TRACKING_MODE_VALUES as unknown as [string, ...string[]])
       .default('SERIALIZED'),
+    /**
+     * Počiatočné množstvo pre BULK položky (ADR-0020) — server z neho v
+     * `AssetsService.create()` vytvorí RECEIPT pohyb v tej istej transakcii.
+     *
+     * BUG FIX (2026-07-06): toto pole tu predtým chýbalo. Fastify/Zod
+     * pri validácii `request.body` proti tejto schéme TICHO ORESKAL
+     * akékoľvek nedeklarované polia (default Zod správanie) — takže
+     * `initialQuantity` z frontend formulára sa nikdy nedostalo do
+     * `service.create()`, hoci `CreateAssetSchema` (shared-types) aj
+     * `AssetsService` ho už dávno počítali. Výsledok: BULK položky
+     * vytvorené cez formulár mali natrvalo `quantityOnHand` chýbajúce
+     * (0 v UI) a žiadny RECEIPT záznam, bez akejkoľvek chyby pri vytváraní.
+     */
+    initialQuantity: z.number().int().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.trackingMode === 'BULK' && !data.initialQuantity) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['initialQuantity'],
+        message: 'Počiatočné množstvo je povinné pre množstevné (BULK) položky a musí byť aspoň 1.',
+      });
+    }
   })
   .describe('Telo pre vytvorenie assetu; inventoryNumber a publicToken generuje server');
 
