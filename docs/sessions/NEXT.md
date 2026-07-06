@@ -1,5 +1,20 @@
 # NEXT
 
+## Aktuálny stav (2026-07-07) — zvyšné UI/UX drobnosti + SelectField fix
+
+Session log (dodatky): `docs/sessions/2026-07-06-ui-buttons-tagy-freetext.md`.
+Commity: `ea55833`, `a353a14`, `4a37f78`, `3412882`, `2fce826`.
+
+- ✅ `/my-loans` "Detail" a `/protocols` "Výpožička" prerobené na tlačidlá (dokončenie
+  UI/UX zjednotenia z predošlej session).
+- ✅ Stav protokolu "Návrh — čaká na podpisy" skrátený na "Podpísať".
+- ✅ LoadingOverlay: preloader obalený kartou s pozadím, čitateľnejší nad rušným obsahom.
+- ✅ Asset detail "Popis a tagy": opravený padding bug (`divide-y` bez `px-5 py-3` na
+  ad-hoc elementoch) — nešlo o dáta/paste problém, len chýbajúci CSS padding.
+- ✅ Natívny `<select>` → `SelectField` v `LocationCreateDialog.tsx` (Typ lokality,
+  Nadradená lokalita) a `CategoryCreateDialog.tsx` (Root kategória) — v rozpore s
+  ADR-0018, teraz zjednotené s `AssetCreateContent.tsx` vzorom.
+
 ## Aktuálny stav (2026-07-06, neskorý večer) — UI/UX tlačidlá, veľké písmená tagov, normalizácia voľného textu
 
 Session log: `docs/sessions/2026-07-06-ui-buttons-tagy-freetext.md`.

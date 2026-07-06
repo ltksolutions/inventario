@@ -92,3 +92,36 @@ teda fyzicky nedá preniesť, prehliadač ho už pri vložení odstráni.
 - Task #36 (task list): objasniť s Janikou "Výpožička" odkaz na `/assets`.
 - Po nasadení skontrolovať API logy pre `Migration 2026-07-06b` (matched/modified
   counts) — potvrdenie, že backfill prebehol.
+
+## Dodatok — commit `ea55833`: zvyšné plain-text odkazy
+
+- `MyLoansContent.tsx` (`/my-loans`): "Detail" prerobené na tlačidlo (Eye ikonka).
+- `ProtocolsContent.tsx` (`/protocols`): "Výpožička" prerobené na tlačidlo (FileText ikonka).
+
+## Dodatok — commit `a353a14`: skrátenie stavu protokolu
+
+- `ProtocolCard.tsx`: `DRAFT.label` zmenené z "Návrh — čaká na podpisy" na "Podpísať".
+
+## Dodatok — commit `4a37f78`: čitateľnosť LoadingOverlay
+
+- `LoadingOverlay.tsx`: obsah preloadera obalený kartou (`bg-surface-card`,
+  `shadow-xl`, `ring-1 ring-border-subtle`), aby bol čitateľný aj nad rušným pozadím.
+
+## Dodatok — commit `3412882`: padding v "Popis a tagy" (Asset detail)
+
+Nahlásené ako "rozbité formátovanie" pri majetku "SAP licencia", v skutočnosti
+CSS bug: `Section`/`dl` používa `divide-y`, čo kreslí čiaru medzi každým
+priamym potomkom. `Row` má padding `px-5 py-3` zabudovaný, ale ad-hoc deti
+(popis, tagy) ho nemali — text sedel zarovno pri okraji, čiara pod ním
+pôsobila ako rozbité formátovanie. Opravené pridaním `px-5 py-3` wrapperu
+a `whitespace-pre-line` na popis. Nešlo o dáta/paste problém.
+
+## Dodatok — commit `2fce826`: SelectField namiesto natívneho `<select>`
+
+Nahlásené ako zlý design selectboxov "Typ lokality" a "Nadradená lokalita"
+v modáli "Nová lokalita". Príčina: `LocationCreateDialog.tsx` (2×) a
+`CategoryCreateDialog.tsx` (1×, nájdené pri investigácii) používali natívny
+prehliadačový `<select>` len s `inputClasses()` štýlom — v rozpore s ADR-0018
+("SelectField nahrádza natívny `<select>` vo všetkých častiach appky").
+Opravené prerobením na `Controller` + `SelectField` vzor (rovnaký ako
+`AssetCreateContent.tsx`).
