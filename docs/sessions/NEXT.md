@@ -1,6 +1,24 @@
 # NEXT
 
-## Aktuálny stav (2026-07-06)
+## Aktuálny stav (2026-07-06, večer) — modul "Osoby"
+
+**Nový modul "Osoby" (osobná karta majetku) — HOTOVÝ a nasadený.**
+Session log: `docs/sessions/2026-07-06-osoby-modul.md`. Commit: `15f3712`.
+
+- ✅ Nová stránka `/persons` (zoznam) + `/persons/:id` ("osobná karta
+  majetku") pre role Správca majetku a Administrátor. Karta zobrazuje
+  aktuálny majetok VŽDY PRVÝ, potom čakajúce žiadosti, potom históriu
+  (vrátené/poškodené/stratené).
+- ✅ Nové RBAC endpointy `GET /v1/users/directory` + `/:id`
+  (ASSET_MANAGER+ADMIN, minimálny profil — oddelené od plného
+  admin-only `GET /v1/users`).
+- ✅ `GET /v1/loan-requests` rozšírené o `beneficiaryId` filter
+  (requester-OR-beneficiary union, ADR-0023).
+- ⚠️ **Incident:** stale `.git/index.lock` z diagnostického bash `git
+status` zablokoval commit — git MCP tool je bezpečnejšia cesta pre
+  git operácie na tomto repe než bash sandbox.
+
+## Aktuálny stav (2026-07-06, ráno)
 
 **Cold-start perf fix + incident recovery + preloader zjednotenie — HOTOVÉ a nasadené.**
 Session log: `docs/sessions/2026-07-06-migrations-perf-bad-auth-preloader.md`.
