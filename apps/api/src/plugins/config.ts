@@ -214,6 +214,20 @@ const envSchema = z.object({
   //
   // Generate: openssl rand -hex 32
   CRON_SECRET: z.string().min(32).optional(),
+
+  // ---------------------------------------------------------------------
+  // Migrations — deploy-time trigger (POST /v1/system/migrations/run)
+  // ---------------------------------------------------------------------
+  //
+  // Secret shared between the GitHub Actions post-deploy workflow
+  // (.github/workflows/migrate-on-deploy.yml) and this API. Separate from
+  // CRON_SECRET on purpose — different trigger (GitHub Actions, not
+  // Vercel cron), different rotation/audit trail. Min 32 chars.
+  // If unset, the endpoint returns 503 (disabled) and migrations must be
+  // run manually or will only be flagged via the cold-start warning log.
+  //
+  // Generate: openssl rand -hex 32
+  MIGRATIONS_SECRET: z.string().min(32).optional(),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

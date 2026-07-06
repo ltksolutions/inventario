@@ -47,7 +47,7 @@ interface MigrationDefinition {
   run: (db: Db, logger: FastifyBaseLogger) => Promise<void>;
 }
 
-const MIGRATIONS: MigrationDefinition[] = [
+export const MIGRATIONS: MigrationDefinition[] = [
   {
     key: '2026-05-23-memberships',
     description: 'ADR-0015: Split User into global identity + Membership. Move per-tenant fields.',
@@ -202,6 +202,48 @@ export async function runPendingMigrations(db: Db, logger: FastifyBaseLogger): P
   }
 
   logger.info('All pending migrations completed.');
+}
+
+// ---------------------------------------------------------------------------
+// Passive check (cold-start safety net)
+// ---------------------------------------------------------------------------
+
+/**
+ * Check for pending migrations WITHOUT running them.
+ *
+ * Migrations now run via a deploy-time step — see
+ * `modules/system/migrations.routes.ts` (POST /v1/system/migrations/run),
+ * triggered by a GitHub Actions workflow right after a successful
+ * production deploy (`.github/workflows/migrate-on-deploy.yml`).
+ *
+ * This function is what the API calls on every cold start instead: ONE
+ * query to fetch which migration keys are already completed, diffed in
+ * memory against the registry. If anything is still pending it only logs
+ * a warning — it never executes a migration itself. This exists purely as
+ * a safety net in case the deploy-time step is ever skipped or fails; it
+ * is what makes drift visible instead of silent.
+ */
+export async function checkPendingMigrations(db: Db, logger: FastifyBaseLogger): Promise<string[]> {
+  const migrationsCollection = db.collection<MigrationRecord>('migrations');
+
+  const completed = await migrationsCollection
+    .find({ completedAt: { $exists: true } }, { projection: { key: 1 } })
+    .toArray();
+  const completedKeys = new Set(completed.map((doc) => doc.key));
+
+  const pending = MIGRATIONS.filter((migration) => !completedKeys.has(migration.key)).map(
+    (migration) => migration.key,
+  );
+
+  if (pending.length > 0) {
+    logger.warn(
+      { pending, count: pending.length },
+      'Pending migrations detected — they will NOT run automatically on cold start. ' +
+        'Trigger POST /v1/system/migrations/run (protected by MIGRATIONS_SECRET) to apply them.',
+    );
+  }
+
+  return pending;
 }
 
 // ---------------------------------------------------------------------------

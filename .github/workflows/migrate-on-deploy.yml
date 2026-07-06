@@ -1,0 +1,44 @@
+name: Run Migrations After Deploy
+
+# Vercel sends a `repository_dispatch` event with type `vercel.deployment.success`
+# whenever a deployment finishes building AND has been promoted to production
+# (see https://vercel.com/docs/git/vercel-for-github#repository-dispatch).
+#
+# The event payload (github.event.client_payload) looks like:
+#   {
+#     "environment": "production",
+#     "project": { "id": "prj_...", "name": "inventario-api" },
+#     "url": "https://...vercel.app",
+#     ...
+#   }
+#
+# This repo has 4 Vercel projects (inventario-api, inventario-app,
+# inventario-web, inventario-docs) all connected to the same GitHub repo, so
+# every one of them fires this event on its own successful deploy — the job
+# below filters down to inventario-api's production deploys only.
+#
+# NOTE: repository_dispatch workflows only trigger from the file as it
+# exists on the default branch (main) — see Vercel docs. If this ever stops
+# firing, check Project Settings → Git → deployment notifications are
+# enabled for inventario-api in the Vercel dashboard.
+on:
+  repository_dispatch:
+    types:
+      - "vercel.deployment.success"
+
+jobs:
+  migrate:
+    name: Trigger production migrations (inventario-api)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event.client_payload.project.name == 'inventario-api' &&
+      github.event.client_payload.environment == 'production'
+
+    steps:
+      - name: Call POST /v1/system/migrations/run
+        run: |
+          curl --fail --silent --show-error \
+            --max-time 60 \
+            -X POST "https://api.inventario.estate/v1/system/migrations/run" \
+            -H "Authorization: Bearer ${{ secrets.MIGRATIONS_SECRET }}"

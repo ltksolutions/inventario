@@ -30,7 +30,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
-import { runPendingMigrations } from './migrations/runner.js';
+import { checkPendingMigrations } from './migrations/runner.js';
 import assetConditionsRoutes from './modules/asset-conditions/asset-conditions.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
 import publicAssetsRoutes from './modules/assets/public-assets.routes.js';
@@ -56,6 +56,7 @@ import membershipsRoutes from './modules/memberships/memberships.routes.js';
 import organisationsRoutes from './modules/organisations/organisations.routes.js';
 import protocolsRoutes from './modules/protocols/protocols.routes.js';
 import stockRoutes from './modules/stock/stock.routes.js';
+import migrationsRoutes from './modules/system/migrations.routes.js';
 import retentionRoutes from './modules/system/retention.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import authPlugin from './plugins/auth.js';
@@ -153,20 +154,21 @@ export async function buildServer(
   await app.register(mongoPlugin);
 
   // --- Database migrations -------------------------------------------------
-  // Run pending migrations once the DB connection is available. Skipped in
-  // EXPORT_ONLY mode (schema export uses an ephemeral in-memory DB) and in
-  // tests (each test file manages its own clean DB; seeding defaults would
-  // pollute fixtures). The runner is idempotent — it checks `migrations`
-  // collection for a `completedAt` record per key and skips already-done
-  // migrations, so re-running on every cold start is just one extra query.
+  // Migrations run at DEPLOY TIME now, not on cold start — see
+  // POST /v1/system/migrations/run (modules/system/migrations.routes.ts),
+  // triggered automatically by .github/workflows/migrate-on-deploy.yml
+  // right after a successful production deploy.
   //
-  // NOTE (scaling): on serverless this runs at request-time on cold start.
-  // For higher traffic / many tenants, move migrations to a dedicated
-  // deploy-time step to avoid running the check on each cold start and to
-  // remove any chance of concurrent cold starts racing (mitigated today by
-  // the unique index on `migrations.key`).
+  // Cold start only runs a passive check: ONE query to see whether
+  // anything is still pending, and a warning log if so. It never executes
+  // a migration itself. This replaces the previous behavior (running the
+  // full idempotent-but-sequential check on every cold start, which added
+  // ~1s+ per cold start as the migration count grew).
+  //
+  // Skipped in EXPORT_ONLY mode (schema export uses an ephemeral in-memory
+  // DB) and in tests (each test file manages its own clean DB).
   if (process.env['EXPORT_ONLY'] !== 'true' && process.env['NODE_ENV'] !== 'test') {
-    await runPendingMigrations(app.mongo.db, app.log);
+    await checkPendingMigrations(app.mongo.db, app.log);
   }
   await app.register(auditPlugin);
   await app.register(emailPlugin);
@@ -205,6 +207,7 @@ export async function buildServer(
   await app.register(invitationsRoutes);
   await app.register(membershipsRoutes);
   await app.register(stockRoutes);
+  await app.register(migrationsRoutes);
   await app.register(retentionRoutes);
 
   // --- Root redirect to /docs ----------------------------------------------

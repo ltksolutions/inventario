@@ -6435,6 +6435,15 @@
         }
       }
     },
+    "/v1/system/migrations/run": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/v1/system/retention/run": {
       "post": {
         "responses": {
