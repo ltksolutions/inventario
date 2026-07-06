@@ -5,7 +5,9 @@
 
 import { AlertCircle, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
+
+import { SelectField } from './SelectField';
 
 import type { CategorySummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
@@ -86,6 +88,7 @@ export function CategoryCreateDialog({
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isValid },
   } = useForm<FormValues>({
@@ -191,16 +194,19 @@ export function CategoryCreateDialog({
               hint="Hodnota patrí pod jeden root. Hodnotu nie je možné vložiť pod inú hodnotu."
               error={errors.parentId?.message}
             >
-              <select
-                {...register('parentId', { required: 'Vyber root kategóriu.' })}
-                className={inputClasses()}
-              >
-                {rootOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+              <Controller
+                name="parentId"
+                control={control}
+                rules={{ required: 'Vyber root kategóriu.' }}
+                render={({ field }) => (
+                  <SelectField
+                    label="Root kategória"
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={rootOptions.map((c) => ({ value: c.id, label: c.label }))}
+                  />
+                )}
+              />
             </Field>
           ) : null}
 

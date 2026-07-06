@@ -6,7 +6,9 @@
 import { LOCATION_TYPE_VALUES } from '@inventario/shared-types';
 import { AlertCircle, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
+
+import { SelectField } from './SelectField';
 
 import type { LocationSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
@@ -75,6 +77,7 @@ export function LocationCreateDialog({
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isValid },
   } = useForm<FormValues>({
@@ -174,27 +177,43 @@ export function LocationCreateDialog({
           </Field>
 
           <Field label="Typ lokality" required>
-            <select {...register('type', { required: true })} className={inputClasses()}>
-              {LOCATION_TYPE_VALUES.map((t) => (
-                <option key={t} value={t}>
-                  {LOCATION_TYPE_LABELS[t] ?? t}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="type"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <SelectField
+                  label="Typ lokality"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={LOCATION_TYPE_VALUES.map((t) => ({
+                    value: t,
+                    label: LOCATION_TYPE_LABELS[t] ?? t,
+                  }))}
+                />
+              )}
+            />
           </Field>
 
           <Field
             label="Nadradená lokalita"
             hint="Nepovinné. Vyber, ak nová lokalita patrí pod existujúcu (napr. kancelária v štadióne)."
           >
-            <select {...register('parentId')} className={inputClasses()}>
-              <option value="">— Žiadna (root) —</option>
-              {existingLocations.map((l) => (
-                <option key={l._id} value={l._id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="parentId"
+              control={control}
+              render={({ field }) => (
+                <SelectField
+                  label="Nadradená lokalita"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    { value: '', label: '— Žiadna (root) —' },
+                    ...existingLocations.map((l) => ({ value: l._id, label: l.name })),
+                  ]}
+                />
+              )}
+            />
           </Field>
 
           <Field label="Popis" error={errors.description?.message}>
