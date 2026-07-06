@@ -33,6 +33,7 @@ import {
 } from '@/lib/api-hooks';
 import { buildGroupedCategoryOptions } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
+import { focusFirstInvalidField } from '@/lib/form-scroll';
 
 const STATUS_LABELS: Record<string, string> = {
   AVAILABLE: 'Dostupné',
@@ -192,7 +193,11 @@ export function AssetDetailEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+    <form
+      onSubmit={handleSubmit(onSubmit, focusFirstInvalidField)}
+      className="space-y-6"
+      noValidate
+    >
       <Section title="Identifikácia">
         <Field
           label="Inventárne číslo"
@@ -206,7 +211,7 @@ export function AssetDetailEditForm({
           />
         </Field>
 
-        <Field label="Názov" required error={errors.name?.message}>
+        <Field name="name" label="Názov" required error={errors.name?.message}>
           <input
             type="text"
             {...register('name', {
@@ -218,6 +223,7 @@ export function AssetDetailEditForm({
         </Field>
 
         <Field
+          name="categoryId"
           label="Kategória"
           required
           hint="Hierarchický výber: skupina › podkategória. Nové kategórie sa spravujú v Číselníkoch."
@@ -243,7 +249,7 @@ export function AssetDetailEditForm({
           />
         </Field>
 
-        <Field label="Sériové číslo">
+        <Field name="serialNumber" label="Sériové číslo">
           <input
             type="text"
             {...register('serialNumber', {
@@ -255,7 +261,7 @@ export function AssetDetailEditForm({
       </Section>
 
       <Section title="Stav a lokalita">
-        <Field label="Stav" required>
+        <Field name="status" label="Stav" required>
           <Controller
             name="status"
             control={control}
@@ -274,7 +280,7 @@ export function AssetDetailEditForm({
           />
         </Field>
 
-        <Field label="Kondícia" required>
+        <Field name="conditionSlug" label="Kondícia" required>
           <Controller
             name="conditionSlug"
             control={control}
@@ -301,7 +307,7 @@ export function AssetDetailEditForm({
           />
         </Field>
 
-        <Field label="Lokalita" required>
+        <Field name="locationId" label="Lokalita" required>
           <Controller
             name="locationId"
             control={control}
@@ -330,7 +336,7 @@ export function AssetDetailEditForm({
       </Section>
 
       <Section title="Výrobca a model">
-        <Field label="Výrobca">
+        <Field name="manufacturer" label="Výrobca">
           <input
             type="text"
             {...register('manufacturer', {
@@ -339,7 +345,7 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-        <Field label="Model">
+        <Field name="model" label="Model">
           <input
             type="text"
             {...register('model', {
@@ -351,7 +357,7 @@ export function AssetDetailEditForm({
       </Section>
 
       <Section title="Nadobudnutie">
-        <Field label="Dátum nadobudnutia" required>
+        <Field name="acquiredAt" label="Dátum nadobudnutia" required>
           <Controller
             name="acquiredAt"
             control={control}
@@ -366,7 +372,11 @@ export function AssetDetailEditForm({
             )}
           />
         </Field>
-        <Field label="Nadobúdacia cena (€)" hint="Voliteľné. Použite desatinnú bodku alebo čiarku.">
+        <Field
+          name="acquisitionCost"
+          label="Nadobúdacia cena (€)"
+          hint="Voliteľné. Použite desatinnú bodku alebo čiarku."
+        >
           <input
             type="text"
             inputMode="decimal"
@@ -379,7 +389,7 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-        <Field label="Záruka do">
+        <Field name="warrantyUntil" label="Záruka do">
           <Controller
             name="warrantyUntil"
             control={control}
@@ -391,7 +401,7 @@ export function AssetDetailEditForm({
       </Section>
 
       <Section title="Popis a tagy">
-        <Field label="Popis">
+        <Field name="description" label="Popis">
           <textarea
             rows={4}
             {...register('description', {
@@ -400,7 +410,7 @@ export function AssetDetailEditForm({
             className={inputClasses()}
           />
         </Field>
-        <Field label="Tagy">
+        <Field name="tags" label="Tagy">
           <Controller
             name="tags"
             control={control}
@@ -410,7 +420,7 @@ export function AssetDetailEditForm({
       </Section>
 
       <Section title="Pravidlá výpožičky">
-        <Field label="Možno zapožičať">
+        <Field name="isLoanable" label="Možno zapožičať">
           <label className="flex items-center gap-2 text-sm text-text-primary">
             <input
               type="checkbox"
@@ -420,7 +430,7 @@ export function AssetDetailEditForm({
             <span>Áno — položku je možné si vypožičať</span>
           </label>
         </Field>
-        <Field label="Vyžaduje schválenie">
+        <Field name="requiresApproval" label="Vyžaduje schválenie">
           <label className="flex items-center gap-2 text-sm text-text-primary">
             <input
               type="checkbox"
@@ -478,12 +488,20 @@ function Section({ title, children }: { title: string; children: ReactNode }): J
 }
 
 function Field({
+  name,
   label,
   children,
   required,
   hint,
   error,
 }: {
+  /**
+   * react-hook-form field name — rendered as `data-field` so
+   * `focusFirstInvalidField` can locate this wrapper after a failed
+   * submit. Omitted for the one read-only Field with no backing form
+   * field (inventárne číslo).
+   */
+  name?: keyof FormValues;
   label: string;
   children: ReactNode;
   required?: boolean | undefined;
@@ -491,7 +509,7 @@ function Field({
   error?: string | undefined;
 }): JSX.Element {
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-1" data-field={name}>
       <span className="flex items-baseline gap-1 text-sm font-medium text-text-secondary">
         {label}
         {required ? (
