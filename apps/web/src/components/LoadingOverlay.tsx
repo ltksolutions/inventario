@@ -45,17 +45,25 @@ export function LoadingOverlay({
       role="status"
       aria-live="polite"
       className={cn(
-        'fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4',
-        'bg-surface-page/90 backdrop-blur-sm',
+        'fixed inset-0 z-[100] flex flex-col items-center justify-center',
+        'bg-surface-page/60 backdrop-blur-sm',
         className,
       )}
     >
-      <div className="flex items-center gap-2 text-brand-primary">
-        <Layers aria-hidden="true" className="h-8 w-8" />
-        <span className="text-2xl font-bold">Inventario</span>
+      {/*
+       * Vlastná nepriehľadná karta pod obsahom — bez nej text/logo sedeli
+       * priamo na rozmazanom pozadí a nad pestrejším obsahom (napr. tabuľky)
+       * boli zle čitateľné. Karta dáva spoľahlivý kontrast bez ohľadu na to,
+       * čo presvitá spod blur efektu.
+       */}
+      <div className="flex flex-col items-center gap-4 rounded-2xl bg-surface-card px-10 py-8 shadow-xl ring-1 ring-border-subtle">
+        <div className="flex items-center gap-2 text-brand-primary">
+          <Layers aria-hidden="true" className="h-8 w-8" />
+          <span className="text-2xl font-bold">Inventario</span>
+        </div>
+        <Loader2 aria-hidden="true" className="h-8 w-8 animate-spin text-brand-primary" />
+        <span className="text-sm text-text-secondary">{label}</span>
       </div>
-      <Loader2 aria-hidden="true" className="h-8 w-8 animate-spin text-brand-primary" />
-      <span className="text-sm text-text-secondary">{label}</span>
     </div>
   );
 }
