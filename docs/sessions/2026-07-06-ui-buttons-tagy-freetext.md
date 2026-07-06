@@ -125,3 +125,21 @@ prehliadačový `<select>` len s `inputClasses()` štýlom — v rozpore s ADR-0
 ("SelectField nahrádza natívny `<select>` vo všetkých častiach appky").
 Opravené prerobením na `Controller` + `SelectField` vzor (rovnaký ako
 `AssetCreateContent.tsx`).
+
+## Dodatok — commit `41ec214`: skutočný "Nová lokalita" select na `/ciselniky`
+
+Fix `2fce826` opravil `LocationCreateDialog.tsx`, ale Janika stále hlásila
+rovnaký problém na `/ciselniky` (Lokality tab). Príčina: `/ciselniky`
+(`CiselnikyContent.tsx`) má **dve samostatné implementácie** modálov —
+`CategoriesTab` už správne používal zdieľanú `CategoryCreateDialog`
+(preto Kategórie fungovali), ale `LocationsTab` mal vlastnú **lokálnu**
+`LocationDialog` funkciu (riadok ~705) s vlastným natívnym `<select>`,
+nesúvisiacu s `LocationCreateDialog.tsx`. Poučenie: pri UI bugoch vždy
+overiť, ktorá konkrétna komponenta sa reálne renderuje na danej URL/tabe,
+nie len komponenty s podobným menom. Opravené na `SelectField`
+(`value`/`onChange` priamo, žiadny `Controller` — modál používa `useState`,
+nie `react-hook-form`). Vedľajšia oprava: `<label>` obaľujúci `SelectField`
+zmenený na `<div>` (jsx-a11y/label-has-associated-control — `SelectField`
+je button, nie natívny form control, takže `<label>` naň nevie ukázať
+`htmlFor`; `aria-label` rieši a11y priamo v `SelectField`). Potvrdené
+Janikou naživo po tvrdom refreshi.

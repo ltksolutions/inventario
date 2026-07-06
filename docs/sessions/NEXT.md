@@ -14,6 +14,11 @@ Commity: `ea55833`, `a353a14`, `4a37f78`, `3412882`, `2fce826`.
 - ✅ Natívny `<select>` → `SelectField` v `LocationCreateDialog.tsx` (Typ lokality,
   Nadradená lokalita) a `CategoryCreateDialog.tsx` (Root kategória) — v rozpore s
   ADR-0018, teraz zjednotené s `AssetCreateContent.tsx` vzorom.
+- ✅ **Dodatočne zistené:** fix vyššie sa netýkal reálne používanej komponenty na
+  `/ciselniky` — Lokality tab tam má vlastnú lokálnu `LocationDialog` v
+  `CiselnikyContent.tsx` s vlastným natívnym selectom (Kategórie tam už
+  správne používali zdieľanú `CategoryCreateDialog`). Opravené zvlášť
+  (commit `41ec214`), potvrdené Janikou naživo.
 
 ## Aktuálny stav (2026-07-06, neskorý večer) — UI/UX tlačidlá, veľké písmená tagov, normalizácia voľného textu
 
