@@ -17,13 +17,7 @@ import { TRACKING_MODE_FILTER_OPTIONS } from './TrackingModeBadge';
 import type { CategorySummary, LocationSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
-import {
-  useAssets,
-  useCanEditAssets,
-  useCategories,
-  useLocations,
-  useLoans,
-} from '@/lib/api-hooks';
+import { useAssets, useCanEditAssets, useCategories, useLocations } from '@/lib/api-hooks';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 /**
@@ -72,7 +66,6 @@ export function AssetsListContent(): JSX.Element {
   const [pageSize, setPageSize] = useState<PageSize>(20);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [trackingModeFilter, setTrackingModeFilter] = useState<string>('');
-  const [borrowerFilter, setBorrowerFilter] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -87,11 +80,6 @@ export function AssetsListContent(): JSX.Element {
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
 
-  // Aktívne výpožičky — potrebujeme vedieť, kto má daný majetok zapožičaný.
-  // Limit 500 je dostatočný pre pilotných nájomníkov; ak by rástol,
-  // stačí zvýšiť alebo presunúť logiku na server (filter assets by status).
-  const activeLoansQuery = useLoans({ status: 'ACTIVE', limit: 500 });
-
   // Build lookup maps once per query result. Memoising matters here:
   // the table would otherwise rebuild the lookup on every keystroke
   // in the search box.
@@ -102,27 +90,6 @@ export function AssetsListContent(): JSX.Element {
   const locationsById = useMemo(
     () => buildIdMap<LocationSummary>(locationsQuery.data?.data ?? []),
     [locationsQuery.data],
-  );
-
-  // Mapa assetId → meno vypožičiavateľa pre BORROWED položky.
-  // Jeden asset môže mať nanajvýš jednu aktívnu výpožičku, takže posledný
-  // záznam vyhráva (v praxi kolízia nenastane).
-  const borrowerByAssetId = useMemo(() => {
-    const loans = activeLoansQuery.data?.data ?? [];
-    const map = new Map<string, string>();
-    for (const loan of loans) {
-      if (!loan.borrowerDisplayName) continue;
-      for (const item of loan.items ?? []) {
-        if (item.assetId) map.set(item.assetId, loan.borrowerDisplayName);
-      }
-    }
-    return map;
-  }, [activeLoansQuery.data]);
-
-  // Unique list of borrower names for the filter dropdown — derived from active loans.
-  const availableBorrowers = useMemo(
-    () => [...new Set(borrowerByAssetId.values())].sort((a, b) => a.localeCompare(b, 'sk')),
-    [borrowerByAssetId],
   );
 
   // Apply client-side filters to the current page's rows. See the
@@ -137,9 +104,6 @@ export function AssetsListContent(): JSX.Element {
       if (trackingModeFilter && asset.trackingMode !== trackingModeFilter) {
         return false;
       }
-      if (borrowerFilter && borrowerByAssetId.get(asset._id) !== borrowerFilter) {
-        return false;
-      }
       if (normalisedSearch) {
         const haystack = `${asset.inventoryNumber} ${asset.name}`.toLowerCase();
         if (!haystack.includes(normalisedSearch)) {
@@ -148,23 +112,13 @@ export function AssetsListContent(): JSX.Element {
       }
       return true;
     });
-  }, [
-    assetsQuery.data,
-    statusFilter,
-    trackingModeFilter,
-    borrowerFilter,
-    borrowerByAssetId,
-    searchTerm,
-  ]);
+  }, [assetsQuery.data, statusFilter, trackingModeFilter, searchTerm]);
 
   const total = assetsQuery.data?.pagination.total ?? 0;
   const hasMore = assetsQuery.data?.pagination.hasMore ?? false;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilter =
-    statusFilter !== '' ||
-    trackingModeFilter !== '' ||
-    borrowerFilter !== '' ||
-    searchTerm.trim() !== '';
+    statusFilter !== '' || trackingModeFilter !== '' || searchTerm.trim() !== '';
 
   const canEdit = useCanEditAssets();
   const orgQuery = useCurrentOrganisation();
@@ -200,7 +154,7 @@ export function AssetsListContent(): JSX.Element {
 
       <section
         aria-label="Filtre"
-        className="mb-4 grid gap-3 rounded-xl border border-border-subtle bg-surface-card p-4 shadow-sm sm:grid-cols-[1fr_auto_auto_auto_auto]"
+        className="mb-4 grid gap-3 rounded-xl border border-border-subtle bg-surface-card p-4 shadow-sm sm:grid-cols-[1fr_auto_auto_auto]"
       >
         <label className="flex flex-col gap-1 text-sm text-text-secondary">
           <span className="font-medium">Hľadať</span>
@@ -247,23 +201,6 @@ export function AssetsListContent(): JSX.Element {
             }}
             options={TRACKING_MODE_FILTER_OPTIONS}
             className="w-40"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1 text-sm text-text-secondary">
-          <span className="font-medium">Vypožičané kým</span>
-          <SelectField
-            label="Vypožičané kým"
-            value={borrowerFilter}
-            onChange={(v) => {
-              setBorrowerFilter(v);
-              setPage(1);
-            }}
-            options={[
-              { value: '', label: 'Všetci' },
-              ...availableBorrowers.map((name) => ({ value: name, label: name })),
-            ]}
-            className="w-44"
           />
         </div>
 
@@ -351,7 +288,6 @@ export function AssetsListContent(): JSX.Element {
           assets={filteredAssets}
           categoriesById={categoriesById}
           locationsById={locationsById}
-          borrowerByAssetId={borrowerByAssetId}
         />
       )}
 
