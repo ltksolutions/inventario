@@ -38,7 +38,7 @@ export const PROTOCOL_TYPE_LABELS: Record<string, string> = {
 
 export const PROTOCOL_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT: {
-    label: 'Návrh — čaká na podpisy',
+    label: 'Podpísať',
     className: 'bg-amber-50 text-amber-700 ring-amber-600/20',
   },
   SIGNED: { label: 'Podpísaný', className: 'bg-green-50 text-green-700 ring-green-600/20' },
