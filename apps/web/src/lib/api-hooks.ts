@@ -727,6 +727,124 @@ export function useAssetTags(): UseQueryResult<string[], Error> {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Tagy — číselník (summary s počtami použitia, premenovanie, mazanie)
+// ---------------------------------------------------------------------------
+
+export interface TagSummaryEntry {
+  tag: string;
+  count: number;
+}
+
+/**
+ * GET /v1/assets/tags/summary — tagy s počtom majetku, ktorý ich používa.
+ * Dátový zdroj pre číselník "Tagy" na /ciselniky (2026-07-07).
+ *
+ * Not yet reflected in generated api-types.ts — generic-cast pattern
+ * (rovnaké ako useAssetTags).
+ */
+export function useTagsSummary(): UseQueryResult<TagSummaryEntry[], Error> {
+  const { isAuthenticated } = useAuth();
+  const genericGet = apiClient.GET as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useQuery<TagSummaryEntry[], Error>({
+    queryKey: ['asset-tags-summary'],
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await genericGet('/v1/assets/tags/summary', {});
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load tags summary');
+      }
+      const parsed = data as unknown as { data?: unknown };
+      return Array.isArray(parsed?.data) ? (parsed.data as TagSummaryEntry[]) : [];
+    },
+  });
+}
+
+/**
+ * POST /v1/assets/tags/rename — hromadné premenovanie tagu naprieč
+ * majetkom (duplicity po zlúčení sa serverom deduplikujú). Vracia počet
+ * dotknutých položiek majetku.
+ *
+ * Na úspech invaliduje tags summary, distinct-tags autocomplete zdroj aj
+ * zoznam majetku (zmenené `tags` polia sa musia prejaviť aj tam) a detail
+ * jednotlivých majetkov (nevieme presne ktoré, invalidujeme celý predikát).
+ *
+ * RBAC: ASSET_MANAGER + ADMIN (server aj klient — `useCanManageTaxonomy()`).
+ */
+export function useRenameTag(): UseMutationResult<
+  { affected: number },
+  Error,
+  { oldTag: string; newTag: string }
+> {
+  const queryClient = useQueryClient();
+  const genericPost = apiClient.POST as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useMutation<{ affected: number }, Error, { oldTag: string; newTag: string }>({
+    mutationFn: async ({ oldTag, newTag }) => {
+      const { data, error } = await genericPost('/v1/assets/tags/rename', {
+        body: { oldTag, newTag },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to rename tag');
+      }
+      if (!data) throw new Error('Empty response after tag rename');
+      return data as { affected: number };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['asset-tags-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['asset-tags'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      void queryClient.invalidateQueries({ queryKey: ['asset'] });
+    },
+  });
+}
+
+/**
+ * POST /v1/assets/tags/delete — hromadné odstránenie tagu zo všetkého
+ * majetku. Vracia počet dotknutých položiek majetku.
+ *
+ * Rovnaká invalidation stratégia ako useRenameTag.
+ *
+ * RBAC: ASSET_MANAGER + ADMIN (server aj klient — `useCanManageTaxonomy()`).
+ */
+export function useDeleteTag(): UseMutationResult<{ affected: number }, Error, { tag: string }> {
+  const queryClient = useQueryClient();
+  const genericPost = apiClient.POST as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useMutation<{ affected: number }, Error, { tag: string }>({
+    mutationFn: async ({ tag }) => {
+      const { data, error } = await genericPost('/v1/assets/tags/delete', {
+        body: { tag },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to delete tag');
+      }
+      if (!data) throw new Error('Empty response after tag delete');
+      return data as { affected: number };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['asset-tags-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['asset-tags'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      void queryClient.invalidateQueries({ queryKey: ['asset'] });
+    },
+  });
+}
+
 /**
  * PATCH an asset. On success invalidates both the single-asset cache
  * and any list views so the change shows up everywhere immediately.

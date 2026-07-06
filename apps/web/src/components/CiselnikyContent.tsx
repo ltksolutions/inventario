@@ -4,17 +4,23 @@
 'use client';
 
 /**
- * Číselníky — zjednotená správa taxonómie (kategórie, lokality, stavy)
- * na jednej stránke s 3 záložkami.
+ * Číselníky — zjednotená správa taxonómie (kategórie, lokality, stavy,
+ * tagy) na jednej stránke so 4 záložkami.
  *
  * Zlúčený číselník (2026-06-08): "Typy majetku" zanikli ako samostatný
  * číselník — root kategórie plnia ich rolu (skupiny). Kategórie sú
  * zoskupené podľa root skupiny; majetok sa zaraďuje len do podkategórií.
  *
- * RBAC:
+ * RBAC (Kategórie / Lokality / Stavy):
  *   - Zobrazenie: všetci prihlásení
  *   - Pridať / premenovať: ASSET_MANAGER + ADMIN
  *   - Zmazať: ADMIN only (backend FK protection)
+ *
+ * RBAC (Tagy, 2026-07-07) — výnimka z vyššie uvedeného:
+ *   - Bez "Pridať" — tagy vznikajú len priradením na majetku.
+ *   - Premenovať aj Vymazať: ASSET_MANAGER + ADMIN (nie len ADMIN pri
+ *     mazaní) — rozhodnutie Janiky, mazanie tagu nie je štrukturálne
+ *     deštruktívne ako mazanie kategórie/lokality.
  */
 
 import { AlertCircle, Check, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react';
@@ -36,19 +42,24 @@ import {
   useDeleteAssetCondition,
   useDeleteCategory,
   useDeleteLocation,
+  useDeleteTag,
   useLocations,
   useRenameAssetCondition,
   useRenameCategory,
+  useRenameTag,
+  useTagsSummary,
   useUpdateLocation,
 } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
+import { displayTag } from '@/lib/tags';
 
-type TabKey = 'categories' | 'locations' | 'conditions';
+type TabKey = 'categories' | 'locations' | 'conditions' | 'tags';
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'categories', label: 'Kategórie' },
   { key: 'locations', label: 'Lokality' },
   { key: 'conditions', label: 'Stavy' },
+  { key: 'tags', label: 'Tagy' },
 ];
 
 export function CiselnikyContent(): JSX.Element {
@@ -85,6 +96,7 @@ export function CiselnikyContent(): JSX.Element {
       {activeTab === 'categories' && <CategoriesTab />}
       {activeTab === 'locations' && <LocationsTab />}
       {activeTab === 'conditions' && <ConditionsTab />}
+      {activeTab === 'tags' && <TagsTab />}
     </div>
   );
 }
@@ -1025,6 +1037,194 @@ function ConditionsTab(): JSX.Element {
           error={del.error?.message ?? null}
           onConfirm={() =>
             del.mutate({ id: deleteTarget.id }, { onSuccess: () => setDeleteTarget(null) })
+          }
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Tags — číselník tagov (premenovanie + mazanie, bez "Pridať")
+// ---------------------------------------------------------------------------
+
+/**
+ * Tagy nemajú vlastný "Pridať" flow — vznikajú výlučne priraďovaním na
+ * majetku (TagsCombobox pri vytváraní/editácii). Tento tab slúži na
+ * hromadnú správu už existujúcich tagov: premenovanie (so zlúčením
+ * duplicít) a mazanie zo všetkého majetku naraz.
+ *
+ * RBAC (rozhodnutie Janiky pri zadaní 2026-07-07): na rozdiel od
+ * ostatných záložiek tu má "Vymazať" rovnaké oprávnenie ako
+ * "Premenovať" — ASSET_MANAGER + ADMIN (nie len ADMIN) — pretože
+ * mazanie tagu je nedeštruktívne pre majetok samotný (len sa mu odoberie
+ * jeden štítok), na rozdiel od mazania kategórie/lokality.
+ */
+function TagsTab(): JSX.Element {
+  const query = useTagsSummary();
+  const canManage = useCanManageTaxonomy();
+  const rename = useRenameTag();
+  const del = useDeleteTag();
+
+  const [renamingTag, setRenamingTag] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ tag: string; count: number } | null>(null);
+
+  async function commitRename(oldTag: string): Promise<void> {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed.toLowerCase() === oldTag.toLowerCase()) {
+      setRenamingTag(null);
+      return;
+    }
+    setRenameLoading(true);
+    setRenameError(null);
+    try {
+      await rename.mutateAsync({ oldTag, newTag: trimmed });
+      setRenamingTag(null);
+    } catch (e) {
+      setRenameError(e instanceof Error ? e.message : 'Premenovanie zlyhalo.');
+    } finally {
+      setRenameLoading(false);
+    }
+  }
+
+  if (query.isLoading) return <ListSkeleton />;
+  if (query.isError)
+    return <ErrorPanel message="Tagy sa nepodarilo načítať. Skontroluj pripojenie a skús znova." />;
+
+  const rows = query.data ?? [];
+
+  return (
+    <>
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-default bg-surface-card p-10 text-center">
+          <p className="text-sm font-medium text-text-primary">
+            Zatiaľ žiadne tagy. Tagy vznikajú priradením na majetku.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
+          <table className="w-full min-w-[480px] text-sm">
+            <thead className="border-b border-border-subtle bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <tr>
+                <th scope="col" className="px-4 py-3">
+                  Tag
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Počet použití
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  <span className="sr-only">Akcie</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {rows.map((row) => {
+                const isRenaming = renamingTag === row.tag;
+                return (
+                  <tr key={row.tag} className="hover:bg-surface-subtle">
+                    <td className="px-4 py-3 font-medium text-text-primary">
+                      {isRenaming ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void commitRename(row.tag);
+                              }
+                              if (e.key === 'Escape') {
+                                e.preventDefault();
+                                setRenamingTag(null);
+                              }
+                            }}
+                            ref={(el) => el?.focus()}
+                            className="w-48 rounded border border-border-focus bg-surface-card px-2 py-1 text-sm focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            disabled={renameLoading}
+                            onClick={() => void commitRename(row.tag)}
+                            aria-label="Uložiť"
+                            className="rounded p-1 text-brand-primary hover:bg-surface-subtle disabled:opacity-50"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRenamingTag(null)}
+                            aria-label="Zrušiť"
+                            className="rounded p-1 text-text-muted hover:text-text-primary"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        displayTag(row.tag)
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">{row.count}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex gap-1.5">
+                        {canManage && !isRenaming ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRenamingTag(row.tag);
+                              setRenameValue(row.tag);
+                              setRenameError(null);
+                            }}
+                            aria-label={`Premenovať ${row.tag}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                            Premenovať
+                          </button>
+                        ) : null}
+                        {canManage && !isRenaming ? (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget({ tag: row.tag, count: row.count })}
+                            aria-label={`Vymazať ${row.tag}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-danger-fg transition hover:bg-danger-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+                            Vymazať
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {renameError ? (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-fg bg-danger-bg p-3 text-sm text-danger-fg">
+          <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span>{renameError}</span>
+        </div>
+      ) : null}
+      {deleteTarget && (
+        <ConfirmDeleteDialog
+          title={`Vymazať tag ${displayTag(deleteTarget.tag)}?`}
+          description={
+            deleteTarget.count === 1
+              ? 'Tag sa odstráni z 1 kusu majetku, ktorý ho aktuálne používa. Táto akcia sa nedá vrátiť.'
+              : `Tag sa odstráni z ${deleteTarget.count} kusov majetku, ktoré ho aktuálne používajú. Táto akcia sa nedá vrátiť.`
+          }
+          confirmLabel="Vymazať"
+          isPending={del.isPending}
+          error={del.error?.message ?? null}
+          onConfirm={() =>
+            del.mutate({ tag: deleteTarget.tag }, { onSuccess: () => setDeleteTarget(null) })
           }
           onCancel={() => setDeleteTarget(null)}
         />
