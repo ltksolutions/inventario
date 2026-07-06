@@ -64,6 +64,16 @@ const ListLoanRequestsQuerySchema = z.object({
     .string()
     .regex(/^[a-f\d]{24}$/i)
     .optional(),
+  /**
+   * Filter by beneficiary (ADR-0023). Used by the "Osoby" person card to
+   * fetch all pending requests where a given person is involved, either
+   * as requester or beneficiary — pass the same id as requesterId to get
+   * that union (see LoansService.listLoanRequests()).
+   */
+  beneficiaryId: z
+    .string()
+    .regex(/^[a-f\d]{24}$/i)
+    .optional(),
 });
 
 /**
@@ -178,9 +188,15 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { limit, skip, status, requesterId } = request.query;
+      const { limit, skip, status, requesterId, beneficiaryId } = request.query;
       return service.listLoanRequests(
-        { limit, skip, ...(status && { status }), ...(requesterId && { requesterId }) },
+        {
+          limit,
+          skip,
+          ...(status && { status }),
+          ...(requesterId && { requesterId }),
+          ...(beneficiaryId && { beneficiaryId }),
+        },
         request.currentUser,
       );
     },

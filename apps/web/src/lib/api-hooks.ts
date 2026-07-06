@@ -1073,6 +1073,103 @@ export function useCanManageTaxonomy(): boolean {
   return roleSatisfies(user?.role, 'ASSET_MANAGER');
 }
 
+/**
+ * Minimal person shape returned by GET /v1/users/directory (the "Osoby"
+ * module, 2026-07-06). Deliberately much smaller than UserSummary — this
+ * endpoint is ASSET_MANAGER-accessible (not just ADMIN), so the response
+ * only carries what's needed to identify a person and link to their
+ * asset card, not the full admin User profile.
+ */
+export interface PersonSummary {
+  _id: string;
+  displayName: string;
+  email: string;
+  role: string | null;
+  isActive: boolean;
+  [key: string]: unknown;
+}
+
+interface PersonsDirectoryOptions {
+  limit?: number;
+  skip?: number;
+  /** Free-text search across email + displayName + firstName + lastName. */
+  q?: string | undefined;
+}
+
+/**
+ * GET /v1/users/directory — "Osoby" module list (ASSET_MANAGER + ADMIN).
+ *
+ * Not yet reflected in the generated api-types.ts (that file is a
+ * gitignored local artifact regenerated from openapi.json via
+ * `openapi-typescript`, a separate manual step from the pre-commit hook
+ * that regenerates openapi.json itself) — uses the same generic-cast
+ * escape hatch as `useLoanRequest()` for a path the typed client doesn't
+ * know about yet.
+ */
+export function usePersonsDirectory(
+  options: PersonsDirectoryOptions = {},
+): UseQueryResult<ListResponse<PersonSummary>, Error> {
+  const { limit = 50, skip = 0, q } = options;
+  const { isAuthenticated } = useAuth();
+  const genericGet = apiClient.GET as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useQuery<ListResponse<PersonSummary>, Error>({
+    queryKey: ['persons-directory', { limit, skip, q }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const query: Record<string, unknown> = { limit, skip };
+      if (q !== undefined && q.length > 0) {
+        query['q'] = q;
+      }
+      const { data, error } = await genericGet('/v1/users/directory', {
+        params: { query },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load persons');
+      }
+      return data as unknown as ListResponse<PersonSummary>;
+    },
+  });
+}
+
+/** GET /v1/users/directory/:id — single person for the "osobná karta majetku". */
+export function usePerson(id: string | null): UseQueryResult<PersonSummary, Error> {
+  const { isAuthenticated } = useAuth();
+  const genericGet = apiClient.GET as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useQuery<PersonSummary, Error>({
+    queryKey: ['person', id],
+    enabled: isAuthenticated && !!id,
+    queryFn: async () => {
+      const { data, error } = await genericGet('/v1/users/directory/{id}', {
+        params: { path: { id: id as string } },
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load person');
+      }
+      return data as unknown as PersonSummary;
+    },
+  });
+}
+
+/**
+ * Role gate for the "Osoby" module. Same threshold as useCanEditAssets
+ * (ASSET_MANAGER+) — kept as a distinctly-named export for call-site
+ * clarity, mirroring useCanAdminUsers / useCanManageTaxonomy.
+ */
+export function useCanManagePersons(): boolean {
+  const { user } = useAuth();
+  return roleSatisfies(user?.role, 'ASSET_MANAGER');
+}
+
 export function useCanDeleteTaxonomy(): boolean {
   const { user } = useAuth();
   return user?.role === 'ADMIN';
@@ -1173,21 +1270,37 @@ interface LoanRequestsListOptions {
   status?: string;
   limit?: number;
   skip?: number;
+  /** ADR-0023 — filter by requester (manager-only on the backend). */
+  requesterId?: string;
+  /**
+   * ADR-0023 — filter by beneficiary (manager-only on the backend).
+   * Pass the same value as requesterId to get "requester OR beneficiary".
+   */
+  beneficiaryId?: string;
 }
 
-/** GET /v1/loan-requests — EMPLOYEE sees own, manager sees all */
+/**
+ * GET /v1/loan-requests — EMPLOYEE sees own, manager sees all.
+ *
+ * `requesterId` / `beneficiaryId` are manager-only filters on the
+ * backend (ADR-0023) — EMPLOYEE callers always get their own requests
+ * regardless of what's passed here. Used by the "Osoby" person card
+ * (pass the same personId as both to get "requester OR beneficiary").
+ */
 export function useLoanRequests(
   options: LoanRequestsListOptions = {},
 ): UseQueryResult<ListResponse<LoanRequestSummary>, Error> {
-  const { limit = 20, skip = 0, status } = options;
+  const { limit = 20, skip = 0, status, requesterId, beneficiaryId } = options;
   const { isAuthenticated } = useAuth();
 
   return useQuery<ListResponse<LoanRequestSummary>, Error>({
-    queryKey: ['loan-requests', { limit, skip, status }],
+    queryKey: ['loan-requests', { limit, skip, status, requesterId, beneficiaryId }],
     enabled: isAuthenticated,
     queryFn: async () => {
       const query: Record<string, unknown> = { limit, skip };
       if (status !== undefined) query['status'] = status;
+      if (requesterId !== undefined) query['requesterId'] = requesterId;
+      if (beneficiaryId !== undefined) query['beneficiaryId'] = beneficiaryId;
       const { data, error } = await apiClient.GET('/v1/loan-requests', {
         params: { query: query as never },
       });

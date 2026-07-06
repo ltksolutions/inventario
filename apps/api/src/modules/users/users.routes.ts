@@ -144,6 +144,53 @@ const ListUsersResponseSchema = z.object({
   }),
 });
 
+/**
+ * Osoby / person directory ("osobna karta majetku", 2026-07-06).
+ *
+ * Zamerne oddelene od ListUsersQuerySchema/ListUsersResponseSchema vyssie:
+ * tento endpoint je pristupny ASSET_MANAGER-om (nie len ADMIN), takze
+ * response smie obsahovat LEN minimalne polia potrebne na identifikaciu
+ * osoby a prepojenie na jej vypozicky — nie cely User dokument (ktory
+ * obsahuje MFA stav, audit-relevantne polia a pod., vyhradene pre ADMIN
+ * cez GET /v1/users).
+ */
+const DirectoryQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  skip: z.coerce.number().int().min(0).default(0),
+  q: z.string().min(1).max(200).trim().optional(),
+});
+
+const DirectoryItemSchema = z.object({
+  _id: z.string(),
+  displayName: z.string(),
+  email: z.string(),
+  role: z.string().nullable(),
+  isActive: z.boolean(),
+});
+
+const DirectoryListResponseSchema = z.object({
+  data: z.array(DirectoryItemSchema),
+  pagination: z.object({
+    total: z.number().int().nonnegative(),
+    limit: z.number().int().positive(),
+    skip: z.number().int().nonnegative(),
+    hasMore: z.boolean(),
+  }),
+});
+
+/** Trims a full service-layer user record down to the directory shape. */
+function toDirectoryShape(doc: Record<string, unknown>): z.infer<typeof DirectoryItemSchema> {
+  const roles = Array.isArray(doc['roles']) ? (doc['roles'] as unknown[]) : [];
+  const role = roles.length > 0 ? String(roles[0]) : null;
+  return {
+    _id: String(doc['_id']),
+    displayName: String(doc['displayName'] ?? ''),
+    email: String(doc['email'] ?? ''),
+    role,
+    isActive: Boolean(doc['isActive']),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Admin: GDPR cl. 18 restriction body
 // ---------------------------------------------------------------------------
@@ -214,6 +261,9 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
 
   // RBAC pre-handlers.
   const canAdmin = fastify.requireRole(['ADMIN']);
+  // ASSET_MANAGER + ADMIN — pouzite pre "Osoby" adresar (GET /v1/users/directory*),
+  // ktory je zamerne oddeleny od plnych admin GET /v1/users* endpointov nizsie.
+  const canManage = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
 
   // --- GET /v1/me ----------------------------------------------------------
   app.get(
@@ -383,6 +433,79 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       return service.getById(request.params.id, request.currentUser);
+    },
+  );
+
+  // --- GET /v1/users/directory ----------------------------------------------
+  // Minimalisticky zoznam osob ("Osoby" modul) pre ASSET_MANAGER + ADMIN.
+  // Zaregistrovany ako STATICKA cesta popri parametrickej /v1/users/:id —
+  // find-my-way (Fastify router) uprednostnuje staticke segmenty pred
+  // parametrickymi na rovnakej hlbke, takze "directory" sa nikdy
+  // nevyhodnoti ako :id (rovnaky overeny vzor ako /v1/loans/my popri
+  // /v1/loans/:id).
+  app.get(
+    '/v1/users/directory',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canManage],
+      schema: {
+        tags: ['Users'],
+        summary: 'List persons directory (manager)',
+        description:
+          'Minimalny zoznam osob v ramci tenanta (meno, rola, e-mail, aktivita) ' +
+          'pre modul "Osoby". Na rozdiel od GET /v1/users nevracia cely User ' +
+          'dokument. Vyzaduje ASSET_MANAGER alebo ADMIN.',
+        security: [{ bearerAuth: [] }],
+        querystring: DirectoryQuerySchema,
+        response: {
+          200: DirectoryListResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      const { limit, skip, q } = request.query;
+      const filterObj: Record<string, unknown> = {};
+      if (q !== undefined) {
+        const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = { $regex: escaped, $options: 'i' };
+        filterObj['$or'] = [
+          { email: re },
+          { displayName: re },
+          { firstName: re },
+          { lastName: re },
+        ];
+      }
+      const result = await service.list(
+        { limit, skip, filter: filterObj as Filter<User> },
+        request.currentUser,
+      );
+      return {
+        data: result.data.map(toDirectoryShape),
+        pagination: result.pagination,
+      };
+    },
+  );
+
+  // --- GET /v1/users/directory/:id -------------------------------------------
+  app.get(
+    '/v1/users/directory/:id',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canManage],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get a person directory entry by ID (manager)',
+        description:
+          'Minimalny profil jednej osoby (meno, rola, e-mail, aktivita) pre ' +
+          '"osobnu kartu majetku". Vyzaduje ASSET_MANAGER alebo ADMIN.',
+        security: [{ bearerAuth: [] }],
+        params: UserIdParamsSchema,
+        response: {
+          200: DirectoryItemSchema,
+        },
+      },
+    },
+    async (request) => {
+      const doc = await service.getById(request.params.id, request.currentUser);
+      return toDirectoryShape(doc);
     },
   );
 

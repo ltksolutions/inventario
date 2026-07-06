@@ -76,6 +76,17 @@ export interface CreateCatalogLoanRequestInput {
 export interface ListLoanRequestsServiceParams {
   status?: LoanRequestStatus;
   requesterId?: string;
+  /**
+   * Filter by beneficiary (ADR-0023).
+   *
+   * For managers, combinable with `requesterId` — the repository's
+   * `list()` collapses the two into a `$or: [{requesterId}, {beneficiaryId}]`
+   * union when both are equal, which is exactly what the "Osoby" person
+   * card needs: "all requests where person X is involved, either as
+   * requester or as beneficiary". For non-managers this field is ignored
+   * (the service always forces requesterId=beneficiaryId=actorId below).
+   */
+  beneficiaryId?: string;
   limit?: number;
   skip?: number;
 }
@@ -159,7 +170,10 @@ export class LoansService {
       organisationId: tenantId,
       ...(params.status !== undefined && { status: params.status }),
       ...(isManager
-        ? params.requesterId !== undefined && { requesterId: params.requesterId }
+        ? {
+            ...(params.requesterId !== undefined && { requesterId: params.requesterId }),
+            ...(params.beneficiaryId !== undefined && { beneficiaryId: params.beneficiaryId }),
+          }
         : { requesterId: actorId, beneficiaryId: actorId }),
       limit,
       skip,
