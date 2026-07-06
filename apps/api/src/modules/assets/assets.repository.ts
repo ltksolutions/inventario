@@ -174,6 +174,23 @@ export class AssetsRepository {
   }
 
   /**
+   * Vráti unikátne, abecedne zoradené tagy naprieč všetkými (nezmazanými)
+   * majetkami tenanta. Používa Mongo `distinct` — jeden efektívny dopyt,
+   * bez potreby samostatnej kolekcie tagov (tagy sú denormalizované
+   * priamo v `Asset.tags`).
+   *
+   * Slúži ako zdroj návrhov pre autocomplete v UI (`TagsCombobox`).
+   */
+  async findDistinctTags(organisationId: string): Promise<string[]> {
+    const tenantId = requireTenantId(organisationId);
+    const tags = await this.collection.distinct(
+      'tags',
+      tenantFilter<Asset>(tenantId, { deletedAt: null } as Filter<Asset>),
+    );
+    return (tags as unknown as string[]).slice().sort((a, b) => a.localeCompare(b, 'sk'));
+  }
+
+  /**
    * Find an asset by its public token. Cross-tenant lookup — token je
    * globálne unikátny (CSPRNG), nie tenant-scoped. Vráti null ak
    * neexistuje alebo je soft-deleted. Používa ho verejný

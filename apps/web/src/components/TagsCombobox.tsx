@@ -33,8 +33,14 @@ export interface TagsComboboxProps {
   /**
    * Previously used tags for autocomplete suggestions.
    * Caller fetches from the asset list or a dedicated endpoint.
+   *
+   * Explicitly widened to `| undefined` (not just optional `?`) because
+   * callers pass `useQuery` results straight through (e.g. `tagsQuery.data`,
+   * which is `string[] | undefined` while loading) — `exactOptionalPropertyTypes`
+   * treats "prop omitted" and "prop present with value undefined" as
+   * distinct, so both must be allowed here.
    */
-  suggestions?: string[];
+  suggestions?: string[] | undefined;
 
   placeholder?: string;
   disabled?: boolean;
@@ -65,9 +71,13 @@ export function TagsCombobox({
   const visible = filtered.slice(0, VISIBLE_LIMIT);
 
   function addTag(tag: string): void {
-    const trimmed = tag.trim().toLowerCase();
-    if (!trimmed || value.includes(trimmed)) return;
-    onChange([...value, trimmed]);
+    // Normalizácia zhodná so serverovým TagSchema (packages/shared-types):
+    // trim + zbalenie viacnásobných medzier + malé písmená. Server toto
+    // vynucuje vždy (aj mimo tohto UI), tu je to len zhoda pre okamžitú
+    // spätnú väzbu (napr. deduplikácia s existujúcim tagom vo `value`).
+    const normalized = tag.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!normalized || value.includes(normalized)) return;
+    onChange([...value, normalized]);
     setInputValue('');
     setOpen(false);
     setActiveIndex(-1);

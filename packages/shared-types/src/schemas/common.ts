@@ -210,3 +210,26 @@ export const HexColorSchema = z
   .describe('Hex farba #RRGGBB');
 
 export type HexColor = z.infer<typeof HexColorSchema>;
+
+/**
+ * Tag (štítok) na majetku — voľný text s vynútenou normalizáciou na
+ * serveri, aby rovnaký tag napísaný rôzne (veľkosť písmen, medzery)
+ * nevytváral duplicitné varianty naprieč majetkami.
+ *
+ * Normalizácia (transform, aplikuje sa VŽDY, nielen kozmeticky v UI):
+ *   1. orezanie medzier na začiatku/konci (`trim`)
+ *   2. zbalenie viacnásobných medzier vnútri na jednu (`"a   b" → "a b"`)
+ *   3. prevod na malé písmená (`toLowerCase`)
+ *
+ * Viacslovné tagy (napr. "športové vybavenie") sú zámerne povolené —
+ * jeden tag s medzerou, nie pomlčky/podčiarkovníky.
+ *
+ * Validácia dĺžky (1–50 znakov) beží AŽ PO normalizácii cez `.pipe()`.
+ */
+export const TagSchema = z
+  .string()
+  .transform((val) => val.trim().replace(/\s+/g, ' ').toLowerCase())
+  .pipe(z.string().min(1, 'Tag nesmie byť prázdny.').max(50, 'Tag môže mať najviac 50 znakov.'))
+  .describe('Normalizovaný tag (trim, zbalené medzery, malé písmená)');
+
+export type Tag = z.infer<typeof TagSchema>;

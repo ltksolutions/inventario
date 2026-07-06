@@ -21,7 +21,7 @@
  * Domena VYLUCNE z appBaseUrl - NIKDY z Host hlavicky.
  */
 
-import { TRACKING_MODE_VALUES, UpdateAssetSchema } from '@inventario/shared-types';
+import { TagSchema, TRACKING_MODE_VALUES, UpdateAssetSchema } from '@inventario/shared-types';
 import QRCode from 'qrcode';
 import { z } from 'zod';
 
@@ -70,7 +70,7 @@ const ApiCreateAssetBodySchema = z
     acquisitionCost: z.number().nonnegative().max(1000000).nullable().default(null),
     warrantyUntil: z.string().datetime({ offset: true }).nullable().default(null),
     specs: z.record(z.string(), z.unknown()).default({}),
-    tags: z.array(z.string().min(1).max(50)).default([]),
+    tags: z.array(TagSchema).default([]),
     imageIds: z.array(z.string().regex(/^[a-f\d]{24}$/i)).default([]),
     internalNotes: z.string().max(5000).nullable().default(null),
     isLoanable: z.boolean().default(true),
@@ -120,6 +120,10 @@ const AuditListResponseSchema = z.object({
 });
 
 const AssetResponseSchema = z.record(z.string(), z.unknown());
+
+const DistinctTagsResponseSchema = z.object({
+  data: z.array(z.string()),
+});
 
 const ListAssetsResponseSchema = z.object({
   data: z.array(z.record(z.string(), z.unknown())),
@@ -177,6 +181,32 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       const { limit, skip } = request.query;
       return service.list({ limit, skip }, request.currentUser);
+    },
+  );
+
+  // --- GET /v1/assets/tags --------------------------------------------------
+  // Unikátne existujúce tagy naprieč majetkami tenanta — zdroj návrhov pre
+  // autocomplete v `TagsCombobox` (Pridanie aj Editácia majetku). Statická
+  // cesta pred `/v1/assets/:id` — find-my-way router prioritizuje statické
+  // segmenty pred parametrickými bez ohľadu na poradie registrácie (rovnaký
+  // vzor ako `/v1/users/directory` vs `/v1/users/:id`).
+  app.get(
+    '/v1/assets/tags',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
+      schema: {
+        tags: ['Assets'],
+        summary: 'Unikátne existujúce tagy (pre autocomplete)',
+        description:
+          'Abecedne zoradený zoznam všetkých unikátnych tagov použitých na ' +
+          'nezmazaných majetkoch tenanta. Zdroj návrhov pre TagsCombobox.',
+        security: [{ bearerAuth: [] }],
+        response: { 200: DistinctTagsResponseSchema },
+      },
+    },
+    async (request) => {
+      const tags = await repo.findDistinctTags(String(request.currentUser.organisationId));
+      return { data: tags };
     },
   );
 

@@ -2311,9 +2311,17 @@
                   "tags": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 50
+                      "allOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 50
+                        }
+                      ],
+                      "description": "Normalizovaný tag (trim, zbalené medzery, malé písmená)"
                     },
                     "default": []
                   },
@@ -2380,6 +2388,44 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/tags": {
+      "get": {
+        "summary": "Unikátne existujúce tagy (pre autocomplete)",
+        "tags": [
+          "Assets"
+        ],
+        "description": "Abecedne zoradený zoznam všetkých unikátnych tagov použitých na nezmazaných majetkoch tenanta. Zdroj návrhov pre TagsCombobox.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -2526,9 +2572,17 @@
                   "tags": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 50
+                      "allOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 50
+                        }
+                      ],
+                      "description": "Normalizovaný tag (trim, zbalené medzery, malé písmená)"
                     },
                     "default": []
                   },

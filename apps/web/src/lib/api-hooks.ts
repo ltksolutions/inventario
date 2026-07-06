@@ -697,6 +697,37 @@ export function useAsset(id: string | null): UseQueryResult<AssetDetail, Error> 
 }
 
 /**
+ * GET /v1/assets/tags — unikátne existujúce tagy naprieč majetkami tenanta
+ * (2026-07-06). Zdroj návrhov pre autocomplete v `TagsCombobox` na oboch
+ * formulároch majetku (Pridanie aj Editácia).
+ *
+ * Not yet reflected in generated api-types.ts — generic-cast pattern
+ * (rovnaké ako usePersonsDirectory).
+ */
+export function useAssetTags(): UseQueryResult<string[], Error> {
+  const { isAuthenticated } = useAuth();
+  const genericGet = apiClient.GET as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useQuery<string[], Error>({
+    queryKey: ['asset-tags'],
+    enabled: isAuthenticated,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await genericGet('/v1/assets/tags', {});
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load asset tags');
+      }
+      const parsed = data as unknown as { data?: unknown };
+      return Array.isArray(parsed?.data) ? (parsed.data as string[]) : [];
+    },
+  });
+}
+
+/**
  * PATCH an asset. On success invalidates both the single-asset cache
  * and any list views so the change shows up everywhere immediately.
  *

@@ -23,6 +23,7 @@ import type { JSX, ReactNode } from 'react';
 
 import {
   useAssetConditions,
+  useAssetTags,
   useCanManageTaxonomy,
   useCreateAssetConditions,
   useCreateLocation,
@@ -95,6 +96,7 @@ export function AssetDetailEditForm({
   const canManage = useCanManageTaxonomy();
   const updateAsset = useUpdateAsset();
   const assetConditionsQuery = useAssetConditions({ limit: 200 });
+  const tagsQuery = useAssetTags();
   const createLocation = useCreateLocation();
   const createAssetCondition = useCreateAssetConditions();
   const renameCategory = useRenameCategory();
@@ -414,7 +416,13 @@ export function AssetDetailEditForm({
           <Controller
             name="tags"
             control={control}
-            render={({ field }) => <TagsCombobox value={field.value} onChange={field.onChange} />}
+            render={({ field }) => (
+              <TagsCombobox
+                value={field.value}
+                onChange={field.onChange}
+                suggestions={tagsQuery.data}
+              />
+            )}
           />
         </Field>
       </Section>

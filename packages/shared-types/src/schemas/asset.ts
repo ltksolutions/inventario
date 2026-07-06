@@ -11,6 +11,7 @@ import {
   ObjectIdSchema,
   OrganisationScopedSchema,
   SoftDeleteSchema,
+  TagSchema,
   TimestampSchema,
 } from './common.js';
 
@@ -66,7 +67,7 @@ export const AssetSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     warrantyUntil: TimestampSchema.nullable().default(null),
 
     specs: z.record(z.string(), z.unknown()).default({}),
-    tags: z.array(z.string().min(1).max(50)).default([]),
+    tags: z.array(TagSchema).default([]),
     imageIds: z.array(ObjectIdSchema).default([]),
     internalNotes: z.string().max(5000).nullable().default(null),
 

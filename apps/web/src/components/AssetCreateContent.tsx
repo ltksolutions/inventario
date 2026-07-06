@@ -20,6 +20,7 @@ import type { JSX, ReactNode } from 'react';
 
 import {
   useAssetConditions,
+  useAssetTags,
   useCanEditAssets,
   useCanManageTaxonomy,
   useCategories,
@@ -74,6 +75,7 @@ export function AssetCreateContent(): JSX.Element {
   const categoriesQuery = useCategories({ limit: 200 });
   const locationsQuery = useLocations({ limit: 200 });
   const assetConditionsQuery = useAssetConditions({ limit: 200 });
+  const tagsQuery = useAssetTags();
   const createLocation = useCreateLocation();
   const createAssetCondition = useCreateAssetConditions();
   const renameCategory = useRenameCategory();
@@ -457,7 +459,13 @@ export function AssetCreateContent(): JSX.Element {
             <Controller
               name="tags"
               control={control}
-              render={({ field }) => <TagsCombobox value={field.value} onChange={field.onChange} />}
+              render={({ field }) => (
+                <TagsCombobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  suggestions={tagsQuery.data}
+                />
+              )}
             />
           </Field>
         </Section>
