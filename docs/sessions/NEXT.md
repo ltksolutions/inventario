@@ -1,5 +1,20 @@
 # NEXT
 
+## Aktuálny stav (2026-07-06, neskorý večer) — UI/UX tlačidlá, veľké písmená tagov, normalizácia voľného textu
+
+Session log: `docs/sessions/2026-07-06-ui-buttons-tagy-freetext.md`.
+Commity: `09c2b22` (tlačidlá + zobrazenie tagov), `b9661d5` (normalizácia
+voľného textu + backfill).
+
+- ✅ Detail/Výpožička odkazy v Žiadostiach, `/persons` a na domovskej stránke
+  ("Čaká na vás") zjednotené na tlačidlá s ikonkou (rovnaký štýl ako "Vydať").
+- ✅ Tagy: veľké prvé písmeno len pri zobrazení (`displayTag()`), DB ostáva lowercase.
+- ✅ Nová `freeText()` normalizácia (NBSP, CRLF, trailing whitespace, 3+ prázdne
+  riadky) na všetkých voľných textových poliach (Popis, Účel, Poznámka, Dôvod
+  zamietnutia...) + deploy-time migrácia na backfill existujúcich dát.
+- ⏳ Otvorené: "Výpožička" odkaz na `/assets` — nenašiel sa v kóde, čaká sa na
+  upresnenie od Janiky.
+
 ## Aktuálny stav (2026-07-06, večer, ďalšie pokračovanie) — Tagy: normalizácia + autocomplete
 
 Session log: `docs/sessions/2026-07-06-tagy-autocomplete.md`. Commit `d3aee39`.
