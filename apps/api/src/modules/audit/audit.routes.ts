@@ -20,6 +20,7 @@ import { z } from 'zod';
 
 import { AuditLogRepository } from './audit.repository.js';
 
+import type { AuditLog } from '@inventario/shared-types';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
@@ -88,6 +89,75 @@ const AuditLogListResponseSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Response mapping — odolné voči legacy tvaru záznamov
+// ---------------------------------------------------------------------------
+
+/**
+ * Loosely-typed pohľad na surový `audit_logs` dokument. Zopár záznamov
+ * z júna 2026 (pred zjednotením na `AuditLogService.record()` — najmä
+ * `MEMBERSHIP_*` a `USER_INVITATION_ACCEPTED`) má úplne iný, staršiu
+ * schému: `createdAt` namiesto `at`, `actor: {userId, email}` bez
+ * `displayName`/`accountType`, žiadne `description`. Potvrdené priamym
+ * dotazom do prod DB (2026-07-07) po nahlásenej chybe "Audit log sa
+ * nepodarilo načítať" pri filtrovaní.
+ *
+ * Tieto staré dokumenty sa NEUPRAVUJÚ (audit log je append-only — viď
+ * `AuditLogSchema` docstring) — namiesto backfill migrácie ich táto
+ * funkcia len bezpečne normalizuje pri čítaní, nech prísna response
+ * schéma (`AuditLogEntrySchema`) nikdy nedostane `undefined`.
+ */
+interface LegacyAuditLogShape {
+  _id: unknown;
+  at?: string;
+  createdAt?: string;
+  actor?: {
+    userId?: unknown;
+    displayName?: string;
+    accountType?: string;
+    email?: string;
+  };
+  action: string;
+  target?: { entityType?: string; entityId?: unknown } | null;
+  description?: string;
+  changes?: AuditLog['changes'];
+  severity?: string;
+}
+
+function toEntryResponse(raw: AuditLog): {
+  id: string;
+  at: string;
+  actor: { userId: string; displayName: string; accountType: string };
+  action: string;
+  target: { entityType: string; entityId: string | null } | null;
+  description: string;
+  changes: AuditLog['changes'];
+  severity: string;
+} {
+  const e = raw as unknown as LegacyAuditLogShape;
+  const actor = e.actor ?? {};
+
+  return {
+    id: String(e._id),
+    at: e.at ?? e.createdAt ?? new Date(0).toISOString(),
+    actor: {
+      userId: actor.userId != null ? String(actor.userId) : '',
+      displayName: actor.displayName ?? actor.email ?? 'Neznámy',
+      accountType: actor.accountType ?? 'LOCAL',
+    },
+    action: e.action,
+    target: e.target
+      ? {
+          entityType: e.target.entityType ?? 'System',
+          entityId: e.target.entityId != null ? String(e.target.entityId) : null,
+        }
+      : null,
+    description: e.description ?? `(starší záznam bez popisu — akcia: ${e.action})`,
+    changes: e.changes ?? null,
+    severity: e.severity ?? 'INFO',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
 
@@ -129,25 +199,7 @@ const auditRoutes: FastifyPluginAsync = async (fastify) => {
       ]);
 
       return {
-        data: entries.map((e) => ({
-          id: String(e._id),
-          at: e.at,
-          actor: {
-            userId: String(e.actor.userId),
-            displayName: e.actor.displayName,
-            accountType: e.actor.accountType,
-          },
-          action: e.action,
-          target: e.target
-            ? {
-                entityType: e.target.entityType,
-                entityId: e.target.entityId ? String(e.target.entityId) : null,
-              }
-            : null,
-          description: e.description,
-          changes: e.changes ?? null,
-          severity: e.severity,
-        })),
+        data: entries.map(toEntryResponse),
         pagination: { total, limit, skip, hasMore: skip + entries.length < total },
       };
     },
