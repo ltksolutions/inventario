@@ -50,3 +50,43 @@ Aplikované na `AssetCreateContent.tsx` (17 polí) a `AssetDetailEditForm.tsx` (
 - `1e18cde` — autoscroll+focus vo formulároch majetku
 
 Oba nasadené a overené (runtime chyby čisté) na produkcii `app.inventario.estate`.
+
+## Dodatok — root cause opakovaného pomalého `/assets` (ignoreCommand)
+
+Krátko po nasadení vyššie uvedených zmien Janika nahlásila, že `/assets` sa
+znova veľmi dlho načítavalo pri prvom otvorení po pauze.
+
+**Diagnostika (runtime logy API, posledných 20 min):** presne v tom čase
+prebehol NOVÝ produkčný deployment API aj webu (`dpl_8r2HKi78h9EaMz77kufmHpfMnb6a`,
+commit `7a15846` — môj vlastný predchádzajúci "poupratuj" commit, ktorý menil
+IBA `docs/*.md` súbory). Vercel pri každom pushi na `main` predvolene
+znovu nasadí obe appky bez ohľadu na to, čo sa reálne zmenilo — to zhodilo
+teplé serverless inštancie a Janičin request prišiel presne do studeného
+štartu: viacero paralelných API volaní (`assets`, `categories`, `locations`,
+`loans`, `organisations/current`) si každé vyžiadalo vlastnú novú Mongo
+konexiu (~1–2,7s/inštancia), navyše sekvenčne za sebou po 401→auth-refresh
+cykle. Žiadne runtime chyby, len akumulovaná latencia studeného štartu.
+
+Vedľajší postreh: časť požiadaviek ešte volala starý
+`/v1/loans?status=ACTIVE&limit=500` (dopyt odstránený v bode 1 vyššie) —
+to bola len staršia JS verzia appky doťahovaná z prehliadača z predošlej
+relácie, samo to zmizlo pri ďalšom obnovení.
+
+**Skutočná oprava:** `ignoreCommand` v `apps/api/vercel.json` a
+`apps/web/vercel.json`:
+
+```
+git diff --name-only HEAD^ HEAD | grep -qvE '^docs/' && exit 1 || exit 0
+```
+
+Ak commit mení výhradne súbory pod `docs/`, build (a teda aj redeploy +
+studený štart) sa preskočí. Akákoľvek zmena mimo `docs/` (packages/,
+apps/api, apps/web, CI workflows, root config) build spustí ako doteraz.
+Overené na reálnom diffe posledného docs-only commitu — príkaz správne
+vracia "skip".
+
+Commit `9b77d6c`, nasadené (READY na oboch projektoch), `get_runtime_errors`
+(10 min okno) bez nových chýb.
+
+**Poučenie pre budúce session:** "poupratuj" (dokumentačné) commity už
+nebudú spôsobovať produkčný redeploy — netreba sa báť ich robiť kedykoľvek.

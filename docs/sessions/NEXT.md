@@ -1,5 +1,17 @@
 # NEXT
 
+## Aktuálny stav (2026-07-06, večer, dodatok) — ignoreCommand vo vercel.json
+
+Root cause opakovaného pomalého `/assets`: môj vlastný docs-only
+"poupratuj" commit vyvolal nové produkčné nasadenie API aj webu (Vercel
+defaultne redeployuje na každý push na `main`), čo zhodilo teplé
+serverless inštancie presne v momente, keď si Janika otvorila appku.
+
+Fix: `ignoreCommand` (`apps/api/vercel.json`, `apps/web/vercel.json`) —
+commity meniace výhradne `docs/**` už nevyvolajú redeploy. Commit
+`9b77d6c`, nasadené, runtime chyby čisté. Detail:
+`docs/sessions/2026-07-06-assets-perf-form-focus.md`.
+
 ## Aktuálny stav (2026-07-06, večer, pokračovanie) — perf `/assets` + autoscroll/focus
 
 Session log: `docs/sessions/2026-07-06-assets-perf-form-focus.md`.
