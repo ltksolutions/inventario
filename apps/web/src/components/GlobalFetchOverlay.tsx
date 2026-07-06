@@ -6,35 +6,45 @@
 import { useIsFetching } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
+import { LoadingOverlay } from './LoadingOverlay';
+
 import type { JSX } from 'react';
 
 /**
- * RouteProgressBar — thin indeterminate progress bar pinned below the
- * header. Visible whenever *any* TanStack Query request is in flight.
+ * GlobalFetchOverlay — app-wide "something is happening" indicator.
+ *
+ * Renamed + redesigned 2026-07-06 from `RouteProgressBar`, which was a
+ * thin 2px bar pinned under the header. People reported never noticing
+ * it. This now renders the same `LoadingOverlay` used by AuthGate: a
+ * centred, unmissable overlay with the Inventario wordmark, a spinner,
+ * and a label. Visible whenever *any* TanStack Query request is in
+ * flight, anywhere in the app.
  *
  * Why this exists:
- *   It's the global safety net for perceived performance. Individual
- *   pages show skeletons for their main content, but this bar guarantees
- *   the user always sees "something is happening" — even on a page that
- *   forgot to wire a local loader, or during a background refetch where
- *   stale data is still on screen (so no skeleton shows).
+ *   The global safety net for perceived performance. Individual pages
+ *   show skeletons for their main content, but this overlay guarantees
+ *   the user always sees an unmistakable "something is happening" state
+ *   — even on a page that forgot to wire a local loader, or during a
+ *   background refetch where stale data is still on screen (so no
+ *   skeleton shows).
+ *
+ * Trade-off (accepted deliberately): unlike the old thin bar, this
+ * covers the whole viewport — including for background refetches on a
+ * page that already has data on screen (e.g. switching tabs). Chosen
+ * on purpose: one unmissable loading style everywhere beat a "never
+ * interrupt the view" bar that people scrolled straight past.
  *
  * Anti-flicker:
- *   A fast request (< ~120ms) shouldn't flash the bar — that reads as a
- *   glitch, not feedback. We delay showing the bar by 120ms, and once
+ *   A fast request (< ~120ms) shouldn't flash the overlay — that reads
+ *   as a glitch, not feedback. We delay showing it by 120ms, and once
  *   shown keep it up for at least 240ms so it never blinks. Both timers
  *   are cleared on unmount / state change.
- *
- * Cosmetic-only:
- *   `aria-hidden` — fetch states are announced by the regions that own
- *   them (tables use aria-busy, StatCard uses aria-live). A global bar
- *   narrating every background refetch would be noise for screen readers.
  */
 
 const SHOW_DELAY_MS = 120;
 const MIN_VISIBLE_MS = 240;
 
-export function RouteProgressBar(): JSX.Element | null {
+export function GlobalFetchOverlay(): JSX.Element | null {
   const fetching = useIsFetching();
   const [visible, setVisible] = useState(false);
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,12 +93,5 @@ export function RouteProgressBar(): JSX.Element | null {
 
   if (!visible) return null;
 
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-full z-50 h-0.5 overflow-hidden bg-brand-primary/15"
-    >
-      <div className="route-progress-bar h-full w-2/5 bg-brand-primary" />
-    </div>
-  );
+  return <LoadingOverlay />;
 }

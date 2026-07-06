@@ -78,30 +78,4 @@
     white-space: nowrap;
     border-width: 0;
   }
-
-  /* RouteProgressBar — indeterminate sliding bar. The element is a 40%
-     wide strip that travels left→right across its track on a loop, the
-     classic "something is loading" affordance (YouTube / GitHub style).
-     Disabled under prefers-reduced-motion: the strip simply rests at the
-     left as a static hint rather than animating. */
-  .route-progress-bar {
-    animation: route-progress 1.1s ease-in-out infinite;
-  }
-
-  @keyframes route-progress {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(350%);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .route-progress-bar {
-      animation: none;
-      width: 100%;
-      opacity: 0.6;
-    }
-  }
 }

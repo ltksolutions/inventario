@@ -42,8 +42,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import { GlobalFetchOverlay } from './GlobalFetchOverlay';
 import { LogoutButton } from './LogoutButton';
-import { RouteProgressBar } from './RouteProgressBar';
 
 import type { JSX, ReactNode } from 'react';
 
@@ -129,6 +129,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
 
   return (
     <div className="min-h-screen bg-surface-page">
+      <GlobalFetchOverlay />
       <Header
         userName={displayName}
         role={role}
@@ -182,7 +183,6 @@ function Header({
 }: HeaderProps): JSX.Element {
   return (
     <header className="relative border-b border-border-subtle bg-brand-primary">
-      <RouteProgressBar />
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-2">
           <button
