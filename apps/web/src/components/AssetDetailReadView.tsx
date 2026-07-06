@@ -10,6 +10,7 @@ import type { JSX, ReactNode } from 'react';
 
 import { categoryPath } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
+import { displayTag } from '@/lib/tags';
 
 /**
  * Read-only display of an asset's full record. Mirrors the section
@@ -236,7 +237,7 @@ export function AssetDetailReadView({
                   key={tag}
                   className="rounded-full bg-surface-subtle px-2.5 py-0.5 text-xs font-medium text-text-secondary"
                 >
-                  #{tag}
+                  #{displayTag(tag)}
                 </span>
               ))}
             </div>

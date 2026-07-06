@@ -3,7 +3,7 @@
 
 'use client';
 
-import { AlertCircle, CheckCircle, PackageCheck, Plus, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Eye, FileText, PackageCheck, Plus, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -321,8 +321,9 @@ function RequestRow({
           <div className="flex items-center justify-end gap-2">
             <Link
               href={`/loans/request/${request._id}`}
-              className="text-xs font-medium text-brand-primary underline-offset-2 hover:underline"
+              className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-surface-card px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-subtle"
             >
+              <Eye aria-hidden="true" className="h-3.5 w-3.5" />
               Detail
             </Link>
             {/* Odkliky na vzniknuté výpožičky */}
@@ -330,9 +331,10 @@ function RequestRow({
               <Link
                 key={loanId}
                 href={`/loans/${loanId}`}
-                className="text-xs font-medium text-brand-primary underline-offset-2 hover:underline"
+                className="inline-flex items-center gap-1 rounded-lg border border-brand-primary bg-brand-primary/10 px-2.5 py-1.5 text-xs font-medium text-brand-primary hover:bg-brand-primary/20"
               >
-                Výpožička{request.resultingLoanIds.length > 1 ? ` ${idx + 1}` : ''} →
+                <FileText aria-hidden="true" className="h-3.5 w-3.5" />
+                Výpožička{request.resultingLoanIds.length > 1 ? ` ${idx + 1}` : ''}
               </Link>
             ))}
             {isPending && canManage && (

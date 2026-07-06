@@ -28,10 +28,13 @@
  */
 
 import {
+  AlertTriangle,
+  CheckCircle,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
   Clock,
+  Eye,
   FileSignature,
   PackageCheck,
 } from 'lucide-react';
@@ -170,6 +173,13 @@ export function PendingActionsPanel(): JSX.Element | null {
                     primary={requestItemsLabel(req)}
                     secondary={req.purpose}
                     cta={canManage ? 'Schváliť' : 'Zobraziť'}
+                    ctaIcon={
+                      canManage ? (
+                        <CheckCircle aria-hidden="true" className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye aria-hidden="true" className="h-3.5 w-3.5" />
+                      )
+                    }
                   />
                 ))}
               </ActionGroup>
@@ -190,6 +200,7 @@ export function PendingActionsPanel(): JSX.Element | null {
                     primary={requestItemsLabel(req)}
                     secondary={req.purpose}
                     cta="Vydať"
+                    ctaIcon={<PackageCheck aria-hidden="true" className="h-3.5 w-3.5" />}
                   />
                 ))}
               </ActionGroup>
@@ -210,6 +221,7 @@ export function PendingActionsPanel(): JSX.Element | null {
                     primary={`${PROTOCOL_TYPE_LABEL[p.type] ?? p.type} ${p.protocolNumber}`}
                     secondary={protocolCounterpartyLabel(p, myId)}
                     cta="Podpísať"
+                    ctaIcon={<FileSignature aria-hidden="true" className="h-3.5 w-3.5" />}
                   />
                 ))}
               </ActionGroup>
@@ -235,6 +247,7 @@ export function PendingActionsPanel(): JSX.Element | null {
                     primary={loanItemsLabel(loan)}
                     secondary={`${loan.borrowerDisplayName ?? 'Neznámy'} · termín ${formatDate(loan.dueAt)}`}
                     cta="Riešiť"
+                    ctaIcon={<AlertTriangle aria-hidden="true" className="h-3.5 w-3.5" />}
                     tone="danger"
                   />
                 ))}
@@ -323,12 +336,14 @@ function ActionRow({
   primary,
   secondary,
   cta,
+  ctaIcon,
   tone,
 }: {
   href: string;
   primary: string;
   secondary: string;
   cta: string;
+  ctaIcon: ReactNode;
   tone?: 'danger' | undefined;
 }): JSX.Element {
   return (
@@ -342,15 +357,14 @@ function ActionRow({
           <span className="block truncate text-xs text-text-secondary">{secondary}</span>
         </span>
         <span
-          className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold ${
-            tone === 'danger' ? 'text-red-600' : 'text-brand-primary'
+          className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+            tone === 'danger'
+              ? 'border-red-300 bg-red-50 text-red-700 group-hover:bg-red-100'
+              : 'border-brand-primary bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary/20'
           }`}
         >
+          {ctaIcon}
           {cta}
-          <ChevronRight
-            aria-hidden="true"
-            className="h-3.5 w-3.5 transition group-hover:translate-x-0.5"
-          />
         </span>
       </Link>
     </li>

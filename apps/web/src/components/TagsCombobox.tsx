@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { JSX, KeyboardEvent } from 'react';
 
 import { cn } from '@/lib/cn';
+import { displayTag } from '@/lib/tags';
 
 export interface TagsComboboxProps {
   /** Current tags array */
@@ -158,7 +159,7 @@ export function TagsCombobox({
             key={tag}
             className="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-text-primary"
           >
-            #{tag}
+            #{displayTag(tag)}
             {!disabled && (
               <button
                 type="button"
@@ -220,7 +221,7 @@ export function TagsCombobox({
                 }
               }}
             >
-              #{s}
+              #{displayTag(s)}
             </li>
           ))}
 
