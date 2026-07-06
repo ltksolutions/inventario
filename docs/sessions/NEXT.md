@@ -1,5 +1,19 @@
 # NEXT
 
+## Aktuálny stav (2026-07-06, večer, ďalšie pokračovanie) — Tagy: normalizácia + autocomplete
+
+Session log: `docs/sessions/2026-07-06-tagy-autocomplete.md`. Commit `d3aee39`.
+
+- ✅ Nová `TagSchema` (shared-types): server VŽDY normalizuje tag na
+  trim + zbalené medzery + malé písmená (predtým len kozmeticky v
+  jednom UI). Viacslovné tagy s medzerou zostávajú povolené.
+- ✅ Nový `GET /v1/assets/tags` — unikátne existujúce tagy tenanta
+  (Mongo `distinct`, žiadna nová kolekcia netreba).
+- ✅ `TagsCombobox` mal už pripravenú `suggestions` prop, ale nikde sa
+  nepoužívala — teraz zapojená (autocomplete pri písaní, možnosť
+  pridať aj nový tag zostáva).
+- Nasadené, runtime chyby čisté.
+
 ## Aktuálny stav (2026-07-06, večer, dodatok) — ignoreCommand vo vercel.json
 
 Root cause opakovaného pomalého `/assets`: môj vlastný docs-only
