@@ -2441,6 +2441,212 @@
         }
       }
     },
+    "/v1/assets/tags/summary": {
+      "get": {
+        "summary": "Tagy s počtom použití (pre číselník Tagov)",
+        "tags": [
+          "Assets"
+        ],
+        "description": "Abecedne zoradený zoznam tagov s počtom nezmazaných majetkov, ktoré daný tag používajú. Zdroj pre číselník \"Tagy\" na /ciselniky.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tag": {
+                            "allOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 50
+                              }
+                            ],
+                            "description": "Normalizovaný tag (trim, zbalené medzery, malé písmená)"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "tag",
+                          "count"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/tags/rename": {
+      "post": {
+        "summary": "Premenovať tag na všetkom majetku (číselník Tagov)",
+        "tags": [
+          "Assets"
+        ],
+        "description": "Nahradí `oldTag` za `newTag` na každom nezmazanom majetku, ktorý `oldTag` má. Ak majetok už `newTag` obsahuje, duplicita sa zlúči. Zaznamená sa audit event ASSET_TAG_RENAMED. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "oldTag": {
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 50
+                      }
+                    ],
+                    "description": "Normalizovaný tag (trim, zbalené medzery, malé písmená)"
+                  },
+                  "newTag": {
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 50
+                      }
+                    ],
+                    "description": "Normalizovaný tag (trim, zbalené medzery, malé písmená)"
+                  }
+                },
+                "required": [
+                  "oldTag",
+                  "newTag"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "affected": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "affected"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/tags/delete": {
+      "post": {
+        "summary": "Zmazať tag zo všetkého majetku (číselník Tagov)",
+        "tags": [
+          "Assets"
+        ],
+        "description": "Odstráni `tag` z poľa tags na každom nezmazanom majetku, ktorý ho má. Zaznamená sa audit event ASSET_TAG_DELETED. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tag": {
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 50
+                      }
+                    ],
+                    "description": "Normalizovaný tag (trim, zbalené medzery, malé písmená)"
+                  }
+                },
+                "required": [
+                  "tag"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "affected": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "affected"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/assets/{id}": {
       "get": {
         "summary": "Get a single asset by ID",

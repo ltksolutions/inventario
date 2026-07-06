@@ -130,6 +130,28 @@ const DistinctTagsResponseSchema = z.object({
   data: z.array(z.string()),
 });
 
+const TagSummaryEntrySchema = z.object({
+  tag: TagSchema,
+  count: z.number().int().nonnegative(),
+});
+
+const TagsSummaryResponseSchema = z.object({
+  data: z.array(TagSummaryEntrySchema),
+});
+
+const RenameTagBodySchema = z.object({
+  oldTag: TagSchema,
+  newTag: TagSchema,
+});
+
+const DeleteTagBodySchema = z.object({
+  tag: TagSchema,
+});
+
+const TagMutationResponseSchema = z.object({
+  affected: z.number().int().nonnegative(),
+});
+
 const ListAssetsResponseSchema = z.object({
   data: z.array(z.record(z.string(), z.unknown())),
   pagination: z.object({
@@ -212,6 +234,104 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       const tags = await repo.findDistinctTags(String(request.currentUser.organisationId));
       return { data: tags };
+    },
+  );
+
+  // --- GET /v1/assets/tags/summary -------------------------------------------
+  // Tagy s počtom majetku, ktorý ich používa — dátový zdroj pre číselník
+  // "Tagy" (/ciselniky). Statická cesta, rovnaký dôvod ako vyššie.
+  app.get(
+    '/v1/assets/tags/summary',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
+      schema: {
+        tags: ['Assets'],
+        summary: 'Tagy s počtom použití (pre číselník Tagov)',
+        description:
+          'Abecedne zoradený zoznam tagov s počtom nezmazaných majetkov, ktoré ' +
+          'daný tag používajú. Zdroj pre číselník "Tagy" na /ciselniky.',
+        security: [{ bearerAuth: [] }],
+        response: { 200: TagsSummaryResponseSchema },
+      },
+    },
+    async (request) => {
+      const data = await repo.findTagsSummary(String(request.currentUser.organisationId));
+      return { data };
+    },
+  );
+
+  // --- POST /v1/assets/tags/rename --------------------------------------------
+  // Hromadné premenovanie tagu naprieč všetkým majetkom tenanta (ADR-0018-
+  // adjacent číselník Tagov). Duplicity po premenovaní sa množinovo zlúčia
+  // (viď AssetsRepository.renameTag). Vyžaduje ASSET_MANAGER alebo ADMIN.
+  app.post(
+    '/v1/assets/tags/rename',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Assets'],
+        summary: 'Premenovať tag na všetkom majetku (číselník Tagov)',
+        description:
+          'Nahradí `oldTag` za `newTag` na každom nezmazanom majetku, ktorý ' +
+          '`oldTag` má. Ak majetok už `newTag` obsahuje, duplicita sa zlúči. ' +
+          'Zaznamená sa audit event ASSET_TAG_RENAMED. Vyžaduje ASSET_MANAGER ' +
+          'alebo ADMIN rolu.',
+        security: [{ bearerAuth: [] }],
+        body: RenameTagBodySchema,
+        response: { 200: TagMutationResponseSchema },
+      },
+    },
+    async (request) => {
+      const { oldTag, newTag } = request.body;
+      const organisationId = String(request.currentUser.organisationId);
+      const affected = await repo.renameTag(organisationId, oldTag, newTag);
+      await fastify.auditLog.record(request.currentUser, request, {
+        action: 'ASSET_TAG_RENAMED',
+        target: {
+          entityType: 'Asset',
+          entityId: null,
+          snapshot: { oldTag, newTag, affected },
+        },
+        description: `Premenovaný tag "${oldTag}" → "${newTag}" (${affected} majetok${affected === 1 ? '' : 'ov'})`,
+      });
+      return { affected };
+    },
+  );
+
+  // --- POST /v1/assets/tags/delete --------------------------------------------
+  // Hromadné zmazanie tagu zo všetkého majetku tenanta. Vyžaduje ASSET_MANAGER
+  // alebo ADMIN. POST namiesto DELETE kvôli telu požiadavky (tag môže
+  // obsahovať znaky nevhodné pre path segment).
+  app.post(
+    '/v1/assets/tags/delete',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Assets'],
+        summary: 'Zmazať tag zo všetkého majetku (číselník Tagov)',
+        description:
+          'Odstráni `tag` z poľa tags na každom nezmazanom majetku, ktorý ho ' +
+          'má. Zaznamená sa audit event ASSET_TAG_DELETED. Vyžaduje ' +
+          'ASSET_MANAGER alebo ADMIN rolu.',
+        security: [{ bearerAuth: [] }],
+        body: DeleteTagBodySchema,
+        response: { 200: TagMutationResponseSchema },
+      },
+    },
+    async (request) => {
+      const { tag } = request.body;
+      const organisationId = String(request.currentUser.organisationId);
+      const affected = await repo.deleteTagEverywhere(organisationId, tag);
+      await fastify.auditLog.record(request.currentUser, request, {
+        action: 'ASSET_TAG_DELETED',
+        target: {
+          entityType: 'Asset',
+          entityId: null,
+          snapshot: { tag, affected },
+        },
+        description: `Zmazaný tag "${tag}" z majetku (dotknutých položiek: ${affected})`,
+      });
+      return { affected };
     },
   );
 

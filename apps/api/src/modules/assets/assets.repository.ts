@@ -39,7 +39,16 @@ import { ObjectId } from 'mongodb';
 import { requireTenantId, tenantFilter } from '../../lib/organisation-scoping.js';
 
 import type { Asset } from '@inventario/shared-types';
-import type { ClientSession, Collection, Db, Filter, FindOptions, WithId } from 'mongodb';
+import type {
+  ClientSession,
+  Collection,
+  Db,
+  Document,
+  Filter,
+  FindOptions,
+  UpdateFilter,
+  WithId,
+} from 'mongodb';
 
 export interface ListAssetsParams {
   /** Tenant scope. Required. */
@@ -188,6 +197,72 @@ export class AssetsRepository {
       tenantFilter<Asset>(tenantId, { deletedAt: null } as Filter<Asset>),
     );
     return (tags as unknown as string[]).slice().sort((a, b) => a.localeCompare(b, 'sk'));
+  }
+
+  /**
+   * Vráti tagy s počtom majetku, ktorý ich používa — abecedne zoradené.
+   * Slúži ako dátový zdroj pre číselník "Tagy" (/ciselniky, Tagy tab).
+   */
+  async findTagsSummary(organisationId: string): Promise<Array<{ tag: string; count: number }>> {
+    const tenantId = requireTenantId(organisationId);
+    const rows = await this.collection
+      .aggregate<{
+        _id: string;
+        count: number;
+      }>([
+        { $match: tenantFilter<Asset>(tenantId, { deletedAt: null } as Filter<Asset>) },
+        { $unwind: '$tags' },
+        { $group: { _id: '$tags', count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray();
+    return rows
+      .map((r) => ({ tag: r._id, count: r.count }))
+      .sort((a, b) => a.tag.localeCompare(b.tag, 'sk'));
+  }
+
+  /**
+   * Premenuje tag naprieč všetkým (nezmazaným) majetkom tenanta.
+   *
+   * Používa aggregation-pipeline update (`$setUnion`/`$setDifference`),
+   * aby sa premenovanie a zlúčenie duplicít vykonalo atomicky v jednom
+   * dopyte — ak majetok už `newTag` má, po premenovaní `oldTag` ostane
+   * tag na položke len raz (množinová, nie poľová sémantika).
+   *
+   * Vráti počet ovplyvnených majetkov (pre audit log + potvrdenie v UI).
+   */
+  async renameTag(organisationId: string, oldTag: string, newTag: string): Promise<number> {
+    const tenantId = requireTenantId(organisationId);
+    const now = new Date().toISOString();
+    const pipeline: Document[] = [
+      {
+        $set: {
+          tags: {
+            $setUnion: [{ $setDifference: ['$tags', [oldTag]] }, [newTag]],
+          },
+          updatedAt: now,
+        },
+      },
+    ];
+    const result = await this.collection.updateMany(
+      tenantFilter<Asset>(tenantId, { tags: oldTag } as Filter<Asset>),
+      pipeline,
+    );
+    return result.modifiedCount;
+  }
+
+  /**
+   * Odstráni tag zo všetkého (nezmazaného) majetku tenanta, ktorý ho má.
+   * Vráti počet ovplyvnených majetkov (pre audit log + potvrdenie v UI).
+   */
+  async deleteTagEverywhere(organisationId: string, tag: string): Promise<number> {
+    const tenantId = requireTenantId(organisationId);
+    const now = new Date().toISOString();
+    const result = await this.collection.updateMany(
+      tenantFilter<Asset>(tenantId, { tags: tag } as Filter<Asset>),
+      { $pull: { tags: tag }, $set: { updatedAt: now } } as UpdateFilter<Asset>,
+    );
+    return result.modifiedCount;
   }
 
   /**
