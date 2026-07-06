@@ -1,18 +1,27 @@
 # NEXT
 
-## Aktuálny stav (2026-07-07, pokračovanie) — číselník Tagov + Audit log (rozrobené)
+## Aktuálny stav (2026-07-07) — číselník Tagov + Audit log pre správcov — OBOJE HOTOVÉ
 
 Session log: `docs/sessions/2026-07-07-tagy-ciselnik-audit-log.md`. Commity:
-`17ce25e` (Tagy backend), `7b76b2bf` (Tagy frontend).
+`17ce25e`/`7b76b2bf` (Tagy backend/frontend), `310ae5b`/`08abcd7` (Audit
+log backend/frontend).
 
-- ✅ **Číselník "Tagy" — HOTOVÝ a nasadený.** Nová záložka v Číselníky:
-  zoznam tagov s počtom použití, premenovanie (server zlúči duplicity),
+- ✅ **Číselník "Tagy" — nasadené.** Nová záložka v Číselníky: zoznam
+  tagov s počtom použitia, premenovanie (server zlúči duplicity),
   mazanie zo všetkého majetku. RBAC výnimka: mazanie tu ASSET_MANAGER+ADMIN
   (nie len ADMIN ako pri Kategóriách/Lokalitách).
-- ⏳ **Audit log pre správcov — rozrobené, ešte nezačaté kódovo** (tasky
-  #56-59). RBAC potvrdené: ADMIN aj ASSET_MANAGER, scoped na aktívny tenant.
-  Filtre: akcia + entita + osoba + dátum, bez voľného textu, len prehľadávanie
-  (žiadny export zatiaľ).
+- ✅ **Audit log pre správcov — nasadené.** Nová stránka `/audit-log` +
+  menu položka (managerOnly). Tenant-wide, filtrovateľné (akcia, typ
+  entity, osoba, dátumový rozsah), stránkované, len prehľadávanie
+  (žiadny export v v1). RBAC: ASSET_MANAGER + ADMIN (rozšírené na
+  žiadosť Janiky, pôvodne plánované len ADMIN).
+- ✅ Tenant scoping oboch featur overený a zdokumentovaný na výslovnú
+  žiadosť Janiky (`tenantFilter`/`organisationId` filter v oboch
+  repozitároch + existujúci globálny cache-invalidate pri prepnutí
+  tenanta na frontende).
+
+**Otvorené:** živé odskúšanie na produkcii; budúci CSV export z Audit
+logu (zámerne mimo v1).
 
 ## Aktuálny stav (2026-07-07) — zvyšné UI/UX drobnosti + SelectField fix
 
