@@ -25,6 +25,7 @@ import type { JSX } from 'react';
 
 import { fetchProtocolPdf, useSignProtocol } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
+import { useConditionLabel } from '@/lib/conditions';
 
 // ---------------------------------------------------------------------------
 // Labels
@@ -47,15 +48,6 @@ export const PROTOCOL_STATUS_CONFIG: Record<string, { label: string; className: 
     className: 'bg-surface-subtle text-text-muted ring-border-subtle',
   },
   VOIDED: { label: 'Zrušený', className: 'bg-red-50 text-red-700 ring-red-600/20' },
-};
-
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'Nové',
-  EXCELLENT: 'Vynikajúce',
-  GOOD: 'Dobré',
-  FAIR: 'Použiteľné',
-  POOR: 'Opotrebované',
-  UNUSABLE: 'Nepoužiteľné',
 };
 
 function formatDateTime(iso: string): string {
@@ -136,6 +128,7 @@ function SignProtocolModal({
   onClose: () => void;
 }): JSX.Element {
   const sign = useSignProtocol();
+  const conditionLabel = useConditionLabel();
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -211,7 +204,7 @@ function SignProtocolModal({
                     <span className="ml-1.5 text-text-secondary">{item.snapshot.name}</span>
                   </td>
                   <td className="px-3 py-2 text-text-secondary">
-                    {CONDITION_LABELS[item.condition] ?? item.condition}
+                    {conditionLabel(item.condition)}
                     {item.conditionNote ? (
                       <span className="ml-1 text-xs text-text-muted">({item.conditionNote})</span>
                     ) : null}

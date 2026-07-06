@@ -10,6 +10,7 @@ import type { JSX, ReactNode } from 'react';
 
 import { categoryPath } from '@/lib/category-tree';
 import { cn } from '@/lib/cn';
+import { useConditionLabel } from '@/lib/conditions';
 import { displayTag } from '@/lib/tags';
 
 /**
@@ -47,15 +48,6 @@ const STATUS_LABELS: Record<string, string> = {
   IN_SERVICE: 'V servise',
   DISPOSED: 'Vyradené',
   LOST: 'Stratené',
-};
-
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'Nové',
-  EXCELLENT: 'Vynikajúce',
-  GOOD: 'Dobré',
-  FAIR: 'Použiteľné',
-  POOR: 'Opotrebované',
-  UNUSABLE: 'Nepoužiteľné',
 };
 
 function statusToneClasses(status: string): string {
@@ -146,6 +138,7 @@ export function AssetDetailReadView({
   categoriesById,
   locationsById,
 }: AssetDetailReadViewProps): JSX.Element {
+  const conditionLabel = useConditionLabel();
   const category = categoriesById.get(asset.categoryId);
   const location = locationsById.get(asset.locationId);
   const specEntries = Object.entries(asset.specs ?? {});
@@ -164,7 +157,7 @@ export function AssetDetailReadView({
             {STATUS_LABELS[asset.status] ?? asset.status}
           </span>
         </Meta>
-        <Meta label="Kondícia">{CONDITION_LABELS[asset.condition] ?? asset.condition}</Meta>
+        <Meta label="Kondícia">{conditionLabel(asset.condition)}</Meta>
         <Meta label="Lokalita">
           {location ? (
             location.name

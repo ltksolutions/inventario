@@ -49,6 +49,7 @@ import {
   useLoansForAsset,
 } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
+import { useConditionLabel } from '@/lib/conditions';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 // ---------------------------------------------------------------------------
@@ -62,15 +63,6 @@ const STATUS_LABELS: Record<string, string> = {
   IN_SERVICE: 'V servise',
   DISPOSED: 'Vyradené',
   LOST: 'Stratené',
-};
-
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'Nové',
-  EXCELLENT: 'Vynikajúce',
-  GOOD: 'Dobré',
-  FAIR: 'Použiteľné',
-  POOR: 'Opotrebované',
-  UNUSABLE: 'Nepoužiteľné',
 };
 
 const LOAN_STATUS_LABELS: Record<string, string> = {
@@ -305,6 +297,7 @@ function AssetHeroCard({
   labelPrintingMode?: 'PDF_SHEET' | 'ZEBRA_ZPL' | null;
   photoUrl?: string | null;
 }): JSX.Element {
+  const conditionLabel = useConditionLabel();
   return (
     <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-sm lg:col-span-2">
       <div className="grid grid-cols-1 sm:grid-cols-5">
@@ -371,7 +364,7 @@ function AssetHeroCard({
                 Kondícia
               </p>
               <p className="mt-0.5 font-medium text-text-primary">
-                {CONDITION_LABELS[asset.condition] ?? asset.condition}
+                {conditionLabel(asset.condition)}
               </p>
             </div>
             {asset.trackingMode === 'BULK' && (

@@ -32,6 +32,7 @@ import {
   useMe,
 } from '@/lib/api-hooks';
 import { cn } from '@/lib/cn';
+import { useConditionLabel } from '@/lib/conditions';
 
 // ---------------------------------------------------------------------------
 // Labels & helpers
@@ -42,15 +43,6 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   RETURNED: { label: 'Vrátená', className: 'bg-surface-subtle text-text-muted ring-border-subtle' },
   DAMAGED: { label: 'Poškodená', className: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
   LOST: { label: 'Stratená', className: 'bg-red-50 text-red-700 ring-red-600/20' },
-};
-
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'Nové',
-  EXCELLENT: 'Vynikajúce',
-  GOOD: 'Dobré',
-  FAIR: 'Použiteľné',
-  POOR: 'Opotrebované',
-  UNUSABLE: 'Nepoužiteľné',
 };
 
 /** Polia detailu, ktoré LoanSummary typ nevymenúva explicitne. */
@@ -347,10 +339,11 @@ function InfoField({
 }
 
 function ConditionCell({ condition }: { condition: LoanItemCondition | null }): JSX.Element {
+  const conditionLabel = useConditionLabel();
   if (!condition) return <span className="text-text-muted">—</span>;
   return (
     <span>
-      {CONDITION_LABELS[condition.condition] ?? condition.condition}
+      {conditionLabel(condition.condition)}
       {condition.note ? (
         <span className="ml-1 text-xs text-text-muted">({condition.note})</span>
       ) : null}
