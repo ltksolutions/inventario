@@ -3096,6 +3096,318 @@
         }
       }
     },
+    "/v1/audit-log": {
+      "get": {
+        "summary": "Kompletný audit log aktívneho tenanta (filtrovateľný)",
+        "tags": [
+          "Audit"
+        ],
+        "description": "Záznamy auditu pre aktívny tenant (najnovšie prvé), stránkované, s voliteľnými filtrami podľa akcie (`action`), typu entity (`entityType`), osoby (`actorUserId`) a dátumového rozsahu (`dateFrom`/`dateTo`). Vyžaduje ASSET_MANAGER alebo ADMIN.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "in": "query",
+            "name": "skip",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "USER_LOGIN",
+                "USER_LOGIN_FAILED",
+                "USER_LOGOUT",
+                "USER_PASSWORD_CHANGED",
+                "USER_PASSWORD_RESET_REQUESTED",
+                "USER_MFA_ENABLED",
+                "USER_MFA_DISABLED",
+                "USER_MFA_RESET_BY_ADMIN",
+                "USER_CREATED",
+                "USER_UPDATED",
+                "USER_DEACTIVATED",
+                "USER_REACTIVATED",
+                "USER_ROLE_GRANTED",
+                "USER_ROLE_REVOKED",
+                "ORGANISATION_CREATED",
+                "ORGANISATION_UPDATED",
+                "ORGANISATION_DELETED",
+                "ORGANISATION_BRANDING_UPDATED",
+                "ASSET_CREATED",
+                "ASSET_UPDATED",
+                "ASSET_DELETED",
+                "ASSET_STATUS_CHANGED",
+                "ASSET_LOCATION_CHANGED",
+                "ASSET_DISPOSED",
+                "ASSET_ATTACHMENT_ADDED",
+                "ASSET_ATTACHMENT_REMOVED",
+                "ASSET_ATTACHMENT_SET_PRIMARY",
+                "ASSET_TAG_RENAMED",
+                "ASSET_TAG_DELETED",
+                "CATEGORY_CREATED",
+                "CATEGORY_UPDATED",
+                "CATEGORY_DELETED",
+                "LOCATION_CREATED",
+                "LOCATION_UPDATED",
+                "LOCATION_DELETED",
+                "LOAN_REQUEST_CREATED",
+                "LOAN_REQUEST_APPROVED",
+                "LOAN_REQUEST_REJECTED",
+                "LOAN_REQUEST_CANCELLED",
+                "LOAN_PICKED_UP",
+                "LOAN_RETURNED",
+                "LOAN_EXTENDED",
+                "LOAN_MARKED_OVERDUE",
+                "LOAN_MARKED_LOST",
+                "LOAN_CREATED_DIRECT",
+                "LOAN_REQUEST_FULFILLED",
+                "LOAN_PROTOCOL_CREATED",
+                "LOAN_PROTOCOL_SIGNED",
+                "STOCK_RECEIVED",
+                "STOCK_ISSUED",
+                "STOCK_RETURNED",
+                "STOCK_ADJUSTED",
+                "DATA_EXPORT_REQUESTED",
+                "DATA_DELETION_REQUESTED",
+                "USER_PSEUDONYMIZED",
+                "USER_RESTRICTED",
+                "USER_UNRESTRICTED",
+                "MEMBERSHIP_CREATED",
+                "MEMBERSHIP_ROLES_CHANGED",
+                "MEMBERSHIP_REMOVED",
+                "USER_SWITCHED_ORGANISATION",
+                "PASSKEY_REGISTERED",
+                "PASSKEY_REMOVED",
+                "PASSKEY_RENAMED",
+                "PASSKEY_LOGIN",
+                "PASSKEY_LOGIN_FAILED",
+                "PASSKEY_COUNTER_WARNING",
+                "ASSET_TYPE_CREATED",
+                "ASSET_TYPE_UPDATED",
+                "ASSET_TYPE_DELETED",
+                "ASSET_CONDITION_CREATED",
+                "ASSET_CONDITION_UPDATED",
+                "ASSET_CONDITION_DELETED",
+                "SYSTEM_CONFIG_CHANGED",
+                "BULK_IMPORT_EXECUTED",
+                "INTEGRATION_TOKEN_CREATED",
+                "INTEGRATION_TOKEN_REVOKED"
+              ]
+            },
+            "in": "query",
+            "name": "action",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "User",
+                "Organisation",
+                "Asset",
+                "AssetType",
+                "AssetCondition",
+                "Loan",
+                "LoanRequest",
+                "LoanProtocol",
+                "StockMovement",
+                "Category",
+                "Location",
+                "Membership",
+                "Passkey",
+                "System"
+              ]
+            },
+            "in": "query",
+            "name": "entityType",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "in": "query",
+            "name": "dateFrom",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "in": "query",
+            "name": "dateTo",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "actor": {
+                            "type": "object",
+                            "properties": {
+                              "userId": {
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              },
+                              "accountType": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "userId",
+                              "displayName",
+                              "accountType"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "target": {
+                            "type": "object",
+                            "properties": {
+                              "entityType": {
+                                "type": "string"
+                              },
+                              "entityId": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            },
+                            "required": [
+                              "entityType",
+                              "entityId"
+                            ],
+                            "additionalProperties": false,
+                            "nullable": true
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "changes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "field": {
+                                  "type": "string"
+                                },
+                                "before": {},
+                                "after": {}
+                              },
+                              "required": [
+                                "field"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "nullable": true
+                          },
+                          "severity": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "at",
+                          "actor",
+                          "action",
+                          "target",
+                          "description",
+                          "changes",
+                          "severity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "skip": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "limit",
+                        "skip",
+                        "hasMore"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/assets/{id}/attachments": {
       "get": {
         "summary": "Zoznam príloh majetku",

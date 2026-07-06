@@ -26,6 +26,41 @@ import type { AuditLog } from '@inventario/shared-types';
 import type { ClientSession, Collection, Db } from 'mongodb';
 
 // ---------------------------------------------------------------------------
+// Tenant-wide filters (GET /v1/audit-log)
+// ---------------------------------------------------------------------------
+
+/**
+ * Voliteľné filtre pre `findByOrganisation` / `countByOrganisation`.
+ * Všetky polia nepovinné — chýbajúci filter = bez obmedzenia. Dátumy sú
+ * ISO stringy (rovnaký formát ako `AuditLog.at`), porovnávané lexikograficky
+ * (ISO 8601 je na to bezpečné).
+ */
+export interface AuditLogFilters {
+  action?: string | undefined;
+  entityType?: string | undefined;
+  actorUserId?: string | undefined;
+  dateFrom?: string | undefined;
+  dateTo?: string | undefined;
+}
+
+function buildOrganisationFilter(
+  organisationId: string,
+  filters: AuditLogFilters,
+): Record<string, unknown> {
+  const filter: Record<string, unknown> = { organisationId };
+  if (filters.action) filter['action'] = filters.action;
+  if (filters.entityType) filter['target.entityType'] = filters.entityType;
+  if (filters.actorUserId) filter['actor.userId'] = filters.actorUserId;
+  if (filters.dateFrom || filters.dateTo) {
+    const range: Record<string, string> = {};
+    if (filters.dateFrom) range['$gte'] = filters.dateFrom;
+    if (filters.dateTo) range['$lte'] = filters.dateTo;
+    filter['at'] = range;
+  }
+  return filter;
+}
+
+// ---------------------------------------------------------------------------
 // Repository
 // ---------------------------------------------------------------------------
 
@@ -51,6 +86,10 @@ export class AuditLogRepository {
       ),
       this.collection.createIndex({ action: 1 }, { name: 'action' }),
       this.collection.createIndex({ severity: 1 }, { name: 'severity' }),
+      // Tenant-wide prehľadávateľný audit log (2026-07-07, GET /v1/audit-log)
+      // — hlavný prístupový vzor: "všetko pre tenant X, najnovšie prvé,
+      // voliteľne filtrované". Kompound index nesie obe zaťaženia.
+      this.collection.createIndex({ organisationId: 1, at: -1 }, { name: 'org_at_desc' }),
     ]);
   }
 
@@ -112,6 +151,46 @@ export class AuditLogRepository {
       'target.entityType': entityType,
       'target.entityId': entityId,
     } as unknown as Parameters<Collection<AuditLog>['countDocuments']>[0]);
+  }
+
+  /**
+   * Voliteľné filtre pre tenant-wide prehľadávanie (`GET /v1/audit-log`).
+   * Všetky polia sú nepovinné — chýbajúci filter = bez obmedzenia.
+   */
+
+  /**
+   * Find audit log entries for the whole tenant (not scoped to one entity),
+   * newest-first, with pagination and optional filters. Dátový zdroj pre
+   * `GET /v1/audit-log` (kompletný prehľadávateľný audit log pre správcov,
+   * 2026-07-07). Uses the `org_at_desc` index.
+   */
+  async findByOrganisation(
+    organisationId: string,
+    filters: AuditLogFilters,
+    opts: { limit: number; skip: number },
+  ): Promise<AuditLog[]> {
+    return this.collection
+      .find(
+        buildOrganisationFilter(organisationId, filters) as unknown as Parameters<
+          Collection<AuditLog>['find']
+        >[0],
+      )
+      .sort({ at: -1 })
+      .skip(opts.skip)
+      .limit(opts.limit)
+      .toArray() as unknown as AuditLog[];
+  }
+
+  /**
+   * Count audit log entries for the whole tenant matching the same
+   * filters as `findByOrganisation`. Pre stránkovanie.
+   */
+  async countByOrganisation(organisationId: string, filters: AuditLogFilters): Promise<number> {
+    return this.collection.countDocuments(
+      buildOrganisationFilter(organisationId, filters) as unknown as Parameters<
+        Collection<AuditLog>['countDocuments']
+      >[0],
+    );
   }
 
   /**

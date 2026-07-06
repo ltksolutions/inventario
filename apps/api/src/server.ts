@@ -36,6 +36,7 @@ import assetsRoutes from './modules/assets/assets.routes.js';
 import publicAssetsRoutes from './modules/assets/public-assets.routes.js';
 import attachmentsRoutes from './modules/attachments/attachments.routes.js';
 import auditPlugin from './modules/audit/audit.plugin.js';
+import auditRoutes from './modules/audit/audit.routes.js';
 import appleAuthRoutes from './modules/auth/apple-auth.routes.js';
 import authSessionRoutes from './modules/auth/auth-session.routes.js';
 import emailAuthRoutes from './modules/auth/email-auth.routes.js';
@@ -194,6 +195,7 @@ export async function buildServer(
   await app.register(organisationsRoutes);
   await app.register(usersRoutes);
   await app.register(assetsRoutes);
+  await app.register(auditRoutes);
   await app.register(attachmentsRoutes);
   await app.register(publicAssetsRoutes);
   await app.register(assetConditionsRoutes);
