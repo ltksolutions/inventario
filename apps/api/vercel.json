@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "git diff --name-only HEAD^ HEAD | grep -qvE '^docs/' && exit 1 || exit 0",
   "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @inventario/shared-types build",
   "outputDirectory": ".",
   "functions": {
