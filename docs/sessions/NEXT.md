@@ -1,5 +1,45 @@
 # NEXT
 
+## Aktuálny stav (2026-07-06)
+
+**Cold-start perf fix + incident recovery + preloader zjednotenie — HOTOVÉ a nasadené.**
+Session log: `docs/sessions/2026-07-06-migrations-perf-bad-auth-preloader.md`.
+Commity: `00a2515` (migrácie mimo request path), `e98c2373` (preloadery).
+
+- ✅ **Root cause pomalého štartu appky (~20-30s):** migrácie bežali na KAŽDOM
+  cold starte `inventario-api` (14+ sekvenčných `findOne` dopytov). Fix:
+  `checkPendingMigrations()` (1 dotaz, len warning log) na cold starte;
+  reálne migrácie teraz bežia cez nový `POST /v1/system/migrations/run`
+  (chránený `MIGRATIONS_SECRET`), spúšťaný automaticky GitHub Actions
+  workflow-om (`.github/workflows/migrate-on-deploy.yml`) po úspešnom
+  produkčnom deployi.
+- ⚠️ **Incident počas nasadenia:** celá prod API spadla na 500 po nastavení
+  `MIGRATIONS_SECRET` — nie zlá hodnota (mala 64 znakov), ale **Vercel
+  aplikuje env zmeny len na nový deployment**; bežiace funkcie mali zapečenú
+  staršiu nevalidnú hodnotu. Fix: ešte jeden Redeploy po uložení. Overené
+  (401 namiesto 500/503 na chránených endpointoch, `get_runtime_errors`
+  bez nových chýb). **Opakované poučenie** — rovnaký vzorec ako minulý
+  `EMAIL_PROVIDER` incident.
+- 🔶 **Bad auth (Mongo) na Preview deploymentoch:** diagnostikované (zlý
+  `MONGO_URI` na Preview) — Janika nastavila Production→`inventario-prod`,
+  Preview→`inventario-dev`. **Nepotvrdené na živom Preview deploymente**,
+  čaká sa na ďalší dependabot PR / push mimo main.
+- ✅ **Preloadery zjednotené:** `RouteProgressBar` (tenký pruh pod hlavičkou,
+  nikto si ho nevšímal) → premenovaný na `GlobalFetchOverlay`, teraz
+  vykresľuje novú `LoadingOverlay` (spinner + Inventario logo, vystredený
+  fixný overlay). `AuthGate` používa tú istú komponentu. Vedomý trade-off:
+  prekrýva aj background refetch (predtým to `RouteProgressBar` zámerne
+  neriešil) — Janika zvolila jednotnosť/viditeľnosť.
+
+**Otvorené:** potvrdiť bad auth fix na najbližšom Preview deploymente;
+overiť že `migrate-on-deploy.yml` sa spustí pri najbližšom prod deployi;
+`.claude-fs-probe.tmp` v koreni repa čaká na manuálne zmazanie Janikom
+(sandbox `rm`/`mv`/`os.remove` blokované na úrovni mountu); zvážiť pinnutie
+Vercel function regiónu bližšie k MongoDB Atlas regiónu (pozorované
+`iad1`/`sfo1`/`fra1`).
+
+---
+
 ## Aktuálny stav (2026-07-01)
 
 **Custom `DateField` (fix orezaného kalendára) — HOTOVÉ a nasadené.** Session log:
