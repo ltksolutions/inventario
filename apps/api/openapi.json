@@ -2258,8 +2258,16 @@
                     "maxLength": 300
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 2000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   },
@@ -2495,8 +2503,16 @@
                     "maxLength": 300
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 2000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   },
@@ -3578,8 +3594,16 @@
                     "default": null
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 1000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 1000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   },
@@ -3722,8 +3746,16 @@
                     "default": null
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 1000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 1000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   },
@@ -4067,8 +4099,16 @@
                     "default": null
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 2000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   },
@@ -4243,8 +4283,16 @@
                     "default": null
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 2000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   },
@@ -4475,9 +4523,16 @@
                 "type": "object",
                 "properties": {
                   "purpose": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 500
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 500
+                      }
+                    ]
                   },
                   "plannedFrom": {
                     "type": "string",
@@ -4502,8 +4557,16 @@
                           "minimum": 1
                         },
                         "note": {
-                          "type": "string",
-                          "maxLength": 1000,
+                          "allOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 1000
+                            }
+                          ],
                           "nullable": true
                         }
                       },
@@ -4760,8 +4823,16 @@
                     "default": false
                   },
                   "notes": {
-                    "type": "string",
-                    "maxLength": 2000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   }
@@ -4820,9 +4891,16 @@
                 "type": "object",
                 "properties": {
                   "reason": {
-                    "type": "string",
-                    "minLength": 5,
-                    "maxLength": 1000
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 1000
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -5131,9 +5209,16 @@
                     "maxItems": 50
                   },
                   "purpose": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 500
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 500
+                      }
+                    ]
                   },
                   "dueAt": {
                     "type": "string",
@@ -5143,8 +5228,16 @@
                     "default": null
                   },
                   "notes": {
-                    "type": "string",
-                    "maxLength": 2000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   }
@@ -5258,8 +5351,16 @@
                           ]
                         },
                         "note": {
-                          "type": "string",
-                          "maxLength": 1000,
+                          "allOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 1000
+                            }
+                          ],
                           "nullable": true,
                           "default": null
                         },
@@ -5285,8 +5386,16 @@
                     }
                   },
                   "notes": {
-                    "type": "string",
-                    "maxLength": 2000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   }
@@ -6507,14 +6616,30 @@
                     "pattern": "^[a-f\\d]{24}$"
                   },
                   "reason": {
-                    "type": "string",
-                    "maxLength": 1000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 1000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   },
                   "note": {
-                    "type": "string",
-                    "maxLength": 1000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 1000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   }
@@ -6581,13 +6706,28 @@
                     "pattern": "^[a-f\\d]{24}$"
                   },
                   "reason": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 1000
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 1000
+                      }
+                    ]
                   },
                   "note": {
-                    "type": "string",
-                    "maxLength": 1000,
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 1000
+                      }
+                    ],
                     "nullable": true,
                     "default": null
                   }

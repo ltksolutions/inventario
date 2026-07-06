@@ -25,7 +25,7 @@
  *   will gain a tree traversal up to a max-depth limit.
  */
 
-import { UpdateCategorySchema } from '@inventario/shared-types';
+import { freeText, UpdateCategorySchema } from '@inventario/shared-types';
 import { z } from 'zod';
 
 import { AssetsRepository } from '../assets/assets.repository.js';
@@ -96,7 +96,7 @@ const ApiCreateCategoryBodySchema = z
       .regex(/^[a-f\d]{24}$/i, 'parentId musí byť 24 hex znakov.')
       .nullable()
       .default(null),
-    description: z.string().max(1000).nullable().default(null),
+    description: freeText(1000).nullable().default(null),
     icon: z.string().max(50).nullable().default(null),
     color: z
       .string()

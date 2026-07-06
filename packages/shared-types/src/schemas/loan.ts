@@ -8,6 +8,7 @@ import { LoanRequestStatus, LoanStatus } from '../enums/loan-status.js';
 
 import {
   BaseDocumentSchema,
+  freeText,
   ObjectIdSchema,
   OrganisationScopedSchema,
   SoftDeleteSchema,
@@ -47,7 +48,7 @@ export const LoanRequestItemSchema = z.object({
   quantityFulfilled: z.number().int().nonnegative().default(0),
 
   /** Voliteľná per-item poznámka žiadateľa (napr. „len ak je skladom"). */
-  note: z.string().max(1000).nullable().default(null),
+  note: freeText(1000).nullable().default(null),
 });
 
 export type LoanRequestItem = z.infer<typeof LoanRequestItemSchema>;
@@ -74,7 +75,7 @@ export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     beneficiaryId: ObjectIdSchema,
 
     /** Účel — krátky text, prečo si zápožičku berie. */
-    purpose: z.string().min(3, 'Účel je povinný.').max(500),
+    purpose: freeText(500, { min: 3, minMessage: 'Účel je povinný.' }),
 
     /**
      * Plánovaný termín od (želaný — záväzný dueAt sa nastaví až na Loan pri vydaní).
@@ -102,7 +103,7 @@ export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
         categoryScope: z.array(ObjectIdSchema),
         decidedAt: TimestampSchema.nullable().default(null),
         decision: z.enum(['APPROVED', 'REJECTED']).nullable().default(null),
-        note: z.string().max(1000).nullable().default(null),
+        note: freeText(1000).nullable().default(null),
       }),
     ),
 
@@ -113,7 +114,7 @@ export const LoanRequestSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     resultingLoanIds: z.array(ObjectIdSchema).default([]),
 
     /** Ak je REJECTED alebo CANCELLED, dôvod. */
-    rejectionReason: z.string().max(1000).nullable().default(null),
+    rejectionReason: freeText(1000).nullable().default(null),
 
     /** Hromadná žiadosť pre tím — voliteľná referencia (forward-compat, vždy null v MVP). */
     teamId: ObjectIdSchema.nullable().default(null),
@@ -155,7 +156,7 @@ export const CreateLoanRequestSchema = LoanRequestSchema.omit({
       z.object({
         categoryId: ObjectIdSchema,
         quantityRequested: z.number().int().min(1, 'Množstvo musí byť aspoň 1.'),
-        note: z.string().max(1000).nullable().optional(),
+        note: freeText(1000).nullable().optional(),
       }),
     )
     .min(1, 'Žiadosť musí mať aspoň jednu položku.')
@@ -209,7 +210,7 @@ export const FulfilLoanRequestSchema = z.object({
   closeRemainder: z.boolean().default(false),
 
   /** Voliteľné poznámky k tomuto vydaniu. */
-  notes: z.string().max(2000).nullable().default(null),
+  notes: freeText(2000).nullable().default(null),
 });
 
 export type FulfilLoanRequestInput = z.infer<typeof FulfilLoanRequestSchema>;
@@ -227,7 +228,7 @@ export const LoanItemConditionSchema = z.object({
     condition: z.enum(
       Object.values(AssetCondition) as [string, ...string[]],
     ) as z.ZodType<AssetCondition>,
-    note: z.string().max(1000).nullable().default(null),
+    note: freeText(1000).nullable().default(null),
     photoIds: z.array(ObjectIdSchema).default([]),
   }),
 
@@ -237,7 +238,7 @@ export const LoanItemConditionSchema = z.object({
       condition: z.enum(
         Object.values(AssetCondition) as [string, ...string[]],
       ) as z.ZodType<AssetCondition>,
-      note: z.string().max(1000).nullable().default(null),
+      note: freeText(1000).nullable().default(null),
       photoIds: z.array(ObjectIdSchema).default([]),
       requiresService: z.boolean().default(false),
     })
@@ -277,7 +278,7 @@ export const LoanSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     borrowerId: ObjectIdSchema,
 
     /** Účel (skopírovaný z LoanRequest pri vydaní). */
-    purpose: z.string().min(3).max(500),
+    purpose: freeText(500, { min: 3 }),
 
     /** Reálny dátum prevzatia. */
     pickedUpAt: TimestampSchema,
@@ -313,7 +314,7 @@ export const LoanSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     returnProtocolId: ObjectIdSchema.nullable().default(null),
 
     /** Voľné poznámky. */
-    notes: z.string().max(2000).nullable().default(null),
+    notes: freeText(2000).nullable().default(null),
   });
 
 export type Loan = z.infer<typeof LoanSchema>;
@@ -359,11 +360,11 @@ export const CreateDirectLoanSchema = z.object({
     .min(1, 'Priama výpožička musí mať aspoň jednu položku.')
     .max(50),
   /** Účel výpožičky. */
-  purpose: z.string().min(3, 'Účel je povinný.').max(500),
+  purpose: freeText(500, { min: 3, minMessage: 'Účel je povinný.' }),
   /** Dohodnutý termín vrátenia. Null = výpožička bez termínu ("do odvolania", ADR-0025). */
   dueAt: TimestampSchema.nullable().default(null),
   /** Voľné poznámky. */
-  notes: z.string().max(2000).nullable().default(null),
+  notes: freeText(2000).nullable().default(null),
 });
 
 export type CreateDirectLoanInput = z.infer<typeof CreateDirectLoanSchema>;
@@ -379,12 +380,12 @@ export const ReturnLoanSchema = z.object({
       condition: z.enum(
         Object.values(AssetCondition) as [string, ...string[]],
       ) as z.ZodType<AssetCondition>,
-      note: z.string().max(1000).nullable().default(null),
+      note: freeText(1000).nullable().default(null),
       photoIds: z.array(ObjectIdSchema).default([]),
       requiresService: z.boolean().default(false),
     }),
   ),
-  notes: z.string().max(2000).nullable().default(null),
+  notes: freeText(2000).nullable().default(null),
 });
 
 export type ReturnLoanInput = z.infer<typeof ReturnLoanSchema>;

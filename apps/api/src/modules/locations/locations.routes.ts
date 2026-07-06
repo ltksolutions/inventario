@@ -25,7 +25,7 @@
  *     writable location fields, audit + identity columns excluded).
  */
 
-import { LOCATION_TYPE_VALUES, UpdateLocationSchema } from '@inventario/shared-types';
+import { freeText, LOCATION_TYPE_VALUES, UpdateLocationSchema } from '@inventario/shared-types';
 import { z } from 'zod';
 
 import { AssetsRepository } from '../assets/assets.repository.js';
@@ -113,7 +113,7 @@ const ApiCreateLocationBodySchema = z
       .regex(/^[a-f\d]{24}$/i, 'parentId musí byť 24 hex znakov.')
       .nullable()
       .default(null),
-    description: z.string().max(2000).nullable().default(null),
+    description: freeText(2000).nullable().default(null),
     managerId: z
       .string()
       .regex(/^[a-f\d]{24}$/i, 'managerId musí byť 24 hex znakov.')

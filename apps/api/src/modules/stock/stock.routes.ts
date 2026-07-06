@@ -12,6 +12,7 @@
  *   POST /v1/stock/:itemId/reconcile    ADMIN only (diagnostika)
  */
 
+import { freeText } from '@inventario/shared-types';
 import { z } from 'zod';
 
 import { AssetsRepository } from '../assets/assets.repository.js';
@@ -37,8 +38,8 @@ const ReceiveBodySchema = z.object({
     .int('Množstvo musí byť celé číslo.')
     .positive('Príjem musí mať kladné množstvo.'),
   locationId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát locationId.'),
-  reason: z.string().max(1000).nullable().default(null),
-  note: z.string().max(1000).nullable().default(null),
+  reason: freeText(1000).nullable().default(null),
+  note: freeText(1000).nullable().default(null),
 });
 
 const AdjustBodySchema = z.object({
@@ -52,8 +53,8 @@ const AdjustBodySchema = z.object({
     .refine((n) => n !== 0, 'Množstvo korekcie nesmie byť nula.'),
   locationId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát locationId.'),
   /** Povinný dôvod korekcie (min 3 znaky). */
-  reason: z.string().min(3, 'Dôvod korekcie musí mať aspoň 3 znaky.').max(1000),
-  note: z.string().max(1000).nullable().default(null),
+  reason: freeText(1000, { min: 3, minMessage: 'Dôvod korekcie musí mať aspoň 3 znaky.' }),
+  note: freeText(1000).nullable().default(null),
 });
 
 const ListMovementsQuerySchema = z.object({

@@ -8,6 +8,7 @@ import { TrackingMode } from '../enums/tracking-mode.js';
 
 import {
   BaseDocumentSchema,
+  freeText,
   ObjectIdSchema,
   OrganisationScopedSchema,
   SoftDeleteSchema,
@@ -37,7 +38,7 @@ export const AssetSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
 
     serialNumber: z.string().max(200).nullable().default(null),
     name: z.string().min(1, 'Názov je povinný.').max(300).trim(),
-    description: z.string().max(2000).nullable().default(null),
+    description: freeText(2000).nullable().default(null),
 
     /**
      * Kategória — jediná klasifikácia majetku (hierarchický strom

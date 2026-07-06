@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import {
   BaseDocumentSchema,
+  freeText,
   ObjectIdSchema,
   OrganisationScopedSchema,
   SoftDeleteSchema,
@@ -43,7 +44,7 @@ export const CategorySchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     parentId: ObjectIdSchema.nullable().default(null),
 
     /** Voliteľný popis. */
-    description: z.string().max(1000).nullable().default(null),
+    description: freeText(1000).nullable().default(null),
 
     /** Ikonka pre UI (lucide-react icon name). */
     icon: z.string().max(50).nullable().default(null),

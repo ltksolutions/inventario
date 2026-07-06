@@ -233,3 +233,56 @@ export const TagSchema = z
   .describe('Normalizovaný tag (trim, zbalené medzery, malé písmená)');
 
 export type Tag = z.infer<typeof TagSchema>;
+
+/**
+ * Normalizácia voľného textu (Popis, Účel, Poznámka, Dôvod zamietnutia...).
+ *
+ * Rieši typický problém pri vložení textu skopírovaného z webovej stránky
+ * alebo iného dokumentu — rozbité zalomenia riadkov a neviditeľné znaky,
+ * ktoré kazia layout aj tlač (protokoly, PDF):
+ *   1. nedeliteľná medzera (U+00A0) → normálna medzera
+ *   2. CRLF → LF
+ *   3. orezanie medzier/tabulátorov na konci každého riadku
+ *   4. 3 a viac prázdnych riadkov za sebou → max 1 prázdny riadok
+ *   5. orezanie okrajových medzier/riadkov na začiatku a konci celého textu
+ *
+ * Zámerne NEODSTRAŇUJE jednotlivé zalomenia riadkov (odseky, zoznamy) —
+ * čistí len nadbytočné/neviditeľné znaky, nie zámerné formátovanie textu.
+ * Použité aj priamo (bez Zod) v deploy-time migrácii pre backfill existujúcich dát.
+ */
+export function normalizeFreeText(value: string): string {
+  return value
+    .replace(/\u00A0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/, ''))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Voľné textové pole (Popis, Účel, Poznámka...) s normalizáciou pri uložení
+ * cez `normalizeFreeText`. Validácia dĺžky beží AŽ PO normalizácii cez
+ * `.pipe()` (rovnaký vzor ako `TagSchema`).
+ *
+ * Vracia „holú" string schému bez `.nullable()`/`.optional()`/`.default()` —
+ * tie sa reťazia na volajúcej strane podľa konkrétneho poľa (rovnako ako
+ * predtým s `z.string()`), aby sa nemenila existujúca sémantika jednotlivých
+ * polí (niektoré sú nullable+default, iné optional, iné povinné).
+ */
+export function freeText(
+  max: number,
+  opts: { min?: number; minMessage?: string; maxMessage?: string } = {},
+) {
+  const min = opts.min ?? 0;
+  return z
+    .string()
+    .transform((val) => normalizeFreeText(val))
+    .pipe(
+      z
+        .string()
+        .min(min, opts.minMessage ?? `Text musí mať aspoň ${min} znakov.`)
+        .max(max, opts.maxMessage ?? `Text môže mať najviac ${max} znakov.`),
+    );
+}

@@ -21,7 +21,12 @@
  * Domena VYLUCNE z appBaseUrl - NIKDY z Host hlavicky.
  */
 
-import { TagSchema, TRACKING_MODE_VALUES, UpdateAssetSchema } from '@inventario/shared-types';
+import {
+  freeText,
+  TagSchema,
+  TRACKING_MODE_VALUES,
+  UpdateAssetSchema,
+} from '@inventario/shared-types';
 import QRCode from 'qrcode';
 import { z } from 'zod';
 
@@ -60,7 +65,7 @@ const ApiCreateAssetBodySchema = z
   .object({
     serialNumber: z.string().max(200).nullable().default(null),
     name: z.string().min(1).max(300).trim(),
-    description: z.string().max(2000).nullable().default(null),
+    description: freeText(2000).nullable().default(null),
     categoryId: z.string().regex(/^[a-f\d]{24}$/i),
     condition: z.string(),
     locationId: z.string().regex(/^[a-f\d]{24}$/i),

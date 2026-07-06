@@ -5,7 +5,12 @@ import { z } from 'zod';
 
 import { StockMovementType } from '../enums/stock-movement-type.js';
 
-import { BaseDocumentSchema, ObjectIdSchema, OrganisationScopedSchema } from './common.js';
+import {
+  BaseDocumentSchema,
+  freeText,
+  ObjectIdSchema,
+  OrganisationScopedSchema,
+} from './common.js';
 
 /**
  * StockMovement = jeden záznam v skladovom ledgeri hromadnej (BULK) položky.
@@ -54,7 +59,7 @@ export const StockMovementSchema = BaseDocumentSchema.merge(OrganisationScopedSc
    * Dôvod pohybu. Povinný pri `ADJUSTMENT` (ručná korekcia musí byť
    * vysvetlená) — túto podmienku vynucuje service/route vrstva, nie schéma.
    */
-  reason: z.string().max(1000).nullable().default(null),
+  reason: freeText(1000).nullable().default(null),
 
   /** Ak pohyb súvisí so zápožičkou (LOAN_OUT / LOAN_RETURN), jej ID. Inak null. */
   loanId: ObjectIdSchema.nullable().default(null),
@@ -63,7 +68,7 @@ export const StockMovementSchema = BaseDocumentSchema.merge(OrganisationScopedSc
   locationId: ObjectIdSchema,
 
   /** Voliteľná poznámka. */
-  note: z.string().max(1000).nullable().default(null),
+  note: freeText(1000).nullable().default(null),
 });
 
 export type StockMovement = z.infer<typeof StockMovementSchema>;

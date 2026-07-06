@@ -7,6 +7,7 @@ import { LocationType } from '../enums/location-type.js';
 
 import {
   BaseDocumentSchema,
+  freeText,
   ObjectIdSchema,
   OrganisationScopedSchema,
   SoftDeleteSchema,
@@ -59,7 +60,7 @@ export const LocationSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     parentId: ObjectIdSchema.nullable().default(null),
 
     /** Voliteľný popis (otváracie hodiny, kontakt, špeciálne pravidlá). */
-    description: z.string().max(2000).nullable().default(null),
+    description: freeText(2000).nullable().default(null),
 
     /** ID správcu lokality. */
     managerId: ObjectIdSchema.nullable().default(null),

@@ -16,7 +16,7 @@
  *   DELETE /v1/loan-requests/:id           EMPLOYEE+ (service checks ownership)
  */
 
-import { LoanRequestStatus } from '@inventario/shared-types';
+import { freeText, LoanRequestStatus } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
@@ -82,7 +82,7 @@ const ListLoanRequestsQuerySchema = z.object({
  */
 const CreateLoanRequestBodySchema = z
   .object({
-    purpose: z.string().min(3, 'Účel je povinný (min 3 znaky).').max(500),
+    purpose: freeText(500, { min: 3, minMessage: 'Účel je povinný (min 3 znaky).' }),
     plannedFrom: z.string().datetime({ offset: true }),
     /** Null / chýbajúci = výpožička bez termínu ("do odvolania", ADR-0025). */
     plannedTo: z.string().datetime({ offset: true }).nullable().optional(),
@@ -92,7 +92,7 @@ const CreateLoanRequestBodySchema = z
         z.object({
           categoryId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát categoryId.'),
           quantityRequested: z.number().int().min(1, 'Množstvo musí byť aspoň 1.'),
-          note: z.string().max(1000).nullable().optional(),
+          note: freeText(1000).nullable().optional(),
         }),
       )
       .min(1, 'Žiadosť musí obsahovať aspoň jednu položku.')
@@ -135,11 +135,11 @@ const FulfilLoanRequestBodySchema = z.object({
   dueAt: z.string().datetime({ offset: true }).nullable().default(null),
   /** Ak true, žiadosť sa uzavrie aj keď nebolo vydané celé množstvo. */
   closeRemainder: z.boolean().default(false),
-  notes: z.string().max(2000).nullable().default(null),
+  notes: freeText(2000).nullable().default(null),
 });
 
 const RejectBodySchema = z.object({
-  reason: z.string().min(5, 'Dôvod zamietnutia musí mať aspoň 5 znakov.').max(1000),
+  reason: freeText(1000, { min: 5, minMessage: 'Dôvod zamietnutia musí mať aspoň 5 znakov.' }),
 });
 
 // ---------------------------------------------------------------------------
