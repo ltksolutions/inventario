@@ -1325,6 +1325,86 @@ export function useCanDeleteTaxonomy(): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Audit log — kompletný, prehľadávateľný tenant-wide log (2026-07-07)
+// ---------------------------------------------------------------------------
+
+/**
+ * Role gate pre `/audit-log`. ASSET_MANAGER + ADMIN (rozhodnutie Janiky —
+ * pôvodne plánované len pre ADMIN, rozšírené aj na Správcu majetku
+ * aktívneho tenanta). Rovnaký threshold ako useCanManageTaxonomy /
+ * useCanManagePersons, samostatný export kvôli čitateľnosti call-site.
+ */
+export function useCanViewAuditLog(): boolean {
+  const { user } = useAuth();
+  return roleSatisfies(user?.role, 'ASSET_MANAGER');
+}
+
+export interface AuditLogEntry {
+  id: string;
+  at: string;
+  actor: {
+    userId: string;
+    displayName: string;
+    accountType: string;
+  };
+  action: string;
+  target: { entityType: string; entityId: string | null } | null;
+  description: string;
+  changes: Array<{ field: string; before: unknown; after: unknown }> | null;
+  severity: string;
+}
+
+export interface AuditLogFilterOptions {
+  limit?: number;
+  skip?: number;
+  action?: string | undefined;
+  entityType?: string | undefined;
+  actorUserId?: string | undefined;
+  /** ISO 8601 dátum-čas (nie len dátum) — volajúci konvertuje na hranicu dňa. */
+  dateFrom?: string | undefined;
+  dateTo?: string | undefined;
+}
+
+/**
+ * GET /v1/audit-log — kompletný audit log aktívneho tenanta, filtrovateľný
+ * podľa akcie, typu entity, osoby (aktér) a dátumového rozsahu.
+ *
+ * Not yet reflected in generated api-types.ts — generic-cast pattern
+ * (rovnaké ako usePersonsDirectory).
+ */
+export function useAuditLog(
+  options: AuditLogFilterOptions = {},
+): UseQueryResult<ListResponse<AuditLogEntry>, Error> {
+  const { limit = 50, skip = 0, action, entityType, actorUserId, dateFrom, dateTo } = options;
+  const { isAuthenticated } = useAuth();
+  const genericGet = apiClient.GET as (
+    path: string,
+    opts: unknown,
+  ) => Promise<{ data: unknown; error: unknown }>;
+
+  return useQuery<ListResponse<AuditLogEntry>, Error>({
+    queryKey: ['audit-log', { limit, skip, action, entityType, actorUserId, dateFrom, dateTo }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const query: Record<string, unknown> = { limit, skip };
+      if (action) query['action'] = action;
+      if (entityType) query['entityType'] = entityType;
+      if (actorUserId) query['actorUserId'] = actorUserId;
+      if (dateFrom) query['dateFrom'] = dateFrom;
+      if (dateTo) query['dateTo'] = dateTo;
+
+      const { data, error } = await genericGet('/v1/audit-log', { params: { query } });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load audit log');
+      }
+      if (!data) throw new Error('Empty response from /v1/audit-log');
+      return data as unknown as ListResponse<AuditLogEntry>;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Loans — types, hooks, mutations
 // ---------------------------------------------------------------------------
 

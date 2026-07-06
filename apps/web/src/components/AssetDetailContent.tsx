@@ -48,6 +48,7 @@ import {
   useLocations,
   useLoansForAsset,
 } from '@/lib/api-hooks';
+import { auditActionLabel } from '@/lib/audit-labels';
 import { cn } from '@/lib/cn';
 import { useConditionLabel } from '@/lib/conditions';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
@@ -712,15 +713,6 @@ interface AuditEntry {
   severity: 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
 }
 
-const AUDIT_ACTION_LABELS: Record<string, string> = {
-  ASSET_CREATED: 'Majetok vytvorený',
-  ASSET_UPDATED: 'Majetok upravený',
-  ASSET_DELETED: 'Majetok zmazaný',
-  ASSET_STATUS_CHANGED: 'Zmena stavu',
-  ASSET_LOCATION_CHANGED: 'Zmena lokality',
-  ASSET_DISPOSED: 'Majetok vyradený',
-};
-
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString('sk-SK', {
@@ -800,7 +792,7 @@ function AuditLogTab({ assetId }: { assetId: string }): JSX.Element {
             <div className="flex-1 rounded-lg border border-border-subtle bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="text-sm font-bold text-text-primary">
-                  {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
+                  {auditActionLabel(entry.action)}
                 </p>
                 <span className="flex shrink-0 items-center gap-1 text-xs text-text-secondary">
                   <Clock className="h-3 w-3" />
