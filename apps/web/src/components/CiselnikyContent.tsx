@@ -22,6 +22,7 @@ import { useState } from 'react';
 
 import { CategoryCreateDialog } from './CategoryCreateDialog';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
+import { SelectField } from './SelectField';
 
 import type { JSX } from 'react';
 
@@ -778,16 +779,18 @@ function LocationDialog({
             />
           </label>
 
-          <label className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             <span className="text-sm font-medium text-text-secondary">Typ lokality *</span>
-            <select value={type} onChange={(e) => setType(e.target.value)} className={inputCls}>
-              {LOCATION_TYPE_VALUES.map((t) => (
-                <option key={t} value={t}>
-                  {LOCATION_TYPE_LABELS[t] ?? t}
-                </option>
-              ))}
-            </select>
-          </label>
+            <SelectField
+              label="Typ lokality"
+              value={type}
+              onChange={setType}
+              options={LOCATION_TYPE_VALUES.map((t) => ({
+                value: t,
+                label: LOCATION_TYPE_LABELS[t] ?? t,
+              }))}
+            />
+          </div>
         </div>
 
         {error ? (
