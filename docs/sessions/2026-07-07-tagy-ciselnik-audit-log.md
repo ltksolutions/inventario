@@ -135,8 +135,50 @@ striktne podľa aktívneho tenanta. Overené v kóde:
 - Všetky 4 commity (Tagy backend/frontend, Audit log backend/frontend)
   pushnuté na `main`.
 
+## Dodatok — bug po nasadení: filtre v Audit logu hádzali 500 (opravené, `db15c3c`)
+
+Janika nahlásila (screenshoty): filter `entityType=Členstvo` aj filter
+podľa konkrétnej osoby (`actorUserId`) hádzali "Audit log sa nepodarilo
+načítať".
+
+**Príčina:** Diagnostika cez Vercel runtime logy (`get_runtime_logs`)
+ukázala `ResponseSerializationError` — Zod odmietal `data[N].at`,
+`data[N].description`, `data[N].actor.displayName`,
+`data[N].actor.accountType` ako `undefined`. Priamy dotaz do produkčnej
+`audit_logs` kolekcie (`mcp__inventario-prod__find`/`aggregate`)
+potvrdil: **37 legacy dokumentov z júna 2026** (pred zjednotením na
+`AuditLogService.record()`) naprieč 10 typmi akcií
+(`USER_SWITCHED_ORGANISATION` ×12, `MEMBERSHIP_ROLES_CHANGED` ×7,
+`USER_INVITED` ×5, `PASSKEY_REGISTERED` ×3, `USER_INVITATION_ACCEPTED`
+×3, `MEMBERSHIP_REMOVED` ×2, `PASSKEY_LOGIN_FAILED` ×2, `PASSKEY_LOGIN`
+×1, `USER_REJOINED_ORGANISATION` ×1, `USER_INVITATION_REVOKED` ×1) majú
+starší tvar: `createdAt` namiesto `at`, `actor: {userId, email}` bez
+`displayName`/`accountType`, žiadne `description`. Pôvodný per-asset
+audit endpoint (`GET /v1/assets/:id/audit`) tento problém nemal, lebo
+používa voľnú response schému bez validácie — nový `/v1/audit-log` má
+prísnu typovanú schému, ktorá to prvýkrát odhalila.
+
+**Fix (`audit.routes.ts`):** nová funkcia `toEntryResponse()` —
+defenzívne normalizuje záznam pri čítaní (fallback `createdAt → at`,
+`actor.email → displayName`, generický `accountType`/`description` pre
+staré záznamy) namiesto úpravy historických dát. Fix je
+action-agnostic (funguje pre ľubovoľný `action`), takže pokrýva
+všetkých 10 nájdených typov naraz, nie len tie pôvodne nahlásené.
+
+**Prečo takto, nie backfill migráciou:** Janika po oprave výslovne
+zdôraznila — "Audit log je pravda, a viac než pravda, nikto ju nesmie
+vedieť mazať." Zapísané ako trvalá zásada do pamäte
+(`inventario-audit-log-immutable`) — akékoľvek budúce problémy s tvarom
+historických audit záznamov sa riešia VŽDY na strane čítania, nikdy
+úpravou/mazaním v `audit_logs` kolekcii.
+
+Overené: `tsc --noEmit`/`eslint`/`prettier --check` čisté, nasadené na
+produkciu (`db15c3c`), Vercel deployment `READY`.
+
 ## Ďalšie kroky
 
-- Živé odskúšanie na produkcii (filtre v Audit logu, premenovanie/mazanie
-  tagu so zlúčením duplicít).
+- Živé odskúšanie filtrov v Audit logu na produkcii (najmä pôvodne
+  nahlásené `entityType=Membership` a konkrétna osoba) — potvrdiť, že
+  už nehádžu 500.
+- Premenovanie/mazanie tagu so zlúčením duplicít — živé odskúšanie.
 - Zvážiť budúci CSV export z Audit logu (zámerne mimo v1 rozsahu).

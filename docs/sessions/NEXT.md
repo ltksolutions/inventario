@@ -19,9 +19,22 @@ log backend/frontend).
   žiadosť Janiky (`tenantFilter`/`organisationId` filter v oboch
   repozitároch + existujúci globálny cache-invalidate pri prepnutí
   tenanta na frontende).
+- ✅ **Dodatočný bug fix (`db15c3c`), nasadené.** Filtre v Audit logu
+  (napr. `entityType=Membership`, konkrétna osoba) hádzali 500 —
+  37 legacy `audit_logs` dokumentov z júna 2026 (10 typov akcií) malo
+  starší tvar bez `at`/`description`/`actor.displayName`/
+  `actor.accountType`. Opravené defenzívnym `toEntryResponse()` pri
+  čítaní (fallbacky), historické dáta NEDOTKNUTÉ — audit log je
+  append-only, viď zásada nižšie.
 
-**Otvorené:** živé odskúšanie na produkcii; budúci CSV export z Audit
-logu (zámerne mimo v1).
+**Dôležitá trvalá zásada (Janika, 2026-07-07):** Audit log sa nikdy
+nemení ani nemaže z aplikačnej úrovne — ani pri oprave bugov s tvarom
+starých záznamov. Riešenie je vždy na strane čítania (response
+mapovanie/fallbacky), nikdy backfill/update/delete v `audit_logs`
+kolekcii. Zapísané do trvalej pamäte.
+
+**Otvorené:** živé odskúšanie filtrov na produkcii po tomto fixe;
+budúci CSV export z Audit logu (zámerne mimo v1).
 
 ## Aktuálny stav (2026-07-07) — zvyšné UI/UX drobnosti + SelectField fix
 
