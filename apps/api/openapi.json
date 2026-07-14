@@ -6976,6 +6976,15 @@
         }
       }
     },
+    "/v1/memberships/pre-provisioned": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/v1/memberships/{id}/default": {
       "post": {
         "parameters": [

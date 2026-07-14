@@ -132,3 +132,75 @@ export const UpdateMembershipSchema = MembershipSchema.pick({
 }).partial();
 
 export type UpdateMembershipInput = z.infer<typeof UpdateMembershipSchema>;
+
+// ---------------------------------------------------------------------------
+// Pre-provisioning (ADR-0034) — predpríprava budúceho používateľa
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /v1/memberships/pre-provisioned request body (ADR-0034).
+ *
+ * Umožňuje ASSET_MANAGER/ADMIN vopred vytvoriť `User` + `Membership` pre
+ * budúceho zamestnanca so známou firemnou e-mailovou adresou — **len**
+ * v organizáciách s `memberJoinPolicy: DOMAIN_RESTRICTED`. Výsledná adresa
+ * (`localPart@domain`) musí patriť medzi `Organisation.autoJoinDomains`
+ * (kontrola v service, nie v tejto schéme — potrebuje prístup k org dokumentu).
+ *
+ * `localPart` je zámerne oddelený od `domain` (nie jedno `EmailSchema` pole) —
+ * UI ponúka `domain` ako select z povolených hodnôt, nie voľný text, takže sa
+ * nedá vyplniť iná/cudzia doména.
+ */
+export const CreatePreProvisionedMemberSchema = z.object({
+  /** Krstné meno budúceho zamestnanca. */
+  firstName: z.string().min(1, 'Meno je povinné.').max(100, 'Meno je príliš dlhé.').trim(),
+
+  /** Priezvisko budúceho zamestnanca. */
+  lastName: z
+    .string()
+    .min(1, 'Priezvisko je povinné.')
+    .max(100, 'Priezvisko je príliš dlhé.')
+    .trim(),
+
+  /**
+   * Časť e-mailu pred @. Zjednodušená RFC 5321 lokálna časť — písmená,
+   * číslice, `.`, `_`, `%`, `+`, `-`. Normalizuje sa na lowercase.
+   */
+  localPart: z
+    .string()
+    .min(1, 'Lokálna časť e-mailu je povinná.')
+    .max(64, 'Lokálna časť e-mailu môže mať najviac 64 znakov.')
+    .regex(/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/, 'Lokálna časť e-mailu obsahuje neplatné znaky.')
+    .transform((val) => val.toLowerCase()),
+
+  /**
+   * Doména — musí byť jedna z `Organisation.autoJoinDomains` (kontrola v
+   * service). Sem prichádza z UI select-u, nie voľný text.
+   */
+  domain: z
+    .string()
+    .min(1, 'Doména je povinná.')
+    .max(253, 'Doména je príliš dlhá.')
+    .trim()
+    .toLowerCase(),
+});
+
+export type CreatePreProvisionedMemberInput = z.infer<typeof CreatePreProvisionedMemberSchema>;
+
+/**
+ * Verejná odpoveď na predpríprava — nie plný `User`/`Membership` dokument.
+ * `hasLoggedIn` je odvodené z `User.lastLoginAt !== null` (ADR-0034) — UI ho
+ * použije na odznak „Očakáva sa nástup".
+ */
+export const PreProvisionedMemberSchema = z.object({
+  membershipId: ObjectIdSchema,
+  userId: ObjectIdSchema,
+  email: z.string().email(),
+  firstName: z.string(),
+  lastName: z.string(),
+  displayName: z.string(),
+  role: z.enum(USER_ROLE_VALUES as [UserRole, ...UserRole[]]) as z.ZodType<UserRole>,
+  hasLoggedIn: z.boolean(),
+  createdAt: TimestampSchema,
+});
+
+export type PreProvisionedMember = z.infer<typeof PreProvisionedMemberSchema>;

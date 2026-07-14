@@ -111,6 +111,13 @@ export interface OrganisationSummary {
   appBaseUrl: string | null;
   /** Opt-in verejný „lost & found" lookup po naskenovaní QR (ADR-0021). */
   publicAssetLookup: boolean;
+  /**
+   * Politika pripojenia nových členov (ADR-0013). 'DOMAIN_RESTRICTED' odomyká
+   * predprípravu budúceho používateľa (ADR-0034).
+   */
+  memberJoinPolicy: 'INVITE_ONLY' | 'DOMAIN_RESTRICTED' | 'OPEN';
+  /** Povolené domény pre auto-join, platné len ak memberJoinPolicy je DOMAIN_RESTRICTED. */
+  autoJoinDomains: string[];
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

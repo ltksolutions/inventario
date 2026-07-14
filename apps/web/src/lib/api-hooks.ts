@@ -1310,6 +1310,18 @@ export function usePerson(id: string | null): UseQueryResult<PersonSummary, Erro
 }
 
 /**
+ * Role gate for invitations + member pre-provisioning (ADR-0034).
+ * ASSET_MANAGER+ — matches the backend RBAC on POST /v1/invitations and
+ * POST /v1/memberships/pre-provisioned (`requireRole([ADMIN, ASSET_MANAGER])`).
+ * Distinct export from useCanAdminUsers (ADMIN-only, gates /users) so the
+ * two thresholds don't get confused at call sites.
+ */
+export function useCanManageMembers(): boolean {
+  const { user } = useAuth();
+  return roleSatisfies(user?.role, 'ASSET_MANAGER');
+}
+
+/**
  * Role gate for the "Osoby" module. Same threshold as useCanEditAssets
  * (ASSET_MANAGER+) — kept as a distinctly-named export for call-site
  * clarity, mirroring useCanAdminUsers / useCanManageTaxonomy.

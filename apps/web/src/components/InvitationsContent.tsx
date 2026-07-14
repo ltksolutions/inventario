@@ -19,12 +19,14 @@
 import { Loader2, Mail, RotateCcw, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { SelectField } from './SelectField';
 import { LoadingState } from './Spinner';
 
 import type { FormEvent, JSX } from 'react';
 
-import { useCanAdminUsers } from '@/lib/api-hooks';
+import { useCanManageMembers } from '@/lib/api-hooks';
 import { useAuth } from '@/lib/auth-context';
+import { useCurrentOrganisation } from '@/lib/organisations-hooks';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -70,6 +72,11 @@ function mapApiError(raw: string | undefined): string {
   if (r.includes('expired')) return 'Platnosť pozvánky vypršala. Odošlite novú.';
   if (r.includes('cannot invite yourself') || r.includes('yourself'))
     return 'Nemôžete pozvať sami seba.';
+  if (r.includes('domain_restricted_only'))
+    return 'Predpríprava budúceho používateľa je dostupná len pre organizácie s doménovým auto-joinom (Nastavenia → Prihlasovanie).';
+  if (r.includes('domain_not_allowed'))
+    return 'Zvolená doména nie je v zozname povolených domén tejto organizácie.';
+  if (r.includes('už v systéme existuje')) return 'Táto e-mailová adresa už v systéme existuje.';
   if (r.includes('domain') || r.includes('not allowed'))
     return 'Táto e-mailová doména nie je povolená pre vašu organizáciu.';
   return raw;
@@ -86,13 +93,13 @@ interface InvitationsResponse {
 
 export function InvitationsContent(): JSX.Element {
   const { user, isLoading } = useAuth();
-  const canAdmin = useCanAdminUsers();
+  const canManage = useCanManageMembers();
 
   if (isLoading) {
     return <LoadingState className="min-h-48" />;
   }
 
-  if (!canAdmin) {
+  if (!canManage) {
     return (
       <div className="flex h-48 flex-col items-center justify-center gap-2 text-center">
         <p className="text-sm font-medium text-text-primary">Prístup zamietnutý</p>
@@ -390,6 +397,9 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         </form>
       </section>
 
+      {/* Predpríprava budúceho používateľa (ADR-0034) — vedľa bežného pozvania */}
+      <PreProvisionSection />
+
       {/* Pending invitations table */}
       <section>
         <div className="mb-3 flex items-center justify-between gap-4">
@@ -465,6 +475,194 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
         )}
       </section>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Predpríprava budúceho používateľa (ADR-0034)
+// ---------------------------------------------------------------------------
+
+function PreProvisionSection(): JSX.Element {
+  const orgQuery = useCurrentOrganisation();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [localPart, setLocalPart] = useState('');
+  const [domain, setDomain] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const domains = orgQuery.data?.autoJoinDomains ?? [];
+  const eligible = orgQuery.data?.memberJoinPolicy === 'DOMAIN_RESTRICTED' && domains.length > 0;
+
+  // Predvyplni prvú povolenú doménu, keď sa zoznam naločí (org query je async).
+  useEffect(() => {
+    if (domains.length > 0 && !domain) {
+      setDomain(domains[0] ?? '');
+    }
+  }, [domains, domain]);
+
+  if (orgQuery.isLoading) {
+    return (
+      <div className="h-24 animate-pulse rounded-xl border border-dashed border-border-subtle bg-surface-subtle" />
+    );
+  }
+
+  if (!eligible) {
+    // ADR-0034: funkcia je natrvalo obmedzená na DOMAIN_RESTRICTED organizácie
+    // s aspoň jednou povolenou doménou — pre iné organizácie len vysvetlenie,
+    // nie skryté miznútie sekcie (aby nebolo mysteriózne, prečo táto funkcia chýba).
+    return (
+      <section className="rounded-xl border border-dashed border-border-subtle bg-surface-subtle p-6">
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-text-primary">
+          <UserPlus aria-hidden="true" className="h-4 w-4 text-text-muted" />
+          Pridať budúceho používateľa
+        </h2>
+        <p className="text-xs text-text-secondary">
+          Táto funkcia je dostupná len pre organizácie s povoleným doménovým prihlasovaním
+          (Nastavenia organizácie → Prihlasovanie → Firemná doména (auto-join)).
+        </p>
+      </section>
+    );
+  }
+
+  const composedEmail =
+    localPart.trim() && domain ? `${localPart.trim().toLowerCase()}@${domain}` : '';
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setSubmitting(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/v1/memberships/pre-provisioned`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          localPart: localPart.trim(),
+          domain,
+        }),
+      });
+
+      if (res.ok) {
+        setSuccess(
+          `Používateľ ${composedEmail} bol pripravený a je hneď k dispozícii v žiadostiach o výpožičku.`,
+        );
+        setFirstName('');
+        setLastName('');
+        setLocalPart('');
+        return;
+      }
+
+      const body = (await res.json()) as { message?: string };
+      setError(mapApiError(body.message));
+    } catch {
+      setError('Sieťová chyba. Skúste znova.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-border-subtle bg-surface-card p-6">
+      <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-text-primary">
+        <UserPlus aria-hidden="true" className="h-4 w-4 text-brand-accent" />
+        Pridať budúceho používateľa
+      </h2>
+      <p className="mb-4 text-xs text-text-secondary">
+        Pre zamestnanca, ktorý ešte nenastúpil, ale už mu chcete vopred pripraviť majetok na
+        prevzatie. Po prvom prihlásení firemnou adresou sa mu tento záznam automaticky aktivuje —
+        nemusíte robiť nič navyše.
+      </p>
+
+      {success && (
+        <div className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+          {success}
+        </div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+      )}
+
+      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        <div className="flex gap-3">
+          <div>
+            <label htmlFor="pre-first" className="block text-sm font-medium text-text-primary">
+              Meno <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="pre-first"
+              type="text"
+              required
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Ján"
+              className="mt-1 block w-40 rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+            />
+          </div>
+          <div>
+            <label htmlFor="pre-last" className="block text-sm font-medium text-text-primary">
+              Priezvisko <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="pre-last"
+              type="text"
+              required
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Novák"
+              className="mt-1 block w-40 rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="block text-sm font-medium text-text-primary">
+            Firemný e-mail <span className="text-red-500">*</span>
+          </p>
+          <div className="mt-1 flex items-center gap-1">
+            <input
+              type="text"
+              required
+              value={localPart}
+              onChange={(e) => setLocalPart(e.target.value)}
+              placeholder="jan.novak"
+              className="block w-40 rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+            />
+            <span className="text-text-muted">@</span>
+            <SelectField
+              label="Doména"
+              value={domain}
+              onChange={setDomain}
+              options={domains.map((d) => ({ value: d, label: d }))}
+              className="w-48"
+            />
+          </div>
+          {composedEmail && (
+            <p className="mt-1 text-xs text-text-muted">
+              Výsledná adresa: <strong>{composedEmail}</strong>
+            </p>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+        >
+          {submitting ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <UserPlus aria-hidden="true" className="h-4 w-4" />
+          )}
+          Pripraviť používateľa
+        </button>
+      </form>
+    </section>
   );
 }
 

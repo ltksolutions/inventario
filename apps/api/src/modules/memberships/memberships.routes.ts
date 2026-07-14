@@ -29,6 +29,12 @@
  *   DELETE endpoint-u. V K15 je inline fallback kontrola.
  */
 
+import {
+  AccountType,
+  CreatePreProvisionedMemberSchema,
+  MemberJoinPolicy,
+  UserRole,
+} from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
@@ -38,7 +44,7 @@ import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/er
 import { MembershipsRepository } from './memberships.repository.js';
 import { MembershipsService } from './memberships.service.js';
 
-import type { UserRole } from '@inventario/shared-types';
+import type { User } from '@inventario/shared-types';
 import type { FastifyPluginAsync } from 'fastify';
 
 // ---------------------------------------------------------------------------
@@ -125,7 +131,14 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       ? await fastify.mongo.db
           .collection('users')
           .find({ _id: { $in: userIds.map((id) => new ObjId(id)) } as never })
-          .project({ _id: 1, displayName: 1, firstName: 1, lastName: 1, isActive: 1 })
+          .project({
+            _id: 1,
+            displayName: 1,
+            firstName: 1,
+            lastName: 1,
+            isActive: 1,
+            lastLoginAt: 1,
+          })
           .toArray()
       : [];
 
@@ -144,6 +157,9 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
           isActive: user['isActive'] as boolean,
           membershipId: String(m['_id']),
           role: m['role'],
+          // ADR-0034: predpripravený člen (pridaný cez pre-provisioned) nikdy
+          // neprihlásený — lastLoginAt je null až do jeho prvého SSO prihlásenia.
+          hasLoggedIn: user['lastLoginAt'] != null,
         };
       })
       .filter(Boolean);
@@ -176,7 +192,7 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       ? await fastify.mongo.db
           .collection('users')
           .find({ _id: { $in: userIds.map((id) => new ObjectId(id)) } as never })
-          .project({ _id: 1, displayName: 1, email: 1 })
+          .project({ _id: 1, displayName: 1, email: 1, lastLoginAt: 1 })
           .toArray()
       : [];
     const userMap = new Map(usersRaw.map((u) => [String(u['_id']), u]));
@@ -186,6 +202,8 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         ...toPublic(m as unknown as Record<string, unknown>),
         userEmail: userMap.get(m.userId)?.['email'] ?? null,
         userDisplayName: userMap.get(m.userId)?.['displayName'] ?? null,
+        // ADR-0034: odznak „Očakáva sa nástup“ v UI, keď hasLoggedIn === false.
+        hasLoggedIn: userMap.get(m.userId)?.['lastLoginAt'] != null,
       })),
       pagination: { total, limit, skip, hasMore: skip + items.length < total },
     });
@@ -220,6 +238,150 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     }
 
     return reply.send(toPublic(membership));
+  });
+
+  // =========================================================================
+  // POST /v1/memberships/pre-provisioned — predpríprava budúceho používateľa
+  // (ADR-0034). ASSET_MANAGER/ADMIN only. Len organizácie s memberJoinPolicy
+  // DOMAIN_RESTRICTED a domain z autoJoinDomains — inak 400.
+  // =========================================================================
+
+  fastify.post('/v1/memberships/pre-provisioned', async (request, reply) => {
+    await fastify.requireAuth(request);
+    await fastify.loadCurrentUser(request);
+    await fastify
+      .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
+      .call(fastify, request, reply);
+
+    const parsed = CreatePreProvisionedMemberSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Neplatný vstup.');
+    }
+    const { firstName, lastName, localPart, domain } = parsed.data;
+
+    const org = request.organisation;
+    const orgId = request.organisationId;
+    const actor = request.currentUser;
+    const actorId = String(actor._id);
+
+    if (org.memberJoinPolicy !== MemberJoinPolicy.DOMAIN_RESTRICTED) {
+      throw new BadRequestError(
+        'DOMAIN_RESTRICTED_ONLY: Predpríprava budúceho používateľa je dostupná len pre ' +
+          'organizácie s doménovým auto-joinom (Nastavenia → Prihlasovanie).',
+      );
+    }
+
+    const allowedDomains = (org.autoJoinDomains ?? []).map((d) => d.toLowerCase());
+    if (!allowedDomains.includes(domain)) {
+      throw new BadRequestError(
+        `DOMAIN_NOT_ALLOWED: Doména '@${domain}' nie je v zozname povolených domén tejto organizácie.`,
+      );
+    }
+
+    const email = `${localPart}@${domain}`;
+
+    const usersCol = fastify.mongo.db.collection<User>('users');
+    const existingUser = await usersCol.findOne({ email, deletedAt: null } as never);
+    if (existingUser) {
+      throw Object.assign(new Error(`E-mailová adresa '${email}' už v systéme existuje.`), {
+        statusCode: 409,
+        name: 'ConflictError',
+      });
+    }
+
+    const now = new Date().toISOString();
+    const displayName = `${firstName} ${lastName}`.trim();
+
+    // User + Membership vznikajú vopred, bez autentifikácie (ADR-0034).
+    // authProviders: [] a passwordHash: null → osoba sa nemôže prihlásiť, kým
+    // sa nezaregistruje sama cez firemnú doménu (attemptDomainAutoJoin v
+    // oauth.routes.ts ju pri prvom SSO prihlásení nájde podľa e-mailu a
+    // dolinkuje provider na TENTO záznam — žiadny duplicitný User nevznikne).
+    // lastLoginAt: null je zdroj pravdy pre `hasLoggedIn` v UI (K3).
+    const userInsert = await usersCol.insertOne({
+      email,
+      firstName,
+      lastName,
+      displayName,
+      accountType: AccountType.ENTRA_ID,
+      entraOid: null,
+      authProviders: [],
+      emailVerified: false,
+      emailVerificationToken: null,
+      emailVerificationExpiresAt: null,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
+      passwordHash: null,
+      roles: [UserRole.EMPLOYEE],
+      isActive: true,
+      lastLoginAt: null,
+      mfaEnabled: false,
+      mfaSecret: null,
+      mfaRecoveryCodes: [],
+      mfaEnabledAt: null,
+      preferences: { language: 'sk', timezone: 'Europe/Bratislava' },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: actorId,
+      updatedBy: actorId,
+      deletedAt: null,
+      deletedBy: null,
+    } as never);
+
+    const userId = String(userInsert.insertedId);
+
+    const membership = await repo.create({
+      userId,
+      organisationId: orgId,
+      role: UserRole.EMPLOYEE,
+      organizationalUnit: null,
+      teams: [],
+      status: 'ACTIVE',
+      isDefault: true,
+      invitedBy: actorId,
+      invitedAt: now,
+      acceptedAt: null,
+      mustChangePassword: false,
+      lastAccessedAt: null,
+      notifications: { email: true, push: false },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: actorId,
+      updatedBy: actorId,
+      deletedAt: null,
+      deletedBy: null,
+    });
+
+    await fastify.mongo.db.collection('audit_logs').insertOne({
+      action: 'MEMBER_PRE_PROVISIONED',
+      severity: 'INFO',
+      actor: { userId: actorId, email: actor.email },
+      target: { entityType: 'User', entityId: userId },
+      organisationId: orgId,
+      metadata: {
+        email,
+        role: UserRole.EMPLOYEE,
+        membershipId: String(membership._id),
+      },
+      createdAt: now,
+    });
+
+    fastify.log.info(
+      { userId, membershipId: String(membership._id), email, actorId },
+      'Member pre-provisioned (ADR-0034)',
+    );
+
+    return reply.code(201).send({
+      membershipId: String(membership._id),
+      userId,
+      email,
+      firstName,
+      lastName,
+      displayName,
+      role: UserRole.EMPLOYEE,
+      hasLoggedIn: false,
+      createdAt: now,
+    });
   });
 
   // =========================================================================

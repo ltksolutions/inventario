@@ -343,13 +343,20 @@ function UsersTable({ users, currentUserId, onEdit }: UsersTableProps): JSX.Elem
                   )}
                 </td>
                 <td className="px-4 py-3 text-xs text-text-muted">
-                  {user.lastLoginAt
-                    ? new Date(user.lastLoginAt).toLocaleDateString('sk-SK', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })
-                    : '—'}
+                  {user.lastLoginAt ? (
+                    new Date(user.lastLoginAt).toLocaleDateString('sk-SK', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })
+                  ) : (
+                    // ADR-0034: predpripravený člen (pridaný cez „Pridať budúceho
+                    // používateľa“ na stránke Pozvánky) nikdy neprihlásený — lastLoginAt
+                    // je null až do jeho prvého SSO prihlásenia.
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning-fg">
+                      Očakáva nástup
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button
