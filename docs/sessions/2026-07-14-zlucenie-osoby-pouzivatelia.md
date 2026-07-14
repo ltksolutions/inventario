@@ -30,7 +30,7 @@ Rozhodnuté (AskUserQuestion, 3 kolá):
 4. Nepoužité súbory po overení: zmazať (nie nechať ležať) — vyžaduje ešte
    Janikino výslovné potvrdenie v momente mazania (org pravidlo, task #35)
 
-## Implementácia (K1–K4, commit TBD)
+## Implementácia (K1–K4, commity `6c87197`/`099e3c5`/`d2300b8`)
 
 ### K1 — backend RBAC + response shaping
 
@@ -115,5 +115,34 @@ task #35 — zmazanie nepoužitých súborov:
 
 ## Overenie a nasadenie
 
-Zostáva: commit + push, overiť Vercel deploy `inventario-api` + `inventario-web`
-READY a `get_runtime_errors` bez nových nálezov.
+Push (3 commity naraz) → `inventario-web` READY hned, ale `inventario-api`
+deployment pre finálny commit skončil **CANCELED** ("ignored-build-step").
+Príčina: `ignoreCommand` v `apps/api/vercel.json`/`apps/web/vercel.json`
+porovnával `git diff HEAD^ HEAD` — pri jednom `git push` s viacerými commitmi
+to porovná len posledný commit (docs) voči jeho priamemu rodičovi, nie voči
+poslednému skutočne nasadenému commitu. Keď je posledný commit v push
+docs-only, celý push sa nesprávne vyhodnotí ako "len docs" a build API sa
+preskočí — potvrdené priamo v produkcii (`GET /openapi.json` na
+`api.inventario.estate` stále vracal starý popis „List users (admin)").
+
+**Fix (commit `73ae0f4`):** `ignoreCommand` teraz používa
+`${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}` — `VERCEL_GIT_PREVIOUS_SHA` je SHA
+posledného úspešného deploymentu pre projekt/branch (exponovaný práve pri
+Ignored Build Step), takže správne zachytí celý rozsah zmien od posledného
+reálneho nasadenia, nie len posledný commit. Overené oficiálnou Vercel
+dokumentáciou pred aplikovaním. Tento samotný push (netýka sa `docs/`) navyše
+vynútil čerstvý build API, ktorým sa K1–K3 zmeny konečne reálne nasadili.
+
+**Overené po redeployi:**
+
+- `inventario-api` aj `inventario-web` READY.
+- `GET https://api.inventario.estate/openapi.json` → `/v1/users` teraz
+  `"List users (manager)"` (predtým `"List users (admin)"`) — K1 potvrdené live.
+- `get_runtime_errors` (1h okno): žiadne nové chyby, len existujúca
+  neúvisiaca anomália `MongoServerError: bad auth` (6× od 2026-05-28,
+  zdokumentovaná už v predošlom session logu).
+
+**Poznámka do budúcna:** ak sa má pushnúť viac commitov naraz, tento fix už
+by mal správne zachytiť celý rozsah — ale bezpečnejšie je aj naďalej pushovať
+priebežne (jeden commit → jeden push), nie kumulovať viac commitov pred
+pushom.

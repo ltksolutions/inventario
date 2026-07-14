@@ -31,8 +31,15 @@ až po Janikinom overení (task cleanup, NIE hneď).
   `usePerson` v `api-hooks.ts`, backend `/v1/users/directory*` routes +
   `toDirectoryShape`/schémy.
 
-**Otvorené:** commit+push+deploy overenie tejto zmeny; potom Janika overí
-`/users` ako ADMIN aj ako ASSET_MANAGER (test účet) a dá pokyn na cleanup.
+✅ **Nasadené a overené** — commity `6c87197`/`099e3c5`/`d2300b8`. Pri
+push viacerých commitov naraz sa odhalil a opravil samostatný bug: Vercel
+`ignoreCommand` (`HEAD^ HEAD`) videl len posledný (docs) commit a preskočil
+build API — oprava `73ae0f4` (`VERCEL_GIT_PREVIOUS_SHA` namiesto `HEAD^`,
+pozri session log). Po redeployi potvrdené `GET /openapi.json` → „List users
+(manager)" pre `/v1/users`, oba projekty READY, žiadne nové runtime chyby.
+
+**Otvorené:** Janika overí `/users` ako ADMIN aj ako ASSET_MANAGER (test účet)
+v UI a dá pokyn na cleanup (task #35).
 
 ---
 
