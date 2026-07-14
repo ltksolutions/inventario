@@ -8,18 +8,27 @@
  * stack and JIT provisioning.
  *
  * Slice #3 K10 scope: admin endpoints for user management.
- *   - `GET    /v1/users`      ADMIN — paginated list with filters
- *   - `GET    /v1/users/:id`  ADMIN — single user
+ *   - `GET    /v1/users`      ASSET_MANAGER+ADMIN — paginated list with filters
+ *   - `GET    /v1/users/:id`  ASSET_MANAGER+ADMIN — single user
  *   - `PATCH  /v1/users/:id`  ADMIN — update isActive (roles → PATCH /v1/memberships/:id)
  *
  * K12b scope: admin MFA reset.
  *   - `DELETE /v1/users/:id/mfa` ADMIN — clear MFA enrollment for a user
  *
+ * Osoby/Používatelia merge (2026-07-14): GET /v1/users and GET /v1/users/:id
+ * are now also reachable by ASSET_MANAGER (previously ADMIN-only), replacing
+ * the standalone "Osoby" module UI. ASSET_MANAGER callers get a trimmed,
+ * role-shaped response (toDirectoryShape) — same fields the old
+ * GET /v1/users/directory* routes returned, still ADMIN+ASSET_MANAGER below
+ * but unused by the frontend since the merge; kept temporarily, slated for
+ * removal once verified in production (see docs/sessions/2026-07-14-*).
+ *
  * RBAC matrix:
  *   - `GET /v1/me`            any authenticated user (self)
  *   - `GET /v1/me/export`     any authenticated user (self) — GDPR čl. 20
  *   - `PATCH /v1/me`          any authenticated user (self) — GDPR čl. 16
- *   - admin endpoints         ADMIN only
+ *   - `GET /v1/users*`        ASSET_MANAGER+ADMIN (response shaped per role)
+ *   - other admin endpoints   ADMIN only
  *
  * Audit:
  *   PATCH emits `USER_DEACTIVATED` / `USER_REACTIVATED` / `USER_UPDATED`
@@ -188,6 +197,37 @@ function toDirectoryShape(doc: Record<string, unknown>): z.infer<typeof Director
     email: String(doc['email'] ?? ''),
     role,
     isActive: Boolean(doc['isActive']),
+  };
+}
+
+/**
+ * Manager-safe projection for GET /v1/users* used when the caller is
+ * ASSET_MANAGER (Osoby/Používatelia merge, 2026-07-14). Deliberately NOT
+ * the same as toDirectoryShape above (that one backs the now-legacy
+ * GET /v1/users/directory* routes, kept temporarily — see task #35 — and
+ * frozen so its declared response schema doesn't drift). This shape adds
+ * `lastLoginAt` on top of the directory fields: ASSET_MANAGER pre-provisions
+ * future employees (ADR-0034) and needs to see the "Očakáva nástup" state,
+ * which the old directory endpoint never exposed. Still excludes MFA
+ * status, GDPR restriction, entraOid, createdAt, preferences — those stay
+ * ADMIN-only.
+ */
+function toManagerShape(doc: Record<string, unknown>): {
+  _id: string;
+  displayName: string;
+  email: string;
+  roles: string[];
+  isActive: boolean;
+  lastLoginAt: string | null;
+} {
+  const roles = Array.isArray(doc['roles']) ? (doc['roles'] as unknown[]).map(String) : [];
+  return {
+    _id: String(doc['_id']),
+    displayName: String(doc['displayName'] ?? ''),
+    email: String(doc['email'] ?? ''),
+    roles,
+    isActive: Boolean(doc['isActive']),
+    lastLoginAt: doc['lastLoginAt'] == null ? null : String(doc['lastLoginAt']),
   };
 }
 
@@ -364,15 +404,18 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
   app.get(
     '/v1/users',
     {
-      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canAdmin],
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canManage],
       schema: {
         tags: ['Users'],
-        summary: 'List users (admin)',
+        summary: 'List users (manager)',
         description:
           'Returns a paginated list of users sorted by displayName. Soft-deleted ' +
           'users are always excluded. Optional filters: role, isActive, q (free-text ' +
           'across email + displayName + firstName + lastName, case-insensitive). ' +
-          'Requires ADMIN role.',
+          'Requires ASSET_MANAGER or ADMIN role — but ASSET_MANAGER callers receive a ' +
+          'trimmed shape (_id, displayName, email, roles, isActive, lastLoginAt), never ' +
+          'the full document (MFA state, GDPR restriction flags, etc. stay ADMIN-only). ' +
+          'See `toManagerShape` below.',
         security: [{ bearerAuth: [] }],
         querystring: ListUsersQuerySchema,
         response: {
@@ -407,10 +450,22 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         ];
       }
 
-      return service.list(
+      const result = await service.list(
         { limit, skip, filter: filterObj as Filter<User>, ...(role !== undefined ? { role } : {}) },
         request.currentUser,
       );
+
+      // ADMIN sees the full shape (as before). ASSET_MANAGER — newly
+      // admitted to this endpoint by the Osoby/Používatelia merge
+      // (2026-07-14) — gets the same trimmed shape the old, now-legacy
+      // GET /v1/users/directory used to return. See toDirectoryShape().
+      if (request.currentUser.role === 'ADMIN') {
+        return result;
+      }
+      return {
+        ...result,
+        data: result.data.map((doc) => toManagerShape(doc)),
+      };
     },
   );
 
@@ -418,12 +473,14 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
   app.get(
     '/v1/users/:id',
     {
-      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canAdmin],
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canManage],
       schema: {
         tags: ['Users'],
-        summary: 'Get a single user by ID (admin)',
+        summary: 'Get a single user by ID (manager)',
         description:
-          'Returns one user by _id. 404 if not found or soft-deleted. Requires ADMIN role.',
+          'Returns one user by _id. 404 if not found or soft-deleted. Requires ' +
+          'ASSET_MANAGER or ADMIN role — ASSET_MANAGER callers receive the same ' +
+          'trimmed shape as the list endpoint (see GET /v1/users above).',
         security: [{ bearerAuth: [] }],
         params: UserIdParamsSchema,
         response: {
@@ -432,7 +489,11 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      return service.getById(request.params.id, request.currentUser);
+      const result = await service.getById(request.params.id, request.currentUser);
+      if (request.currentUser.role === 'ADMIN') {
+        return result;
+      }
+      return toManagerShape(result);
     },
   );
 

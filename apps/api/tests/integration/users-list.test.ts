@@ -294,7 +294,6 @@ describe('GET /v1/users', () => {
   describe('RBAC', () => {
     it.each([
       ['EMPLOYEE', UserRole.EMPLOYEE],
-      ['ASSET_MANAGER', UserRole.ASSET_MANAGER],
       ['EXTERNAL', UserRole.EXTERNAL],
     ])('returns 403 for %s', async (_label, role) => {
       const { token } = await provisionUser(app, { oid: `non-admin-${role}`, role });
@@ -318,6 +317,66 @@ describe('GET /v1/users', () => {
         headers: { cookie: 'inv_access=not-a-jwt' },
       });
       expect(res.statusCode).toBe(401);
+    });
+  });
+
+  // Osoby/Používatelia merge (2026-07-14): ASSET_MANAGER now reaches this
+  // endpoint (previously ADMIN-only, see the RBAC describe above), but the
+  // response is shaped down to the same fields the now-legacy
+  // GET /v1/users/directory used to return, plus lastLoginAt (toManagerShape).
+  describe('manager-shaped response (ASSET_MANAGER, 2026-07-14 merge)', () => {
+    it('returns 200 for ASSET_MANAGER', async () => {
+      await insertTestUser(app, { email: 'trimmed-target@example.com' });
+      const { token } = await provisionUser(app, {
+        oid: 'asset-manager-for-users-list',
+        role: UserRole.ASSET_MANAGER,
+      });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/users',
+        headers: { cookie: `inv_access=${token}` },
+      });
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('trims ASSET_MANAGER response to _id/displayName/email/roles/isActive/lastLoginAt only', async () => {
+      await insertTestUser(app, { email: 'trimmed-fields@example.com' });
+      const { token } = await provisionUser(app, {
+        oid: 'asset-manager-for-users-list-shape',
+        role: UserRole.ASSET_MANAGER,
+      });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/users',
+        headers: { cookie: `inv_access=${token}` },
+      });
+      const body = res.json<{ data: Array<Record<string, unknown>> }>();
+      const target = body.data.find((u) => u['email'] === 'trimmed-fields@example.com');
+      expect(target).toBeDefined();
+      expect(Object.keys(target!).sort()).toEqual(
+        ['_id', 'displayName', 'email', 'isActive', 'lastLoginAt', 'roles'].sort(),
+      );
+      // Admin-only fields must never reach an ASSET_MANAGER caller.
+      expect(target).not.toHaveProperty('organisationId');
+      expect(target).not.toHaveProperty('createdAt');
+      expect(target).not.toHaveProperty('accountType');
+      expect(target).not.toHaveProperty('preferences');
+      expect(target).not.toHaveProperty('passwordHash');
+    });
+
+    it('ADMIN still receives the full (untrimmed) shape', async () => {
+      await insertTestUser(app, { email: 'full-shape@example.com' });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/users',
+        headers: { cookie: `inv_access=${adminToken}` },
+      });
+      const body = res.json<{ data: Array<Record<string, unknown>> }>();
+      const target = body.data.find((u) => u['email'] === 'full-shape@example.com');
+      expect(target).toBeDefined();
+      expect(target).toHaveProperty('organisationId');
+      expect(target).toHaveProperty('createdAt');
+      expect(target).toHaveProperty('accountType');
     });
   });
 });

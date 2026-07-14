@@ -126,4 +126,46 @@ describe('GET /v1/users/:id', () => {
       expect(res.statusCode).toBe(401);
     });
   });
+
+  // Osoby/Používatelia merge (2026-07-14): ASSET_MANAGER now reaches this
+  // endpoint too (previously ADMIN-only, see the RBAC describe above), but
+  // gets a trimmed, role-shaped response (toManagerShape) instead of the
+  // full document.
+  describe('manager-shaped response (ASSET_MANAGER, 2026-07-14 merge)', () => {
+    it('returns 200 with a trimmed shape for ASSET_MANAGER', async () => {
+      const target = await insertTestUser(app, { email: 'trimmed-get@example.com' });
+      const { token } = await provisionUser(app, {
+        oid: 'asset-manager-for-users-get',
+        role: UserRole.ASSET_MANAGER,
+      });
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/users/${target._id}`,
+        headers: { cookie: `inv_access=${token}` },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json<Record<string, unknown>>();
+      expect(Object.keys(body).sort()).toEqual(
+        ['_id', 'displayName', 'email', 'isActive', 'lastLoginAt', 'roles'].sort(),
+      );
+      expect(body).not.toHaveProperty('organisationId');
+      expect(body).not.toHaveProperty('createdAt');
+      expect(body).not.toHaveProperty('membershipId');
+      expect(body).not.toHaveProperty('passwordHash');
+    });
+
+    it('ADMIN still receives the full shape (incl. membershipId)', async () => {
+      const target = await insertTestUser(app, { email: 'full-get@example.com' });
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/users/${target._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json<Record<string, unknown>>();
+      expect(body).toHaveProperty('organisationId');
+      expect(body).toHaveProperty('createdAt');
+      expect(body).toHaveProperty('membershipId');
+    });
+  });
 });

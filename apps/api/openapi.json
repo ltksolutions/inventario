@@ -1706,11 +1706,11 @@
     },
     "/v1/users": {
       "get": {
-        "summary": "List users (admin)",
+        "summary": "List users (manager)",
         "tags": [
           "Users"
         ],
-        "description": "Returns a paginated list of users sorted by displayName. Soft-deleted users are always excluded. Optional filters: role, isActive, q (free-text across email + displayName + firstName + lastName, case-insensitive). Requires ADMIN role.",
+        "description": "Returns a paginated list of users sorted by displayName. Soft-deleted users are always excluded. Optional filters: role, isActive, q (free-text across email + displayName + firstName + lastName, case-insensitive). Requires ASSET_MANAGER or ADMIN role — but ASSET_MANAGER callers receive a trimmed shape (_id, displayName, email, roles, isActive, lastLoginAt), never the full document (MFA state, GDPR restriction flags, etc. stay ADMIN-only). See `toManagerShape` below.",
         "parameters": [
           {
             "schema": {
@@ -1835,11 +1835,11 @@
     },
     "/v1/users/{id}": {
       "get": {
-        "summary": "Get a single user by ID (admin)",
+        "summary": "Get a single user by ID (manager)",
         "tags": [
           "Users"
         ],
-        "description": "Returns one user by _id. 404 if not found or soft-deleted. Requires ADMIN role.",
+        "description": "Returns one user by _id. 404 if not found or soft-deleted. Requires ASSET_MANAGER or ADMIN role — ASSET_MANAGER callers receive the same trimmed shape as the list endpoint (see GET /v1/users above).",
         "parameters": [
           {
             "schema": {
