@@ -10,11 +10,14 @@
  * ZPL mód: fetch ZPL string z backendu → Zebra Browser Print agent.
  *
  * Mód sa určuje z `labelPrintingMode` propu (hodnota z Organisation.labelPrinting.mode).
- * Null / 'PDF_SHEET' → PDF. 'ZEBRA_ZPL' → ZPL cez Browser Print.
+ * Null / 'PDF_SHEET' → len PDF tlačidlo. 'ZEBRA_ZPL' → OBE tlačidlá vedľa seba
+ * (Zebra aj PDF sú vždy viditeľné a funkčné súvisle — PDF nie je len záložná
+ * možnosť pri chybe, užívateľ si vyberie kedykoľvek).
  *
- * Browser Print fallback:
- *   Ak agent nebeží (timeout 2s), komponent zobrazí info správu a ponúkne
- *   fallback na PDF sheet (rovnaký ako PDF mód).
+ * Browser Print chyba:
+ *   Ak agent nebeží (timeout 2s), zobrazí sa chybová správa pri Zebra
+ *   tlačidle — PDF tlačidlo je aj tak stále vedľa viditeľné, takže žiadny
+ *   extra fallback link netreba.
  *
  * Zebra Browser Print:
  *   Zebra Browser Print agent beží na localhost:9100 (HTTP) alebo
@@ -45,56 +48,59 @@ export function LabelPrintButton({
   inventoryNumber,
   labelPrintingMode,
 }: LabelPrintButtonProps) {
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [zplState, setZplState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isZpl = labelPrintingMode === 'ZEBRA_ZPL';
 
-  async function handlePrint() {
-    setState('loading');
+  async function handlePrintZebra() {
+    setZplState('loading');
     setErrorMsg(null);
 
     try {
-      if (isZpl) {
-        await printZpl(assetId, inventoryNumber);
-      } else {
-        printPdf(assetId);
-      }
-      setState('idle');
+      await printZpl(assetId, inventoryNumber);
+      setZplState('idle');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Tlač zlyhala.';
       setErrorMsg(msg);
-      setState('error');
+      setZplState('error');
     }
+  }
+
+  function handlePrintPdf(): void {
+    printPdf(assetId);
   }
 
   return (
     <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        disabled={state === 'loading'}
-        onClick={() => void handlePrint()}
-        className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2.5 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:opacity-50"
-      >
-        {state === 'loading' ? (
-          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-        ) : (
-          <Printer aria-hidden="true" className="h-4 w-4" />
+      <div className="flex flex-wrap gap-2">
+        {isZpl && (
+          <button
+            type="button"
+            disabled={zplState === 'loading'}
+            onClick={() => void handlePrintZebra()}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2.5 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:opacity-50"
+          >
+            {zplState === 'loading' ? (
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer aria-hidden="true" className="h-4 w-4" />
+            )}
+            Tlačiť štítok (Zebra)
+          </button>
         )}
-        {isZpl ? 'Tlačiť štítok (Zebra)' : 'Tlačiť štítok (PDF)'}
-      </button>
 
-      {state === 'error' && errorMsg && (
-        <ErrorHint
-          message={errorMsg}
-          onFallbackPdf={() => {
-            setState('idle');
-            setErrorMsg(null);
-            printPdf(assetId);
-          }}
-          showFallback={isZpl}
-        />
-      )}
+        <button
+          type="button"
+          onClick={handlePrintPdf}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2.5 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:opacity-50"
+        >
+          <Printer aria-hidden="true" className="h-4 w-4" />
+          Tlačiť štítok (PDF)
+        </button>
+      </div>
+
+      {zplState === 'error' && errorMsg && <ErrorHint message={errorMsg} />}
     </div>
   );
 }
@@ -207,27 +213,10 @@ async function sendZplToPrinter(
 // ErrorHint
 // ---------------------------------------------------------------------------
 
-function ErrorHint({
-  message,
-  onFallbackPdf,
-  showFallback,
-}: {
-  message: string;
-  onFallbackPdf: () => void;
-  showFallback: boolean;
-}) {
+function ErrorHint({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-warning-fg bg-warning-bg p-3 text-xs text-warning-fg">
       <p>{message}</p>
-      {showFallback && (
-        <button
-          type="button"
-          onClick={onFallbackPdf}
-          className="mt-1.5 underline hover:no-underline"
-        >
-          Tlačiť ako PDF namiesto toho →
-        </button>
-      )}
     </div>
   );
 }

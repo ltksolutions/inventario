@@ -10,6 +10,11 @@
  * ZPL mód: POST /v1/labels/zpl → pole { assetId, zpl } → každý ZPL
  *   odoslaný sekvenčne cez Zebra Browser Print agent.
  *
+ * Ak je labelPrintingMode 'ZEBRA_ZPL', zobrazia sa OBE tlačidlá vedľa seba
+ * (Zebra aj PDF s preset dropdownom) — PDF nie je len záložná možnosť pri
+ * chybe, používateľ si vyberie kedykoľvek. Pri PDF_SHEET/null sa zobrazí
+ * len PDF tlačidlo (nezmenené správanie).
+ *
  * Max 200 assetov na dávku (backend limit).
  * Ak je viac ako 200 vybraných, zobrazíme warning a odosiela sa prvých 200.
  */
@@ -35,69 +40,75 @@ export function BatchLabelPrintButton({
   labelPrintingMode,
   pdfPreset = 'avery-l7160',
 }: BatchLabelPrintButtonProps) {
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [zplState, setZplState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [zplErrorMsg, setZplErrorMsg] = useState<string | null>(null);
   const [showPresetMenu, setShowPresetMenu] = useState(false);
 
   const isZpl = labelPrintingMode === 'ZEBRA_ZPL';
   const count = selectedAssetIds.length;
-  const disabled = count === 0 || state === 'loading';
+  const disabled = count === 0;
 
-  async function handlePrint(preset?: 'avery-l7160' | 'avery-l7163') {
-    setShowPresetMenu(false);
+  async function handlePrintZebra(): Promise<void> {
     if (count === 0) return;
-
-    setState('loading');
-    setErrorMsg(null);
+    setZplState('loading');
+    setZplErrorMsg(null);
 
     const ids = selectedAssetIds.slice(0, BATCH_LIMIT);
 
     try {
-      if (isZpl) {
-        await printZplBatch(ids);
-      } else {
-        printPdfBatch(ids, preset ?? pdfPreset);
-      }
-      setState('idle');
+      await printZplBatch(ids);
+      setZplState('idle');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Dávková tlač zlyhala.';
-      setErrorMsg(msg);
-      setState('error');
+      setZplErrorMsg(msg);
+      setZplState('error');
     }
   }
 
-  const label =
+  function handlePrintPdf(preset?: 'avery-l7160' | 'avery-l7163'): void {
+    setShowPresetMenu(false);
+    if (count === 0) return;
+    const ids = selectedAssetIds.slice(0, BATCH_LIMIT);
+    printPdfBatch(ids, preset ?? pdfPreset);
+  }
+
+  const countLabel =
     count === 0
-      ? 'Tlačiť štítky'
-      : `Tlačiť ${count > BATCH_LIMIT ? `${BATCH_LIMIT} z ${count}` : count} štítk${count === 1 ? 'a' : 'ov'}`;
+      ? 'štítky'
+      : `${count > BATCH_LIMIT ? `${BATCH_LIMIT} z ${count}` : count} štítk${count === 1 ? 'a' : 'ov'}`;
 
   return (
     <div className="relative flex flex-col gap-1">
-      <div className="flex">
-        {/* Hlavné tlačidlo */}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => {
-            if (isZpl) {
-              void handlePrint();
-            } else {
-              // Pre PDF ponúkneme preset menu
-              setShowPresetMenu((v) => !v);
-            }
-          }}
-          className="inline-flex items-center gap-2 rounded-l-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {state === 'loading' ? (
-            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-          ) : (
-            <Printer aria-hidden="true" className="h-4 w-4" />
-          )}
-          {label}
-        </button>
+      <div className="flex flex-wrap items-start gap-2">
+        {isZpl && (
+          <button
+            type="button"
+            disabled={disabled || zplState === 'loading'}
+            onClick={() => void handlePrintZebra()}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {zplState === 'loading' ? (
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer aria-hidden="true" className="h-4 w-4" />
+            )}
+            Tlačiť {countLabel} (Zebra)
+          </button>
+        )}
 
-        {/* Dropdown šípka pre preset výber (len PDF mód) */}
-        {!isZpl && (
+        {/* PDF tlačidlo so split dropdownom na výber presetu — vždy viditeľné */}
+        <div className="flex">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => handlePrintPdf()}
+            className="inline-flex items-center gap-2 rounded-l-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Printer aria-hidden="true" className="h-4 w-4" />
+            Tlačiť {countLabel}
+            {isZpl ? ' (PDF)' : ''}
+          </button>
+
           <button
             type="button"
             disabled={disabled}
@@ -107,21 +118,21 @@ export function BatchLabelPrintButton({
           >
             <ChevronDown aria-hidden="true" className="h-4 w-4" />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Preset dropdown */}
-      {showPresetMenu && !isZpl && (
+      {showPresetMenu && (
         <div className="absolute left-0 top-full z-20 mt-1 min-w-[200px] overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-lg">
           <PresetOption
             label="Avery L7160 (24/A4 · 63.5×38 mm)"
             description="Štandard kancelárske štítky"
-            onClick={() => void handlePrint('avery-l7160')}
+            onClick={() => handlePrintPdf('avery-l7160')}
           />
           <PresetOption
             label="Avery L7163 (14/A4 · 99×38 mm)"
             description="Väčšie štítky"
-            onClick={() => void handlePrint('avery-l7163')}
+            onClick={() => handlePrintPdf('avery-l7163')}
           />
         </div>
       )}
@@ -132,22 +143,9 @@ export function BatchLabelPrintButton({
         </p>
       )}
 
-      {state === 'error' && errorMsg && (
+      {zplState === 'error' && zplErrorMsg && (
         <div className="rounded-lg border border-warning-fg bg-warning-bg p-3 text-xs text-warning-fg">
-          <p>{errorMsg}</p>
-          {isZpl && (
-            <button
-              type="button"
-              onClick={() => {
-                setState('idle');
-                setErrorMsg(null);
-                printPdfBatch(selectedAssetIds.slice(0, BATCH_LIMIT), pdfPreset);
-              }}
-              className="mt-1.5 underline hover:no-underline"
-            >
-              Tlačiť ako PDF namiesto toho →
-            </button>
-          )}
+          <p>{zplErrorMsg}</p>
         </div>
       )}
     </div>
