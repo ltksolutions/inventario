@@ -147,6 +147,15 @@ function OrganisationSettingsPanel(): JSX.Element {
   // publicAssetLookup — verejný lost & found lookup po naskenovaní QR (ADR-0021)
   const [publicAssetLookup, setPublicAssetLookup] = useState(false);
 
+  // labelPrinting — tlač QR štítkov na Zebra termálnej tlačiarni (ADR-0027).
+  // zplEnabled prepína mode PDF_SHEET ↔ ZEBRA_ZPL; zvyšné polia sú
+  // relevantné len pre ZEBRA_ZPL (rozmery/DPI/sýtosť termálnej tlače).
+  const [zplEnabled, setZplEnabled] = useState(false);
+  const [zplLabelWidthMm, setZplLabelWidthMm] = useState(50);
+  const [zplLabelHeightMm, setZplLabelHeightMm] = useState(25);
+  const [zplDpi, setZplDpi] = useState<203 | 300>(203);
+  const [zplDarkness, setZplDarkness] = useState(20);
+
   // Inventory number format state (ADR-0021)
   const [invPrefix, setInvPrefix] = useState('');
   const [invPadding, setInvPadding] = useState(4);
@@ -191,6 +200,12 @@ function OrganisationSettingsPanel(): JSX.Element {
     // appBaseUrl hydration (ADR-0021)
     setAppBaseUrl(org.appBaseUrl ?? '');
     setPublicAssetLookup(org.publicAssetLookup ?? false);
+    // labelPrinting hydration (ADR-0027)
+    setZplEnabled(org.labelPrinting?.mode === 'ZEBRA_ZPL');
+    setZplLabelWidthMm(org.labelPrinting?.zplLabelWidthMm ?? 50);
+    setZplLabelHeightMm(org.labelPrinting?.zplLabelHeightMm ?? 25);
+    setZplDpi(org.labelPrinting?.zplDpi === 300 ? 300 : 203);
+    setZplDarkness(org.labelPrinting?.zplDarkness ?? 20);
     // inventoryNumberFormat hydration (ADR-0021)
     setInvPrefix(org.inventoryNumberFormat?.prefix ?? '');
     setInvPadding(org.inventoryNumberFormat?.padding ?? 4);
@@ -266,6 +281,38 @@ function OrganisationSettingsPanel(): JSX.Element {
       accentFg: null,
       logoDot: null,
       fontFamilySans: fontFamilySans === 'system-ui' ? null : fontFamilySans,
+    };
+  }
+
+  /**
+   * Zostaví labelPrinting payload pre PATCH (ADR-0027). Ak nikdy nebolo
+   * konfigurované (org.labelPrinting === null) a prepínac ostáva vypnutý,
+   * neposielame nič (žiadna zmena voči PDF_SHEET defaultu). Inak posielame
+   * celý objekt — pdfPreset/finderText zachováme z existujúceho configu
+   * (táto stránka pre ne nemá vlastné UI polia).
+   */
+  function buildLabelPrinting(): {
+    mode: 'PDF_SHEET' | 'ZEBRA_ZPL';
+    pdfPreset: 'avery-l7160' | 'avery-l7163';
+    finderText: { enabled: boolean; text: string };
+    zplLabelWidthMm: number;
+    zplLabelHeightMm: number;
+    zplDpi: 203 | 300;
+    zplDarkness: number;
+  } | null {
+    const existing = org!.labelPrinting;
+    if (!zplEnabled && existing == null) return null;
+    return {
+      mode: zplEnabled ? 'ZEBRA_ZPL' : 'PDF_SHEET',
+      pdfPreset: existing?.pdfPreset ?? 'avery-l7160',
+      finderText: existing?.finderText ?? {
+        enabled: false,
+        text: 'Našli ste ma? Naskenujte a pomôžte ma vrátiť.',
+      },
+      zplLabelWidthMm,
+      zplLabelHeightMm,
+      zplDpi,
+      zplDarkness,
     };
   }
 
@@ -357,6 +404,7 @@ function OrganisationSettingsPanel(): JSX.Element {
         },
         appBaseUrl: appBaseUrl.trim() || null,
         publicAssetLookup,
+        labelPrinting: buildLabelPrinting(),
       },
       {
         onSuccess: () => {
@@ -418,6 +466,81 @@ function OrganisationSettingsPanel(): JSX.Element {
               className={inputCls()}
             />
           </Field>
+
+          <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm font-medium text-text-primary">
+            <input
+              type="checkbox"
+              checked={zplEnabled}
+              onChange={(e) => setZplEnabled(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            />
+            <span>
+              Tlačiť štítky na Zebra termálnej tlačiarni (ZPL)
+              <span className="mt-0.5 block text-xs font-normal text-text-secondary">
+                Ak je zapnuté, na detaile majetku (a pri dávkovej tlači) sa objaví tlačidlo „Tlačiť
+                na Zebra“ vedľa „Tlačiť štítok (PDF)“ — pošle ZPL priamo na lokálneho agenta Zebra
+                Browser Print (musí byť nainštalovaný na PC pri tlačiarni). Vypnuté = štandardná
+                tlač na PDF hárok (funguje na bežnej kancelárskej tlačiarni).
+              </span>
+            </span>
+          </label>
+
+          {zplEnabled && (
+            <div className="grid gap-4 rounded-lg border border-border-subtle p-4 sm:grid-cols-2">
+              <Field label="Šírka štítka (mm)" hint="Typicky 50 mm pre štandardné Zebra štítky.">
+                <input
+                  type="number"
+                  min={10}
+                  max={200}
+                  value={zplLabelWidthMm}
+                  onChange={(e) =>
+                    setZplLabelWidthMm(Math.max(10, Math.min(200, Number(e.target.value))))
+                  }
+                  className={inputCls()}
+                />
+              </Field>
+              <Field label="Výška štítka (mm)" hint="Typicky 25 mm pre štandardné Zebra štítky.">
+                <input
+                  type="number"
+                  min={10}
+                  max={200}
+                  value={zplLabelHeightMm}
+                  onChange={(e) =>
+                    setZplLabelHeightMm(Math.max(10, Math.min(200, Number(e.target.value))))
+                  }
+                  className={inputCls()}
+                />
+              </Field>
+              <Field
+                label="Rozlíšenie tlačovej hlavy (DPI)"
+                hint="ZD420 = 203 dpi (default). ZD620 a niektoré ZT série = 300 dpi."
+              >
+                <select
+                  value={zplDpi}
+                  onChange={(e) => setZplDpi(Number(e.target.value) === 300 ? 300 : 203)}
+                  className={inputCls()}
+                >
+                  <option value={203}>203 dpi</option>
+                  <option value={300}>300 dpi</option>
+                </select>
+              </Field>
+              <Field
+                label="Sýtosť tlače"
+                hint="0–30. Vyššia hodnota = tmavší výtlačok. Default 20."
+              >
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={zplDarkness}
+                  onChange={(e) =>
+                    setZplDarkness(Math.max(0, Math.min(30, Number(e.target.value))))
+                  }
+                  className={inputCls()}
+                />
+              </Field>
+            </div>
+          )}
 
           <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm font-medium text-text-primary">
             <input

@@ -210,6 +210,16 @@ export interface UpdateCurrentOrganisationInput {
   appBaseUrl?: string | null;
   /** Opt-in verejný „lost & found" lookup po naskenovaní QR (ADR-0021). */
   publicAssetLookup?: boolean;
+  /** Konfigurácia tlače QR štítkov (ADR-0027). Null = PDF_SHEET default. */
+  labelPrinting?: {
+    mode?: 'PDF_SHEET' | 'ZEBRA_ZPL';
+    pdfPreset?: 'avery-l7160' | 'avery-l7163';
+    finderText?: { enabled?: boolean; text?: string };
+    zplLabelWidthMm?: number;
+    zplLabelHeightMm?: number;
+    zplDpi?: 203 | 300;
+    zplDarkness?: number;
+  } | null;
 }
 
 export function useUpdateCurrentOrganisation(): UseMutationResult<
