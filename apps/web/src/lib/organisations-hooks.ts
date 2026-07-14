@@ -16,6 +16,7 @@ import {
   type UseMutationResult,
 } from '@tanstack/react-query';
 
+import { REFERENCE_DATA_STALE_TIME_MS } from './api-hooks';
 import { useAuth } from './auth-context';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
@@ -166,6 +167,9 @@ export function useCurrentOrganisation(): UseQueryResult<OrganisationSummary, Er
   return useQuery<OrganisationSummary, Error>({
     queryKey: ['organisation', 'current'],
     enabled: isAuthenticated,
+    // Rarely changes and every settings mutation already invalidates this
+    // key — see the preloader-latency investigation (docs/sessions/2026-07-14).
+    staleTime: REFERENCE_DATA_STALE_TIME_MS,
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/v1/organisations/current`, {
         credentials: 'include',

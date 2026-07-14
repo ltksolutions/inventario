@@ -11,6 +11,12 @@
  *   - Vercel platform for deploy verification
  *   - Uptime monitors (e.g. Pingdom, BetterUptime)
  *   - Local sanity checks
+ *   - Vercel Cron keep-warm ping every 4 min (see apps/api/vercel.json) —
+ *     /health/ready specifically, because it also pings MongoDB, keeping
+ *     the cached connection (mongo.ts) alive between real requests and
+ *     reducing the odds of a cold-start hit on the next user request.
+ *     See docs/sessions/2026-07-14 for the preloader-latency investigation
+ *     this addresses. No auth required — side-effect-free GET.
  */
 
 import { z } from 'zod';

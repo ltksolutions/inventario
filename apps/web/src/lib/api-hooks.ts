@@ -144,6 +144,15 @@ interface ListQueryOptions {
 function makeListHook<TItem>(
   resourceKey: string,
   path: '/v1/assets' | '/v1/categories' | '/v1/locations',
+  /**
+   * Override for the global 30s staleTime (see providers.tsx). Used for
+   * rarely-changing reference data (categories, locations) so a short
+   * idle gap doesn't force a refetch — see docs/sessions for the
+   * preloader-latency investigation (2026-07-14). Mutations that touch
+   * this data already call invalidateQueries, so freshness after an
+   * edit is unaffected by this value.
+   */
+  staleTimeMs?: number,
 ) {
   return function useResourceList(
     options: ListQueryOptions = {},
@@ -154,6 +163,7 @@ function makeListHook<TItem>(
     return useQuery<ListResponse<TItem>, Error>({
       queryKey: [resourceKey, { limit, skip }],
       enabled: isAuthenticated,
+      ...(staleTimeMs === undefined ? {} : { staleTime: staleTimeMs }),
       queryFn: async () => {
         const { data, error } = await apiClient.GET(path, {
           params: { query: { limit, skip } },
@@ -221,9 +231,26 @@ export interface LocationSummary {
   [key: string]: unknown;
 }
 
+/**
+ * Reference/taxonomy data changes rarely and every write path already
+ * invalidates its own query key — see the preloader-latency
+ * investigation (docs/sessions/2026-07-14). 5 min keeps it cached
+ * across a normal idle gap so a page load doesn't refetch it
+ * needlessly and risk landing on a cold serverless instance.
+ */
+export const REFERENCE_DATA_STALE_TIME_MS = 5 * 60_000;
+
 export const useAssets = makeListHook<AssetSummary>('assets', '/v1/assets');
-export const useCategories = makeListHook<CategorySummary>('categories', '/v1/categories');
-export const useLocations = makeListHook<LocationSummary>('locations', '/v1/locations');
+export const useCategories = makeListHook<CategorySummary>(
+  'categories',
+  '/v1/categories',
+  REFERENCE_DATA_STALE_TIME_MS,
+);
+export const useLocations = makeListHook<LocationSummary>(
+  'locations',
+  '/v1/locations',
+  REFERENCE_DATA_STALE_TIME_MS,
+);
 
 // ---------------------------------------------------------------------------
 // Asset Conditions — dynamic per-tenant collection
@@ -247,6 +274,7 @@ export function useAssetConditions(
   return useQuery<ListResponse<AssetConditionEntrySummary>, Error>({
     queryKey: ['asset-conditions', { limit, skip }],
     enabled: isAuthenticated,
+    staleTime: REFERENCE_DATA_STALE_TIME_MS,
     queryFn: async () => {
       const fetchAssetConditions = apiClient.GET as (
         path: string,
