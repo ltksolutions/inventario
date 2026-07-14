@@ -55,30 +55,34 @@ ani viac než EMPLOYEE; rozlíšenie slúži na evidenciu a budúce politiky.
 Minimálna rola potrebná pre danú operáciu. „Všetci" = EMPLOYEE, EXTERNAL,
 ASSET_MANAGER aj ADMIN.
 
-| Oblasť                         | Čítanie / zoznam                                 | Vytvorenie / úprava | Mazanie / správa |
-| ------------------------------ | ------------------------------------------------ | ------------------- | ---------------- |
-| **Majetok** (assets)           | Všetci                                           | ASSET_MANAGER       | ADMIN            |
-| **Sklad** (stock pohyby)       | Všetci                                           | ASSET_MANAGER       | ADMIN            |
-| **Kategórie**                  | Všetci                                           | ASSET_MANAGER       | ADMIN            |
-| **Lokality**                   | Všetci                                           | ASSET_MANAGER       | ADMIN            |
-| **Stavy majetku** (conditions) | Všetci                                           | ASSET_MANAGER       | ADMIN            |
-| **Prílohy** (attachments)      | Všetci                                           | ASSET_MANAGER       | ASSET_MANAGER    |
-| **QR štítky** (tlač)           | Všetci                                           | —                   | —                |
-| **Výpožičky** (loans)          | Všetci¹                                          | ASSET_MANAGER²      | ASSET_MANAGER    |
-| **Žiadosti o výpožičku**       | Všetci¹                                          | Všetci (žiadosť)³   | autor / ADMIN⁴   |
-| **Preberacie protokoly**       | Všetci                                           | ASSET_MANAGER       | ASSET_MANAGER    |
-| **Zoznam členov** (`/members`) | Všetci                                           | —                   | —                |
-| **Členstvá** (role, správa)    | ADMIN                                            | ADMIN               | ADMIN            |
-| **Pozvánky**                   | ASSET_MANAGER                                    | ASSET_MANAGER       | ASSET_MANAGER    |
-| **Používatelia** (admin PATCH) | ADMIN                                            | ADMIN               | ADMIN            |
-| **Nastavenia organizácie**⁵    | Všetci (čítanie)                                 | ADMIN               | ADMIN            |
-| **Audit log**                  | automatický zápis — needitovateľný (GDPR čl. 30) | —                   | —                |
+| Oblasť                                     | Čítanie / zoznam                                 | Vytvorenie / úprava | Mazanie / správa |
+| ------------------------------------------ | ------------------------------------------------ | ------------------- | ---------------- |
+| **Majetok** (assets)                       | Všetci                                           | ASSET_MANAGER       | ADMIN            |
+| **Sklad** (stock pohyby)                   | Všetci                                           | ASSET_MANAGER       | ADMIN            |
+| **Kategórie**                              | Všetci                                           | ASSET_MANAGER       | ADMIN            |
+| **Lokality**                               | Všetci                                           | ASSET_MANAGER       | ADMIN            |
+| **Stavy majetku** (conditions)             | Všetci                                           | ASSET_MANAGER       | ADMIN            |
+| **Prílohy** (attachments)                  | Všetci                                           | ASSET_MANAGER       | ASSET_MANAGER    |
+| **QR štítky** (tlač)                       | Všetci                                           | —                   | —                |
+| **Výpožičky** (loans)                      | Všetci¹                                          | ASSET_MANAGER²      | ASSET_MANAGER    |
+| **Žiadosti o výpožičku**                   | Všetci¹                                          | Všetci (žiadosť)³   | autor / ADMIN⁴   |
+| **Preberacie protokoly**                   | Všetci                                           | ASSET_MANAGER       | ASSET_MANAGER    |
+| **Zoznam členov** (`/members`)             | Všetci                                           | —                   | —                |
+| **Členstvá** (role, správa)                | ADMIN                                            | ADMIN               | ADMIN            |
+| **Pozvánky**                               | ASSET_MANAGER                                    | ASSET_MANAGER       | ASSET_MANAGER    |
+| **Používatelia** (zoznam, detail, úprava)⁶ | ASSET_MANAGER / ADMIN                            | ADMIN               | ADMIN            |
+| **Nastavenia organizácie**⁵                | Všetci (čítanie)                                 | ADMIN               | ADMIN            |
+| **Audit log**                              | automatický zápis — needitovateľný (GDPR čl. 30) | —                   | —                |
 
 ¹ Viditeľnosť výpožičiek závisí od role — viď [Výpožičky: kto čo vidí](#výpožičky-kto-čo-vidí).
 ² Schválenie, vydanie priamej výpožičky, vrátenie a označenie za stratené robí ASSET_MANAGER alebo ADMIN.
 ³ Žiadosť o výpožičku môže podať ktokoľvek (pre seba aj v mene inej osoby — viď nižšie).
 ⁴ Žiadosť môže zrušiť len jej **autor** alebo **ADMIN**.
 ⁵ Vrátane brandingu (logo, farby, font) a nastavení prihlasovania/domén — všetko len ADMIN.
+⁶ Do 2026-07-14 samostatná stránka „Osoby" (len ASSET_MANAGER). Zlúčené do jednej stránky
+„Používatelia": ASSET_MANAGER vidí zoznam/detail (vrátane výpožičiek danej osoby), ale
+len odľahčený výrez polí (bez MFA stavu, GDPR obmedzenia a pod.) a bez možnosti úpravy.
+Plný obsah a úprava (rola, aktivita, odobratie z organizácie) je vždy len ADMIN.
 
 ## Výpožičky: kto čo vidí
 

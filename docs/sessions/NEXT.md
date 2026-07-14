@@ -1,5 +1,41 @@
 # NEXT
 
+## Aktuálny stav (2026-07-14, pokračovanie) — zlúčenie „Osoby" + „Používatelia" — K1–K4 HOTOVÉ, K5 (cleanup) ČAKÁ NA POTVRDENIE
+
+Session log: `docs/sessions/2026-07-14-zlucenie-osoby-pouzivatelia.md`.
+
+Janikov nápad: zlúčiť menu „Osoby" (ASSET_MANAGER, read-only adresár) a
+„Používatelia" (ADMIN, plná administrácia) — obe čítali tú istú `users`
+kolekciu, len s iným RBAC a výrezom polí.
+
+Rozhodnuté (AskUserQuestion, 3 kolá): jedna stránka `/users` („Používatelia"),
+obsah podľa role; detail osoby pre ASSET_MANAGER nahradený doterajším edit
+dialógom (read-only) s presunutou sekciou výpožičiek; nepoužité súbory zmazať
+až po Janikinom overení (task cleanup, NIE hneď).
+
+- ✅ **K1 backend** — `GET /v1/users` a `GET /v1/users/:id`: RBAC rozšírené na
+  ASSET_MANAGER+ADMIN, nová `toManagerShape()` (odlišná od zamrznutej legacy
+  `toDirectoryShape()`) trimuje odpoveď pre ASSET_MANAGER (bez MFA/GDPR/admin
+  metadát). ADMIN nezmenene. Zápisové cesty (`PATCH`) ostávajú ADMIN-only.
+- ✅ **K2 frontend** — `/persons` a `/persons/[id]` teraz len `redirect('/users')`.
+  `UserEditDialog` dostal `canEdit` prop (read-only pre ASSET_MANAGER) + novú
+  sekciu „Výpožičky tejto osoby" portovanú z `PersonDetailContent.tsx` (pre
+  oboch). `AppShell` nav: `/users` z `adminOnly` na `managerOnly`, `/persons`
+  odkaz zrušený.
+- ✅ **K3 testy** — opravený existujúci RBAC test (ASSET_MANAGER 403→200),
+  nové testy na presný trimmed/plný tvar pre `GET /v1/users` a `/v1/users/:id`.
+- ✅ **K4 docs** — `role-opravnenia.md` aktualizovaný (matrica + footnote).
+- **Zámerne nezmazané** (task cleanup, čaká na Janikino overenie v UI a
+  explicitné potvrdenie — org pravidlo „nikdy nemazať bez povolenia"):
+  `PersonsContent.tsx`, `PersonDetailContent.tsx`, `usePersonsDirectory`/
+  `usePerson` v `api-hooks.ts`, backend `/v1/users/directory*` routes +
+  `toDirectoryShape`/schémy.
+
+**Otvorené:** commit+push+deploy overenie tejto zmeny; potom Janika overí
+`/users` ako ADMIN aj ako ASSET_MANAGER (test účet) a dá pokyn na cleanup.
+
+---
+
 ## Aktuálny stav (2026-07-14, pokračovanie) — pomalý preloader po nečinnosti — DIAGNOSTIKOVANÉ + FIX NASADENÝ
 
 Session log: `docs/sessions/2026-07-14-pomaly-preloader-po-necinnosti.md`. Commit `8a91c32`.
