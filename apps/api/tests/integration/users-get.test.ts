@@ -145,8 +145,20 @@ describe('GET /v1/users/:id', () => {
       });
       expect(res.statusCode).toBe(200);
       const body = res.json<Record<string, unknown>>();
+      // firstName/lastName added 2026-07-14 (detail+editácia používateľa) —
+      // the /users/[id] detail page shows them separately in the header for
+      // ASSET_MANAGER viewers too, not just displayName.
       expect(Object.keys(body).sort()).toEqual(
-        ['_id', 'displayName', 'email', 'isActive', 'lastLoginAt', 'roles'].sort(),
+        [
+          '_id',
+          'displayName',
+          'firstName',
+          'lastName',
+          'email',
+          'isActive',
+          'lastLoginAt',
+          'roles',
+        ].sort(),
       );
       expect(body).not.toHaveProperty('organisationId');
       expect(body).not.toHaveProperty('createdAt');

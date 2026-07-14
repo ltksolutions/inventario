@@ -1258,11 +1258,16 @@ export function useCanManageTaxonomy(): boolean {
 }
 
 /**
- * Minimal person shape returned by GET /v1/users/directory (the "Osoby"
- * module, 2026-07-06). Deliberately much smaller than UserSummary — this
- * endpoint is ASSET_MANAGER-accessible (not just ADMIN), so the response
- * only carries what's needed to identify a person and link to their
- * asset card, not the full admin User profile.
+ * Minimal person shape returned by GET /v1/users/directory. Deliberately
+ * much smaller than UserSummary — this endpoint is ASSET_MANAGER-accessible
+ * (not just ADMIN), so the response only carries what's needed to identify
+ * a person, not the full admin User profile.
+ *
+ * Originally built for the standalone "Osoby" module (2026-07-06), which
+ * was merged into /users on 2026-07-14 and fully removed on 2026-07-15
+ * (task #35). This type + `usePersonsDirectory()` below survived that
+ * cleanup because of a second, unrelated caller found along the way: the
+ * "Osoba" filter dropdown on the Audit log page (`AuditLogContent.tsx`).
  */
 export interface PersonSummary {
   _id: string;
@@ -1316,30 +1321,6 @@ export function usePersonsDirectory(
         throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load persons');
       }
       return data as unknown as ListResponse<PersonSummary>;
-    },
-  });
-}
-
-/** GET /v1/users/directory/:id — single person for the "osobná karta majetku". */
-export function usePerson(id: string | null): UseQueryResult<PersonSummary, Error> {
-  const { isAuthenticated } = useAuth();
-  const genericGet = apiClient.GET as (
-    path: string,
-    opts: unknown,
-  ) => Promise<{ data: unknown; error: unknown }>;
-
-  return useQuery<PersonSummary, Error>({
-    queryKey: ['person', id],
-    enabled: isAuthenticated && !!id,
-    queryFn: async () => {
-      const { data, error } = await genericGet('/v1/users/directory/{id}', {
-        params: { path: { id: id as string } },
-      });
-      if (error) {
-        const e = error as unknown as { message?: unknown };
-        throw new Error(typeof e.message === 'string' ? e.message : 'Failed to load person');
-      }
-      return data as unknown as PersonSummary;
     },
   });
 }

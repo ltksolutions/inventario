@@ -20,10 +20,17 @@
  * Osoby/Používatelia merge (2026-07-14): GET /v1/users and GET /v1/users/:id
  * are now also reachable by ASSET_MANAGER (previously ADMIN-only), replacing
  * the standalone "Osoby" module UI. ASSET_MANAGER callers get a trimmed,
- * role-shaped response (toDirectoryShape) — same fields the old
- * GET /v1/users/directory* routes returned, still ADMIN+ASSET_MANAGER below
- * but unused by the frontend since the merge; kept temporarily, slated for
- * removal once verified in production (see docs/sessions/2026-07-14-*).
+ * role-shaped response (toManagerShape) with roughly the same fields the
+ * old GET /v1/users/directory* routes returned.
+ *
+ * Cleanup (2026-07-15, task #35, verified live in production): the
+ * standalone "Osoby" pages/components (`PersonsContent`, `PersonDetailContent`,
+ * `usePerson()`) are gone, and with them `GET /v1/users/directory/:id`
+ * (its only caller). `GET /v1/users/directory` (the LIST route) stays —
+ * it turned out to have a second, unrelated caller: the "Osoba" filter
+ * dropdown on the Audit log page (`usePersonsDirectory()` in
+ * `AuditLogContent.tsx`). Do not remove it without checking that caller
+ * first.
  *
  * RBAC matrix:
  *   - `GET /v1/me`            any authenticated user (self)
@@ -205,14 +212,14 @@ function toDirectoryShape(doc: Record<string, unknown>): z.infer<typeof Director
 /**
  * Manager-safe projection for GET /v1/users* used when the caller is
  * ASSET_MANAGER (Osoby/Používatelia merge, 2026-07-14). Deliberately NOT
- * the same as toDirectoryShape above (that one backs the now-legacy
- * GET /v1/users/directory* routes, kept temporarily — see task #35 — and
- * frozen so its declared response schema doesn't drift). This shape adds
- * `lastLoginAt` on top of the directory fields: ASSET_MANAGER pre-provisions
- * future employees (ADR-0034) and needs to see the "Očakáva nástup" state,
- * which the old directory endpoint never exposed. Still excludes MFA
- * status, GDPR restriction, entraOid, createdAt, preferences — those stay
- * ADMIN-only.
+ * the same as toDirectoryShape above (that one still backs the live
+ * GET /v1/users/directory LIST route — see the Audit log caller note at
+ * the top of this file — and is frozen so its declared response schema
+ * doesn't drift). This shape adds `lastLoginAt` on top of the directory
+ * fields: ASSET_MANAGER pre-provisions future employees (ADR-0034) and
+ * needs to see the "Očakáva nástup" state, which the directory endpoint
+ * never exposed. Still excludes MFA status, GDPR restriction, entraOid,
+ * createdAt, preferences — those stay ADMIN-only.
  */
 function toManagerShape(doc: Record<string, unknown>): {
   _id: string;
@@ -526,7 +533,11 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // --- GET /v1/users/directory ----------------------------------------------
-  // Minimalisticky zoznam osob ("Osoby" modul) pre ASSET_MANAGER + ADMIN.
+  // Minimalisticky zoznam osob pre ASSET_MANAGER + ADMIN. Pôvodne backend
+  // pre samostatnú stránku "Osoby" (zlúčená do /users, 2026-07-14); po
+  // cleanupe (2026-07-15, task #35) má už len jedného volajúceho — filter
+  // "Osoba" na stránke Audit log (`usePersonsDirectory()` v
+  // `AuditLogContent.tsx`). NEMAZAŤ bez skontrolovania toho volajúceho.
   // Zaregistrovany ako STATICKA cesta popri parametrickej /v1/users/:id —
   // find-my-way (Fastify router) uprednostnuje staticke segmenty pred
   // parametrickymi na rovnakej hlbke, takze "directory" sa nikdy
@@ -571,30 +582,6 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         data: result.data.map(toDirectoryShape),
         pagination: result.pagination,
       };
-    },
-  );
-
-  // --- GET /v1/users/directory/:id -------------------------------------------
-  app.get(
-    '/v1/users/directory/:id',
-    {
-      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canManage],
-      schema: {
-        tags: ['Users'],
-        summary: 'Get a person directory entry by ID (manager)',
-        description:
-          'Minimalny profil jednej osoby (meno, rola, e-mail, aktivita) pre ' +
-          '"osobnu kartu majetku". Vyzaduje ASSET_MANAGER alebo ADMIN.',
-        security: [{ bearerAuth: [] }],
-        params: UserIdParamsSchema,
-        response: {
-          200: DirectoryItemSchema,
-        },
-      },
-    },
-    async (request) => {
-      const doc = await service.getById(request.params.id, request.currentUser);
-      return toDirectoryShape(doc);
     },
   );
 

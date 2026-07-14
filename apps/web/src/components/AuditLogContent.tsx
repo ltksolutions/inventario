@@ -38,7 +38,13 @@ import { cn } from '@/lib/cn';
  * Janiky, pôvodne plánované len pre ADMIN. Sidebar link je viditeľný
  * podľa AppShellu (`managerOnly`), ale stránka renderuje zreteľný
  * "no permission" stav pre priamu navigáciu (rovnaký vzor ako
- * PersonsContent/UsersContent).
+ * UsersContent).
+ *
+ * Pozn. (2026-07-15, task #35): `usePersonsDirectory()` nižšie pôvodne
+ * patrila k samostatnému modúlu "Osoby" (zlúčenému do /users, potom
+ * zmazanému) — tento filter je jej jediný zostávajúci volajúci, preto
+ * hook ostal v `api-hooks.ts`. NEMAZAŤ `usePersonsDirectory`/`PersonSummary`
+ * bez úpravy tohto filtra.
  */
 
 const ACTION_OPTIONS = [

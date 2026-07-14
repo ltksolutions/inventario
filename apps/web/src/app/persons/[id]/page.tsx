@@ -6,10 +6,11 @@ import { redirect } from 'next/navigation';
 /**
  * /persons/[id] — "osobná karta majetku", merged into /users (2026-07-14,
  * Osoby/Používatelia merge) — the loans/history info this page showed now
- * lives in UserEditDialog's "Výpožičky tejto osoby" section, opened from the
- * /users row action. There's no per-person route equivalent (it's a modal,
- * not a page), so old deep links just land on the list. PersonDetailContent.tsx
- * is no longer imported here but kept on disk pending cleanup (task #35).
+ * lives on the /users/[id] detail page (detail+editácia používateľa,
+ * 2026-07-14). There's no per-person route equivalent under /persons
+ * anymore, so old deep links just land on the /users list. The old
+ * `PersonDetailContent.tsx` component was removed on 2026-07-15
+ * (task #35), once the merge was verified live in production.
  */
 export default async function PersonDetailPage(): Promise<never> {
   redirect('/users');

@@ -5,8 +5,9 @@ import { redirect } from 'next/navigation';
 
 /**
  * /persons — "Osoby" module, merged into /users (2026-07-14, Osoby/
- * Používatelia merge). Redirects old bookmarks/links. PersonsContent.tsx
- * is no longer imported here but kept on disk pending cleanup (task #35).
+ * Používatelia merge). Redirects old bookmarks/links. The old
+ * `PersonsContent.tsx` component was removed on 2026-07-15 (task #35),
+ * once the merge was verified live in production.
  * `redirect()` throws internally and never returns — `never` is the
  * correct return type (matches the Next.js typing for this pattern).
  */

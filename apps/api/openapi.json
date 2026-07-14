@@ -2070,69 +2070,6 @@
         }
       }
     },
-    "/v1/users/directory/{id}": {
-      "get": {
-        "summary": "Get a person directory entry by ID (manager)",
-        "tags": [
-          "Users"
-        ],
-        "description": "Minimalny profil jednej osoby (meno, rola, e-mail, aktivita) pre \"osobnu kartu majetku\". Vyzaduje ASSET_MANAGER alebo ADMIN.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f\\d]{24}$"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "_id": {
-                      "type": "string"
-                    },
-                    "displayName": {
-                      "type": "string"
-                    },
-                    "email": {
-                      "type": "string"
-                    },
-                    "role": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "isActive": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "_id",
-                    "displayName",
-                    "email",
-                    "role",
-                    "isActive"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/users/{id}/mfa": {
       "delete": {
         "summary": "Reset MFA for a user (admin)",

@@ -22,13 +22,14 @@ import { useCanAdminUsers, useCanManagePersons, useMe, useUsers } from '@/lib/ap
  *
  * Previously two separate pages behind two RBAC gates: this ADMIN-only
  * "Používatelia" page and a lighter ASSET_MANAGER-accessible "Osoby"
- * directory (PersonsContent.tsx, now unused — see task #35). Both read
- * the same `users` collection, just projected differently, so they're
- * merged into one page with two RBAC tiers instead of two routes:
+ * directory (`PersonsContent.tsx`, removed 2026-07-15 — task #35, once
+ * the merge was verified live in production). Both read the same `users`
+ * collection, just projected differently, so they're merged into one
+ * page with two RBAC tiers instead of two routes:
  *
  *   - `canManage` (ASSET_MANAGER+ADMIN, via useCanManagePersons — name
- *     predates the merge, kept to avoid touching the soon-to-be-deleted
- *     Persons files that still import it) gates page access at all.
+ *     predates the merge, kept as-is post-cleanup since renaming it is
+ *     pure churn with no behavioural upside) gates page access at all.
  *   - `canAdmin` (ADMIN only) additionally gates the pencil ("Upraviť")
  *     row action, which opens UserEditDialog.
  *

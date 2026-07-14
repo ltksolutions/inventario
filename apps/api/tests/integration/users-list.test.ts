@@ -339,7 +339,7 @@ describe('GET /v1/users', () => {
       expect(res.statusCode).toBe(200);
     });
 
-    it('trims ASSET_MANAGER response to _id/displayName/email/roles/isActive/lastLoginAt only', async () => {
+    it('trims ASSET_MANAGER response to _id/displayName/firstName/lastName/email/roles/isActive/lastLoginAt only', async () => {
       await insertTestUser(app, { email: 'trimmed-fields@example.com' });
       const { token } = await provisionUser(app, {
         oid: 'asset-manager-for-users-list-shape',
@@ -353,8 +353,20 @@ describe('GET /v1/users', () => {
       const body = res.json<{ data: Array<Record<string, unknown>> }>();
       const target = body.data.find((u) => u['email'] === 'trimmed-fields@example.com');
       expect(target).toBeDefined();
+      // firstName/lastName added 2026-07-14 (detail+editácia používateľa) —
+      // the /users/[id] detail page shows them separately in the header for
+      // ASSET_MANAGER viewers too, not just displayName.
       expect(Object.keys(target!).sort()).toEqual(
-        ['_id', 'displayName', 'email', 'isActive', 'lastLoginAt', 'roles'].sort(),
+        [
+          '_id',
+          'displayName',
+          'firstName',
+          'lastName',
+          'email',
+          'isActive',
+          'lastLoginAt',
+          'roles',
+        ].sort(),
       );
       // Admin-only fields must never reach an ASSET_MANAGER caller.
       expect(target).not.toHaveProperty('organisationId');

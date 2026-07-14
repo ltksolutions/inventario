@@ -1,5 +1,32 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, pokračovanie) — cleanup „Osoby" + oprava CI — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-15-cleanup-osoby-a-ci-fix.md`.
+
+Janika potvrdila `/users` v produkcii (ADMIN aj ASSET_MANAGER) a dáva
+pokyn na cleanup (task #35).
+
+- ✅ **Cleanup, presné skope po overení** — pôvodný plán chýbal jeden
+  detail: `usePersonsDirectory()`/`PersonSummary`/`GET /v1/users/directory`
+  (list) má druhého volajúceho — filter "Osoba" na stránke Audit log.
+  Zmazané len skutočne mŕtve časti: `PersonsContent.tsx`,
+  `PersonDetailContent.tsx`, `usePerson()` (jednotné číslo) +
+  `GET /v1/users/directory/:id`. List route + `usePersonsDirectory`
+  ostávajú, komentované prečo.
+- ✅ **CI fix (GH Actions #365/#366)** — 2 existujúce testy
+  (`users-get.test.ts`, `users-list.test.ts`) overovali starý
+  ASSET_MANAGER-orezaný tvar bez `firstName`/`lastName` — chýbajúci krok
+  z K1 (task #37), ktoré tento tvar zámerne rozšírilo pre detail stránku.
+  Testy aktualizované.
+
+`tsc`/`eslint`/`prettier` čisté. `vitest` v sandboxe nedá spustiť —
+autoritatívne overenie je CI na GitHub po pushi.
+
+**Otvorené:** sledovať zelený CI beh, overiť Vercel deploy READY.
+
+---
+
 ## Aktuálny stav (2026-07-15) — pomalé prekliky Používatelia → detail → majetok — FIX NASADENÝ
 
 Session log: `docs/sessions/2026-07-15-pomale-prekliky-fluid-compute.md`.
