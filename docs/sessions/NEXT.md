@@ -1,5 +1,40 @@
 # NEXT
 
+## Aktuálny stav (2026-07-14, pokračovanie) — ADR-0034: predpríprava budúceho používateľa — K1–K5 HOTOVÉ, K6 čiastočne
+
+Session log: `docs/sessions/2026-07-14-adr-0034-predpripravit-buduceho-pouzivatela.md`.
+ADR: `docs/decisions/0034-domain-restricted-pre-provisioned-members.md`. Commity:
+`b2b2555` (ADR), `ff0df47` (K1–K4: schema, endpoint, `hasLoggedIn`, UI + bugfix
+ASSET_MANAGER prístupu na stránke Pozvánky), `6d5e388` (K5: testy).
+
+Janikov návrh: správca majetku vie vopred pridať budúceho zamestnanca so známou
+firemnou e-mailovou adresou (organizácia s `DOMAIN_RESTRICTED` + `autoJoinDomains`),
+aby mu mohol schváliť a pripraviť výbavu ešte pred nástupom.
+
+- ✅ **Nový endpoint `POST /v1/memberships/pre-provisioned`** (ASSET_MANAGER/ADMIN) —
+  vytvorí `User` + `Membership` (ACTIVE, EMPLOYEE) pre zadanú firemnú adresu.
+  Znovupoužité bez zmeny: `attemptDomainAutoJoin` (merge pri prvom SSO prihlásení) a
+  `assertBeneficiaryIsActiveMember` (gatekeeper v žiadostiach o výpožičku).
+- ✅ **UI** — sekcia „Pridať budúceho používateľa" na stránke Pozvánky, odznak
+  „Očakáva nástup" v zozname Používatelia namiesto dátumu prihlásenia.
+- ✅ **Bug fix mimo rozsahu, nájdený počas práce:** stránka Pozvánky gatovala
+  prístup len na ADMIN, hoci `POST /v1/invitations` už dnes povoľuje aj
+  ASSET_MANAGER — opravené novým `useCanManageMembers()` hookom.
+- ✅ **Testy (K5)** — RBAC, validácie, merge test (`attemptDomainAutoJoin`), happy-path
+  beneficiary. `tsc`/`eslint` čisté v sandboxe, lokálne `pnpm test` **všetko
+  zelené** (Janika potvrdila).
+- ⚠️ **K6 čiastočne hotové:** user-guide návod
+  (`docs/user-guide/how-to/pridat-buduceho-pouzivatela.md`) a tento session doc
+  hotové. **OpenAPI export + `api-types.ts` regen ostal ako lokálny krok** —
+  sandbox nemá funkčný natívny `esbuild` binár pre `tsx` (rovnaký dôvod ako
+  `vitest` v K5). Príkazy v session logu vyššie.
+
+**Otvorené:** lokálny `pnpm --filter @inventario/api openapi:export:offline` +
+`pnpm --filter web generate:api-types` + commit; report „predpripravení členovia
+bez prihlásenia > 90 dní" pre ADMIN (zvážiť neskôr, nie súčasť K1–K6).
+
+---
+
 ## Aktuálny stav (2026-07-14) — QR obrázok s logom, dependabot PR, prod incident, Zebra UI + záložky — VŠETKO HOTOVÉ
 
 Session log: `docs/sessions/2026-07-14-qr-obrazok-dependabot-incident-zebra-ui.md`.
