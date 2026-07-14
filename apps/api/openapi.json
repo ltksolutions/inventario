@@ -3059,7 +3059,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. Vyzaduje nastaveny appBaseUrl na Organisation - inak 409. format=svg (default) alebo png.",
+        "description": "On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. Vyzaduje nastaveny appBaseUrl na Organisation - inak 409. Obrazok obsahuje aj logo organizacie v strede QR a inventoryNumber/nazov pod kodom. format=svg (default) alebo png.",
         "parameters": [
           {
             "schema": {

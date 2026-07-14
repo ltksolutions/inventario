@@ -27,7 +27,6 @@ import {
   TRACKING_MODE_VALUES,
   UpdateAssetSchema,
 } from '@inventario/shared-types';
-import QRCode from 'qrcode';
 import { z } from 'zod';
 
 import { resolveAppBaseUrl } from '../../lib/app-base-url.js';
@@ -36,10 +35,12 @@ import { AuditLogRepository } from '../audit/audit.repository.js';
 import { CategoriesRepository } from '../categories/categories.repository.js';
 import { LocationsRepository } from '../locations/locations.repository.js';
 import { OrganisationsRepository } from '../organisations/organisations.repository.js';
+import { loadDefaultFont, loadLogo } from '../protocols/logo-loader.js';
 import { StockMovementsRepository } from '../stock/stock-movements.repository.js';
 
 import { AssetsRepository } from './assets.repository.js';
 import { AssetsService } from './assets.service.js';
+import { renderQrPng, renderQrSvg } from './qr-image-renderer.js';
 
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -440,8 +441,13 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
   // --- GET /v1/assets/:id/qr -----------------------------------------------
   // ADR-0021 K3: on-demand QR render. URL v QR = appBaseUrl/scan/publicToken.
   // Content-Type: image/svg+xml alebo image/png podla ?format=.
-  // Cache-Control: immutable (token je nemenný, teda QR je stabilný).
   // Domena VYLUCNE z organisation.appBaseUrl - NIKDY z Host hlavicky.
+  //
+  // Obrázok obsahuje aj logo organizácie v strede QR + inventoryNumber/názov
+  // pod kódom (rovnaký štýl ako Avery štítky, `qr-image-renderer.ts`).
+  // Cache-Control NIE JE immutable — na rozdiel od pôvodného čistého QR (ktorý
+  // závisel len od nemenného publicToken), obrázok teraz zapeká aj názov
+  // assetu a logo organizácie, ktoré sa MÔŽU meniť → krátky max-age.
   app.get(
     '/v1/assets/:id/qr',
     {
@@ -452,7 +458,8 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
         description:
           'On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. ' +
           'Vyzaduje nastaveny appBaseUrl na Organisation - inak 409. ' +
-          'format=svg (default) alebo png.',
+          'Obrazok obsahuje aj logo organizacie v strede QR a inventoryNumber/nazov ' +
+          'pod kodom. format=svg (default) alebo png.',
         security: [{ bearerAuth: [] }],
         params: AssetIdParamsSchema,
         querystring: QrQuerySchema,
@@ -472,29 +479,35 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       // Základ URL pre QR: per-tenant appBaseUrl → env APP_BASE_URL → default.
       // VŽDY z konfigurácie, NIKDY z request headers (ADR-0021).
       const org = await orgsRepo.findById(tenantId);
-      const url = `${resolveAppBaseUrl(org?.appBaseUrl)}/scan/${asset.publicToken}`;
+      if (!org) {
+        throw new NotFoundError('Organisation', tenantId);
+      }
+      const url = `${resolveAppBaseUrl(org.appBaseUrl)}/scan/${asset.publicToken}`;
+
+      // Font + logo mimo transakcie (rovnaký vzor ako labels.routes.ts).
+      const [font, logo] = await Promise.all([loadDefaultFont(), loadLogo(org)]);
+
+      const qrInput = {
+        url,
+        inventoryNumber: asset.inventoryNumber,
+        name: asset.name,
+        font,
+        logo,
+      };
 
       if (format === 'png') {
-        const pngBuffer = await QRCode.toBuffer(url, {
-          type: 'png',
-          margin: 2,
-          width: 300,
-        });
+        const pngBuffer = await renderQrPng(qrInput);
         return reply
           .header('Content-Type', 'image/png')
-          .header('Cache-Control', 'public, max-age=31536000, immutable')
+          .header('Cache-Control', 'private, max-age=300')
           .send(pngBuffer);
       }
 
       // SVG default
-      const svgString = await QRCode.toString(url, {
-        type: 'svg',
-        margin: 2,
-        width: 300,
-      });
+      const svgString = await renderQrSvg(qrInput);
       return reply
         .header('Content-Type', 'image/svg+xml')
-        .header('Cache-Control', 'public, max-age=31536000, immutable')
+        .header('Cache-Control', 'private, max-age=300')
         .send(svgString);
     },
   );

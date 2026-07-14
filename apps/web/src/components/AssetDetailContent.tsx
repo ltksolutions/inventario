@@ -515,10 +515,18 @@ function QrCard({
       </div>
 
       {/* QR — načítaný cez fetch s credentials (blob URL), lebo <img src> pri
-           cross-origin requeste neposiela auth cookie. */}
-      <div className="mx-auto flex aspect-square w-40 items-center justify-center rounded-xl border border-border-subtle bg-white p-3 lg:w-44">
+           cross-origin requeste neposiela auth cookie.
+           Obrázok už nie je štvorcový (logo v strede QR + text pod kódom pridali
+           výšku pod obrázkom) — kontajner má pevný pomer strnán zodpovedajúci
+           kompozitnému PNG/SVG (qr-image-renderer.ts: 328×374), object-contain
+           ochráni pred deformáciou pri menších odchýlkach. */}
+      <div className="mx-auto flex aspect-[328/374] w-40 items-center justify-center rounded-xl border border-border-subtle bg-white p-3 lg:w-44">
         {qrPreviewUrl ? (
-          <img src={qrPreviewUrl} alt={`QR kod pre ${inventoryNumber}`} className="h-full w-full" />
+          <img
+            src={qrPreviewUrl}
+            alt={`QR kod pre ${inventoryNumber}`}
+            className="h-full w-full object-contain"
+          />
         ) : qrFailed ? (
           <span className="text-center text-[11px] text-text-muted">QR sa nepodarilo načítať</span>
         ) : (
