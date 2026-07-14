@@ -1,5 +1,40 @@
 # NEXT
 
+## Aktuálny stav (2026-07-14) — QR obrázok s logom, dependabot PR, prod incident, Zebra UI + záložky — VŠETKO HOTOVÉ
+
+Session log: `docs/sessions/2026-07-14-qr-obrazok-dependabot-incident-zebra-ui.md`.
+Commity: `654d9d2` (QR obrázok s logom), `c048a64`/`6b82884`/`6f1d26a`/`7b0c54d`
+(dependabot PR #9–#12), `5e40c25` (incident fix), `480586c` (ADR-0027 write path),
+`014f0b7` (Zebra návod), `9261a99` (Zebra UI prepínač), `0b29eef` (záložky
+v Nastaveniach), `54d6e67` (Zebra návod aktualizovaný na UI riešenie).
+
+- ✅ **QR obrázok s logom a textom — nasadené.** `GET /v1/assets/:id/qr`
+  vracia kompozitný PNG/SVG (logo + inventárne číslo + názov) namiesto
+  holého QR kódu, cez `@napi-rs/canvas`.
+- ✅ **4 dependabot PR zlúčené** (#9–#12), vrátane opravy `format:check`
+  po prettier bumpe.
+- ✅ **INCIDENT vyriešený (`5e40c25`).** `@fastify/cookie` 11.1.1 (PR #12)
+  pritiahol ESM-only `cookie@2.0.1` → plný výpadok API na produkcii
+  (`ERR_REQUIRE_ESM` na každom cold starte). Pripnuté na presnú `11.0.2`.
+  **Trvalé poučenie:** po každom npm/yarn dependabot merge overiť
+  `get_runtime_logs` na produkcii do 1–2 minút, nielen CI status.
+- ✅ **ADR-0027 gap doplnený (`480586c`).** `labelPrinting.mode` nemal
+  žiadny write path — PATCH `/v1/organisations/current` ho ticho
+  stripoval. Celá ZEBRA_ZPL vetva bola napriek hotovému backendu/frontendu
+  v produkcii nedosiahnuteľná. Opravené, integračný test doplnený.
+- ✅ **Zebra UI prepínač (`9261a99`) + záložky v Nastaveniach (`0b29eef`)
+  — nasadené.** `/settings/organisation` má teraz bežný prepínač na
+  Zebra ZPL tlač (štruktúrované polia, nie Swagger) a sekcie od
+  "Základné údaje" po koniec sú na desktope v 5 záložkách (mobile pod
+  sebou ako doteraz).
+- ✅ **Zebra návod aktualizovaný (`54d6e67`)** na nové UI riešenie.
+
+**Otvorené:** živý test na hardvéri (ZD420 + Browser Print) — softvérová
+blokačka je odstránená, ale fyzický test (QR čitateľnosť, diakritika,
+sýtosť) ešte neprebehol. Návod: `docs/user-guide/how-to/vytlacit-qr-kody-zebra.md`.
+
+---
+
 ## Aktuálny stav (2026-07-07) — číselník Tagov + Audit log pre správcov — OBOJE HOTOVÉ
 
 Session log: `docs/sessions/2026-07-07-tagy-ciselnik-audit-log.md`. Commity:
