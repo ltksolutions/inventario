@@ -96,6 +96,21 @@ const EMPTY_ADDRESS: AddressInfo = {
   countryCode: 'SK',
 };
 
+/**
+ * Skupiny sekcií zobrazené ako záložky na desktope (sm: a vyššie). Na mobile
+ * sa tab bar skryje a všetky skupiny sa zobrazia pod sebou (bez zmeny voči
+ * pôvodnému správaniu). Plan card a tlačidlo Uložiť zostávajú mimo záložiek.
+ */
+const SETTINGS_TABS = [
+  { id: 'basic', label: 'Základné údaje' },
+  { id: 'qr', label: 'QR kódy a štítky' },
+  { id: 'numbering', label: 'Číslovanie' },
+  { id: 'branding', label: 'Branding' },
+  { id: 'billing', label: 'Fakturácia a adresy' },
+] as const;
+
+type SettingsTabId = (typeof SETTINGS_TABS)[number]['id'];
+
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
@@ -136,6 +151,10 @@ function OrganisationSettingsPanel(): JSX.Element {
 
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  // Aktívna záložka (desktop). Na mobile sa nepoužíva — všetky skupiny sú
+  // vždy zobrazené pod sebou bez ohľadu na túto hodnotu.
+  const [activeTab, setActiveTab] = useState<SettingsTabId>('basic');
 
   // foundContactInfo state (ADR-0021)
   const [foundEmail, setFoundEmail] = useState('');
@@ -431,538 +450,603 @@ function OrganisationSettingsPanel(): JSX.Element {
       {/* Plan card */}
       <PlanCard plan={org.plan} />
 
+      {/* Tab nav — len desktop (sm: a vyššie). Na mobile sa skryje a všetky
+          skupiny nižšie sú zobrazené pod sebou bez ohľadu na activeTab. */}
+      <div
+        role="tablist"
+        aria-label="Sekcie nastavení organizácie"
+        className="mt-6 hidden gap-1 overflow-x-auto border-b border-border-subtle sm:flex"
+      >
+        {SETTINGS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`settings-tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls={`settings-tabpanel-${tab.id}`}
+            onClick={() => setActiveTab(tab.id)}
+            className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+              activeTab === tab.id
+                ? 'border-brand-accent text-brand-accent'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Billing form */}
       <div className="mt-6 space-y-6">
-        <Section title="Základné údaje">
-          <Field label="Názov organizácie">
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className={inputCls()}
-            />
-          </Field>
-          <Field label="Kontaktný e-mail" hint="Hlavný kontakt pre administratívu.">
-            <input
-              type="email"
-              value={primaryContactEmail}
-              onChange={(e) => setPrimaryContactEmail(e.target.value)}
-              placeholder="kontakt@organizacia.sk"
-              className={inputCls()}
-            />
-          </Field>
-        </Section>
+        <div
+          role="tabpanel"
+          id="settings-tabpanel-basic"
+          aria-labelledby="settings-tab-basic"
+          className={activeTab === 'basic' ? '' : 'sm:hidden'}
+        >
+          <Section title="Základné údaje">
+            <Field label="Názov organizácie">
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className={inputCls()}
+              />
+            </Field>
+            <Field label="Kontaktný e-mail" hint="Hlavný kontakt pre administratívu.">
+              <input
+                type="email"
+                value={primaryContactEmail}
+                onChange={(e) => setPrimaryContactEmail(e.target.value)}
+                placeholder="kontakt@organizacia.sk"
+                className={inputCls()}
+              />
+            </Field>
+          </Section>
+        </div>
 
-        <Section title="QR kódy a štítky">
-          <Field
-            label="Základná URL aplikácie"
-            hint="Povinné pre QR kódy a tlač štítkov. QR zakóduje {URL}/scan/{token}. Napr. https://app.inventario.estate"
-          >
-            <input
-              type="url"
-              value={appBaseUrl}
-              onChange={(e) => setAppBaseUrl(e.target.value)}
-              placeholder="https://app.inventario.estate"
-              className={inputCls()}
-            />
-          </Field>
-
-          <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm font-medium text-text-primary">
-            <input
-              type="checkbox"
-              checked={zplEnabled}
-              onChange={(e) => setZplEnabled(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            />
-            <span>
-              Tlačiť štítky na Zebra termálnej tlačiarni (ZPL)
-              <span className="mt-0.5 block text-xs font-normal text-text-secondary">
-                Ak je zapnuté, na detaile majetku (a pri dávkovej tlači) sa objaví tlačidlo „Tlačiť
-                na Zebra“ vedľa „Tlačiť štítok (PDF)“ — pošle ZPL priamo na lokálneho agenta Zebra
-                Browser Print (musí byť nainštalovaný na PC pri tlačiarni). Vypnuté = štandardná
-                tlač na PDF hárok (funguje na bežnej kancelárskej tlačiarni).
-              </span>
-            </span>
-          </label>
-
-          {zplEnabled && (
-            <div className="grid gap-4 rounded-lg border border-border-subtle p-4 sm:grid-cols-2">
-              <Field label="Šírka štítka (mm)" hint="Typicky 50 mm pre štandardné Zebra štítky.">
-                <input
-                  type="number"
-                  min={10}
-                  max={200}
-                  value={zplLabelWidthMm}
-                  onChange={(e) =>
-                    setZplLabelWidthMm(Math.max(10, Math.min(200, Number(e.target.value))))
-                  }
-                  className={inputCls()}
-                />
-              </Field>
-              <Field label="Výška štítka (mm)" hint="Typicky 25 mm pre štandardné Zebra štítky.">
-                <input
-                  type="number"
-                  min={10}
-                  max={200}
-                  value={zplLabelHeightMm}
-                  onChange={(e) =>
-                    setZplLabelHeightMm(Math.max(10, Math.min(200, Number(e.target.value))))
-                  }
-                  className={inputCls()}
-                />
-              </Field>
-              <Field
-                label="Rozlíšenie tlačovej hlavy (DPI)"
-                hint="ZD420 = 203 dpi (default). ZD620 a niektoré ZT série = 300 dpi."
-              >
-                <select
-                  value={zplDpi}
-                  onChange={(e) => setZplDpi(Number(e.target.value) === 300 ? 300 : 203)}
-                  className={inputCls()}
-                >
-                  <option value={203}>203 dpi</option>
-                  <option value={300}>300 dpi</option>
-                </select>
-              </Field>
-              <Field
-                label="Sýtosť tlače"
-                hint="0–30. Vyššia hodnota = tmavší výtlačok. Default 20."
-              >
-                <input
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={zplDarkness}
-                  onChange={(e) =>
-                    setZplDarkness(Math.max(0, Math.min(30, Number(e.target.value))))
-                  }
-                  className={inputCls()}
-                />
-              </Field>
-            </div>
-          )}
-
-          <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm font-medium text-text-primary">
-            <input
-              type="checkbox"
-              checked={publicAssetLookup}
-              onChange={(e) => setPublicAssetLookup(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            />
-            <span>
-              Verejný lookup po naskenovaní QR (lost &amp; found)
-              <span className="mt-0.5 block text-xs font-normal text-text-secondary">
-                Ak je zapnuté, po naskenovaní QR sa komukoľvek (bez prihlásenia) zobrazí verejná
-                stránka s názvom organizácie, inventárnym číslom, názvom majetku a kontaktom na
-                vrátenie nižšie. Vypnuté = sken vráti „nenašiel sa".
-              </span>
-            </span>
-          </label>
-
-          <p className="-mt-1 text-xs text-text-secondary">
-            Nasledujúce informácie sa zobrazia na verejnej stránke po naskenovaní QR kódu nálezcom.
-            Odporúčame organizačný kontakt, nie osobný. Nechajte prázdne, ak nechcete zverejniť
-            kontakt.
-          </p>
-          <Field label="E-mail" hint="napr. majetok@organizacia.sk">
-            <input
-              type="email"
-              value={foundEmail}
-              onChange={(e) => setFoundEmail(e.target.value)}
-              placeholder="majetok@organizacia.sk"
-              className={inputCls()}
-            />
-          </Field>
-          <Field label="Telefón" hint="napr. +421900000000">
-            <input
-              type="tel"
-              value={foundPhone}
-              onChange={(e) => setFoundPhone(e.target.value)}
-              placeholder="+421900000000"
-              className={inputCls()}
-            />
-          </Field>
-          <Field
-            label="Správa pre nálezcu"
-            hint="Krátka inštrukcia, napr. Kontaktujte nás na vrátenie. Ďakujeme!"
-          >
-            <textarea
-              rows={3}
-              value={foundMessage}
-              onChange={(e) => setFoundMessage(e.target.value)}
-              placeholder="Kontaktujte nás — radi vám poradíme, ako majetok vrátiť. Ďakujeme!"
-              className={inputCls() + ' resize-none'}
-            />
-          </Field>
-        </Section>
-
-        {/* Inventárne číslovanie (ADR-0021) */}
-        <Section title="Inventárne číslovanie">
-          <p className="-mt-1 text-xs text-text-secondary">
-            Formát inventárneho čísla sa generuje automaticky pri pridaní majetku. Príklad: prefix
-            „SFZ“, padding 4, rok zapnutý → „SFZ-2026-0001“.
-          </p>
-          <Field
-            label="Prefix"
-            required
-            hint='1–5 veľkých ASCII písmen. Napr. "SFZ", "INV", "MOB".'
-          >
-            <input
-              type="text"
-              value={invPrefix}
-              onChange={(e) => setInvPrefix(e.target.value.toUpperCase())}
-              placeholder="SFZ"
-              maxLength={5}
-              className={inputCls()}
-            />
-          </Field>
-          <Field
-            label="Počet cifier"
-            hint="Počet cifier poradia (doplnených nulami). Napr. 4 → 0001."
-          >
-            <select
-              value={invPadding}
-              onChange={(e) => setInvPadding(Number(e.target.value))}
-              className={inputCls()}
+        <div
+          role="tabpanel"
+          id="settings-tabpanel-qr"
+          aria-labelledby="settings-tab-qr"
+          className={activeTab === 'qr' ? '' : 'sm:hidden'}
+        >
+          <Section title="QR kódy a štítky">
+            <Field
+              label="Základná URL aplikácie"
+              hint="Povinné pre QR kódy a tlač štítkov. QR zakóduje {URL}/scan/{token}. Napr. https://app.inventario.estate"
             >
-              {[3, 4, 5, 6, 7, 8].map((n) => (
-                <option key={n} value={n}>
-                  {n} cifier (napr. {'0'.repeat(n - 1)}1)
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Zahrnúť rok">
-            <label className="flex items-center gap-2 text-sm text-text-primary">
+              <input
+                type="url"
+                value={appBaseUrl}
+                onChange={(e) => setAppBaseUrl(e.target.value)}
+                placeholder="https://app.inventario.estate"
+                className={inputCls()}
+              />
+            </Field>
+
+            <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm font-medium text-text-primary">
               <input
                 type="checkbox"
-                checked={invIncludeYear}
-                onChange={(e) => setInvIncludeYear(e.target.checked)}
-                className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                checked={zplEnabled}
+                onChange={(e) => setZplEnabled(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               />
-              <span>Rok zaradenia súčasťou čísla (napr. SFZ-2026-0001)</span>
+              <span>
+                Tlačiť štítky na Zebra termálnej tlačiarni (ZPL)
+                <span className="mt-0.5 block text-xs font-normal text-text-secondary">
+                  Ak je zapnuté, na detaile majetku (a pri dávkovej tlači) sa objaví tlačidlo
+                  „Tlačiť na Zebra“ vedľa „Tlačiť štítok (PDF)“ — pošle ZPL priamo na lokálneho
+                  agenta Zebra Browser Print (musí byť nainštalovaný na PC pri tlačiarni). Vypnuté =
+                  štandardná tlač na PDF hárok (funguje na bežnej kancelárskej tlačiarni).
+                </span>
+              </span>
             </label>
-          </Field>
-          {invIncludeYear && (
-            <Field label="Reset poradia každý rok">
+
+            {zplEnabled && (
+              <div className="grid gap-4 rounded-lg border border-border-subtle p-4 sm:grid-cols-2">
+                <Field label="Šírka štítka (mm)" hint="Typicky 50 mm pre štandardné Zebra štítky.">
+                  <input
+                    type="number"
+                    min={10}
+                    max={200}
+                    value={zplLabelWidthMm}
+                    onChange={(e) =>
+                      setZplLabelWidthMm(Math.max(10, Math.min(200, Number(e.target.value))))
+                    }
+                    className={inputCls()}
+                  />
+                </Field>
+                <Field label="Výška štítka (mm)" hint="Typicky 25 mm pre štandardné Zebra štítky.">
+                  <input
+                    type="number"
+                    min={10}
+                    max={200}
+                    value={zplLabelHeightMm}
+                    onChange={(e) =>
+                      setZplLabelHeightMm(Math.max(10, Math.min(200, Number(e.target.value))))
+                    }
+                    className={inputCls()}
+                  />
+                </Field>
+                <Field
+                  label="Rozlíšenie tlačovej hlavy (DPI)"
+                  hint="ZD420 = 203 dpi (default). ZD620 a niektoré ZT série = 300 dpi."
+                >
+                  <select
+                    value={zplDpi}
+                    onChange={(e) => setZplDpi(Number(e.target.value) === 300 ? 300 : 203)}
+                    className={inputCls()}
+                  >
+                    <option value={203}>203 dpi</option>
+                    <option value={300}>300 dpi</option>
+                  </select>
+                </Field>
+                <Field
+                  label="Sýtosť tlače"
+                  hint="0–30. Vyššia hodnota = tmavší výtlačok. Default 20."
+                >
+                  <input
+                    type="number"
+                    min={0}
+                    max={30}
+                    value={zplDarkness}
+                    onChange={(e) =>
+                      setZplDarkness(Math.max(0, Math.min(30, Number(e.target.value))))
+                    }
+                    className={inputCls()}
+                  />
+                </Field>
+              </div>
+            )}
+
+            <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm font-medium text-text-primary">
+              <input
+                type="checkbox"
+                checked={publicAssetLookup}
+                onChange={(e) => setPublicAssetLookup(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              />
+              <span>
+                Verejný lookup po naskenovaní QR (lost &amp; found)
+                <span className="mt-0.5 block text-xs font-normal text-text-secondary">
+                  Ak je zapnuté, po naskenovaní QR sa komukoľvek (bez prihlásenia) zobrazí verejná
+                  stránka s názvom organizácie, inventárnym číslom, názvom majetku a kontaktom na
+                  vrátenie nižšie. Vypnuté = sken vráti „nenašiel sa".
+                </span>
+              </span>
+            </label>
+
+            <p className="-mt-1 text-xs text-text-secondary">
+              Nasledujúce informácie sa zobrazia na verejnej stránke po naskenovaní QR kódu
+              nálezcom. Odporúčame organizačný kontakt, nie osobný. Nechajte prázdne, ak nechcete
+              zverejniť kontakt.
+            </p>
+            <Field label="E-mail" hint="napr. majetok@organizacia.sk">
+              <input
+                type="email"
+                value={foundEmail}
+                onChange={(e) => setFoundEmail(e.target.value)}
+                placeholder="majetok@organizacia.sk"
+                className={inputCls()}
+              />
+            </Field>
+            <Field label="Telefón" hint="napr. +421900000000">
+              <input
+                type="tel"
+                value={foundPhone}
+                onChange={(e) => setFoundPhone(e.target.value)}
+                placeholder="+421900000000"
+                className={inputCls()}
+              />
+            </Field>
+            <Field
+              label="Správa pre nálezcu"
+              hint="Krátka inštrukcia, napr. Kontaktujte nás na vrátenie. Ďakujeme!"
+            >
+              <textarea
+                rows={3}
+                value={foundMessage}
+                onChange={(e) => setFoundMessage(e.target.value)}
+                placeholder="Kontaktujte nás — radi vám poradíme, ako majetok vrátiť. Ďakujeme!"
+                className={inputCls() + ' resize-none'}
+              />
+            </Field>
+          </Section>
+        </div>
+
+        <div
+          role="tabpanel"
+          id="settings-tabpanel-numbering"
+          aria-labelledby="settings-tab-numbering"
+          className={(activeTab === 'numbering' ? '' : 'sm:hidden') + ' space-y-6'}
+        >
+          {/* Inventárne číslovanie (ADR-0021) */}
+          <Section title="Inventárne číslovanie">
+            <p className="-mt-1 text-xs text-text-secondary">
+              Formát inventárneho čísla sa generuje automaticky pri pridaní majetku. Príklad: prefix
+              „SFZ“, padding 4, rok zapnutý → „SFZ-2026-0001“.
+            </p>
+            <Field
+              label="Prefix"
+              required
+              hint='1–5 veľkých ASCII písmen. Napr. "SFZ", "INV", "MOB".'
+            >
+              <input
+                type="text"
+                value={invPrefix}
+                onChange={(e) => setInvPrefix(e.target.value.toUpperCase())}
+                placeholder="SFZ"
+                maxLength={5}
+                className={inputCls()}
+              />
+            </Field>
+            <Field
+              label="Počet cifier"
+              hint="Počet cifier poradia (doplnených nulami). Napr. 4 → 0001."
+            >
+              <select
+                value={invPadding}
+                onChange={(e) => setInvPadding(Number(e.target.value))}
+                className={inputCls()}
+              >
+                {[3, 4, 5, 6, 7, 8].map((n) => (
+                  <option key={n} value={n}>
+                    {n} cifier (napr. {'0'.repeat(n - 1)}1)
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Zahrnúť rok">
               <label className="flex items-center gap-2 text-sm text-text-primary">
                 <input
                   type="checkbox"
-                  checked={invResetYearly}
-                  onChange={(e) => setInvResetYearly(e.target.checked)}
+                  checked={invIncludeYear}
+                  onChange={(e) => setInvIncludeYear(e.target.checked)}
                   className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
-                <span>Nový rok začína od 0001</span>
+                <span>Rok zaradenia súčasťou čísla (napr. SFZ-2026-0001)</span>
               </label>
             </Field>
-          )}
-          {invPrefix.trim() && (
-            <div className="rounded-lg bg-surface-subtle px-4 py-3 text-sm text-text-secondary">
-              Náhľad:{' '}
-              <span className="font-mono font-semibold text-text-primary">
-                {invPrefix.trim().toUpperCase()}
-                {invIncludeYear ? `-${new Date().getFullYear()}` : ''}-
-                {String(1).padStart(invPadding, '0')}
-              </span>
-            </div>
-          )}
-        </Section>
-
-        {/* Číslovanie protokolov (ADR-0022) */}
-        <Section title="Číslovanie protokolov">
-          <p className="-mt-1 text-xs text-text-secondary">
-            Formát čísla preberacieho protokolu. Systémový default: prefix „PROT", 6 cifier, od 1.
-            Príklad: „PROT-2026-000001". Nechajte prázdne pre ponechanie systémového defaultu.
-          </p>
-          <Field label="Prefix" hint='1–5 veľkých ASCII písmen. Napr. "PROT", "SFZ", "PREV".'>
-            <input
-              type="text"
-              value={protPrefix}
-              onChange={(e) => setProtPrefix(e.target.value.toUpperCase())}
-              placeholder="PROT"
-              maxLength={5}
-              className={inputCls()}
-            />
-          </Field>
-          <Field
-            label="Počet cifier"
-            hint="Počet cifier poradia (doplnených nulami). Napr. 6 → 000001."
-          >
-            <select
-              value={protPadding}
-              onChange={(e) => setProtPadding(Number(e.target.value))}
-              className={inputCls()}
-            >
-              {[3, 4, 5, 6, 7, 8].map((n) => (
-                <option key={n} value={n}>
-                  {n} cifier (napr. {'0'.repeat(n - 1)}1)
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field
-            label="Počiatočná hodnota sekvencie"
-            hint="Od akého čísla začína nový rok. Default 1. Zmena nemá efekt, ak protokoly v danom roku už existujú."
-          >
-            <input
-              type="number"
-              min={1}
-              max={999999}
-              value={protInitialSeq}
-              onChange={(e) => setProtInitialSeq(Math.max(1, Number(e.target.value)))}
-              className={inputCls()}
-            />
-          </Field>
-          {protPrefix.trim() && (
-            <div className="rounded-lg bg-surface-subtle px-4 py-3 text-sm text-text-secondary">
-              Náhľad:{' '}
-              <span className="font-mono font-semibold text-text-primary">
-                {protPrefix.trim().toUpperCase()}-{new Date().getFullYear()}-
-                {String(protInitialSeq).padStart(protPadding, '0')}
-              </span>
-            </div>
-          )}
-        </Section>
-
-        {/* Branding (ADR-0028 v2) */}
-        <section className="rounded-xl border border-border-subtle bg-surface-card shadow-sm">
-          <h2 className="border-b border-border-subtle px-5 py-3 text-sm font-semibold text-text-primary flex items-center gap-2">
-            <Palette aria-hidden="true" className="h-4 w-4 text-brand-accent" />
-            Branding
-          </h2>
-          <div className="space-y-5 p-5">
-            <p className="-mt-1 text-xs text-text-secondary">
-              Logo, farebná paleta a font sú dostupné pre všetky plány.
-            </p>
-
-            {/* Logo upload */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-text-secondary">Logo</span>
-              <div className="flex items-center gap-4">
-                {/* Náhľad aktuálneho loga */}
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
-                  {currentLogoUrl ? (
-                    <img
-                      src={currentLogoUrl}
-                      alt="Logo organizácie"
-                      className="h-full w-full rounded-lg object-contain p-1"
-                    />
-                  ) : (
-                    <Building2 aria-hidden="true" className="h-6 w-6 text-text-muted" />
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1.5">
+            {invIncludeYear && (
+              <Field label="Reset poradia každý rok">
+                <label className="flex items-center gap-2 text-sm text-text-primary">
                   <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleLogoFile(file);
-                      // reset, nech sa dá nahrať ten istý súbor znova
-                      e.target.value = '';
-                    }}
+                    type="checkbox"
+                    checked={invResetYearly}
+                    onChange={(e) => setInvResetYearly(e.target.checked)}
+                    className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadLogo.isPending}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm font-medium text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {uploadLogo.isPending ? (
-                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  <span>Nový rok začína od 0001</span>
+                </label>
+              </Field>
+            )}
+            {invPrefix.trim() && (
+              <div className="rounded-lg bg-surface-subtle px-4 py-3 text-sm text-text-secondary">
+                Náhľad:{' '}
+                <span className="font-mono font-semibold text-text-primary">
+                  {invPrefix.trim().toUpperCase()}
+                  {invIncludeYear ? `-${new Date().getFullYear()}` : ''}-
+                  {String(1).padStart(invPadding, '0')}
+                </span>
+              </div>
+            )}
+          </Section>
+
+          {/* Číslovanie protokolov (ADR-0022) */}
+          <Section title="Číslovanie protokolov">
+            <p className="-mt-1 text-xs text-text-secondary">
+              Formát čísla preberacieho protokolu. Systémový default: prefix „PROT", 6 cifier, od 1.
+              Príklad: „PROT-2026-000001". Nechajte prázdne pre ponechanie systémového defaultu.
+            </p>
+            <Field label="Prefix" hint='1–5 veľkých ASCII písmen. Napr. "PROT", "SFZ", "PREV".'>
+              <input
+                type="text"
+                value={protPrefix}
+                onChange={(e) => setProtPrefix(e.target.value.toUpperCase())}
+                placeholder="PROT"
+                maxLength={5}
+                className={inputCls()}
+              />
+            </Field>
+            <Field
+              label="Počet cifier"
+              hint="Počet cifier poradia (doplnených nulami). Napr. 6 → 000001."
+            >
+              <select
+                value={protPadding}
+                onChange={(e) => setProtPadding(Number(e.target.value))}
+                className={inputCls()}
+              >
+                {[3, 4, 5, 6, 7, 8].map((n) => (
+                  <option key={n} value={n}>
+                    {n} cifier (napr. {'0'.repeat(n - 1)}1)
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Počiatočná hodnota sekvencie"
+              hint="Od akého čísla začína nový rok. Default 1. Zmena nemá efekt, ak protokoly v danom roku už existujú."
+            >
+              <input
+                type="number"
+                min={1}
+                max={999999}
+                value={protInitialSeq}
+                onChange={(e) => setProtInitialSeq(Math.max(1, Number(e.target.value)))}
+                className={inputCls()}
+              />
+            </Field>
+            {protPrefix.trim() && (
+              <div className="rounded-lg bg-surface-subtle px-4 py-3 text-sm text-text-secondary">
+                Náhľad:{' '}
+                <span className="font-mono font-semibold text-text-primary">
+                  {protPrefix.trim().toUpperCase()}-{new Date().getFullYear()}-
+                  {String(protInitialSeq).padStart(protPadding, '0')}
+                </span>
+              </div>
+            )}
+          </Section>
+        </div>
+
+        <div
+          role="tabpanel"
+          id="settings-tabpanel-branding"
+          aria-labelledby="settings-tab-branding"
+          className={activeTab === 'branding' ? '' : 'sm:hidden'}
+        >
+          {/* Branding (ADR-0028 v2) */}
+          <section className="rounded-xl border border-border-subtle bg-surface-card shadow-sm">
+            <h2 className="border-b border-border-subtle px-5 py-3 text-sm font-semibold text-text-primary flex items-center gap-2">
+              <Palette aria-hidden="true" className="h-4 w-4 text-brand-accent" />
+              Branding
+            </h2>
+            <div className="space-y-5 p-5">
+              <p className="-mt-1 text-xs text-text-secondary">
+                Logo, farebná paleta a font sú dostupné pre všetky plány.
+              </p>
+
+              {/* Logo upload */}
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-text-secondary">Logo</span>
+                <div className="flex items-center gap-4">
+                  {/* Náhľad aktuálneho loga */}
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
+                    {currentLogoUrl ? (
+                      <img
+                        src={currentLogoUrl}
+                        alt="Logo organizácie"
+                        className="h-full w-full rounded-lg object-contain p-1"
+                      />
                     ) : (
-                      <Upload aria-hidden="true" className="h-4 w-4" />
+                      <Building2 aria-hidden="true" className="h-6 w-6 text-text-muted" />
                     )}
-                    {currentLogoUrl ? 'Zmeniť logo' : 'Nahrať logo'}
-                  </button>
-                  <span className="text-xs text-text-muted">
-                    PNG, JPEG alebo WEBP, max 512 KB. Odporúčame 256×256 px.
-                  </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLogoFile(file);
+                        // reset, nech sa dá nahrať ten istý súbor znova
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadLogo.isPending}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-card px-3 py-2 text-sm font-medium text-text-primary shadow-sm transition hover:bg-surface-subtle disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      {uploadLogo.isPending ? (
+                        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload aria-hidden="true" className="h-4 w-4" />
+                      )}
+                      {currentLogoUrl ? 'Zmeniť logo' : 'Nahrať logo'}
+                    </button>
+                    <span className="text-xs text-text-muted">
+                      PNG, JPEG alebo WEBP, max 512 KB. Odporúčame 256×256 px.
+                    </span>
+                  </div>
+                </div>
+                {logoError && (
+                  <p className="flex items-center gap-1.5 text-xs text-danger-fg">
+                    <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                    {logoError}
+                  </p>
+                )}
+              </div>
+
+              {/* Farebná paleta */}
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-text-secondary">Farebná paleta</span>
+                <div
+                  role="radiogroup"
+                  aria-label="Farebná paleta"
+                  className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+                >
+                  {BRAND_PRESETS.map((preset) => {
+                    const selected = presetId === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setPresetId(preset.id)}
+                        className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                          selected
+                            ? 'border-brand-accent ring-1 ring-brand-accent'
+                            : 'border-border-subtle hover:border-border-default'
+                        }`}
+                      >
+                        {/* Swatch — primary + accent */}
+                        <span className="flex shrink-0 overflow-hidden rounded-md border border-border-subtle">
+                          <span
+                            className="h-7 w-4"
+                            style={{ background: preset.primary }}
+                            aria-hidden="true"
+                          />
+                          <span
+                            className="h-7 w-4"
+                            style={{ background: preset.accent }}
+                            aria-hidden="true"
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary">
+                          {preset.name}
+                        </span>
+                        {selected && (
+                          <Check
+                            aria-hidden="true"
+                            className="h-4 w-4 shrink-0 text-brand-accent"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              {logoError && (
-                <p className="flex items-center gap-1.5 text-xs text-danger-fg">
-                  <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-                  {logoError}
-                </p>
-              )}
-            </div>
 
-            {/* Farebná paleta */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-text-secondary">Farebná paleta</span>
-              <div
-                role="radiogroup"
-                aria-label="Farebná paleta"
-                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-              >
-                {BRAND_PRESETS.map((preset) => {
-                  const selected = presetId === preset.id;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setPresetId(preset.id)}
-                      className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                        selected
-                          ? 'border-brand-accent ring-1 ring-brand-accent'
-                          : 'border-border-subtle hover:border-border-default'
-                      }`}
-                    >
-                      {/* Swatch — primary + accent */}
-                      <span className="flex shrink-0 overflow-hidden rounded-md border border-border-subtle">
-                        <span
-                          className="h-7 w-4"
-                          style={{ background: preset.primary }}
-                          aria-hidden="true"
-                        />
-                        <span
-                          className="h-7 w-4"
-                          style={{ background: preset.accent }}
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary">
-                        {preset.name}
-                      </span>
-                      {selected && (
-                        <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-brand-accent" />
-                      )}
-                    </button>
-                  );
-                })}
+              {/* Náhľad CTA */}
+              {presetId && <PresetPreview presetId={presetId} />}
+
+              {/* Font */}
+              <div className="max-w-xs">
+                <SelectField
+                  label="Font"
+                  value={fontFamilySans}
+                  onChange={(v) => setFontFamilySans(isFontOptionId(v) ? v : 'system-ui')}
+                  options={FONT_OPTIONS.map((f) => ({ value: f.id, label: f.label }))}
+                />
               </div>
             </div>
+          </section>
+        </div>
 
-            {/* Náhľad CTA */}
-            {presetId && <PresetPreview presetId={presetId} />}
-
-            {/* Font */}
-            <div className="max-w-xs">
-              <SelectField
-                label="Font"
-                value={fontFamilySans}
-                onChange={(v) => setFontFamilySans(isFontOptionId(v) ? v : 'system-ui')}
-                options={FONT_OPTIONS.map((f) => ({ value: f.id, label: f.label }))}
+        <div
+          role="tabpanel"
+          id="settings-tabpanel-billing"
+          aria-labelledby="settings-tab-billing"
+          className={(activeTab === 'billing' ? '' : 'sm:hidden') + ' space-y-6'}
+        >
+          <Section title="Fakturačné a právne údaje">
+            <Field label="Obchodné meno" hint="Právny názov subjektu tak, ako má byť na faktúre.">
+              <input
+                type="text"
+                value={legalName}
+                onChange={(e) => setLegalName(e.target.value)}
+                placeholder="napr. Mesto Pezinok / TJ Sokol, o. z."
+                className={inputCls()}
               />
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="IČO">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={ico}
+                  onChange={(e) => setIco(e.target.value)}
+                  placeholder="12345678"
+                  className={inputCls()}
+                />
+              </Field>
+              <Field label="DIČ">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={dic}
+                  onChange={(e) => setDic(e.target.value)}
+                  placeholder="2023456789"
+                  className={inputCls()}
+                />
+              </Field>
             </div>
-          </div>
-        </section>
 
-        <Section title="Fakturačné a právne údaje">
-          <Field label="Obchodné meno" hint="Právny názov subjektu tak, ako má byť na faktúre.">
-            <input
-              type="text"
-              value={legalName}
-              onChange={(e) => setLegalName(e.target.value)}
-              placeholder="napr. Mesto Pezinok / TJ Sokol, o. z."
-              className={inputCls()}
-            />
-          </Field>
+            <Field label="Platiteľ DPH">
+              <label className="flex items-center gap-2 text-sm text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={isVatPayer}
+                  onChange={(e) => setIsVatPayer(e.target.checked)}
+                  className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+                <span>Subjekt je platiteľom DPH</span>
+              </label>
+            </Field>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="IČO">
+            {isVatPayer && (
+              <Field label="IČ DPH" required hint="Formát SK + 10 číslic.">
+                <input
+                  type="text"
+                  value={icDph}
+                  onChange={(e) => setIcDph(e.target.value)}
+                  placeholder="SK2023456789"
+                  className={inputCls()}
+                />
+              </Field>
+            )}
+
+            <Field label="Zápis v registri" hint="OR alebo ŽR — voliteľné.">
               <input
                 type="text"
-                inputMode="numeric"
-                value={ico}
-                onChange={(e) => setIco(e.target.value)}
-                placeholder="12345678"
+                value={businessRegistration}
+                onChange={(e) => setBusinessRegistration(e.target.value)}
+                placeholder="napr. OR OS BA I, odd. Sro, vl. č. 12345/B"
                 className={inputCls()}
               />
             </Field>
-            <Field label="DIČ">
+
+            <Field label="IBAN" hint="Pre prípadné dobropisy.">
               <input
                 type="text"
-                inputMode="numeric"
-                value={dic}
-                onChange={(e) => setDic(e.target.value)}
-                placeholder="2023456789"
+                value={iban}
+                onChange={(e) => setIban(e.target.value)}
+                placeholder="SK89 0000 0000 0000 0000 0000"
                 className={inputCls()}
               />
             </Field>
-          </div>
 
-          <Field label="Platiteľ DPH">
-            <label className="flex items-center gap-2 text-sm text-text-primary">
+            <Field label="Fakturačný e-mail" hint="Kam posielať faktúry, ak sa líši od kontaktu.">
               <input
-                type="checkbox"
-                checked={isVatPayer}
-                onChange={(e) => setIsVatPayer(e.target.checked)}
-                className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              />
-              <span>Subjekt je platiteľom DPH</span>
-            </label>
-          </Field>
-
-          {isVatPayer && (
-            <Field label="IČ DPH" required hint="Formát SK + 10 číslic.">
-              <input
-                type="text"
-                value={icDph}
-                onChange={(e) => setIcDph(e.target.value)}
-                placeholder="SK2023456789"
+                type="email"
+                value={billingEmail}
+                onChange={(e) => setBillingEmail(e.target.value)}
+                placeholder="fakturacia@organizacia.sk"
                 className={inputCls()}
               />
             </Field>
-          )}
+          </Section>
 
-          <Field label="Zápis v registri" hint="OR alebo ŽR — voliteľné.">
-            <input
-              type="text"
-              value={businessRegistration}
-              onChange={(e) => setBusinessRegistration(e.target.value)}
-              placeholder="napr. OR OS BA I, odd. Sro, vl. č. 12345/B"
-              className={inputCls()}
-            />
-          </Field>
+          <Section title="Sídlo">
+            <AddressFields value={registeredAddress} onChange={setRegisteredAddress} />
+          </Section>
 
-          <Field label="IBAN" hint="Pre prípadné dobropisy.">
-            <input
-              type="text"
-              value={iban}
-              onChange={(e) => setIban(e.target.value)}
-              placeholder="SK89 0000 0000 0000 0000 0000"
-              className={inputCls()}
-            />
-          </Field>
-
-          <Field label="Fakturačný e-mail" hint="Kam posielať faktúry, ak sa líši od kontaktu.">
-            <input
-              type="email"
-              value={billingEmail}
-              onChange={(e) => setBillingEmail(e.target.value)}
-              placeholder="fakturacia@organizacia.sk"
-              className={inputCls()}
-            />
-          </Field>
-        </Section>
-
-        <Section title="Sídlo">
-          <AddressFields value={registeredAddress} onChange={setRegisteredAddress} />
-        </Section>
-
-        <Section title="Korešpondenčná adresa">
-          <Field label="Iná ako sídlo">
-            <label className="flex items-center gap-2 text-sm text-text-primary">
-              <input
-                type="checkbox"
-                checked={hasMailingAddress}
-                onChange={(e) => setHasMailingAddress(e.target.checked)}
-                className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              />
-              <span>Korešpondenčná adresa sa líši od sídla</span>
-            </label>
-          </Field>
-          {hasMailingAddress && (
-            <AddressFields value={mailingAddress} onChange={setMailingAddress} />
-          )}
-        </Section>
+          <Section title="Korešpondenčná adresa">
+            <Field label="Iná ako sídlo">
+              <label className="flex items-center gap-2 text-sm text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={hasMailingAddress}
+                  onChange={(e) => setHasMailingAddress(e.target.checked)}
+                  className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+                <span>Korešpondenčná adresa sa líši od sídla</span>
+              </label>
+            </Field>
+            {hasMailingAddress && (
+              <AddressFields value={mailingAddress} onChange={setMailingAddress} />
+            )}
+          </Section>
+        </div>
 
         {formError && (
           <div
