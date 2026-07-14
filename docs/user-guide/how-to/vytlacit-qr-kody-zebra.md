@@ -5,9 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Ako vyskúšať tlač QR štítkov na Zebra tlačiarni (Browser Print + ZPL)
 
-Technický test ADR-0027 (Zebra ZPL vetva) na reálnom hardvéri — pre teba, nie pre koncového používateľa. Predpokladá, že poznáš appku a vieš sa pohybovať v Swagger UI / curl.
+Technický test ADR-0027 (Zebra ZPL vetva) na reálnom hardvéri — pre teba, nie pre koncového používateľa.
 
-**Stav pred týmto testom:** kód (backend renderer, endpointy, frontend tlačidlá) je hotový a nasadený od 2026-06-02. Chýbajúci write path pre `labelPrinting.mode` bol doplnený a nasadený 2026-07-14 (commit `480586c`) — bez toho by appka vždy defaultovala na PDF, nech by si na tlačiarni robil čokoľvek. Táto vec je teraz vyriešená, zvyšok tohto návodu je **prvý reálny test na hardvéri**, ktorý ešte nikdy neprebehol.
+**Stav pred týmto testom:** kód (backend renderer, endpointy, frontend tlačidlá) je hotový a nasadený od 2026-06-02. Chýbajúci write path pre `labelPrinting.mode` bol doplnený 2026-07-14 (commit `480586c`) a odtedy má appka aj bežný UI prepínač v Nastaveniach organizácie (commit `9261a99`) — žiadny Swagger už nie je potrebný, prepnutie módu popisuje krok 3 nižšie. Táto vec je teraz vyriešená, zvyšok tohto návodu je **prvý reálny test na hardvéri**, ktorý ešte nikdy neprebehol.
 
 ---
 
@@ -41,31 +41,17 @@ Po pripojení znova skontroluj `http://localhost:9100/available.json` — ZD420 
 
 ## 3. Prepnutie organizácie na ZEBRA_ZPL mód
 
-Appka dnes **nemá UI prepínač** pre toto nastavenie (len API pole) — nastavuje sa cez Swagger UI.
+1. Prihlás sa do appky (`app.inventario.estate`) ako **ADMIN** a otvor **Nastavenia → Organizácia** (`/settings/organisation`).
+2. Na desktope klikni na záložku **„QR kódy a štítky"** (na mobile je táto sekcia rovno pod sebou, bez záložiek).
+3. Zapni prepínač **„Tlačiť štítky na Zebra termálnej tlačiarni (ZPL)"**. Objaví sa štruktúrované nastavenie:
+   - **Šírka štítka (mm)** — default 50, uprav podľa svojich štítkov.
+   - **Výška štítka (mm)** — default 25.
+   - **Rozlíšenie tlačovej hlavy (DPI)** — ZD420 = 203 dpi (default).
+   - **Sýtosť tlače** — 0–30, default 20.
+4. Klikni **„Uložiť zmeny"** dole na stránke (spoločné tlačidlo pre celý formulár, nezávislé od aktívnej záložky). Zobrazí sa potvrdenie „Zmeny boli uložené.".
+5. Obnov stránku s majetkom (`app.inventario.estate`) — na detaile majetku (a pri dávkovej tlači zo zoznamu) by sa teraz malo objaviť tlačidlo **„Tlačiť na Zebra"** vedľa **„Tlačiť štítok (PDF)"**.
 
-1. V tom istom prehliadači, kde si prihlásený do `app.inventario.estate` ako ADMIN, otvor novú záložku: `https://api.inventario.estate/docs`.
-2. Nájdi `PATCH /v1/organisations/current` a rozbaľ ho, klikni **Try it out**.
-3. Do tela requestu vlož (uprav rozmery, ak vaše štítky nie sú 50×25 mm):
-
-   ```json
-   {
-     "labelPrinting": {
-       "mode": "ZEBRA_ZPL",
-       "pdfPreset": "avery-l7160",
-       "zplLabelWidthMm": 50,
-       "zplLabelHeightMm": 25,
-       "zplDpi": 203,
-       "zplDarkness": 20,
-       "finderText": {
-         "enabled": false,
-         "text": "Našli ste ma? Naskenujte a pomôžte ma vrátiť."
-       }
-     }
-   }
-   ```
-
-4. **Execute.** Response 200 s `labelPrinting.mode: "ZEBRA_ZPL"` = úspech. Swagger by mal poslať autentifikačný cookie automaticky (rovnaká domain `inventario.estate`, prihlásený v appke) — ak dostaneš 401, over v DevTools (F12 → Application → Cookies), či `inv_access` cookie existuje pre `.inventario.estate`, prípadne sa v appke znova prihlás a skús znova.
-5. Obnov appku (`app.inventario.estate`) — na detaile majetku by sa teraz malo objaviť tlačidlo **„Tlačiť na Zebra"** namiesto/vedľa PDF tlače.
+> Pokročilé/diagnostika: rovnaké pole sa dá nastaviť aj priamo cez `PATCH /v1/organisations/current` v Swagger UI (`https://api.inventario.estate/docs`) — pole `labelPrinting` s tvarom `{ mode, pdfPreset, zplLabelWidthMm, zplLabelHeightMm, zplDpi, zplDarkness, finderText }`. Toto už ale bežne netreba, UI prepínač robí presne to isté.
 
 ## 4. Testovacia tlač
 
@@ -78,17 +64,16 @@ Appka dnes **nemá UI prepínač** pre toto nastavenie (len API pole) — nastav
 
 Toto je jadro testu — presne tie riziká, ktoré ADR-0027 označil ako neoverené:
 
-- [ ] **QR kód sa dá naskenovať mobilom** (skús Google Lens aj natívny fotoaparát) — z normálnej vzdialenosti aj z bližšie. Ak sa nezosníma, modul je pri 203 dpi príliš malý — treba zväčšiť `zplLabelWidthMm`/`zplLabelHeightMm` v configu z kroku 3.
+- [ ] **QR kód sa dá naskenovať mobilom** (skús Google Lens aj natívny fotoaparát) — z normálnej vzdialenosti aj z bližšie. Ak sa nezosníma, modul je pri 203 dpi príliš malý — treba zväčšiť šírku/výšku štítka v Nastaveniach (krok 3).
 - [ ] **Slovenská diakritika** (ľ, š, č, ť, ž, á, ý) v inventárnom čísle/názve majetku je čitateľná, nie skomolená alebo prázdna. Toto testuje `^CI28` (UTF-8) v ZPL builderi.
 - [ ] **Text sa nezrezáva** ani nepretiahne mimo štítka pri dlhších názvoch majetku.
 - [ ] Ak má SFZ nastavené logo v brandingu — je viditeľné v strede QR a QR sa **aj tak** dá skenovať (logo max. 22 % plochy).
-- [ ] Sýtosť tlače (`zplDarkness`) je vyhovujúca — ani príliš svetlá (nezosnímateľná), ani rozmazaná od príliš tmavej.
+- [ ] Sýtosť tlače je vyhovujúca — ani príliš svetlá (nezosnímateľná), ani rozmazaná od príliš tmavej.
 
 ## 6. Po teste
 
-- Ak niečo z checklistu zlyhalo, napíš mi presne čo (foto štítka pomôže) — doladíme `zplLabelWidthMm`/`zplDpi`/`zplDarkness` v configu, žiadny kód sa meniť nemusí.
-- Ak chceš appku vrátiť do PDF režimu (napr. kým sa nedoladí), zopakuj krok 3 s `"mode": "PDF_SHEET"` alebo `"labelPrinting": null`.
-- Až po úspešnom teste dáva zmysel riešiť UI prepínač v Nastaveniach (dnes sa to robí len cez Swagger) — to je samostatná menšia úloha, ak budeš chcieť.
+- Ak niečo z checklistu zlyhalo, napíš mi presne čo (foto štítka pomôže) — doladíme šírku/výšku/DPI/sýtosť v Nastaveniach, žiadny kód sa meniť nemusí.
+- Ak chceš appku vrátiť do PDF režimu (napr. kým sa nedoladí), vypni prepínač v kroku 3 a znova ulož.
 
 ---
 
@@ -100,11 +85,8 @@ Agent nebeží. Skontroluj systémovú lištu / Task Manager, prípadne pretiahn
 **Tlačiareň sa neobjaví v `available.json`**
 USB: skontroluj driver a kábel. LAN: over IP adresu tlačiarne a že je v rovnakej sieti/VLAN ako PC s agentom.
 
-**PATCH vracia 401**
-Nie je poslaný auth cookie. Over v DevTools, či `inv_access` cookie existuje pre doménu `.inventario.estate` (nie len `app.inventario.estate`). Ak nie, over CORS/cookie konfiguráciu — toto by nemal byť bežný prípad, keby sa objavil, napíš mi.
-
 **Appka stále ponúka len PDF tlačidlo**
-Skontroluj `GET /v1/organisations/current` cez Swagger — `labelPrinting.mode` musí byť `"ZEBRA_ZPL"`. Ak je `null` alebo `"PDF_SHEET"`, krok 3 sa neuložil.
+Skontroluj v Nastaveniach organizácie (záložka „QR kódy a štítky"), či je prepínač „Tlačiť štítky na Zebra termálnej tlačiarni (ZPL)" zapnutý a či si po zapnutí klikol „Uložiť zmeny". Ak si si istý, že je uložené, over aj priamo `GET /v1/organisations/current` cez Swagger — `labelPrinting.mode` musí byť `"ZEBRA_ZPL"`.
 
 **Tlač vypadne, ale je prázdna / len čiary**
 Zlá kalibrácia tlačiarne (senzor médií) alebo nesprávny typ štítkov (gap vs. continuous). Toto je hardvérová vec na strane ZD420, nie appky — skús kalibráciu priamo na tlačiarni (feed button held / Zebra Setup Utility).
