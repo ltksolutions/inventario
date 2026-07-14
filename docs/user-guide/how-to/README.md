@@ -16,6 +16,7 @@ Tu nájdeš návody na **konkrétne úlohy**. Sú písané pre niekoho, kto syst
 - ➕ [**Ako pridať nový majetok do evidencie**](./pridat-majetok.md) _(TODO)_
 - ✏️ [**Ako upraviť údaje o majetku**](./upravit-majetok.md) _(TODO)_
 - 🏷️ [**Ako vytlačiť QR kódy**](./vytlacit-qr-kody.md) _(TODO)_
+- 🖨️ [**Ako vyskúšať tlač na Zebra tlačiarni (Browser Print + ZPL)**](./vytlacit-qr-kody-zebra.md) — technický test na hardvéri
 - ✅ [**Ako schváliť žiadosť o zápožičku**](./schvalit-ziadost.md) _(TODO)_
 - 🛠️ [**Ako poslať majetok na servis**](./poslat-na-servis.md) _(TODO)_
 - 🗑️ [**Ako vyradiť majetok z evidencie**](./vyradit-majetok.md) _(TODO)_
