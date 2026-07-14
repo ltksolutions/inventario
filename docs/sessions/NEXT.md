@@ -1,5 +1,33 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15) — pomalé prekliky Používatelia → detail → majetok — FIX NASADENÝ
+
+Session log: `docs/sessions/2026-07-15-pomale-prekliky-fluid-compute.md`.
+
+Janika nahlásila hneď po nasadení detailu používateľa: každý preklik
+Používatelia → detail používateľa → detail majetku trval 2s+, tretie kliknutie
+(na majetok) trvalo vyše 10s.
+
+- ✅ **Diagnostikované** — Vercel runtime logy ukazujú rýchly backend
+  (280–970 ms vnútri Fastify). Reálna príčina: každá stránka posiela 2–3
+  súbežné API volánia naraz (detail používateľa: user+loans; detail
+  majetku: asset+attachments+qr) a bez Fluid Compute obslúži jedna teplá
+  inštancia len 1 request naraz — zvyšok dostane studený štart, ktorý sa
+  vo Fastify `responseTime` vôbec neukáže.
+- ✅ **Fluid Compute zapnuté** — `apps/api/vercel.json`: `"fluid": true`
+  (per-deployment, stačí commit, žiadny zásah v dashboarde).
+- ✅ **MongoDB index doplnený** — `organisationId_borrowerId_createdAt` na
+  `loans`. `explain()` v produkcii ukazoval COLLSCAN pre `borrowerId` filter
+  - `createdAt` sort — presne tento nový query pattern zaviedla stránka
+    `/users/[id]`; neskálovalo by to s rastúcim počtom výpožičiek.
+
+**Otvorené:** subjektívne overiť o pár dní, či sa prekliky citateľne
+zrýchlili. Ak nie: ďalší krok (známy, zatiaľ odložený) je obmedziť
+`GlobalFetchOverlay` len na kritické requesty namiesto blokovania celej
+obrazovky pri každom paralelnom volání.
+
+---
+
 ## Aktuálny stav (2026-07-14, pokračovanie) — detail + editácia používateľa — K1–K4 HOTOVÉ
 
 Session log: `docs/sessions/2026-07-14-detail-editacia-pouzivatela.md`.

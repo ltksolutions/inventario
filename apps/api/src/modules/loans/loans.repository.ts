@@ -91,6 +91,17 @@ export class LoansRepository {
    *   - `organisationId_items_assetId_status` — fast lookup: "is this asset
    *     currently on an ACTIVE loan?" — used by the service layer before
    *     allowing asset state transitions.
+   *   - `organisationId_borrowerId_createdAt` — added 2026-07-15, found while
+   *     diagnosing slow navigation on the new /users/[id] detail page
+   *     (detail+editácia používateľa, 2026-07-14). That page calls
+   *     `GET /v1/loans?borrowerId=...` with NO `status` filter, sorted by
+   *     `createdAt desc` (see `list()` below). The existing compound index
+   *     leads with `status`, so a borrower-only query can't use it as a seek
+   *     — confirmed via `explain()` in production: the planner fell back to
+   *     a full COLLSCAN + in-memory SORT (harmless today at ~6 loan docs,
+   *     but would degrade linearly with data volume). This index makes that
+   *     exact query pattern — tenant + borrower, newest first — a direct
+   *     index seek with no in-memory sort.
    */
   async ensureIndexes(): Promise<void> {
     await Promise.all([
@@ -101,6 +112,10 @@ export class LoansRepository {
       this.collection.createIndex(
         { organisationId: 1, 'items.assetId': 1, status: 1 },
         { name: 'organisationId_items_assetId_status' },
+      ),
+      this.collection.createIndex(
+        { organisationId: 1, borrowerId: 1, createdAt: -1 },
+        { name: 'organisationId_borrowerId_createdAt' },
       ),
     ]);
   }
