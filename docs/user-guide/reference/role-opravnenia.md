@@ -80,9 +80,15 @@ ASSET_MANAGER aj ADMIN.
 ⁴ Žiadosť môže zrušiť len jej **autor** alebo **ADMIN**.
 ⁵ Vrátane brandingu (logo, farby, font) a nastavení prihlasovania/domén — všetko len ADMIN.
 ⁶ Do 2026-07-14 samostatná stránka „Osoby" (len ASSET_MANAGER). Zlúčené do jednej stránky
-„Používatelia": ASSET_MANAGER vidí zoznam/detail (vrátane výpožičiek danej osoby), ale
-len odľahčený výrez polí (bez MFA stavu, GDPR obmedzenia a pod.) a bez možnosti úpravy.
-Plný obsah a úprava (rola, aktivita, odobratie z organizácie) je vždy len ADMIN.
+„Používatelia", ktorá od 2026-07-14 (detail+editácia používateľa) ponuka dva samostatné
+vstupné body zo zoznamu:
+
+- **Detail používateľa** (klik na meno) — ASSET_MANAGER aj ADMIN. Read-only: meno,
+  priezvisko, email v hlavičke + zoznam všetkého vypožičaného majetku (aktuálny aj
+  minulý) s danými dátumami a preklikom na detail daného majetku.
+- **Editačný dialóg** (ikona ceruzky) — **len ADMIN**. Zmena mena, priezviska, emailu
+  (len pri `LOCAL` účte — pozri „Typy účtov" nižšie), roly, aktívny účet, odobratie
+  z organizácie. Neobsahuje výpožičky — na to slúži detail.
 
 ## Výpožičky: kto čo vidí
 
@@ -122,7 +128,12 @@ nezávislé veci.
 > Povolené spôsoby prihlásenia a politiku domén nastavuje ADMIN v
 > **Nastavenia → Prihlasovanie a domény** (viď [ADR-0030](../../decisions/0030-registration-providers-and-entra-domain.md)).
 
+> 💡 **Zmena emailu (ADMIN editácia používateľa, od 2026-07-14):** ADMIN môže priamo
+> prepísať email len pri `LOCAL` účtoch. Pri `ENTRA_ID` (OAuth) účtoch je email v
+> správe providera (Microsoft/Google) a systém zmenu odmietne — používateľ si
+> musí zmeniť adresu priamo u providera.
+
 ---
 
-<sub>Posledná aktualizácia: 2026-06 · Zdroj pravdy: `user-role.ts` + `auth.ts` (ADR-0029).
+<sub>Posledná aktualizácia: 2026-07-14 · Zdroj pravdy: `user-role.ts` + `auth.ts` (ADR-0029).
 Pri zmene RBAC v kóde aktualizuj aj túto referenciu.</sub>

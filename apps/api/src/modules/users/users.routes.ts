@@ -10,7 +10,9 @@
  * Slice #3 K10 scope: admin endpoints for user management.
  *   - `GET    /v1/users`      ASSET_MANAGER+ADMIN — paginated list with filters
  *   - `GET    /v1/users/:id`  ASSET_MANAGER+ADMIN — single user
- *   - `PATCH  /v1/users/:id`  ADMIN — update isActive (roles → PATCH /v1/memberships/:id)
+ *   - `PATCH  /v1/users/:id`  ADMIN — update isActive, firstName, lastName,
+ *                              displayName, email (LOCAL účty len; roles →
+ *                              PATCH /v1/memberships/:id)
  *
  * K12b scope: admin MFA reset.
  *   - `DELETE /v1/users/:id/mfa` ADMIN — clear MFA enrollment for a user
@@ -215,6 +217,8 @@ function toDirectoryShape(doc: Record<string, unknown>): z.infer<typeof Director
 function toManagerShape(doc: Record<string, unknown>): {
   _id: string;
   displayName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   roles: string[];
   isActive: boolean;
@@ -224,6 +228,11 @@ function toManagerShape(doc: Record<string, unknown>): {
   return {
     _id: String(doc['_id']),
     displayName: String(doc['displayName'] ?? ''),
+    // firstName/lastName added 2026-07-14 (detail+editácia používateľa) —
+    // the /users/[id] detail page shows them separately in the header for
+    // BOTH roles; no more sensitive than displayName+email already were.
+    firstName: String(doc['firstName'] ?? ''),
+    lastName: String(doc['lastName'] ?? ''),
     email: String(doc['email'] ?? ''),
     roles,
     isActive: Boolean(doc['isActive']),
@@ -253,18 +262,36 @@ const RestrictionBodySchema = z
 // ---------------------------------------------------------------------------
 
 /**
- * Admin PATCH body. K10 exposes only `isActive` (and profile fields).
- * Role changes go through PATCH /v1/memberships/:id (ADR-0029 cleanup).
- * An empty body is a no-op (returns 200 with the existing user unchanged).
+ * Admin PATCH body. Exposes `isActive` and profile fields (firstName,
+ * lastName, displayName, email). Role changes go through
+ * PATCH /v1/memberships/:id (ADR-0029 cleanup). An empty body is a
+ * no-op (returns 200 with the existing user unchanged).
+ *
+ * `email` (2026-07-14, detail+editácia používateľa): only settable when
+ * the target account's `accountType` is `LOCAL` — the service rejects
+ * the patch with 400 for OAuth-linked accounts (ENTRA_ID/GOOGLE), whose
+ * email is managed by the provider. Must be unique within the caller's
+ * organisation; duplicates are rejected with 400.
+ *
+ * `firstName`/`lastName` without an explicit `displayName` cause the
+ * server to auto-derive `displayName` as `"{firstName} {lastName}"`
+ * (same behaviour as the self-service PATCH /v1/me).
  */
 const UpdateUserBodySchema = z
   .object({
     /** Whether the account is permitted to authenticate. */
     isActive: z.boolean(),
+    firstName: z.string().min(1).max(100).trim(),
+    lastName: z.string().min(1).max(100).trim(),
+    /** Auto-derived from firstName/lastName if omitted — see schema doc above. */
+    displayName: z.string().min(1).max(200).trim(),
+    /** LOCAL accounts only — see schema doc above. */
+    email: z.string().email().toLowerCase().trim(),
   })
   .partial()
   .describe(
-    'Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id.',
+    'Čiastočná aktualizácia používateľa (admin); isActive, firstName, lastName, ' +
+      'displayName, email (LOCAL účty len). Roly → PATCH /v1/memberships/:id.',
   );
 
 // ---------------------------------------------------------------------------
@@ -413,7 +440,8 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
           'users are always excluded. Optional filters: role, isActive, q (free-text ' +
           'across email + displayName + firstName + lastName, case-insensitive). ' +
           'Requires ASSET_MANAGER or ADMIN role — but ASSET_MANAGER callers receive a ' +
-          'trimmed shape (_id, displayName, email, roles, isActive, lastLoginAt), never ' +
+          'trimmed shape (_id, displayName, firstName, lastName, email, roles, isActive, ' +
+          'lastLoginAt), never ' +
           'the full document (MFA state, GDPR restriction flags, etc. stay ADMIN-only). ' +
           'See `toManagerShape` below.',
         security: [{ bearerAuth: [] }],
@@ -579,10 +607,14 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ['Users'],
         summary: 'Update a user (admin)',
         description:
-          'Partial update of a user. Exposes `isActive` (and profile fields). ' +
-          'Role changes go through PATCH /v1/memberships/:id (ADR-0029). ' +
-          'Guardrails: admins cannot deactivate themselves, and the last active ' +
-          'ADMIN cannot be deactivated (promote another user to ADMIN first). ' +
+          'Partial update of a user. Exposes `isActive`, `firstName`, `lastName`, ' +
+          '`displayName`, and `email`. Role changes go through ' +
+          'PATCH /v1/memberships/:id (ADR-0029). ' +
+          'Guardrails: admins cannot deactivate themselves, the last active ' +
+          'ADMIN cannot be deactivated (promote another user to ADMIN first), and ' +
+          '`email` can only be changed for LOCAL accounts (400 for OAuth-linked ' +
+          'ENTRA_ID/GOOGLE accounts) and must be unique within the organisation ' +
+          '(400 on duplicate). ' +
           'Records USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. ' +
           'Requires ADMIN role.',
         security: [{ bearerAuth: [] }],

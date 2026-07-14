@@ -976,12 +976,19 @@ export interface UserDetail {
 }
 
 /**
- * Patch body for PATCH /v1/users/:id. The admin endpoint exposes only
- * `isActive` (ADR-0029: role changes go through PATCH
- * /v1/memberships/:id — see `useUpdateMembershipRole`).
+ * Patch body for PATCH /v1/users/:id. The admin endpoint exposes
+ * `isActive` and profile fields (ADR-0029: role changes go through
+ * PATCH /v1/memberships/:id — see `useUpdateMembershipRole`).
+ *
+ * `email` (detail+editácia používateľa, 2026-07-14): only accepted by
+ * the backend when the target's `accountType` is `LOCAL` — rejected
+ * with 400 otherwise. Must be unique within the organisation.
  */
 export interface UserUpdatePatch {
   isActive?: boolean | undefined;
+  firstName?: string | undefined;
+  lastName?: string | undefined;
+  email?: string | undefined;
 }
 
 interface UsersListQueryOptions {

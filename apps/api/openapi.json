@@ -1710,7 +1710,7 @@
         "tags": [
           "Users"
         ],
-        "description": "Returns a paginated list of users sorted by displayName. Soft-deleted users are always excluded. Optional filters: role, isActive, q (free-text across email + displayName + firstName + lastName, case-insensitive). Requires ASSET_MANAGER or ADMIN role — but ASSET_MANAGER callers receive a trimmed shape (_id, displayName, email, roles, isActive, lastLoginAt), never the full document (MFA state, GDPR restriction flags, etc. stay ADMIN-only). See `toManagerShape` below.",
+        "description": "Returns a paginated list of users sorted by displayName. Soft-deleted users are always excluded. Optional filters: role, isActive, q (free-text across email + displayName + firstName + lastName, case-insensitive). Requires ASSET_MANAGER or ADMIN role — but ASSET_MANAGER callers receive a trimmed shape (_id, displayName, firstName, lastName, email, roles, isActive, lastLoginAt), never the full document (MFA state, GDPR restriction flags, etc. stay ADMIN-only). See `toManagerShape` below.",
         "parameters": [
           {
             "schema": {
@@ -1875,7 +1875,7 @@
         "tags": [
           "Users"
         ],
-        "description": "Partial update of a user. Exposes `isActive` (and profile fields). Role changes go through PATCH /v1/memberships/:id (ADR-0029). Guardrails: admins cannot deactivate themselves, and the last active ADMIN cannot be deactivated (promote another user to ADMIN first). Records USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. Requires ADMIN role.",
+        "description": "Partial update of a user. Exposes `isActive`, `firstName`, `lastName`, `displayName`, and `email`. Role changes go through PATCH /v1/memberships/:id (ADR-0029). Guardrails: admins cannot deactivate themselves, the last active ADMIN cannot be deactivated (promote another user to ADMIN first), and `email` can only be changed for LOCAL accounts (400 for OAuth-linked ENTRA_ID/GOOGLE accounts) and must be unique within the organisation (400 on duplicate). Records USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. Requires ADMIN role.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1885,14 +1885,33 @@
                 "properties": {
                   "isActive": {
                     "type": "boolean"
+                  },
+                  "firstName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
                   }
                 },
                 "additionalProperties": false,
-                "description": "Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id."
+                "description": "Čiastočná aktualizácia používateľa (admin); isActive, firstName, lastName, displayName, email (LOCAL účty len). Roly → PATCH /v1/memberships/:id."
               }
             }
           },
-          "description": "Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id."
+          "description": "Čiastočná aktualizácia používateľa (admin); isActive, firstName, lastName, displayName, email (LOCAL účty len). Roly → PATCH /v1/memberships/:id."
         },
         "parameters": [
           {

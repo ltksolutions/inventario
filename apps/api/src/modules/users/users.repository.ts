@@ -96,10 +96,16 @@ export type UserUpdatePatch = Partial<
     // NOTE: `roles` is intentionally absent. User.roles[] is a legacy field
     // that RBAC ignores (authoritative role = Membership.role per ADR-0029).
     // Role changes go through PATCH /v1/memberships/:id.
+    //
+    // `email` (added 2026-07-14, detail+editácia používateľa): admin-only,
+    // and only ever set here after UsersService.update() has verified the
+    // target is a LOCAL account — the `organisationId_email_unique` index
+    // is the backstop, callers must catch E11000 and surface it as 400.
     | 'isActive'
     | 'firstName'
     | 'lastName'
     | 'displayName'
+    | 'email'
     | 'organizationalUnit'
     | 'teams'
     | 'mustChangePassword'

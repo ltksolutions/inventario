@@ -4,7 +4,8 @@
 'use client';
 
 import { USER_ROLE_VALUES } from '@inventario/shared-types';
-import { CheckCircle2, Eye, Pencil, Search, ShieldOff, XCircle } from 'lucide-react';
+import { CheckCircle2, Pencil, Search, ShieldOff, XCircle } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { SelectField } from './SelectField';
@@ -28,9 +29,19 @@ import { useCanAdminUsers, useCanManagePersons, useMe, useUsers } from '@/lib/ap
  *   - `canManage` (ASSET_MANAGER+ADMIN, via useCanManagePersons — name
  *     predates the merge, kept to avoid touching the soon-to-be-deleted
  *     Persons files that still import it) gates page access at all.
- *   - `canAdmin` (ADMIN only) additionally gates the edit surface: row
- *     action label ("Upraviť" vs "Zobraziť") and what the dialog offers
- *     (see UserEditDialog's `canEdit` prop).
+ *   - `canAdmin` (ADMIN only) additionally gates the pencil ("Upraviť")
+ *     row action, which opens UserEditDialog.
+ *
+ * Detail+editácia používateľa (2026-07-14): the single "Upraviť/Zobraziť"
+ * row action was split into two separate entry points, since editing and
+ * viewing loan history stopped being the same surface:
+ *   - The person's name is now a link to `/users/[id]` (UserDetailContent)
+ *     — open to BOTH ADMIN and ASSET_MANAGER, shows the profile header and
+ *     full asset history (current + returned).
+ *   - A pencil icon at the end of the row, ADMIN-only, opens
+ *     UserEditDialog — role, isActive, meno/priezvisko/email, and the
+ *     "Odobrať z organizácie" danger zone. No loan history in the dialog
+ *     any more — that's the page's job now.
  *
  * The backend enforces the real boundary independently (GET /v1/users*
  * now accepts ASSET_MANAGER but returns a trimmed shape for them — see
@@ -41,8 +52,8 @@ import { useCanAdminUsers, useCanManagePersons, useMe, useUsers } from '@/lib/ap
  * because user management is edit-driven, not create-driven:
  *   - No "+ Pridať" button — users vznikajú JIT pri prvom Entra
  *     login (slice #2), nie ručne v UI.
- *   - Edit modal is the primary action (per-row "Upraviť"/"Zobraziť"),
- *     not delete. Soft-delete sa robí cez `isActive: false` v PATCH.
+ *   - Edit modal (pencil, ADMIN-only) is the primary write action, not
+ *     delete. Soft-delete sa robí cez `isActive: false` v PATCH.
  *   - Server-side filters: backend supports role, isActive a q.
  *     This is the first list page that filters on the server (vs
  *     /assets which filters the visible page client-side), so the
@@ -279,7 +290,6 @@ function UsersAdminPanel({
         <UserEditDialog
           userId={editTarget._id}
           isSelf={editTarget._id === currentUserId}
-          canEdit={canAdmin}
           onClose={() => setEditTarget(null)}
         />
       ) : null}
@@ -331,7 +341,12 @@ function UsersTable({ users, currentUserId, canAdmin, onEdit }: UsersTableProps)
             return (
               <tr key={user._id} className={isInactive ? 'opacity-60' : 'hover:bg-surface-subtle'}>
                 <td className="px-4 py-3 font-medium text-text-primary">
-                  {user.displayName}
+                  <Link
+                    href={`/users/${user._id}`}
+                    className="underline-offset-2 hover:text-brand-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  >
+                    {user.displayName}
+                  </Link>
                   {isSelf ? (
                     <span className="ml-2 rounded-full bg-info-bg px-2 py-0.5 text-xs font-normal text-info-fg">
                       Vy
@@ -382,23 +397,17 @@ function UsersTable({ users, currentUserId, canAdmin, onEdit }: UsersTableProps)
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(user)}
-                    aria-label={
-                      canAdmin
-                        ? `Upraviť používateľa ${user.displayName}`
-                        : `Zobraziť detail používateľa ${user.displayName}`
-                    }
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {canAdmin ? (
+                  {canAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(user)}
+                      aria-label={`Upraviť používateľa ${user.displayName}`}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
                       <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
-                    ) : (
-                      <Eye aria-hidden="true" className="h-3.5 w-3.5" />
-                    )}
-                    {canAdmin ? 'Upraviť' : 'Zobraziť'}
-                  </button>
+                      Upraviť
+                    </button>
+                  ) : null}
                 </td>
               </tr>
             );

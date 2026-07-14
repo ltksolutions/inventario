@@ -1,5 +1,43 @@
 # NEXT
 
+## Aktuálny stav (2026-07-14, pokračovanie) — detail + editácia používateľa — K1–K4 HOTOVÉ
+
+Session log: `docs/sessions/2026-07-14-detail-editacia-pouzivatela.md`.
+
+Janikin nápad: zo zoznamu `/users` doplniť pre ADMIN aj ASSET_MANAGER možnosť
+otvoriť detail používateľa (všetok vypožičaný majetok, aj minulý) a pre ADMIN
+navyše možnosť editovať Meno, Priezvisko a email.
+
+Rozhodnuté (AskUserQuestion, 3 kolá, vrátane jedného kola spresnenia po prvom
+návrhu): **dva samostatné UI povrchy**, nie jeden dialóg so všetkým.
+
+- ✅ **K1 backend** — `PATCH /v1/users/:id` rozšírený o `firstName`,
+  `lastName`, `email` (email len pri `LOCAL` účte, ináč 400; duplicita v rámci
+  org → 400 cez E11000). `displayName` sa auto-derivuje. `toManagerShape()`
+  (ASSET_MANAGER výrez) rozšírený o `firstName`/`lastName`.
+- ✅ **K2a frontend — editačný modál** (`UserEditDialog.tsx`, len ADMIN) —
+  kompletne prerobený: bez výpožičiek, s Meno/Priezvisko/Email poliami.
+- ✅ **K2b frontend — nová stránka** `/users/[id]` (`UserDetailContent.tsx`,
+  ASSET_MANAGER + ADMIN, read-only) — hlavička + zoznam majetku (aktívny hore,
+  vrátený dole) s dátumami a priamym linkom na detail majetku. V zozname:
+  meno = link na detail, ceruzka (len ADMIN) = otvorí editačný modál.
+- ✅ **K3 testy** — nové integračné testy pre firstName/lastName/email PATCH
+  (happy path, duplicita 400, OAuth guardrail 400). `tsc`/`eslint`/`prettier`
+  čisté v sandboxe.
+- ✅ **K4 docs** — `role-opravnenia.md` rozšírený (footnote 6 + poznámka o
+  LOCAL-only zmene emailu).
+
+**Dôležité pre task cleanup (Zlúčenie Osoby+Používatelia, nižšie):**
+`UserEditDialog.tsx` **zostáva aktuálne používaný** (ADMIN editačný modál) —
+NEPRIDÁVAŤ ho na zoznam na zmazanie.
+
+**Otvorené:** commit + push (git MCP), lokálne spustiť
+`pnpm --filter api test tests/integration/users-patch.test.ts`, overiť Vercel
+deploy oboch projektov READY a UI manuálne (ADMIN detail+edit, ASSET_MANAGER
+len detail).
+
+---
+
 ## Aktuálny stav (2026-07-14, pokračovanie) — zlúčenie „Osoby" + „Používatelia" — K1–K4 HOTOVÉ, K5 (cleanup) ČAKÁ NA POTVRDENIE
 
 Session log: `docs/sessions/2026-07-14-zlucenie-osoby-pouzivatelia.md`.

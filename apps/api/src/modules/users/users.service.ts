@@ -557,10 +557,44 @@ export class UsersService {
         }
       }
 
+      // Email change guardrail (2026-07-14, detail+editácia používateľa).
+      // Email can only be changed for LOCAL accounts — OAuth-linked
+      // accounts (ENTRA_ID/GOOGLE) have their email managed by the
+      // provider; overwriting User.email here would desynchronize the
+      // record from what the provider actually authenticates against.
+      // Duplicate-within-tenant is enforced by the
+      // `organisationId_email_unique` index (see users.repository.ts) —
+      // we let the write hit that index and catch E11000 below rather
+      // than duplicating the uniqueness check outside the transaction.
+      if (patch.email !== undefined && patch.email !== before.email) {
+        if (before.accountType !== AccountType.LOCAL) {
+          // accountType is binary today (LOCAL | ENTRA_ID) — in practice this
+          // means Microsoft Entra ID SSO accounts. Mirrors the wording used
+          // by the self-service change-email flow in email-auth.routes.ts.
+          throw new BadRequestError(
+            'Email je pri OAuth účtoch (napr. Microsoft) v správe providera a nedá sa zmeniť ručne.',
+          );
+        }
+      }
+
       // ----- Step 3: build patch with audit columns -----
+      // displayName auto-derivation mirrors updateSelf(): if firstName or
+      // lastName changes without an explicit displayName, recompute it as
+      // "{newFirstName} {newLastName}" so the two stay in sync.
+      const nextFirstName = patch.firstName ?? before.firstName;
+      const nextLastName = patch.lastName ?? before.lastName;
+      const nextDisplayName =
+        patch.displayName ??
+        (patch.firstName !== undefined || patch.lastName !== undefined
+          ? `${nextFirstName} ${nextLastName}`
+          : undefined);
+
       const now = new Date().toISOString();
       const fullPatch: UserUpdatePatch = {
-        ...this.buildRepoPatch(patch),
+        ...this.buildRepoPatch({
+          ...patch,
+          ...(nextDisplayName !== undefined ? { displayName: nextDisplayName } : {}),
+        }),
         updatedAt: now,
         updatedBy: actorId,
       };
@@ -568,7 +602,15 @@ export class UsersService {
       // Write unscoped — access already gated by the membership check in
       // Step 1 (cross-tenant invited users carry a foreign organisationId,
       // so the tenant-scoped update() would not match them).
-      const after = await this.repo.updateByIdUnscoped(id, fullPatch, session);
+      let after: WithId<User> | null;
+      try {
+        after = await this.repo.updateByIdUnscoped(id, fullPatch, session);
+      } catch (err) {
+        if (isDuplicateKeyError(err)) {
+          throw new BadRequestError('Táto e-mailová adresa je už používaná v tejto organizácii.');
+        }
+        throw err;
+      }
       if (!after) {
         // Lost-update race: target was soft-deleted between the load
         // and the update. Surface as 404 to be consistent with the
@@ -832,6 +874,7 @@ export class UsersService {
     if (input.firstName !== undefined) patch.firstName = input.firstName;
     if (input.lastName !== undefined) patch.lastName = input.lastName;
     if (input.displayName !== undefined) patch.displayName = input.displayName;
+    if (input.email !== undefined) patch.email = input.email;
     if (input.organizationalUnit !== undefined) patch.organizationalUnit = input.organizationalUnit;
     if (input.teams !== undefined) patch.teams = input.teams;
     if (input.mustChangePassword !== undefined) patch.mustChangePassword = input.mustChangePassword;

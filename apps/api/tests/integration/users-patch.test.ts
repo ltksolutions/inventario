@@ -14,7 +14,7 @@ import { ObjectId } from 'mongodb';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
-import { insertTestUser, provisionUser, UserRole } from '../helpers/test-fixtures.js';
+import { AccountType, insertTestUser, provisionUser, UserRole } from '../helpers/test-fixtures.js';
 
 import type { FastifyInstance } from 'fastify';
 
@@ -246,6 +246,86 @@ describe('PATCH /v1/users/:id', () => {
         url: `/v1/users/${other._id}`,
         headers: { cookie: `inv_access=${adminToken}` },
         payload: { isActive: false },
+      });
+      expect(res.statusCode).toBe(200);
+    });
+  });
+
+  describe('firstName/lastName/email (detail+editácia používateľa, 2026-07-14)', () => {
+    it('updates firstName/lastName and auto-derives displayName', async () => {
+      const target = await insertTestUser(app, { firstName: 'Jana', lastName: 'Nováková' });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/users/${target._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { firstName: 'Zuzana', lastName: 'Horváthová' },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json<{ firstName: string; lastName: string; displayName: string }>();
+      expect(body.firstName).toBe('Zuzana');
+      expect(body.lastName).toBe('Horváthová');
+      expect(body.displayName).toBe('Zuzana Horváthová');
+    });
+
+    it('updates a LOCAL account email (happy path)', async () => {
+      const target = await insertTestUser(app, {
+        accountType: AccountType.LOCAL,
+        email: 'stara-adresa@example.com',
+      });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/users/${target._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { email: 'nova-adresa@example.com' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json<{ email: string }>().email).toBe('nova-adresa@example.com');
+    });
+
+    it('returns 400 when the new email is already used in the same org', async () => {
+      await insertTestUser(app, {
+        accountType: AccountType.LOCAL,
+        email: 'obsadena@example.com',
+      });
+      const target = await insertTestUser(app, {
+        accountType: AccountType.LOCAL,
+        email: 'volna@example.com',
+      });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/users/${target._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { email: 'obsadena@example.com' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ message: string }>().message).toMatch(/už používaná/i);
+    });
+
+    it('returns 400 when changing email on an OAuth (ENTRA_ID) account', async () => {
+      const target = await insertTestUser(app, {
+        accountType: AccountType.ENTRA_ID,
+        email: 'entra-user@example.com',
+      });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/users/${target._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { email: 'niekto-iny@example.com' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ message: string }>().message).toMatch(/OAuth/i);
+    });
+
+    it('allows re-submitting the same email on an OAuth account (no-op, not a change)', async () => {
+      const target = await insertTestUser(app, {
+        accountType: AccountType.ENTRA_ID,
+        email: 'entra-user-noop@example.com',
+      });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/v1/users/${target._id}`,
+        headers: { cookie: `inv_access=${adminToken}` },
+        payload: { email: 'entra-user-noop@example.com' },
       });
       expect(res.statusCode).toBe(200);
     });
