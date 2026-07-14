@@ -4,14 +4,17 @@
 'use client';
 
 import { USER_ROLE_VALUES } from '@inventario/shared-types';
-import { AlertCircle, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Clock, Package, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { LoadingState } from './Spinner';
 
+import type { LoanSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
 import {
+  useLoanRequests,
+  useLoans,
   useRemoveMembership,
   useUpdateMembershipRole,
   useUpdateUser,
@@ -20,10 +23,29 @@ import {
 import { cn } from '@/lib/cn';
 
 /**
- * Edit user dialog (admin).
+ * User detail / edit dialog.
+ *
+ * Osoby/Používatelia merge (2026-07-14): this dialog now serves BOTH
+ * roles that can reach the merged "Používatelia" page. `canEdit`
+ * (true for ADMIN, false for ASSET_MANAGER) switches between the two:
+ *
+ *   - canEdit=true  (ADMIN): unchanged edit behaviour — role radio +
+ *     isActive toggle + danger zone "Odobrať z organizácie", see below.
+ *   - canEdit=false (ASSET_MANAGER): read-only — no mutation hooks are
+ *     invoked, role/status are shown as plain text, no danger zone.
+ *     The backend enforces this too (PATCH /v1/users/:id and
+ *     PATCH/DELETE /v1/memberships/:id are ADMIN-only) — this prop only
+ *     controls what the UI *offers*, it isn't the security boundary.
+ *
+ * Both modes now also show a "Výpožičky tejto osoby" section (current +
+ * pending + history), previously only available on the standalone
+ * /persons/[id] "osobná karta majetku" page (removed by this merge).
+ * Ported from PersonDetailContent — same useLoans/useLoanRequests calls,
+ * same current/pending/history split.
  *
  * Loads the full UserDetail via `useUser(id)` so the dialog has
- * fresh data even if the list cache is stale. Two editable surfaces:
+ * fresh data even if the list cache is stale. Two editable surfaces
+ * (canEdit=true only):
  *
  *   1. Role — single-select radio (ADR-0029: a member has exactly ONE
  *      Membership.role). Changing it goes through
@@ -68,14 +90,31 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
 interface UserEditDialogProps {
   userId: string;
   isSelf: boolean;
+  /**
+   * ADMIN=true — full edit surface (role, isActive, danger zone).
+   * ASSET_MANAGER=false — read-only detail view. See file header.
+   */
+  canEdit: boolean;
   onClose: () => void;
 }
 
-export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps): JSX.Element {
+export function UserEditDialog({
+  userId,
+  isSelf,
+  canEdit,
+  onClose,
+}: UserEditDialogProps): JSX.Element {
   const userQuery = useUser(userId);
   const updateUser = useUpdateUser();
   const updateRole = useUpdateMembershipRole();
   const removeMembership = useRemoveMembership();
+  const loansQuery = useLoans({ borrowerId: userId, limit: 200 });
+  const pendingQuery = useLoanRequests({
+    requesterId: userId,
+    beneficiaryId: userId,
+    status: 'PENDING',
+    limit: 50,
+  });
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const isPending = updateUser.isPending || updateRole.isPending || removeMembership.isPending;
@@ -213,11 +252,11 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
       aria-labelledby="edit-user-title"
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
     >
-      <div className="relative flex w-full max-w-lg flex-col gap-0 rounded-t-2xl bg-surface-card shadow-xl sm:rounded-2xl">
+      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col gap-0 overflow-hidden rounded-t-2xl bg-surface-card shadow-xl sm:rounded-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-6 py-4">
           <div>
             <h2 id="edit-user-title" className="text-lg font-semibold text-text-primary">
-              Upraviť používateľa
+              {canEdit ? 'Upraviť používateľa' : 'Detail používateľa'}
             </h2>
             {userQuery.data ? (
               <p className="mt-0.5 text-xs text-text-secondary">
@@ -236,7 +275,7 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
           </button>
         </header>
 
-        <div className="px-6 py-5">
+        <div className="overflow-y-auto px-6 py-5">
           {/*
             Order matters: check isError BEFORE the loading/!initialised
             gate. `initialised` only flips once data arrives, so on an
@@ -254,7 +293,7 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
             />
           ) : userQuery.isLoading || !initialised ? (
             <LoadingState label="Načítavam detail používateľa…" />
-          ) : (
+          ) : canEdit ? (
             <DialogBody
               selectedRole={selectedRole}
               isActive={isActive}
@@ -268,7 +307,9 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
                 }
               }}
             />
-          )}
+          ) : userQuery.data ? (
+            <ReadOnlySummary roles={userQuery.data.roles} isActive={userQuery.data.isActive} />
+          ) : null}
 
           {mutationError ? (
             <div
@@ -287,7 +328,7 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
             never deletes the account or its history. Two confirmations + a
             5-second cool-off before the final action arms.
           */}
-          {userQuery.data && membershipId && !isSelf ? (
+          {userQuery.data && membershipId && !isSelf && canEdit ? (
             <div className="mt-6 rounded-lg border border-danger-fg/40 bg-danger-bg/40 p-4">
               <h3 className="text-sm font-semibold text-text-primary">Odobrať z organizácie</h3>
               <p className="mt-1 text-xs leading-relaxed text-text-secondary">
@@ -363,6 +404,8 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
               )}
             </div>
           ) : null}
+
+          <LoansSection loansQuery={loansQuery} pendingQuery={pendingQuery} />
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-border-subtle bg-surface-page/50 px-6 py-3 sm:flex-row sm:justify-end">
@@ -373,18 +416,20 @@ export function UserEditDialog({ userId, isSelf, onClose }: UserEditDialogProps)
             disabled={isPending}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
-            Zrušiť
+            {canEdit ? 'Zrušiť' : 'Zavrieť'}
           </button>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={patch === null || isPending || !initialised}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
-            aria-live="polite"
-          >
-            <Save aria-hidden="true" className="h-4 w-4" />
-            {isPending ? 'Ukladám…' : 'Uložiť zmeny'}
-          </button>
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={patch === null || isPending || !initialised}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+              aria-live="polite"
+            >
+              <Save aria-hidden="true" className="h-4 w-4" />
+              {isPending ? 'Ukladám…' : 'Uložiť zmeny'}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -545,6 +590,171 @@ function ErrorPanel({ message }: { message: string }): JSX.Element {
     >
       <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
       <span>{message}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Read-only role/status summary (canEdit=false replacement for DialogBody)
+// ---------------------------------------------------------------------------
+
+const ROLE_LABELS_READONLY: Record<string, string> = {
+  ADMIN: 'Administrátor',
+  ASSET_MANAGER: 'Správca majetku',
+  EMPLOYEE: 'Zamestnanec',
+  EXTERNAL: 'Externý',
+};
+
+function ReadOnlySummary({ roles, isActive }: { roles: string[]; isActive: boolean }): JSX.Element {
+  const role = roles[0] ?? null;
+  return (
+    <div className="space-y-3">
+      <Field label="Rola">
+        <p className="text-sm text-text-primary">
+          {role ? (ROLE_LABELS_READONLY[role] ?? role) : '—'}
+        </p>
+      </Field>
+      <Field label="Stav účtu">
+        <p className="text-sm text-text-primary">{isActive ? 'Aktívny' : 'Deaktivovaný'}</p>
+      </Field>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Výpožičky tejto osoby — ported from the removed /persons/[id]
+// "osobná karta majetku" (PersonDetailContent), compacted for the dialog.
+// Shown for both canEdit values (2026-07-14 Osoby/Používatelia merge).
+// ---------------------------------------------------------------------------
+
+const LOAN_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  ACTIVE: { label: 'Aktívna', className: 'bg-green-50 text-green-700 ring-green-600/20' },
+  RETURNED: {
+    label: 'Vrátená',
+    className: 'bg-surface-subtle text-text-muted ring-border-subtle',
+  },
+  DAMAGED: { label: 'Poškodená', className: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
+  LOST: { label: 'Stratená', className: 'bg-red-50 text-red-700 ring-red-600/20' },
+  OVERDUE: { label: 'Po termíne', className: 'bg-red-50 text-red-700 ring-red-600/20' },
+};
+
+function formatLoanDate(iso: string | null): string {
+  if (iso == null) return 'do odvolania';
+  return new Date(iso).toLocaleDateString('sk-SK', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function LoansSection({
+  loansQuery,
+  pendingQuery,
+}: {
+  loansQuery: ReturnType<typeof useLoans>;
+  pendingQuery: ReturnType<typeof useLoanRequests>;
+}): JSX.Element {
+  const allLoans = loansQuery.data?.data ?? [];
+  const currentLoans = allLoans.filter((loan) => loan.status === 'ACTIVE');
+  const historyLoans = allLoans.filter((loan) => loan.status !== 'ACTIVE');
+  const pendingRequests = pendingQuery.data?.data ?? [];
+
+  return (
+    <div className="mt-6 border-t border-border-subtle pt-5">
+      <h3 className="text-sm font-semibold text-text-primary">Výpožičky tejto osoby</h3>
+
+      {loansQuery.isLoading ? (
+        <p className="mt-2 text-xs text-text-secondary">Načítavam výpožičky…</p>
+      ) : loansQuery.isError ? (
+        <p className="mt-2 text-xs text-danger-fg">Výpožičky sa nepodarilo načítať.</p>
+      ) : (
+        <div className="mt-3 space-y-4">
+          <LoansMiniList
+            heading={`Aktuálny majetok (${currentLoans.length})`}
+            loans={currentLoans}
+            emptyMessage="Nemá aktuálne v držaní žiadny majetok."
+          />
+          {pendingRequests.length > 0 ? (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Čakajúce žiadosti ({pendingRequests.length})
+              </h4>
+              <ul className="mt-1.5 space-y-1">
+                {pendingRequests.map((req) => (
+                  <li key={req._id} className="text-xs text-text-secondary">
+                    {req.items.map((item, idx) => (
+                      <span key={`${item.categoryId}-${idx}`}>
+                        {idx > 0 ? ', ' : ''}
+                        {item.quantityRequested}× {item.categorySnapshot.name}
+                      </span>
+                    ))}
+                    {' — '}
+                    {req.purpose}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <LoansMiniList
+            heading={`História (${historyLoans.length})`}
+            loans={historyLoans}
+            emptyMessage="Zatiaľ žiadna história výpožičiek."
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoansMiniList({
+  heading,
+  loans,
+  emptyMessage,
+}: {
+  heading: string;
+  loans: readonly LoanSummary[];
+  emptyMessage: string;
+}): JSX.Element {
+  return (
+    <div>
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{heading}</h4>
+      {loans.length === 0 ? (
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-text-secondary">
+          <Package aria-hidden="true" className="h-3.5 w-3.5" />
+          {emptyMessage}
+        </p>
+      ) : (
+        <ul className="mt-1.5 space-y-1.5">
+          {loans.map((loan) => {
+            const isOverdue = loan.isOverdue && loan.status === 'ACTIVE';
+            const statusKey = isOverdue ? 'OVERDUE' : loan.status;
+            const statusConfig = LOAN_STATUS_CONFIG[statusKey] ?? {
+              label: loan.status,
+              className: 'bg-surface-subtle text-text-muted',
+            };
+            return (
+              <li key={loan._id} className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-medium text-text-primary">
+                  {loan.items.map((item) => item.snapshot.inventoryNumber).join(', ')}
+                </span>
+                <span className="text-text-secondary">
+                  {formatLoanDate(loan.pickedUpAt)}
+                  {loan.status === 'ACTIVE' ? ` → ${formatLoanDate(loan.dueAt)}` : ''}
+                </span>
+                {isOverdue ? <Clock aria-hidden="true" className="h-3 w-3 text-red-600" /> : null}
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset',
+                    statusConfig.className,
+                  )}
+                >
+                  {statusConfig.label}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

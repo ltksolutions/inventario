@@ -1,19 +1,15 @@
 // SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 // SPDX-License-Identifier: EUPL-1.2
 
-import type { JSX } from 'react';
-
-import { AuthGate } from '@/components/AuthGate';
-import { PersonsContent } from '@/components/PersonsContent';
+import { redirect } from 'next/navigation';
 
 /**
- * /persons — "Osoby" module list. See PersonsContent for the RBAC
- * gate (ASSET_MANAGER + ADMIN) and data-fetching details.
+ * /persons — "Osoby" module, merged into /users (2026-07-14, Osoby/
+ * Používatelia merge). Redirects old bookmarks/links. PersonsContent.tsx
+ * is no longer imported here but kept on disk pending cleanup (task #35).
+ * `redirect()` throws internally and never returns — `never` is the
+ * correct return type (matches the Next.js typing for this pattern).
  */
-export default function PersonsPage(): JSX.Element {
-  return (
-    <AuthGate>
-      <PersonsContent />
-    </AuthGate>
-  );
+export default function PersonsPage(): never {
+  redirect('/users');
 }

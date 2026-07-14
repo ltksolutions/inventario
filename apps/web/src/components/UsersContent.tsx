@@ -4,7 +4,7 @@
 'use client';
 
 import { USER_ROLE_VALUES } from '@inventario/shared-types';
-import { CheckCircle2, Pencil, Search, ShieldOff, XCircle } from 'lucide-react';
+import { CheckCircle2, Eye, Pencil, Search, ShieldOff, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { SelectField } from './SelectField';
@@ -14,27 +14,39 @@ import { UserEditDialog } from './UserEditDialog';
 import type { UserSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
-import { useCanAdminUsers, useMe, useUsers } from '@/lib/api-hooks';
+import { useCanAdminUsers, useCanManagePersons, useMe, useUsers } from '@/lib/api-hooks';
 
 /**
- * Users admin list page.
+ * Users list page — Osoby/Používatelia merge (2026-07-14).
+ *
+ * Previously two separate pages behind two RBAC gates: this ADMIN-only
+ * "Používatelia" page and a lighter ASSET_MANAGER-accessible "Osoby"
+ * directory (PersonsContent.tsx, now unused — see task #35). Both read
+ * the same `users` collection, just projected differently, so they're
+ * merged into one page with two RBAC tiers instead of two routes:
+ *
+ *   - `canManage` (ASSET_MANAGER+ADMIN, via useCanManagePersons — name
+ *     predates the merge, kept to avoid touching the soon-to-be-deleted
+ *     Persons files that still import it) gates page access at all.
+ *   - `canAdmin` (ADMIN only) additionally gates the edit surface: row
+ *     action label ("Upraviť" vs "Zobraziť") and what the dialog offers
+ *     (see UserEditDialog's `canEdit` prop).
+ *
+ * The backend enforces the real boundary independently (GET /v1/users*
+ * now accepts ASSET_MANAGER but returns a trimmed shape for them — see
+ * apps/api/.../users.routes.ts `toManagerShape`); this component's RBAC
+ * only controls what the UI *offers*.
  *
  * Differs structurally from CategoriesContent / LocationsContent
  * because user management is edit-driven, not create-driven:
  *   - No "+ Pridať" button — users vznikajú JIT pri prvom Entra
  *     login (slice #2), nie ručne v UI.
- *   - Edit modal is the primary action (per-row "Upraviť"),
+ *   - Edit modal is the primary action (per-row "Upraviť"/"Zobraziť"),
  *     not delete. Soft-delete sa robí cez `isActive: false` v PATCH.
  *   - Server-side filters: backend supports role, isActive a q.
  *     This is the first list page that filters on the server (vs
  *     /assets which filters the visible page client-side), so the
  *     "X z Y" result line reads global counts, not page counts.
- *
- * RBAC: whole route is ADMIN-only. The component renders an access
- * denied state for non-ADMIN users that still navigate here directly
- * (the sidebar link is visible to everyone — gating the link too
- * would create confusing dead-ends; better to land on a clear "no
- * permission" page than to silently hide the menu item).
  *
  * Search debounce:
  *   The free-text search input fires a request 300ms after the user
@@ -57,6 +69,7 @@ type PageSize = 20 | 50 | 100;
 const PAGE_SIZES: readonly PageSize[] = [20, 50, 100];
 
 export function UsersContent(): JSX.Element {
+  const canManage = useCanManagePersons();
   const canAdmin = useCanAdminUsers();
   const meQuery = useMe();
 
@@ -64,27 +77,33 @@ export function UsersContent(): JSX.Element {
     return <CardSkeleton lines={2} />;
   }
 
-  // Render the access-denied state before mounting any of the admin
-  // hooks below. The /v1/users endpoint returns 403 to non-ADMINs,
-  // and firing the query unconditionally would only generate noise
-  // in the backend log + a useless network round-trip.
-  if (!canAdmin) {
+  // Render the access-denied state before mounting any of the list
+  // hooks below. GET /v1/users returns 403 to EMPLOYEE/EXTERNAL, and
+  // firing the query unconditionally would only generate noise in the
+  // backend log + a useless network round-trip.
+  if (!canManage) {
     return <AccessDenied />;
   }
 
-  // me.data is guaranteed defined here — if canAdmin is true we got
+  // me.data is guaranteed defined here — if canManage is true we got
   // a non-empty roles array, which means the /v1/me query resolved.
   // Pass the current user's ID down so the edit dialog can apply
   // pre-emptive self-guardrails.
   const currentUserId = meQuery.data?._id ?? null;
-  return <UsersAdminPanel currentUserId={currentUserId} />;
+  return <UsersAdminPanel currentUserId={currentUserId} canAdmin={canAdmin} />;
 }
 
 // ---------------------------------------------------------------------------
 // Admin panel
 // ---------------------------------------------------------------------------
 
-function UsersAdminPanel({ currentUserId }: { currentUserId: string | null }): JSX.Element {
+function UsersAdminPanel({
+  currentUserId,
+  canAdmin,
+}: {
+  currentUserId: string | null;
+  canAdmin: boolean;
+}): JSX.Element {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(20);
   const [roleFilter, setRoleFilter] = useState<string>('');
@@ -128,8 +147,9 @@ function UsersAdminPanel({ currentUserId }: { currentUserId: string | null }): J
         <div>
           <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Používatelia</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Správa rolí a aktívnosti pre používateľov tenanta. Účty sa vytvárajú automaticky pri
-            prvom prihlásení cez Microsoft.
+            {canAdmin
+              ? 'Správa rolí a aktívnosti pre používateľov tenanta. Účty sa vytvárajú automaticky pri prvom prihlásení cez Microsoft.'
+              : 'Zoznam používateľov tenanta a ich výpožičiek. Zmenu roly alebo aktivity vie urobiť iba administrátor.'}
           </p>
         </div>
       </header>
@@ -223,6 +243,7 @@ function UsersAdminPanel({ currentUserId }: { currentUserId: string | null }): J
         <UsersTable
           users={users}
           currentUserId={currentUserId}
+          canAdmin={canAdmin}
           onEdit={(user) => setEditTarget(user)}
         />
       )}
@@ -258,6 +279,7 @@ function UsersAdminPanel({ currentUserId }: { currentUserId: string | null }): J
         <UserEditDialog
           userId={editTarget._id}
           isSelf={editTarget._id === currentUserId}
+          canEdit={canAdmin}
           onClose={() => setEditTarget(null)}
         />
       ) : null}
@@ -272,10 +294,11 @@ function UsersAdminPanel({ currentUserId }: { currentUserId: string | null }): J
 interface UsersTableProps {
   users: readonly UserSummary[];
   currentUserId: string | null;
+  canAdmin: boolean;
   onEdit: (user: UserSummary) => void;
 }
 
-function UsersTable({ users, currentUserId, onEdit }: UsersTableProps): JSX.Element {
+function UsersTable({ users, currentUserId, canAdmin, onEdit }: UsersTableProps): JSX.Element {
   return (
     <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-card shadow-sm">
       <table className="w-full min-w-[720px] text-sm">
@@ -362,11 +385,19 @@ function UsersTable({ users, currentUserId, onEdit }: UsersTableProps): JSX.Elem
                   <button
                     type="button"
                     onClick={() => onEdit(user)}
-                    aria-label={`Upraviť používateľa ${user.displayName}`}
+                    aria-label={
+                      canAdmin
+                        ? `Upraviť používateľa ${user.displayName}`
+                        : `Zobraziť detail používateľa ${user.displayName}`
+                    }
                     className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   >
-                    <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
-                    Upraviť
+                    {canAdmin ? (
+                      <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye aria-hidden="true" className="h-3.5 w-3.5" />
+                    )}
+                    {canAdmin ? 'Upraviť' : 'Zobraziť'}
                   </button>
                 </td>
               </tr>
@@ -416,7 +447,7 @@ function AccessDenied(): JSX.Element {
     <div className="rounded-xl border border-dashed border-border-default bg-surface-card p-10 text-center">
       <ShieldOff aria-hidden="true" className="mx-auto h-8 w-8 text-text-muted" />
       <p className="mt-3 text-sm font-medium text-text-primary">
-        Na túto stránku máte prístup iba s rolou Administrátor.
+        Na túto stránku máte prístup iba s rolou Správca majetku alebo Administrátor.
       </p>
       <p className="mt-1 text-sm text-text-secondary">
         Ak túto rolu potrebujete, obráťte sa na existujúceho administrátora svojho tenanta.

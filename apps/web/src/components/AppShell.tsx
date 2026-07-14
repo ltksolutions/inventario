@@ -16,6 +16,12 @@
  *
  * Pozn.: správa členov (roly + odobratie z org) je zlúčená do
  * `/users` (Používatelia) — samostatná stránka „Členovia" bola zrušená.
+ *
+ * 2026-07-14: `/persons` („Osoby") bola rovnakým spôsobom zlúčená do
+ * `/users` — obe čítali tú istú `users` kolekciu, len s iným RBAC
+ * a iným výrezom polí. `/users` je teraz `managerOnly` (ASSET_MANAGER+
+ * ADMIN) namiesto `adminOnly`; obsah stránky sa ďalej líši podľa roly
+ * (UsersContent.tsx).
  */
 
 import {
@@ -23,7 +29,6 @@ import {
   Building2,
   ChevronDown,
   ClipboardList,
-  Contact,
   FileSignature,
   History,
   Home,
@@ -68,10 +73,9 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/loans', label: 'Žiadosti', icon: ClipboardList },
   { href: '/my-loans', label: 'Moje výpožičky', icon: Library },
   { href: '/protocols', label: 'Preberacie protokoly', icon: FileSignature, managerOnly: true },
-  { href: '/persons', label: 'Osoby', icon: Contact, managerOnly: true },
   { href: '/ciselniky', label: 'Číselníky', icon: ListChecks },
   { href: '/audit-log', label: 'Audit log', icon: History, managerOnly: true },
-  { href: '/users', label: 'Používatelia', icon: Users, adminOnly: true },
+  { href: '/users', label: 'Používatelia', icon: Users, managerOnly: true },
   { href: '/admin/tenants', label: 'Tenanti', icon: ShieldCheck, platformOnly: true },
   { href: '/settings/organisation', label: 'Organizácia', icon: Building2, adminOnly: true },
   { href: '/settings/auth', label: 'Prihlasovanie', icon: KeyRound, adminOnly: true },
