@@ -135,17 +135,19 @@ export type CreateCategoryServiceInput = Omit<CreateCategoryInput, 'slug'> & {
  * service signature must match.
  */
 export type UpdateCategoryInput = {
-  [K in keyof Omit<
-    Category,
-    | '_id'
-    | 'organisationId'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'createdBy'
-    | 'updatedBy'
-    | 'deletedAt'
-    | 'deletedBy'
-  >]?: Category[K] | undefined;
+  [
+    K in keyof Omit<
+      Category,
+      | '_id'
+      | 'organisationId'
+      | 'createdAt'
+      | 'updatedAt'
+      | 'createdBy'
+      | 'updatedBy'
+      | 'deletedAt'
+      | 'deletedBy'
+    >
+  ]?: Category[K] | undefined;
 };
 
 // ---------------------------------------------------------------------------

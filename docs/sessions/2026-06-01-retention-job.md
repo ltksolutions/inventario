@@ -45,12 +45,12 @@ Retention job je rozdelený na tri vrstvy:
 
 ### Retention buckety (detaily)
 
-| Bucket             | Akcie                                                                                                                             | Retenčná doba            |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| CRUD               | ASSET*\*, CATEGORY*\_, LOCATION\__, LOAN*\*, STOCK*_, USER*CREATED/UPDATED/..., MEMBERSHIP*\_, ORGANISATION_UPDATED, system akcie | 24 mesiacov              |
-| Security/GDPR      | USER*LOGIN\*, USER_PASSWORD*_, USER*MFA*_, PASSKEY*\*, DATA*\*\_REQUESTED, USER_PSEUDONYMIZED, USER_RESTRICTED/UNRESTRICTED       | 60 mesiacov              |
-| Org lifecycle      | ORGANISATION_CREATED, ORGANISATION_DELETED                                                                                        | 84 mesiacov              |
-| Soft-deleted users | users s `deletedAt < cutoff` a email bez `deleted-` prefixu                                                                       | 24 mesiacov od deletedAt |
+| Bucket             | Akcie                                                                                                                              | Retenčná doba            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| CRUD               | ASSET*\*, CATEGORY*\_, LOCATION\__, LOAN\*\*, STOCK*_, USER*CREATED/UPDATED/..., MEMBERSHIP*\_, ORGANISATION_UPDATED, system akcie | 24 mesiacov              |
+| Security/GDPR      | USER*LOGIN\*, USER_PASSWORD*_, USER*MFA*_, PASSKEY*\*, DATA*\*\_REQUESTED, USER_PSEUDONYMIZED, USER_RESTRICTED/UNRESTRICTED        | 60 mesiacov              |
+| Org lifecycle      | ORGANISATION_CREATED, ORGANISATION_DELETED                                                                                         | 84 mesiacov              |
+| Soft-deleted users | users s `deletedAt < cutoff` a email bez `deleted-` prefixu                                                                        | 24 mesiacov od deletedAt |
 
 ### Pseudonymizácia (čo sa mení / čo ostáva)
 

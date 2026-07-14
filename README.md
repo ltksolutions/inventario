@@ -8,11 +8,11 @@ SPDX-License-Identifier: CC-BY-4.0
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue.svg)](LICENSE)
 [![Docs: CC-BY-4.0](https://img.shields.io/badge/Docs-CC--BY--4.0-lightgrey.svg)](LICENSE-DOCS)
 [![REUSE status](https://api.reuse.software/badge/github.com/ltksolutions/inventario)](https://api.reuse.software/info/github.com/ltksolutions/inventario)
-[![Status](https://img.shields.io/badge/status-foundation--ready-orange)]()
-[![Tests](https://img.shields.io/badge/tests-962%20passing-brightgreen.svg)]()
+[![Status](https://img.shields.io/badge/status-foundation--ready-orange)](<>)
+[![Tests](https://img.shields.io/badge/tests-962%20passing-brightgreen.svg)](<>)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
-[![Slovak](https://img.shields.io/badge/Lang-Slovak-blue.svg)]()
+[![Slovak](https://img.shields.io/badge/Lang-Slovak-blue.svg)](<>)
 
 > **_Transparentná správa majetku. Bez vendor lock-in._**
 >

@@ -97,17 +97,19 @@ export type CreateLocationServiceInput = Omit<CreateLocationInput, 'slug'> & {
  * immutable post creation.
  */
 export type UpdateLocationInput = {
-  [K in keyof Omit<
-    Location,
-    | '_id'
-    | 'organisationId'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'createdBy'
-    | 'updatedBy'
-    | 'deletedAt'
-    | 'deletedBy'
-  >]?: Location[K] | undefined;
+  [
+    K in keyof Omit<
+      Location,
+      | '_id'
+      | 'organisationId'
+      | 'createdAt'
+      | 'updatedAt'
+      | 'createdBy'
+      | 'updatedBy'
+      | 'deletedAt'
+      | 'deletedBy'
+    >
+  ]?: Location[K] | undefined;
 };
 
 // ---------------------------------------------------------------------------

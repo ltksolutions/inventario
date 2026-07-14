@@ -444,8 +444,7 @@ const passkeysRoutesPlugin: FastifyPluginAsync = async (fastify) => {
             ),
             counter: (passkey as Record<string, unknown>)['counter'] as number,
             transports: (passkey as Record<string, unknown>)['transports'] as
-              | string[]
-              | undefined as never,
+              string[] | undefined as never,
           },
         });
       } catch (err) {
