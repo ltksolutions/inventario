@@ -572,9 +572,7 @@ export function makeSyntheticAssertion(opts: {
   rpId: string;
   origin: string;
   newCounter?: number; // for testing regression scenarios
-}): {
-  /* AuthenticatorAssertionResponse-like shape */
-} {
+}): {/* AuthenticatorAssertionResponse-like shape */} {
   /* ... */
 }
 ```

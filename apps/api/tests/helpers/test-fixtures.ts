@@ -659,12 +659,7 @@ export function validCreateCategoryBody(
 // ---------------------------------------------------------------------------
 
 export type LocationType =
-  | 'WAREHOUSE'
-  | 'OFFICE'
-  | 'STADIUM'
-  | 'TRAINING_CENTER'
-  | 'EXTERNAL'
-  | 'IN_TRANSIT';
+  'WAREHOUSE' | 'OFFICE' | 'STADIUM' | 'TRAINING_CENTER' | 'EXTERNAL' | 'IN_TRANSIT';
 
 export interface InsertTestLocationOptions {
   /**
