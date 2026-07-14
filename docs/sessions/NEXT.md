@@ -1,5 +1,34 @@
 # NEXT
 
+## Aktuálny stav (2026-07-14, pokračovanie) — pomalý preloader po nečinnosti — DIAGNOSTIKOVANÉ + FIX NASADENÝ
+
+Session log: `docs/sessions/2026-07-14-pomaly-preloader-po-necinnosti.md`. Commit `8a91c32`.
+
+Janika: po 2-3 min nečinnosti sa preloader (napr. na Majetok) točí ešte 5-10+s
+po tom, čo sú dáta na pozadí už viditeľné (aj na iných stránkach — Žiadosti,
+Používatelia).
+
+- ✅ **Root cause potvrdený z Vercel runtime logov:** po nečinnosti dopadne
+  aspoň jeden z paralelných requestov na studenú serverless instanciu
+  (~10-12s boot: Node proces + Mongo TLS handshake + plugin chain), zatiaľ
+  čo ostatné dopadnú na teplú (~0,3-1s). `GlobalFetchOverlay` čaká na
+  všetky requesty naraz, takže visí dlho, aj keď väčšina dát je už na
+  obrazovke. Región Vercel vs. Atlas sa ukázal ako nesúvisiaci — funkcia je
+  už fixovaná na jeden región (`iad1`).
+- ✅ **staleTime 5 min** pre kategórie/lokality/stavy majetku/organizáciu
+  (`api-hooks.ts`, `organisations-hooks.ts`) — `members` (beneficiary
+  picker) zámerne vynechané, kvôli ADR-0034 (predpripravený člen musí byť
+  hneď použiteľný).
+- ✅ **Vercel Cron keep-warm** na `GET /health/ready` každé 4 min
+  (`apps/api/vercel.json`) — existujúci endpoint, pingne aj Mongo.
+- Nasadené, oba deploy `READY`, žiadne nové runtime chyby.
+
+**Otvorené:** subjektívne overiť o pár dní, či sa frekvencia zlepšila. Ak
+pretrváva: zvážiť obmedzenie overlay len na kritické requesty (väčšia UX
+zmena, vedomne odložené).
+
+---
+
 ## Aktuálny stav (2026-07-14, pokračovanie) — ADR-0034: predpríprava budúceho používateľa — K1–K5 HOTOVÉ, K6 čiastočne
 
 Session log: `docs/sessions/2026-07-14-adr-0034-predpripravit-buduceho-pouzivatela.md`.
