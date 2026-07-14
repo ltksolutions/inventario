@@ -35,6 +35,7 @@
 
 import {
   FONT_OPTION_IDS,
+  OrganisationLabelSettingsSchema,
   ORGANISATION_PLAN_VALUES,
   ORGANISATION_STATUS_VALUES,
 } from '@inventario/shared-types';
@@ -372,10 +373,14 @@ const UpdateOwnOrganisationBodySchema = z
       .nullable(),
     // ADR-0021: opt-in verejný „lost & found" lookup po naskenovaní QR.
     publicAssetLookup: z.boolean(),
+    // ADR-0027: formát tlače QR štítkov (Avery PDF vs Zebra ZPL) + rozmery.
+    // Chýbalo v pôvodnej implementácii — schéma/backend/frontend ZPL vetvu
+    // podporovali, ale tenant nemal ako mode reálne prepnúť z default null.
+    labelPrinting: OrganisationLabelSettingsSchema.nullable(),
   })
   .partial()
   .describe(
-    'Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména).',
+    'Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména, tlač štítkov).',
   );
 
 // ---------------------------------------------------------------------------

@@ -659,6 +659,52 @@ describe('/v1/organisations', () => {
         );
       });
 
+      it('ADMIN môže nastaviť labelPrinting.mode na ZEBRA_ZPL (ADR-0027)', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: {
+            labelPrinting: {
+              mode: 'ZEBRA_ZPL',
+              pdfPreset: 'avery-l7160',
+              zplLabelWidthMm: 50,
+              zplLabelHeightMm: 25,
+              zplDpi: 203,
+              zplDarkness: 20,
+              finderText: { enabled: false, text: 'Našli ste ma? Naskenujte a pomôžte ma vrátiť.' },
+            },
+          },
+        });
+        expect(res.statusCode).toBe(200);
+        const body = res.json<{
+          labelPrinting: { mode: string; zplLabelWidthMm: number; zplDpi: number } | null;
+        }>();
+        expect(body.labelPrinting?.mode).toBe('ZEBRA_ZPL');
+        expect(body.labelPrinting?.zplLabelWidthMm).toBe(50);
+        expect(body.labelPrinting?.zplDpi).toBe(203);
+
+        // Overiť, že sa to naozaj persistuje (nie len echo v response) —
+        // druhý GET musí ukázať rovnaký stav.
+        const getRes = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+        });
+        expect(getRes.json<{ labelPrinting: { mode: string } | null }>().labelPrinting?.mode).toBe(
+          'ZEBRA_ZPL',
+        );
+
+        // Vrátiť na PDF_SHEET, aby nasledujúce testy v tomto describe blocku
+        // (najmä 'prázdny patch' nižšie) neboli ovplyvnené poradím testov.
+        await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { labelPrinting: null },
+        });
+      });
+
       it('EMPLOYEE dostane 403', async () => {
         const res = await app.inject({
           method: 'PATCH',

@@ -575,14 +575,91 @@
                   },
                   "publicAssetLookup": {
                     "type": "boolean"
+                  },
+                  "labelPrinting": {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "PDF_SHEET",
+                          "ZEBRA_ZPL"
+                        ],
+                        "default": "PDF_SHEET"
+                      },
+                      "pdfPreset": {
+                        "type": "string",
+                        "enum": [
+                          "avery-l7160",
+                          "avery-l7163"
+                        ],
+                        "default": "avery-l7160"
+                      },
+                      "zplLabelWidthMm": {
+                        "type": "integer",
+                        "minimum": 10,
+                        "maximum": 200,
+                        "default": 50
+                      },
+                      "zplLabelHeightMm": {
+                        "type": "integer",
+                        "minimum": 10,
+                        "maximum": 200,
+                        "default": 25
+                      },
+                      "zplDpi": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "enum": [
+                              203
+                            ]
+                          },
+                          {
+                            "type": "number",
+                            "enum": [
+                              300
+                            ]
+                          }
+                        ],
+                        "default": 203
+                      },
+                      "zplDarkness": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 30,
+                        "default": 20
+                      },
+                      "finderText": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "text": {
+                            "type": "string",
+                            "maxLength": 120,
+                            "default": "Našli ste ma? Naskenujte a pomôžte ma vrátiť."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "enabled": false,
+                          "text": "Našli ste ma? Naskenujte a pomôžte ma vrátiť."
+                        }
+                      }
+                    },
+                    "additionalProperties": false,
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false,
-                "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména)."
+                "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména, tlač štítkov)."
               }
             }
           },
-          "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména)."
+          "description": "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména, tlač štítkov)."
         },
         "security": [
           {
