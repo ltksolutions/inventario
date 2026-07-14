@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Technický test ADR-0027 (Zebra ZPL vetva) na reálnom hardvéri — pre teba, nie pre koncového používateľa.
 
-**Stav pred týmto testom:** kód (backend renderer, endpointy, frontend tlačidlá) je hotový a nasadený od 2026-06-02. Chýbajúci write path pre `labelPrinting.mode` bol doplnený 2026-07-14 (commit `480586c`) a odtedy má appka aj bežný UI prepínač v Nastaveniach organizácie (commit `9261a99`) — žiadny Swagger už nie je potrebný, prepnutie módu popisuje krok 3 nižšie. Táto vec je teraz vyriešená, zvyšok tohto návodu je **prvý reálny test na hardvéri**, ktorý ešte nikdy neprebehol.
+**Stav pred týmto testom:** kód (backend renderer, endpointy, frontend tlačidlá) je hotový a nasadený od 2026-06-02. Chýbajúci write path pre `labelPrinting.mode` bol doplnený 2026-07-14 (commit `480586c`) a odtedy má appka aj bežný UI prepínač v Nastaveniach organizácie (commit `9261a99`) — žiadny Swagger už nie je potrebný, prepnutie módu popisuje krok 3 nižšie. PDF a Zebra tlačidlo sú od 2026-07-14 (commit `d96981b`) vždy zobrazené vedľa seba, nie jedno namiesto druhého. Táto vec je teraz vyriešená, zvyšok tohto návodu je **prvý reálny test na hardvéri**, ktorý ešte nikdy neprebehol.
 
 ---
 
@@ -49,16 +49,16 @@ Po pripojení znova skontroluj `http://localhost:9100/available.json` — ZD420 
    - **Rozlíšenie tlačovej hlavy (DPI)** — ZD420 = 203 dpi (default).
    - **Sýtosť tlače** — 0–30, default 20.
 4. Klikni **„Uložiť zmeny"** dole na stránke (spoločné tlačidlo pre celý formulár, nezávislé od aktívnej záložky). Zobrazí sa potvrdenie „Zmeny boli uložené.".
-5. Obnov stránku s majetkom (`app.inventario.estate`) — na detaile majetku (a pri dávkovej tlači zo zoznamu) by sa teraz malo objaviť tlačidlo **„Tlačiť na Zebra"** vedľa **„Tlačiť štítok (PDF)"**.
+5. Obnov stránku s majetkom (`app.inventario.estate`) — na detaile majetku (a pri dávkovej tlači zo zoznamu) by sa teraz mali objaviť OBE tlačidlá vedľa seba: **„Tlačiť štítok (Zebra)"** aj **„Tlačiť štítok (PDF)"**.
 
 > Pokročilé/diagnostika: rovnaké pole sa dá nastaviť aj priamo cez `PATCH /v1/organisations/current` v Swagger UI (`https://api.inventario.estate/docs`) — pole `labelPrinting` s tvarom `{ mode, pdfPreset, zplLabelWidthMm, zplLabelHeightMm, zplDpi, zplDarkness, finderText }`. Toto už ale bežne netreba, UI prepínač robí presne to isté.
 
 ## 4. Testovacia tlač
 
-1. Otvor ktorýkoľvek majetok → **Identifikácia** blok / hlavička → **Tlačiť na Zebra**.
+1. Otvor ktorýkoľvek majetok → **Identifikácia** blok / hlavička → tlačidlo **„Tlačiť štítok (Zebra)"** (vedľa neho je stále aj **„Tlačiť štítok (PDF)"**, ak by si potreboval rýchlo vytlačiť na bežnej tlačiarni).
 2. Appka pošle ZPL na `localhost:9100` agentovi, ktorý ho doručí na ZD420. Do ~2 sekúnd by mala vypadnúť tlač zo ZD420.
-3. Ak agent neodpovie do 2s, appka automaticky spadne na PDF fallback (uvidíš OS tlačový dialóg namiesto priamej tlače) — to je zámerné správanie, nie bug.
-4. Vyskúšaj aj dávkovú tlač zo zoznamu majetku (vyber viac položiek → **Tlačiť na Zebra** v hornej lište).
+3. Ak agent neodpovie do 2s, pri Zebra tlačidle sa zobrazí chybová správa — PDF tlačidlo je stále funkčné vedľa, žiadny extra krok netreba.
+4. Vyskúšaj aj dávkovú tlač zo zoznamu majetku (vyber viac položiek → tlačidlo **(Zebra)** v hornej lište, PDF split-tlačidlo s výberom Avery formátu je vedľa neho).
 
 ## 5. Čo skontrolovať na vytlačenom štítku
 
@@ -73,7 +73,7 @@ Toto je jadro testu — presne tie riziká, ktoré ADR-0027 označil ako neovere
 ## 6. Po teste
 
 - Ak niečo z checklistu zlyhalo, napíš mi presne čo (foto štítka pomôže) — doladíme šírku/výšku/DPI/sýtosť v Nastaveniach, žiadny kód sa meniť nemusí.
-- Ak chceš appku vrátiť do PDF režimu (napr. kým sa nedoladí), vypni prepínač v kroku 3 a znova ulož.
+- Ak chceš appku vrátiť do PDF režimu (napr. kým sa nedoladí), vypni prepínač v kroku 3 a znova ulož — Zebra tlačidlo zmizne, PDF tlačidlo ostane.
 
 ---
 
@@ -85,7 +85,7 @@ Agent nebeží. Skontroluj systémovú lištu / Task Manager, prípadne pretiahn
 **Tlačiareň sa neobjaví v `available.json`**
 USB: skontroluj driver a kábel. LAN: over IP adresu tlačiarne a že je v rovnakej sieti/VLAN ako PC s agentom.
 
-**Appka stále ponúka len PDF tlačidlo**
+**Zebra tlačidlo sa vôbec nezobrazuje (len PDF)**
 Skontroluj v Nastaveniach organizácie (záložka „QR kódy a štítky"), či je prepínač „Tlačiť štítky na Zebra termálnej tlačiarni (ZPL)" zapnutý a či si po zapnutí klikol „Uložiť zmeny". Ak si si istý, že je uložené, over aj priamo `GET /v1/organisations/current` cez Swagger — `labelPrinting.mode` musí byť `"ZEBRA_ZPL"`.
 
 **Tlač vypadne, ale je prázdna / len čiary**
