@@ -217,7 +217,7 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Blocker:** NIE pre pilot (env fallback drží SFZ login); rieši škálovanie na tenantov s vlastným Entra/IT
 - **Go-live (2026-06-04):** nasadzovanie do reálu — nová Azure app (platformová, multitenant), `User.Read` scope doplnený (fix 403 z Graph /me), openapi regen. Živý Microsoft login test prebieha. Session [`2026-06-04-microsoft-oauth-golive.md`](./sessions/2026-06-04-microsoft-oauth-golive.md)
 
-### 26. Login stránka nezohľadňuje povolené metódy prihlásenia organizácie (UX, nie bezpečnostná diera)
+### 26. Login stránka nezohľadňuje povolené metódy prihlásenia organizácie ✅ DONE (2026-07-15, Fáza 2 F8)
 
 - **Stav:** ✅ Fáza 1 DONE (2026-07-15) — riešené cez ADR-0035
   (`docs/decisions/0035-tenant-custom-domain-login.md`). Nový verejný
@@ -260,8 +260,11 @@ SPDX-License-Identifier: CC-BY-4.0
     `Origin` hlavičkou (nielen priame volanie resolvera) — overuje
     `Access-Control-Allow-Origin`/`-Credentials` hlavičky pre registrovanú
     aj neregistrovanú doménu, statický `CORS_ORIGINS` zoznam popri
-    dynamickom resolveri, aj preflight `OPTIONS`. **F8 ostáva otvorené**
-    (user-guide docs, zatvoriť TODO #26 úplne).
+    dynamickom resolveri, aj preflight `OPTIONS`. **F8 DONE (2026-07-15)** —
+    nový how-to návod `docs/user-guide/how-to/vlastna-domena-prihlasenie.md`
+    (predpoklady, kroky nastavenia domény v appke/DNS/aktivácia na našej
+    strane, možné problémy), doplnený do how-to indexu, ADR-0035 status
+    aktualizovaný na „Fáza 2 kompletná“. **TODO #26 týmto úplne uzavreté**.
 - **Pôvodný stav (predtým):** Otvorené (nahlásené Janikou 2026-07-15, zatiaľ len zaevidované — bez fixu)
 - **Kontext:** `/login` (`apps/web/src/components/LoginPage.tsx`) je jedna globálna, tenant-agnostická stránka — zobrazuje email/heslo, passkey, Google aj Microsoft tlačidlo vždy, bez ohľadu na to, že konkrétna organizácia (napr. SFZ) má cez `/settings/auth` nastavené `allowedAuthProviders: ['MICROSOFT']` (+ prípadne `entraTenantId`). Backend obmedzenie **reálne funguje** — zamietne login inou metódou až pri pokuse o prihlásenie (`email-auth.routes.ts:433`, `oauth.routes.ts:660-676`), takže nejde o bezpečnostnú dieru, len o zavádzajúce UI.
 - **Presne predpokladané v ADR-0031** — sekcia 4 „Ako sa pri logine zistí tenant" (backend má pripravený `?org=<slug>` hint na `login/:provider`, frontend ho ale nikde nepoužíva) a sekcia „Riziká": „Bez hintu spadne na platformovú app... Treba jasné UX."

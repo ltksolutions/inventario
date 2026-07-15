@@ -1,5 +1,36 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, deviate pokračovanie) — ADR-0035 Fáza 2: F8 docs — HOTOVÉ, Fáza 2 KOMPLETNÁ
+
+Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f8-docs.md`.
+
+Janika lokálne potvrdila F7 ("testy ok"). F8: nový how-to návod
+`docs/user-guide/how-to/vlastna-domena-prihlasenie.md` (predpoklady,
+kroky nastavenia domény v appke/DNS/aktivácia na našej strane, možné
+problémy), doplnený do how-to indexu, ADR-0035 status na „Fáza 2
+kompletná“. **TODO #26 úplne uzavreté.**
+
+Po overení F7 Janika poslala UX feedback (screenshoty z
+`majetok.futbalsfz.sk`) — ukázalo sa, že testovala **predchádzajúci
+(starší) production deploy**, nie F4–F7 (Vercel build bežal ešte ~51s
+po pushi F7 commitov, ona testovala v tomto okne). Content zo
+screenshotov („Vitajte späť“ s „Vytvoriť novú organizáciu“ a
+nefiltrované `/login`) zodpovedá starému `AuthGate`/`LoginScreen`
+správaniu (pred F4), nie novej `/tenant-login` stránke (F6) — overené
+cez Vercel MCP (`get_deployment` na najnovšom `production` deploymente:
+`githubCommitSha: 5c2db50...`, `readyState: READY`). Janike treba
+napovedať znova otestovať na aktuálnom deployi (hard refresh) skôr než
+sa rieši jej návrh na zlúčenie do jednej „welcome“ obrazovky s krátkym
+popisom služby — väčšina jej pripomienok (extra register button,
+nefiltrované metódy po kliku) by už mala byť vyriešená samotným F6, len
+chýba krátky popis služby na `/tenant-login` — to je menší návrh na
+zváženie, nie bug.
+
+**Otvorené:** čaká sa na Janikino retestovanie na aktuálnom deployi a
+rozhodnutie o malom UX doplnku (popis služby na `/tenant-login`).
+
+---
+
 ## Aktuálny stav (2026-07-15, ôsme pokračovanie) — ADR-0035 Fáza 2: F7 end-to-end testy F4–F6 — HOTOVÉ
 
 Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f7-testy.md`.
