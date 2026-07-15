@@ -249,8 +249,19 @@ SPDX-License-Identifier: CC-BY-4.0
   response (doplnené v F6, bezpečné — slug je verejný údaj). Po úspešnom
   prihlásení na vlastnej doméne vždy plná navigácia na
   `app.inventario.estate` (nikdy `router.push`) — appka sa pod cudzou
-  doménou nikdy priamo nevykreslí. **F7–F8 ostávajú otvorené** (end-to-end
-  testy F4–F6, user-guide docs).
+  doménou nikdy priamo nevykreslí. **F7 DONE (2026-07-15)** — prvé
+  frontend testy v tomto repo (`apps/web` nemalo predtým žiadnu vitest
+  infra, len placeholder `test` skript): nový `apps/web/vitest.config.ts`
+  - `apps/web/tests/unit/middleware.test.ts` (9 testov — kanonický host,
+    `.vercel.app` suffix, neregistrovaná doména 404, sieťová chyba fail
+    closed, rewrite na `/tenant-login` pre `/` aj `/tenant-login`, redirect
+    na `app.inventario.estate` pre iné cesty, 60s cache). Rozšírený
+    `dynamic-cors.test.ts` o end-to-end blok cez skutočný `app.inject` s
+    `Origin` hlavičkou (nielen priame volanie resolvera) — overuje
+    `Access-Control-Allow-Origin`/`-Credentials` hlavičky pre registrovanú
+    aj neregistrovanú doménu, statický `CORS_ORIGINS` zoznam popri
+    dynamickom resolveri, aj preflight `OPTIONS`. **F8 ostáva otvorené**
+    (user-guide docs, zatvoriť TODO #26 úplne).
 - **Pôvodný stav (predtým):** Otvorené (nahlásené Janikou 2026-07-15, zatiaľ len zaevidované — bez fixu)
 - **Kontext:** `/login` (`apps/web/src/components/LoginPage.tsx`) je jedna globálna, tenant-agnostická stránka — zobrazuje email/heslo, passkey, Google aj Microsoft tlačidlo vždy, bez ohľadu na to, že konkrétna organizácia (napr. SFZ) má cez `/settings/auth` nastavené `allowedAuthProviders: ['MICROSOFT']` (+ prípadne `entraTenantId`). Backend obmedzenie **reálne funguje** — zamietne login inou metódou až pri pokuse o prihlásenie (`email-auth.routes.ts:433`, `oauth.routes.ts:660-676`), takže nejde o bezpečnostnú dieru, len o zavádzajúce UI.
 - **Presne predpokladané v ADR-0031** — sekcia 4 „Ako sa pri logine zistí tenant" (backend má pripravený `?org=<slug>` hint na `login/:provider`, frontend ho ale nikde nepoužíva) a sekcia „Riziká": „Bez hintu spadne na platformovú app... Treba jasné UX."

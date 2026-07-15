@@ -1,5 +1,29 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, ôsme pokračovanie) — ADR-0035 Fáza 2: F7 end-to-end testy F4–F6 — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f7-testy.md`.
+
+Po overení F6 (Janika lokálne, all green) pokračovanie do F7. Objavené:
+`apps/web` nemalo žiadnu vitest infra (len placeholder `test` skript).
+Vyjasnené s Janikou (AskUserQuestion) — zvolila postaviť infra teraz.
+
+- ✅ **F7a** — `apps/web/vitest.config.ts` (nový), `vitest` devDependency
+  - `test`/`test:watch` skripty, `apps/web/tests/unit/middleware.test.ts`
+    (9 testov — host routing, cache, fail-closed).
+- ✅ **F7b** — `dynamic-cors.test.ts` rozšírený o end-to-end blok cez
+  skutočný `app.inject` s `Origin` hlavičkou (nielen priame volanie
+  resolvera) — CORS hlavičky, statický zoznam, preflight OPTIONS.
+
+`eslint`/`prettier` čisté. `tsc` na `apps/web` zlyháva na chýbajúcom
+`vitest` module (nová devDependency, žiadny `pnpm install` v sandboxe) —
+**očakávané**, Janika musí najprv `pnpm install`.
+
+**Otvorené:** F8 (user-guide docs, zatvoriť TODO #26). Čaká na Janikino
+potvrdenie po `pnpm install` + otestovaní F7.
+
+---
+
 ## Aktuálny stav (2026-07-15, siedme pokračovanie) — ADR-0035 Fáza 2: F6 /tenant-login stránka — HOTOVÉ
 
 Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f6-tenant-login.md`.

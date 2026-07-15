@@ -105,4 +105,59 @@ describe('createDynamicCorsOrigin (ADR-0035 F4)', () => {
     expect(first).toBe(true);
     expect(second).toBe(true);
   });
+
+  // ---------------------------------------------------------------------
+  // ADR-0035 F7b — end-to-end cez skutočný `app.inject` s Origin
+  // hlavičkou (nie priamo volanie resolvera ako testy vyššie). Overuje,
+  // že `@fastify/cors` (server.ts) skutočne používa
+  // `createDynamicCorsOrigin` v reg. CORS pluginu a nastavuje správne
+  // response hlavičky (`Access-Control-Allow-Origin`/`-Credentials`),
+  // nielen že samotná funkcia vracia správny boolean.
+  // ---------------------------------------------------------------------
+  describe('end-to-end cez app.inject (server.ts CORS registrácia)', () => {
+    it('registrovaná vlastná doména dostane Access-Control-Allow-Origin + credentials', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/public/organisations/login-context?domain=${customDomain}`,
+        headers: { origin: `https://${customDomain}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe(`https://${customDomain}`);
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+    });
+
+    it('neregistrovaná doména nedostane Access-Control-Allow-Origin hlavičku', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/public/organisations/login-context?slug=neexistuje-f7b',
+        headers: { origin: 'https://neregistrovana-f7b.example.sk' },
+      });
+
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
+    it('statický CORS_ORIGINS zoznam (default http://localhost:3001) funguje nezmenene popri dynamickom resolveri', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/public/organisations/login-context?domain=${customDomain}`,
+        headers: { origin: 'http://localhost:3001' },
+      });
+
+      expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3001');
+    });
+
+    it('preflight OPTIONS pre registrovanú vlastnú doménu prejde s korektnými CORS hlavičkami', async () => {
+      const res = await app.inject({
+        method: 'OPTIONS',
+        url: '/v1/public/organisations/login-context',
+        headers: {
+          origin: `https://${customDomain}`,
+          'access-control-request-method': 'GET',
+        },
+      });
+
+      expect(res.headers['access-control-allow-origin']).toBe(`https://${customDomain}`);
+    });
+  });
 });

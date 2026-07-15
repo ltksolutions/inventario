@@ -14,7 +14,8 @@
     "lint": "eslint src --max-warnings 0",
     "pretypecheck": "pnpm generate:api-types",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'TODO: vitest + react-testing-library' && exit 0",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
     "generate:api-types": "openapi-typescript ../api/openapi.json -o src/lib/api-types.ts",
     "clean": "rm -rf .next .turbo *.tsbuildinfo"
   },
@@ -43,7 +44,8 @@
     "openapi-typescript": "^7.4.4",
     "postcss": "^8.5.19",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
   },
   "engines": {
     "node": "24.x"
