@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, JSX } from 'react';
 
 import { useAuth } from '@/lib/auth-context';
+import { buildBrandStyle } from '@/lib/BrandProvider';
 import {
   authenticateWithPasskey,
   isConditionalUISupported,
@@ -27,7 +28,27 @@ const ERROR_MESSAGES: Record<string, string> = {
   account_exists: 'Tento účet je už zaregistrovaný cez iného poskytovateľa.',
   invalid_verification_token: 'Neplatný overovací odkaz.',
   verification_token_expired: 'Overovací odkaz vypršal. Zaregistrujte sa znova.',
+  // ADR-0035 F2 — organizácia má obmedzené povolené metódy prihlásenia
+  // (napr. len Microsoft) a použitá metóda/adresár nie je medzi povolenými.
+  provider_not_allowed: 'Vaša organizácia nepovoľuje túto metódu prihlásenia.',
+  entra_tenant_mismatch: 'Prihlásili ste sa cez nesprávny Microsoft adresár pre svoju organizáciu.',
 };
+
+/** Odpoveď GET /v1/public/organisations/login-context (ADR-0035 F1). */
+interface LoginContext {
+  displayName: string;
+  logoUrl: string | null;
+  brandColors: {
+    primary: string | null;
+    primaryFg: string | null;
+    accent: string | null;
+    accentFg: string | null;
+  } | null;
+  allowedAuthProviders: string[];
+  hasEntraRestriction: boolean;
+}
+
+const LOGIN_CONTEXT_STYLE_ID = 'inv-login-context-brand';
 
 /**
  * /login page — Slice #6b K12.
@@ -47,6 +68,9 @@ export function LoginPage(): JSX.Element {
   const verified = params.get('verified') === 'true';
   const passwordReset = params.get('passwordReset') === 'true';
   const nextUrl = params.get('next') ?? '';
+  // ADR-0035 F2 — org hint z URL (?org=<slug>). Bez neho sa stránka spáva
+  // presne ako doteraz (všetky metódy, generé Inventario branding).
+  const orgSlug = params.get('org') ?? '';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,7 +79,81 @@ export function LoginPage(): JSX.Element {
   const [formError, setFormError] = useState('');
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [loginContext, setLoginContext] = useState<LoginContext | null>(null);
   const conditionalAbortRef = useRef<AbortController | null>(null);
+
+  // Načítaj org-aware login-context, ak URL nesie ?org= hint. Zlyhanie
+  // (404/sieť) sa ticho ignoruje — stránka ostane pri bezpečnom default
+  // stave (všetky metódy zobrazené), nikdy nikoho nevyzamkáva.
+  useEffect(() => {
+    if (!orgSlug) {
+      setLoginContext(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/v1/public/organisations/login-context?slug=${encodeURIComponent(orgSlug)}`,
+        );
+        if (!res.ok) return;
+        const body = (await res.json()) as LoginContext;
+        if (!cancelled) setLoginContext(body);
+      } catch {
+        // Sieťová chyba — ticho ignorovať, fallback na všetky metódy.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orgSlug]);
+
+  // Ak org-context nesie brand farby, vlož rovnaký `:root[data-tenant=...]`
+  // override ako BrandProvider (ADR-0028) — existujúce bg-brand-primary/
+  // text-brand-primary-fg triedy na stránke tak automaticky použijú farby
+  // organizácie namiesto Inventario default.
+  useEffect(() => {
+    const root = document.documentElement;
+
+    if (!loginContext?.brandColors) {
+      root.removeAttribute('data-tenant');
+      const existing = document.getElementById(LOGIN_CONTEXT_STYLE_ID);
+      if (existing) existing.textContent = '';
+      return;
+    }
+
+    const css = buildBrandStyle(orgSlug, {
+      ...loginContext.brandColors,
+      logoDot: null,
+      fontFamilySans: null,
+    });
+    root.setAttribute('data-tenant', orgSlug);
+
+    let styleEl = document.getElementById(LOGIN_CONTEXT_STYLE_ID) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = LOGIN_CONTEXT_STYLE_ID;
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = css;
+
+    return () => {
+      root.removeAttribute('data-tenant');
+      const existing = document.getElementById(LOGIN_CONTEXT_STYLE_ID);
+      if (existing) existing.textContent = '';
+    };
+  }, [loginContext, orgSlug]);
+
+  // Filtrovanie tlačidiel/formulára podľa allowedAuthProviders. Bez
+  // načítaného org-contextu (žiadne ?org= alebo zlyhanie fetchu) sa všetko
+  // zobrazí presne ako doteraz — bezpečný default, žiadna regresia.
+  const showEmail = !loginContext || loginContext.allowedAuthProviders.includes('EMAIL');
+  const showGoogle = !loginContext || loginContext.allowedAuthProviders.includes('GOOGLE');
+  const showMicrosoft = !loginContext || loginContext.allowedAuthProviders.includes('MICROSOFT');
+  const showSso = showGoogle || showMicrosoft;
 
   // Detect passkey support + start conditional UI on mount
   useEffect(() => {
@@ -165,7 +263,10 @@ export function LoginPage(): JSX.Element {
       // Pre SSO login presmerujeme prehliadač priamo na backend endpoint.
       // GET /v1/auth/login/:provider redirectuje na OAuth provider (Google/Microsoft).
       // Callback spracuje autentifikáciu a presmeruje späť na frontend.
-      window.location.href = `${API_BASE}/v1/auth/login/${provider}`;
+      // ?org= hint (ADR-0031 E4) — ak poznáme organizáciu, posunieme ju ďalej,
+      // aby sa použili jej per-tenant OAuth credentials (ak sú nastavené).
+      const orgQuery = orgSlug ? `?org=${encodeURIComponent(orgSlug)}` : '';
+      window.location.href = `${API_BASE}/v1/auth/login/${provider}${orgQuery}`;
     } catch {
       setFormError('Sieťová chyba. Skúste znova.');
       setSsoLoading(null);
@@ -176,10 +277,21 @@ export function LoginPage(): JSX.Element {
     <main id="main" className="flex min-h-screen items-center justify-center bg-surface-page px-4">
       <div className="w-full max-w-sm">
         <div className="rounded-xl border border-border-subtle bg-surface-card p-8 shadow-md">
-          {/* Logo */}
+          {/* Logo — org branding (ADR-0035 F2) ak poznáme organizáciu s logom,
+              inak generé Inventario branding presne ako doteraz. */}
           <div className="mb-6 flex items-center gap-2 text-brand-primary">
-            <Layers aria-hidden="true" className="h-7 w-7" />
-            <span className="text-xl font-bold">Inventario</span>
+            {loginContext?.logoUrl ? (
+              // Bezné <img>, nie next/image — externé per-tenant URL nie je
+              // v next/image domains allowliste (rovnaký vzor ako AppShell logo).
+              <img
+                src={loginContext.logoUrl}
+                alt={loginContext.displayName}
+                className="h-7 w-auto"
+              />
+            ) : (
+              <Layers aria-hidden="true" className="h-7 w-7" />
+            )}
+            <span className="text-xl font-bold">{loginContext?.displayName ?? 'Inventario'}</span>
           </div>
 
           <h1 className="text-lg font-semibold text-text-primary">Prihlásenie</h1>
@@ -206,58 +318,61 @@ export function LoginPage(): JSX.Element {
             </div>
           )}
 
-          {/* Email form */}
-          <form onSubmit={(e) => void handleEmailLogin(e)} className="mt-5 space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text-primary">
-                E-mail
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                placeholder="vas@email.sk"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text-primary">
-                Heslo
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                placeholder="••••••••••••"
-              />
-              <div className="mt-1 text-right">
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-text-muted hover:text-text-primary"
-                >
-                  Zabudli ste heslo?
-                </Link>
+          {/* Email form — skryté ak organizácia (ADR-0035 F2) nepovoľuje EMAIL */}
+          {showEmail && (
+            <form onSubmit={(e) => void handleEmailLogin(e)} className="mt-5 space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-text-primary">
+                  E-mail
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                  placeholder="vas@email.sk"
+                />
               </div>
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
-              Prihlásiť sa
-            </button>
-          </form>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-text-primary">
+                  Heslo
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                  placeholder="••••••••••••"
+                />
+                <div className="mt-1 text-right">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-text-muted hover:text-text-primary"
+                  >
+                    Zabudli ste heslo?
+                  </Link>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+                Prihlásiť sa
+              </button>
+            </form>
+          )}
 
-          {/* Passkey button — zobrazí sa len ak browser podporuje */}
-          {passkeySupported && (
+          {/* Passkey button — zobrazí sa len ak browser podporuje A organizácia
+              povoľuje EMAIL (passkey je alternatíva k heslu pre LOCAL účty) */}
+          {passkeySupported && showEmail && (
             <button
               type="button"
               onClick={() => void handlePasskeyLogin()}
@@ -273,28 +388,37 @@ export function LoginPage(): JSX.Element {
             </button>
           )}
 
-          {/* Divider */}
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border-subtle" />
-            <span className="text-xs text-text-muted">alebo</span>
-            <div className="h-px flex-1 bg-border-subtle" />
-          </div>
+          {/* Divider — zobrazený len ak je aspoň jedna SSO možnosť aj níejšie
+              niečo iné (email/passkey) nad ním; bez ?org= vzdy true. */}
+          {showSso && (showEmail || passkeySupported) && (
+            <div className="my-5 flex items-center gap-3">
+              <div className="h-px flex-1 bg-border-subtle" />
+              <span className="text-xs text-text-muted">alebo</span>
+              <div className="h-px flex-1 bg-border-subtle" />
+            </div>
+          )}
 
-          {/* SSO buttons */}
-          <div className="space-y-3">
-            <SsoButton
-              provider="google"
-              label="Pokračovať s Google"
-              loading={ssoLoading === 'google'}
-              onClick={() => void handleSso('google')}
-            />
-            <SsoButton
-              provider="microsoft"
-              label="Pokračovať s Microsoft"
-              loading={ssoLoading === 'microsoft'}
-              onClick={() => void handleSso('microsoft')}
-            />
-          </div>
+          {/* SSO buttons — filtrované podľa allowedAuthProviders (ADR-0035 F2) */}
+          {showSso && (
+            <div className="space-y-3">
+              {showGoogle && (
+                <SsoButton
+                  provider="google"
+                  label="Pokračovať s Google"
+                  loading={ssoLoading === 'google'}
+                  onClick={() => void handleSso('google')}
+                />
+              )}
+              {showMicrosoft && (
+                <SsoButton
+                  provider="microsoft"
+                  label="Pokračovať s Microsoft"
+                  loading={ssoLoading === 'microsoft'}
+                  onClick={() => void handleSso('microsoft')}
+                />
+              )}
+            </div>
+          )}
 
           {/* Register link */}
           <p className="mt-6 text-center text-xs text-text-muted">

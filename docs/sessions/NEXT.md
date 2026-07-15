@@ -1,5 +1,29 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, štvrté pokračovanie) — ADR-0035 Fáza 1: org-aware /login — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-15-adr-0035-faza-1-org-aware-login.md`.
+
+Janika navrhla mikro-stránku prihlásenia na vlastnej doméne organizácie
+(napr. `majetok.futbalsfz.sk`). Spísané ako
+`docs/decisions/0035-tenant-custom-domain-login.md` (dvojfázový plán),
+po schválení ("poďme do toho") implementovaná Fáza 1 (F1–F3):
+
+- ✅ **F1** — nový verejný endpoint `GET /v1/public/organisations/login-context`
+  (slug alebo domain, whitelist poli, rate-limited, no-oracle 404).
+- ✅ **F2** — `LoginPage.tsx` číta `?org=<slug>`, filtruje metódy podľa
+  `allowedAuthProviders`, zobrazí branding organizácie (logo + farby cez
+  existujúci `buildBrandStyle`, ADR-0028). Bez `?org=` žiadna regresia.
+- ✅ **F3** — integračné testy pre F1 (happy path, validation, privacy).
+
+`tsc`/`eslint`/`prettier` čisté. `vitest` v sandboxe nedá spustiť (známy
+limit) — Janika spustí lokálne.
+
+**Otvorené:** Fáza 2 (ADR-0035 F4–F8) — vlastná doména, host-aware
+middleware, dynamický CORS. Nezačaté, čaká na ďalšiu session.
+
+---
+
 ## Aktuálny stav (2026-07-15, tretie pokračovanie) — login stránka ignoruje allowedAuthProviders — ZAEVIDOVANÉ (bez fixu)
 
 Janika nahlásila: nastavila pre organizáciu „Slovenský futbalový zväz“ len

@@ -55,6 +55,7 @@ import loansRoutes from './modules/loans/loans.routes.js';
 import locationsRoutes from './modules/locations/locations.routes.js';
 import membershipsRoutes from './modules/memberships/memberships.routes.js';
 import organisationsRoutes from './modules/organisations/organisations.routes.js';
+import publicLoginContextRoutes from './modules/organisations/public-login-context.routes.js';
 import protocolsRoutes from './modules/protocols/protocols.routes.js';
 import stockRoutes from './modules/stock/stock.routes.js';
 import migrationsRoutes from './modules/system/migrations.routes.js';
@@ -193,6 +194,7 @@ export async function buildServer(
   // organisationsService decorator is available to the auth middleware
   // when loadCurrentUser resolves the tenant from the JWT tid claim.
   await app.register(organisationsRoutes);
+  await app.register(publicLoginContextRoutes);
   await app.register(usersRoutes);
   await app.register(assetsRoutes);
   await app.register(auditRoutes);

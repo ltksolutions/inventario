@@ -1509,6 +1509,151 @@
         }
       }
     },
+    "/v1/public/organisations/login-context": {
+      "get": {
+        "summary": "Verejný login-context organizácie podľa slugu alebo vlastnej domény (ADR-0035)",
+        "tags": [
+          "Public"
+        ],
+        "description": "Bez autentifikácie. Vracia len neškodné dáta (branding + povolené spôsoby prihlásenia) potrebné na to, aby /login mohol zobraziť správne tlačidlá pre danú organizáciu. Presne jeden z query parametrov (slug/domain) musí byť zadaný.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "in": "query",
+            "name": "slug",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "domain",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "logoUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "nullable": true
+                    },
+                    "brandColors": {
+                      "type": "object",
+                      "properties": {
+                        "primary": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$",
+                          "description": "Hex farba #RRGGBB",
+                          "nullable": true
+                        },
+                        "primaryFg": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$",
+                          "description": "Hex farba #RRGGBB",
+                          "nullable": true
+                        },
+                        "accent": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$",
+                          "description": "Hex farba #RRGGBB",
+                          "nullable": true
+                        },
+                        "accentFg": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$",
+                          "description": "Hex farba #RRGGBB",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "primary",
+                        "primaryFg",
+                        "accent",
+                        "accentFg"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "allowedAuthProviders": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "hasEntraRestriction": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "displayName",
+                    "logoUrl",
+                    "brandColors",
+                    "allowedAuthProviders",
+                    "hasEntraRestriction"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "summary": "Get the currently authenticated user",
