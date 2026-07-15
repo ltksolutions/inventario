@@ -1,9 +1,23 @@
 // SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 // SPDX-License-Identifier: EUPL-1.2
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+
+  // Diagnostika (2026-07-15): Edge Middleware (middleware.ts, ADR-0035 F4)
+  // má na Verceli 0 invocations aj s triviálnym kódom — build log nikdy
+  // nevypísal `ƒ Middleware`. Vercel+Turborepo návody odporúčajú explicitne
+  // nastaviť outputFileTracingRoot na koreň monorepa, inak môže file
+  // tracing v subfolder Root Directory (`apps/web`) zlyhať ticho. Skúska,
+  // či toto middleware detection opraví.
+  outputFileTracingRoot: path.join(__dirname, '../../'),
 
   // Workspace packages ship as ESM source — Next must transpile them so
   // browser bundles work. shared-types is pure TS interfaces (no runtime
