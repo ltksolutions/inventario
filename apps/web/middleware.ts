@@ -88,26 +88,18 @@ async function isRegisteredTenantDomain(hostname: string): Promise<boolean> {
   }
 }
 
-// DOČASNÉ (diagnostika, odstrániť po overení) — potvrdzuje, či Next/Vercel
-// vôbec zavolá tento middleware v produkcii. Bez tohto hlavička sa v žiadnej
-// odpovedi nikdy neobjaví, čo je jediný spôsob, ako to zvonku overiť.
-function withDebugHeader(response: NextResponse, host: string, branch: string): NextResponse {
-  response.headers.set('x-debug-middleware', `${branch}:${host}`);
-  return response;
-}
-
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const host = request.headers.get('host') ?? '';
 
   if (isCanonicalHost(host)) {
-    return withDebugHeader(NextResponse.next(), host, 'canonical');
+    return NextResponse.next();
   }
 
   const hostname = host.split(':')[0] ?? host;
   const registered = await isRegisteredTenantDomain(hostname);
 
   if (!registered) {
-    return withDebugHeader(new NextResponse(null, { status: 404 }), host, 'not-registered');
+    return new NextResponse(null, { status: 404 });
   }
 
   const { pathname, search } = request.nextUrl;
@@ -116,14 +108,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const url = request.nextUrl.clone();
     url.pathname = '/tenant-login';
     url.searchParams.set('domain', hostname);
-    return withDebugHeader(NextResponse.rewrite(url), host, 'rewrite-tenant-login');
+    return NextResponse.rewrite(url);
   }
 
-  return withDebugHeader(
-    NextResponse.redirect(`${CANONICAL_APP_URL}${pathname}${search}`, 307),
-    host,
-    'redirect-canonical',
-  );
+  return NextResponse.redirect(`${CANONICAL_APP_URL}${pathname}${search}`, 307);
 }
 
 export const config = {
