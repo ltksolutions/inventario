@@ -375,11 +375,11 @@ const UpdateOwnOrganisationBodySchema = z
     customDomain: z
       .string()
       .max(253)
+      .toLowerCase()
       .regex(
         /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/,
         'Custom doména musí byť platné FQDN, lowercase, bez protokolu a cesty (napr. majetok.sfz.sk).',
       )
-      .toLowerCase()
       .nullable(),
     // ADR-0031 E5: per-tenant Microsoft OAuth credentials (write path)
     // clientSecret je plaintext — service ho zašifruje pred uložením.
