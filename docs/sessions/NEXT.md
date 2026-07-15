@@ -1,5 +1,30 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, tretie pokračovanie) — login stránka ignoruje allowedAuthProviders — ZAEVIDOVANÉ (bez fixu)
+
+Janika nahlásila: nastavila pre organizáciu „Slovenský futbalový zväz“ len
+Microsoft prihlásenie (`/settings/auth`), ale `/login` aj tak zobrazuje
+všetky ostatné možnosti (email/heslo, Google, passkey).
+
+Diagnostika (bez zásahu do kódu, len prieskum): `/login`
+(`LoginPage.tsx`) je jedna globálna, tenant-agnostická stránka — nevie,
+ku ktorej organizácii prihlasujúci sa užívateľ patrí, takže zobrazí všetko.
+Backend gate (`email-auth.routes.ts:433`, `oauth.routes.ts:660-676`) reálne
+zamietne nepovolenú metódu pri pokuse o prihlásenie — nejde teda o
+bezpečnostnú dieru, len o zavádzajúce UI. Presne toto riziko predpokladá
+ADR-0031 (sekcia 4 + „Riziká“) — backend má pripravený `?org=<slug>` hint,
+frontend ho ale nikde nepoužíva.
+
+Janika skúšala len plain `/login`, videla nesprávne tlačidlá, neklikala
+na ne — rozhodla sa zatiaľ **len zaevidovať ako známy problém**, nie riešiť
+teraz. Zapísané do `docs/TODO.md` položka #26 (P2, s možnými riešeniami
+z ADR-0031: `?org=` hint / email-first / subdoména).
+
+**Otvorené:** bez zmeny kódu, čaká na rozhodnutie, kedy sa tým riadkom
+zaoberať (nie blocker pre pilot).
+
+---
+
 ## Aktuálny stav (2026-07-15, pokračovanie) — cleanup „Osoby" + oprava CI — HOTOVÉ
 
 Session log: `docs/sessions/2026-07-15-cleanup-osoby-a-ci-fix.md`.
