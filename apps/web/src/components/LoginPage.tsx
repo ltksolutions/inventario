@@ -3,52 +3,13 @@
 
 'use client';
 
-import { Layers, Loader2 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
 
-import type { FormEvent, JSX } from 'react';
+import type { JSX } from 'react';
 
-import { useAuth } from '@/lib/auth-context';
-import { buildBrandStyle } from '@/lib/BrandProvider';
-import {
-  authenticateWithPasskey,
-  isConditionalUISupported,
-  isPasskeysSupported,
-  webauthnErrorMessage,
-} from '@/lib/webauthn';
-
-const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3000';
-
-const ERROR_MESSAGES: Record<string, string> = {
-  oauth_failed: 'Prihlásenie cez SSO zlyhalo. Skúste znova.',
-  access_denied: 'Prístup bol zamietnutý.',
-  invalid_state: 'Neplatná session. Skúste sa prihlásiť znova.',
-  account_exists: 'Tento účet je už zaregistrovaný cez iného poskytovateľa.',
-  invalid_verification_token: 'Neplatný overovací odkaz.',
-  verification_token_expired: 'Overovací odkaz vypršal. Zaregistrujte sa znova.',
-  // ADR-0035 F2 — organizácia má obmedzené povolené metódy prihlásenia
-  // (napr. len Microsoft) a použitá metóda/adresár nie je medzi povolenými.
-  provider_not_allowed: 'Vaša organizácia nepovoľuje túto metódu prihlásenia.',
-  entra_tenant_mismatch: 'Prihlásili ste sa cez nesprávny Microsoft adresár pre svoju organizáciu.',
-};
-
-/** Odpoveď GET /v1/public/organisations/login-context (ADR-0035 F1). */
-interface LoginContext {
-  displayName: string;
-  logoUrl: string | null;
-  brandColors: {
-    primary: string | null;
-    primaryFg: string | null;
-    accent: string | null;
-    accentFg: string | null;
-  } | null;
-  allowedAuthProviders: string[];
-  hasEntraRestriction: boolean;
-}
-
-const LOGIN_CONTEXT_STYLE_ID = 'inv-login-context-brand';
+import { OrgAwareLoginForm } from '@/components/OrgAwareLoginForm';
+import { LOGIN_ERROR_MESSAGES } from '@/lib/loginErrorMessages';
+import { useOrgAwareLogin } from '@/lib/useOrgAwareLogin';
 
 /**
  * /login page — Slice #6b K12.
@@ -58,11 +19,15 @@ const LOGIN_CONTEXT_STYLE_ID = 'inv-login-context-brand';
  *   - SSO Google / Microsoft (POST /v1/auth/register → redirect authUrl)
  *   - ?error=  banner z OAuth callbackov
  *   - ?verified=true banner po potvrdení e-mailu
+ *   - ?org=<slug> org-aware branding/filtrovanie (ADR-0035 F2)
+ *
+ * Branding/filtrovanie/auth logika je od ADR-0035 F6 zdieľaná s
+ * `/tenant-login` cez `useOrgAwareLogin` hook + `OrgAwareLoginForm`
+ * komponentu — táto stránka je už len tenký wrapper nad nimi.
  */
 export function LoginPage(): JSX.Element {
   const router = useRouter();
   const params = useSearchParams();
-  const { refresh } = useAuth();
 
   const errorKey = params.get('error') ?? '';
   const verified = params.get('verified') === 'true';
@@ -72,231 +37,18 @@ export function LoginPage(): JSX.Element {
   // presne ako doteraz (všetky metódy, generé Inventario branding).
   const orgSlug = params.get('org') ?? '';
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [ssoLoading, setSsoLoading] = useState<'google' | 'microsoft' | null>(null);
-  const [formError, setFormError] = useState('');
-  const [passkeySupported, setPasskeySupported] = useState(false);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
-  const [loginContext, setLoginContext] = useState<LoginContext | null>(null);
-  const conditionalAbortRef = useRef<AbortController | null>(null);
-
-  // Načítaj org-aware login-context, ak URL nesie ?org= hint. Zlyhanie
-  // (404/sieť) sa ticho ignoruje — stránka ostane pri bezpečnom default
-  // stave (všetky metódy zobrazené), nikdy nikoho nevyzamkáva.
-  useEffect(() => {
-    if (!orgSlug) {
-      setLoginContext(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/v1/public/organisations/login-context?slug=${encodeURIComponent(orgSlug)}`,
-        );
-        if (!res.ok) return;
-        const body = (await res.json()) as LoginContext;
-        if (!cancelled) setLoginContext(body);
-      } catch {
-        // Sieťová chyba — ticho ignorovať, fallback na všetky metódy.
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [orgSlug]);
-
-  // Ak org-context nesie brand farby, vlož rovnaký `:root[data-tenant=...]`
-  // override ako BrandProvider (ADR-0028) — existujúce bg-brand-primary/
-  // text-brand-primary-fg triedy na stránke tak automaticky použijú farby
-  // organizácie namiesto Inventario default.
-  useEffect(() => {
-    const root = document.documentElement;
-
-    if (!loginContext?.brandColors) {
-      root.removeAttribute('data-tenant');
-      const existing = document.getElementById(LOGIN_CONTEXT_STYLE_ID);
-      if (existing) existing.textContent = '';
-      return;
-    }
-
-    const css = buildBrandStyle(orgSlug, {
-      ...loginContext.brandColors,
-      logoDot: null,
-      fontFamilySans: null,
-    });
-    root.setAttribute('data-tenant', orgSlug);
-
-    let styleEl = document.getElementById(LOGIN_CONTEXT_STYLE_ID) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = LOGIN_CONTEXT_STYLE_ID;
-      document.head.appendChild(styleEl);
-    }
-    styleEl.textContent = css;
-
-    return () => {
-      root.removeAttribute('data-tenant');
-      const existing = document.getElementById(LOGIN_CONTEXT_STYLE_ID);
-      if (existing) existing.textContent = '';
-    };
-  }, [loginContext, orgSlug]);
-
-  // Filtrovanie tlačidiel/formulára podľa allowedAuthProviders. Bez
-  // načítaného org-contextu (žiadne ?org= alebo zlyhanie fetchu) sa všetko
-  // zobrazí presne ako doteraz — bezpečný default, žiadna regresia.
-  const showEmail = !loginContext || loginContext.allowedAuthProviders.includes('EMAIL');
-  const showGoogle = !loginContext || loginContext.allowedAuthProviders.includes('GOOGLE');
-  const showMicrosoft = !loginContext || loginContext.allowedAuthProviders.includes('MICROSOFT');
-  const showSso = showGoogle || showMicrosoft;
-
-  // Detect passkey support + start conditional UI on mount
-  useEffect(() => {
-    if (!isPasskeysSupported()) return;
-    setPasskeySupported(true);
-
-    void (async () => {
-      const conditionalOk = await isConditionalUISupported();
-      if (!conditionalOk) return;
-      // Start conditional (autofill) flow in background
-      const controller = new AbortController();
-      conditionalAbortRef.current = controller;
-      try {
-        await authenticateWithPasskey(undefined, 'conditional');
-        await refresh();
-        router.push('/');
-      } catch {
-        // Silently ignore — user chose password or cancelled
-      }
-    })();
-
-    return () => {
-      conditionalAbortRef.current?.abort();
-    };
-  }, [router]);
-
-  const handleEmailLogin = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-    setFormError('');
-    setSubmitting(true);
-
-    try {
-      const res = await fetch(`${API_BASE}/v1/auth/login/email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (res.ok) {
-        await refresh();
-        router.push(nextUrl || '/');
-        return;
-      }
-
-      // MFA required
-      if (res.status === 202) {
-        const body = (await res.json()) as {
-          mfaRequired?: boolean;
-          mfaSetupRequired?: boolean;
-          mfaSessionToken?: string;
-          mfaSetupToken?: string;
-        };
-        if (body.mfaRequired && body.mfaSessionToken) {
-          sessionStorage.setItem('mfa_session_token', body.mfaSessionToken);
-          window.location.href = '/login/mfa';
-          return;
-        }
-        if (body.mfaSetupRequired && body.mfaSetupToken) {
-          sessionStorage.setItem('mfa_setup_token', body.mfaSetupToken);
-          window.location.href = '/login/mfa-setup';
-          return;
-        }
-      }
-
-      const body = (await res.json()) as { message?: string };
-      const msg = body.message ?? '';
-
-      // Špeciálny prípad: user nemá membership (čaká na pozvánku)
-      // ale next= smeruje na accept-invite — presmeruj tam priamo
-      if (
-        (res.status === 401 || res.status === 403) &&
-        msg.toLowerCase().includes('organizácia') &&
-        nextUrl.includes('/accept-invite')
-      ) {
-        window.location.href = nextUrl;
-        return;
-      }
-
-      setFormError(msg || 'Nesprávny e-mail alebo heslo.');
-    } catch {
-      setFormError('Sieťová chyba. Skúste znova.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handlePasskeyLogin = async (): Promise<void> => {
-    setFormError('');
-    setPasskeyLoading(true);
-    try {
-      await authenticateWithPasskey(email || undefined);
-      await refresh();
-      router.push('/');
-    } catch (err) {
-      setFormError(webauthnErrorMessage(err));
-    } finally {
-      setPasskeyLoading(false);
-    }
-  };
-
-  const handleSso = async (provider: 'google' | 'microsoft'): Promise<void> => {
-    setSsoLoading(provider);
-    setFormError('');
-
-    try {
-      // Pre SSO login presmerujeme prehliadač priamo na backend endpoint.
-      // GET /v1/auth/login/:provider redirectuje na OAuth provider (Google/Microsoft).
-      // Callback spracuje autentifikáciu a presmeruje späť na frontend.
-      // ?org= hint (ADR-0031 E4) — ak poznáme organizáciu, posunieme ju ďalej,
-      // aby sa použili jej per-tenant OAuth credentials (ak sú nastavené).
-      const orgQuery = orgSlug ? `?org=${encodeURIComponent(orgSlug)}` : '';
-      window.location.href = `${API_BASE}/v1/auth/login/${provider}${orgQuery}`;
-    } catch {
-      setFormError('Sieťová chyba. Skúste znova.');
-      setSsoLoading(null);
-    }
-  };
+  const login = useOrgAwareLogin({
+    orgHint: orgSlug ? { kind: 'slug', value: orgSlug } : null,
+    // Same-origin SPA navigácia — /login je vždy na canonical appke.
+    redirectAfterLogin: (path) => router.push(path),
+    nextUrl,
+  });
 
   return (
-    <main id="main" className="flex min-h-screen items-center justify-center bg-surface-page px-4">
-      <div className="w-full max-w-sm">
-        <div className="rounded-xl border border-border-subtle bg-surface-card p-8 shadow-md">
-          {/* Logo — org branding (ADR-0035 F2) ak poznáme organizáciu s logom,
-              inak generé Inventario branding presne ako doteraz. */}
-          <div className="mb-6 flex items-center gap-2 text-brand-primary">
-            {loginContext?.logoUrl ? (
-              // Bezné <img>, nie next/image — externé per-tenant URL nie je
-              // v next/image domains allowliste (rovnaký vzor ako AppShell logo).
-              <img
-                src={loginContext.logoUrl}
-                alt={loginContext.displayName}
-                className="h-7 w-auto"
-              />
-            ) : (
-              <Layers aria-hidden="true" className="h-7 w-7" />
-            )}
-            <span className="text-xl font-bold">{loginContext?.displayName ?? 'Inventario'}</span>
-          </div>
-
-          <h1 className="text-lg font-semibold text-text-primary">Prihlásenie</h1>
-
-          {/* Banners */}
+    <OrgAwareLoginForm
+      login={login}
+      banners={
+        <>
           {verified && (
             <div className="mt-3 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
               E-mail bol potvrdený. Môžete sa prihlásiť.
@@ -309,203 +61,11 @@ export function LoginPage(): JSX.Element {
           )}
           {errorKey && (
             <div className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">
-              {ERROR_MESSAGES[errorKey] ?? 'Nastala chyba. Skúste znova.'}
+              {LOGIN_ERROR_MESSAGES[errorKey] ?? 'Nastala chyba. Skúste znova.'}
             </div>
           )}
-          {formError && (
-            <div className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">
-              {formError}
-            </div>
-          )}
-
-          {/* Email form — skryté ak organizácia (ADR-0035 F2) nepovoľuje EMAIL */}
-          {showEmail && (
-            <form onSubmit={(e) => void handleEmailLogin(e)} className="mt-5 space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-text-primary">
-                  E-mail
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                  placeholder="vas@email.sk"
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-text-primary">
-                  Heslo
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                  placeholder="••••••••••••"
-                />
-                <div className="mt-1 text-right">
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-text-muted hover:text-text-primary"
-                  >
-                    Zabudli ste heslo?
-                  </Link>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-brand-primary-fg shadow-sm transition hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
-                Prihlásiť sa
-              </button>
-            </form>
-          )}
-
-          {/* Passkey button — zobrazí sa len ak browser podporuje A organizácia
-              povoľuje EMAIL (passkey je alternatíva k heslu pre LOCAL účty) */}
-          {passkeySupported && showEmail && (
-            <button
-              type="button"
-              onClick={() => void handlePasskeyLogin()}
-              disabled={passkeyLoading}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-subtle px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-surface-card disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {passkeyLoading ? (
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              ) : (
-                <PasskeyIcon />
-              )}
-              Prihlásiť sa cez passkey
-            </button>
-          )}
-
-          {/* Divider — zobrazený len ak je aspoň jedna SSO možnosť aj níejšie
-              niečo iné (email/passkey) nad ním; bez ?org= vzdy true. */}
-          {showSso && (showEmail || passkeySupported) && (
-            <div className="my-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-border-subtle" />
-              <span className="text-xs text-text-muted">alebo</span>
-              <div className="h-px flex-1 bg-border-subtle" />
-            </div>
-          )}
-
-          {/* SSO buttons — filtrované podľa allowedAuthProviders (ADR-0035 F2) */}
-          {showSso && (
-            <div className="space-y-3">
-              {showGoogle && (
-                <SsoButton
-                  provider="google"
-                  label="Pokračovať s Google"
-                  loading={ssoLoading === 'google'}
-                  onClick={() => void handleSso('google')}
-                />
-              )}
-              {showMicrosoft && (
-                <SsoButton
-                  provider="microsoft"
-                  label="Pokračovať s Microsoft"
-                  loading={ssoLoading === 'microsoft'}
-                  onClick={() => void handleSso('microsoft')}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Register link */}
-          <p className="mt-6 text-center text-xs text-text-muted">
-            Nemáte účet?{' '}
-            <Link href="/register" className="font-medium text-brand-accent hover:underline">
-              Zaregistrovať organizáciu
-            </Link>
-          </p>
-        </div>
-      </div>
-    </main>
-  );
-}
-
-function SsoButton({
-  provider,
-  label,
-  loading,
-  onClick,
-}: {
-  provider: 'google' | 'microsoft';
-  label: string;
-  loading: boolean;
-  onClick: () => void;
-}): JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={loading}
-      className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-surface-subtle disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-    >
-      {loading ? (
-        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-      ) : (
-        <ProviderIcon provider={provider} />
-      )}
-      {label}
-    </button>
-  );
-}
-
-function ProviderIcon({ provider }: { provider: 'google' | 'microsoft' }): JSX.Element {
-  if (provider === 'google') {
-    return (
-      <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24">
-        <path
-          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-          fill="#4285F4"
-        />
-        <path
-          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-          fill="#34A853"
-        />
-        <path
-          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-          fill="#FBBC05"
-        />
-        <path
-          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-          fill="#EA4335"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M11.4 24H0V12.6L11.4 24zm1.2 0H24V12.6L12.6 24zM0 11.4V0h11.4L0 11.4zm24 0V0H12.6L24 11.4z" />
-    </svg>
-  );
-}
-
-function PasskeyIcon(): JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="8" cy="8" r="4" />
-      <path d="M12 8h8M16 8v4" />
-      <path d="M2 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1" />
-    </svg>
+        </>
+      }
+    />
   );
 }

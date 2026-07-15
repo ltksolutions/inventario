@@ -1,5 +1,36 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, siedme pokračovanie) — ADR-0035 Fáza 2: F6 /tenant-login stránka — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f6-tenant-login.md`.
+
+Po overení F5 (Janika lokálne, 63/63 testov po oprave Zod poradia)
+pokračovanie do F6. Vopred vyjasnené s Janikou (AskUserQuestion): (1) F6a
+doplní `slug` do login-context response pre OAuth hint, (2) nová
+samostatná stránka so zdieľanou logikou (nie rozšírenie LoginPage.tsx).
+
+Mimoriadka: Janika nahlásila Zebra tlač "Load failed" v Safari —
+diagnostikované ako mixed-content blok (`http://localhost:9100` z HTTPS
+stránky), Safari nikdy neboli zohľadnená. Janika rozhodla nič v kóde
+nemeniť, len odporúčať Chrome/Edge.
+
+- ✅ **F6a** — `slug` doplnené do `login-context` response
+  (`public-login-context.routes.ts`), nový test.
+- ✅ **F6b** — zdieľaná logika vytiahnutá z `LoginPage.tsx` do
+  `useOrgAwareLogin` hooku + `OrgAwareLoginForm` komponenty +
+  `loginErrorMessages.ts`. `LoginPage.tsx` je teraz tenký wrapper.
+- ✅ **F6c** — nová `/tenant-login` stránka (`TenantLoginPage.tsx` +
+  `app/tenant-login/page.tsx`), číta `?domain=`, po úspešnom prihlásení
+  plná navigácia na `app.inventario.estate`.
+
+`tsc`/`eslint`/`prettier` čisté na celom F6 changesete. `vitest` v
+sandboxe sa nedá spustiť (známy limit) — Janika spustí lokálne.
+
+**Otvorené:** F7–F8 (end-to-end testy F4–F6, docs). Čaká na Janikino
+potvrdenie po otestovaní F6a.
+
+---
+
 ## Aktuálny stav (2026-07-15, šieste pokračovanie) — ADR-0035 Fáza 2: F5 UI vlastná doména — HOTOVÉ
 
 Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f5-vlastna-domena-ui.md`.

@@ -239,10 +239,18 @@ SPDX-License-Identifier: CC-BY-4.0
   AskUserQuestion). Backend: `UpdateOwnOrganisationBodySchema` FQDN regex +
   lowercase normalizácia, kolízny check v `updateCurrent()`. Frontend:
   nová karta „Vlastná doména pre prihlásenie“ v `AuthSettingsContent.tsx`
-  so stavovým indikátorom a DNS návodom. **F6–F8 ostávajú otvorené**
-  (`/tenant-login` stránka, end-to-end testy F4–F6, docs) — bez F6
-  feature nemá ako sa reálne prejaviť (middleware rewrituje na stránku,
-  ktorá ešte neexistuje).
+  so stavovým indikátorom a DNS návodom. **F6 DONE (2026-07-15)** — nová
+  stránka `/tenant-login` (`apps/web/src/app/tenant-login/page.tsx`) sa
+  vykreslí po rewrite z F4 middleware. Zdieľaná branding/filtrovanie/auth
+  logika s globálnym `/login` cez nový hook `useOrgAwareLogin` +
+  prezentačnú komponentu `OrgAwareLoginForm` (extrahované z pôvodnej
+  `LoginPage.tsx`, ktorá je teraz len tenký wrapper). OAuth `?org=` hint
+  na vlastnej doméne funguje cez nové pole `slug` v `login-context`
+  response (doplnené v F6, bezpečné — slug je verejný údaj). Po úspešnom
+  prihlásení na vlastnej doméne vždy plná navigácia na
+  `app.inventario.estate` (nikdy `router.push`) — appka sa pod cudzou
+  doménou nikdy priamo nevykreslí. **F7–F8 ostávajú otvorené** (end-to-end
+  testy F4–F6, user-guide docs).
 - **Pôvodný stav (predtým):** Otvorené (nahlásené Janikou 2026-07-15, zatiaľ len zaevidované — bez fixu)
 - **Kontext:** `/login` (`apps/web/src/components/LoginPage.tsx`) je jedna globálna, tenant-agnostická stránka — zobrazuje email/heslo, passkey, Google aj Microsoft tlačidlo vždy, bez ohľadu na to, že konkrétna organizácia (napr. SFZ) má cez `/settings/auth` nastavené `allowedAuthProviders: ['MICROSOFT']` (+ prípadne `entraTenantId`). Backend obmedzenie **reálne funguje** — zamietne login inou metódou až pri pokuse o prihlásenie (`email-auth.routes.ts:433`, `oauth.routes.ts:660-676`), takže nejde o bezpečnostnú dieru, len o zavádzajúce UI.
 - **Presne predpokladané v ADR-0031** — sekcia 4 „Ako sa pri logine zistí tenant" (backend má pripravený `?org=<slug>` hint na `login/:provider`, frontend ho ale nikde nepoužíva) a sekcia „Riziká": „Bez hintu spadne na platformovú app... Treba jasné UX."

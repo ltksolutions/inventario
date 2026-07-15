@@ -46,6 +46,13 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 const PublicLoginContextResponseSchema = z
   .object({
+    /**
+     * ADR-0035 F6: potrebné pre OAuth `?org=<slug>` hint (ADR-0031) na
+     * `/tenant-login` — vlastná doména pozná len `domain`, nie `slug`, ale
+     * OAuth routing ešte stále pracuje s hint-om `?org=<slug>`. Nie je to
+     * citlivý údaj — slug je verejný sám o sebe už v `?org=<slug>` odkazoch.
+     */
+    slug: z.string(),
     displayName: z.string(),
     logoUrl: z.string().url().nullable(),
     brandColors: z
@@ -129,6 +136,7 @@ const publicLoginContextRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       }
 
       const view = {
+        slug: org.slug,
         displayName: org.displayName,
         logoUrl: org.brandKit?.logoUrl ?? null,
         brandColors: org.brandKit

@@ -1552,6 +1552,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
                     "displayName": {
                       "type": "string"
                     },
@@ -1608,6 +1611,7 @@
                     }
                   },
                   "required": [
+                    "slug",
                     "displayName",
                     "logoUrl",
                     "brandColors",

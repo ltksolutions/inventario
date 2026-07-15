@@ -224,10 +224,26 @@ describe('GET /v1/public/organisations/login-context', () => {
       }
       const keys = Object.keys(body).sort();
       expect(keys).toEqual(
-        ['displayName', 'logoUrl', 'brandColors', 'allowedAuthProviders', 'hasEntraRestriction']
+        [
+          'slug',
+          'displayName',
+          'logoUrl',
+          'brandColors',
+          'allowedAuthProviders',
+          'hasEntraRestriction',
+        ]
           .slice()
           .sort(),
       );
+    });
+
+    it('vracia slug organizácie (ADR-0035 F6, potrebné pre OAuth ?org= hint na /tenant-login)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/public/organisations/login-context?slug=${tenantSlug}`,
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json<{ slug: string }>().slug).toBe(tenantSlug);
     });
 
     it('nevyžaduje autentifikáciu (bez cookie/Bearer)', async () => {
