@@ -21,7 +21,13 @@
  * 404 pre neexistujúci slug/doménu aj pre zmazanú organizáciu — rovnaká
  * odpoveď v oboch prípadoch (no-oracle, rovnaký vzor ako public scan).
  *
- * Rate-limited 30/min/IP — rovnaká hodnota ako `GET /v1/public/scan/:token`.
+ * Rate-limited 30/min na kľúč (IP + slug/domain) — rovnaká hodnota ako
+ * `GET /v1/public/scan/:token`, ale NIE čisto per-IP (nezávislá bezpečnostná
+ * revízia ADR-0035 F4): `apps/web/middleware.ts` volá tento endpoint
+ * server-to-server z (málo) zdieľaných Vercel edge egress IP adries pre
+ * VŠETKY vlastné domény naraz. Čistý per-IP limit by tak jedno "horúce"
+ * volanie mohol vyčerpať pre všetkých ostatných tenantov naraz. Kľúč
+ * `${ip}:${slug ?? domain}` viaže limit na dvojicu (zdroj, cieľ).
  */
 
 import { HexColorSchema } from '@inventario/shared-types';
@@ -31,7 +37,7 @@ import { z } from 'zod';
 import { OrganisationsRepository } from './organisations.repository.js';
 
 import type { AuthProvider } from '@inventario/shared-types';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 // ---------------------------------------------------------------------------
@@ -79,7 +85,14 @@ const publicLoginContextRoutesPlugin: FastifyPluginAsync = async (fastify) => {
     '/v1/public/organisations/login-context',
     {
       config: {
-        rateLimit: { max: 30, timeWindow: '1 minute' },
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+          keyGenerator: (req: FastifyRequest): string => {
+            const query = req.query as { slug?: string; domain?: string };
+            return `${req.ip}:${query.slug ?? query.domain ?? ''}`;
+          },
+        },
       },
       schema: {
         tags: ['Public'],

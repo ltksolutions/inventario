@@ -226,8 +226,15 @@ SPDX-License-Identifier: CC-BY-4.0
   tlačidlá/formulár podľa `allowedAuthProviders`, zobrazí branding
   organizácie (logo + farby cez existujúci `buildBrandStyle`, ADR-0028).
   Bez `?org=` sa stránka spáva presne ako predtým (žiadna regresia).
-  **Fáza 2** (vlastná doména, napr. majetok.futbalsfz.sk, host-aware
-  routing + dynamický CORS) ostáva otvorená — viď ADR-0035 F4–F8.
+  **Fáza 2 F4 DONE (2026-07-15)** — `apps/web/middleware.ts` (host-aware
+  rewrite na `/tenant-login`, zatiaľ no-op kým žiadna org nemá
+  `customDomain` nastavený) + dynamický Fastify CORS
+  (`modules/organisations/dynamic-cors.ts`, https-only, presná zhoda
+  hostname, fail-closed, 60s cache). Nezávislá bezpečnostná revízia
+  (Opus) prebehla, should-fix položky opravené (rate-limit keyGenerator
+  per (IP, cieľ), striktný https+port check). **F5–F8 ostávajú otvorené**
+  (UI na nastavenie vlastnej domény, `/tenant-login` stránka, testy,
+  docs) — bez F5 feature nemá ako sa reálne zapnúť.
 - **Pôvodný stav (predtým):** Otvorené (nahlásené Janikou 2026-07-15, zatiaľ len zaevidované — bez fixu)
 - **Kontext:** `/login` (`apps/web/src/components/LoginPage.tsx`) je jedna globálna, tenant-agnostická stránka — zobrazuje email/heslo, passkey, Google aj Microsoft tlačidlo vždy, bez ohľadu na to, že konkrétna organizácia (napr. SFZ) má cez `/settings/auth` nastavené `allowedAuthProviders: ['MICROSOFT']` (+ prípadne `entraTenantId`). Backend obmedzenie **reálne funguje** — zamietne login inou metódou až pri pokuse o prihlásenie (`email-auth.routes.ts:433`, `oauth.routes.ts:660-676`), takže nejde o bezpečnostnú dieru, len o zavádzajúce UI.
 - **Presne predpokladané v ADR-0031** — sekcia 4 „Ako sa pri logine zistí tenant" (backend má pripravený `?org=<slug>` hint na `login/:provider`, frontend ho ale nikde nepoužíva) a sekcia „Riziká": „Bez hintu spadne na platformovú app... Treba jasné UX."

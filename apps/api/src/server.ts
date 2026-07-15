@@ -54,6 +54,7 @@ import loanRequestsRoutes from './modules/loans/loan-requests.routes.js';
 import loansRoutes from './modules/loans/loans.routes.js';
 import locationsRoutes from './modules/locations/locations.routes.js';
 import membershipsRoutes from './modules/memberships/memberships.routes.js';
+import { createDynamicCorsOrigin } from './modules/organisations/dynamic-cors.js';
 import organisationsRoutes from './modules/organisations/organisations.routes.js';
 import publicLoginContextRoutes from './modules/organisations/public-login-context.routes.js';
 import protocolsRoutes from './modules/protocols/protocols.routes.js';
@@ -128,8 +129,19 @@ export async function buildServer(
       : {},
   );
 
+  // Dynamický CORS (ADR-0035 F4) — statický zoznam z CORS_ORIGINS/`'*'`
+  // sa kontroluje ako doteraz; Origin, ktorý tam nie je, sa navyše overí
+  // proti `Organisation.customDomain` v DB (vlastná doména tenanta pre
+  // prihlásenie). Bezpečnostné pravidlá a rezervné riziká sú zdokumentované
+  // v `modules/organisations/dynamic-cors.ts`.
+  const dynamicCorsOrigin = createDynamicCorsOrigin(app);
   await app.register(fastifyCors, {
-    origin: app.config.CORS_ORIGINS,
+    origin: async (origin: string | undefined) => {
+      if (app.config.CORS_ORIGINS === '*') return true;
+      if (!origin) return true;
+      if (app.config.CORS_ORIGINS.includes(origin)) return true;
+      return dynamicCorsOrigin(origin);
+    },
     credentials: app.config.CORS_ORIGINS !== '*',
   });
 

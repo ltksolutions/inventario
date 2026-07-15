@@ -1,5 +1,37 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, piate pokračovanie) — ADR-0035 Fáza 2: F4 custom domain middleware + dynamický CORS — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f4-custom-domain-cors.md`.
+
+Po overení Fázy 1 (Janika lokálne, 12/12 testov) pokračovanie do Fázy 2:
+
+- ✅ **F4a** — dynamický CORS (`modules/organisations/dynamic-cors.ts`) —
+  vlastná doména organizácie môže robiť `credentials: 'include'` fetch na
+  API, overí sa proti `customDomain` v DB (https-only, presná zhoda,
+  fail-closed, 60s cache).
+- ✅ **F4b** — `apps/web/middleware.ts` (Next.js Edge Middleware) —
+  host-aware rewrite na `/tenant-login` pre registrovanú vlastnú doménu,
+  404 pre neznámu, redirect na `app.inventario.estate` pre iné cesty.
+  Zatiaľ no-op (žiadna org nemá `customDomain` nastavený, F5 ešte nie je).
+- Nezávislá bezpečnostná revízia (Opus subagent) — "safe to ship with
+  minor fixes", všetky should-fix položky opravené (rate-limit
+  keyGenerator per (IP, cieľ), https+port strict check).
+- Nový `apps/api/tests/integration/dynamic-cors.test.ts` — jednotkové
+  testy resolvera.
+
+`tsc`/`eslint`/`prettier` čisté. `vitest` v sandboxe nedá spustiť (známy
+limit) — Janika spustí lokálne.
+
+**Manuálny krok pre Janiku** (mimo kódu): pridať `majetok.futbalsfz.sk`
+k projektu **`inventario-app`** cez Vercel dashboard — nemám na to MCP
+nástroj.
+
+**Otvorené:** F5–F8 (UI vlastná doména, `/tenant-login` stránka, e2e
+testy, docs). Čaká na Janikino potvrdenie po otestovaní F4.
+
+---
+
 ## Aktuálny stav (2026-07-15, štvrté pokračovanie) — ADR-0035 Fáza 1: org-aware /login — HOTOVÉ
 
 Session log: `docs/sessions/2026-07-15-adr-0035-faza-1-org-aware-login.md`.
