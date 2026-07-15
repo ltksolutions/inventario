@@ -9,7 +9,7 @@
  * /settings/auth — Prihlasovanie a domény (ADMIN only).
  */
 
-import { KeyRound, Loader2, Save, ShieldCheck } from 'lucide-react';
+import { Globe, KeyRound, Loader2, Save, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { LoadingState } from './Spinner';
@@ -45,11 +45,18 @@ interface OrgAuthSettings {
   microsoftClientId: string | null;
   microsoftTenantMode: string | null;
   microsoftHasSecret: boolean;
+  /** ADR-0035 F5 — vlastná doména organizácie pre prihlásenie. */
+  customDomain: string | null;
 }
 
 // ---------------------------------------------------------------------------
 // Labels
 // ---------------------------------------------------------------------------
+
+// ADR-0035 F5: rovnaký FQDN regex ako backend (`organisations.routes.ts`,
+// `dynamic-cors.ts` požaduje presnú zhodu hostname).
+const CUSTOM_DOMAIN_REGEX =
+  /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 const PROVIDER_LABELS: Record<AuthProvider, string> = {
   GOOGLE: 'Google',
@@ -132,6 +139,7 @@ export function AuthSettingsContent(): JSX.Element {
         microsoftClientId: msConfig?.clientId ?? null,
         microsoftTenantMode: msConfig?.tenantMode ?? null,
         microsoftHasSecret: msConfig?.hasSecret ?? false,
+        customDomain: (data['customDomain'] as string | null) ?? null,
       });
 
       if (hasMsApp) {
@@ -220,11 +228,24 @@ export function AuthSettingsContent(): JSX.Element {
         };
       }
 
+      // ADR-0035 F5: rovnaká validácia ako backend (FQDN regex), aby sme
+      // chybu zobrazili hneď na klientovi bez okličky cez API. Backend je aj
+      // tak finalná autorita (rovnaký regex v `organisations.routes.ts`) --
+      // toto je len rýchla UX skratka.
+      if (settings.customDomain && !CUSTOM_DOMAIN_REGEX.test(settings.customDomain)) {
+        setError(
+          `Neplatná doména: ${settings.customDomain}. Očakávaný tvar: majetok.sfz.sk (bez https://, bez cesty).`,
+        );
+        setSaving(false);
+        return;
+      }
+
       const body: Record<string, unknown> = {
         allowedAuthProviders: settings.allowedAuthProviders,
         memberJoinPolicy: settings.memberJoinPolicy,
         autoJoinDomains: settings.autoJoinDomains,
         entraTenantId: settings.entraTenantId || null,
+        customDomain: settings.customDomain || null,
       };
 
       if (microsoftOAuthPatch !== undefined) {
@@ -499,6 +520,56 @@ export function AuthSettingsContent(): JSX.Element {
               Microsoft. Overte správnosť UUID pred uložením.
             </p>
           )}
+        </div>
+
+        {/* Vlastná doména pre prihlásenie (ADR-0035 F5) */}
+        <div className="rounded-xl border border-border-subtle bg-surface-card p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-surface-subtle">
+              <Globe className="h-5 w-5 text-text-muted" aria-hidden="true" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-text-primary">
+                  Vlastná doména pre prihlásenie
+                </h2>
+                {settings.customDomain ? (
+                  <span className="flex-shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+                    Nastavená
+                  </span>
+                ) : (
+                  <span className="flex-shrink-0 rounded-full bg-surface-subtle px-2.5 py-1 text-xs font-medium text-text-muted">
+                    Nenastavená
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-text-secondary">
+                Voliteľné: prihlásenie na vlastnej doméne vašej organizácie (napr.{' '}
+                <code className="font-mono">majetok.sfz.sk</code>) namiesto{' '}
+                <code className="font-mono">app.inventario.estate</code>. Zobrazí vaše logo, farby a
+                len povolené spôsoby prihlásenia z tejto stránky.
+              </p>
+              <input
+                type="text"
+                value={settings.customDomain ?? ''}
+                onChange={(e) => {
+                  setSettings({
+                    ...settings,
+                    customDomain: e.target.value.trim().toLowerCase() || null,
+                  });
+                  setError('');
+                }}
+                placeholder="majetok.sfz.sk"
+                className="mt-3 w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 font-mono text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              />
+              <p className="mt-2 text-xs text-text-muted">
+                Bez <code className="font-mono">https://</code>, bez cesty — len samotný hostname.
+                Po uložení je potrebné nastaviť DNS CNAME záznam smerujúci na Vercel (presnú hodnotu
+                vám poskytne platform operátor pri pridaní domény do projektu). Bez správne
+                nastaveného DNS doména nebude fungovať.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Microsoft aplikácia (ADR-0031 E6) */}

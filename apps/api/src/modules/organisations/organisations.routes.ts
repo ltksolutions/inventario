@@ -275,7 +275,12 @@ const UpdateOrganisationBodySchema = z
 //
 // ADR-0030 D3: rozšírené o auth domain settings — tenant ADMIN môže
 // konfigurovať vlastnú provider politiku, doménové obmedzenie a Entra tenant ID.
-// plan / status / slug / customDomain zostávajú platform-operator concerns.
+// plan / status / slug zostávajú platform-operator concerns.
+//
+// ADR-0035 F5: `customDomain` presunuté SEM z platform-operator-only zoznamu
+// — tenant ADMIN si môže nastaviť vlastnú doménu pre prihlásenie (napr.
+// majetok.futbalsfz.sk). Kolidujúci zápis (iná org má rovnakú doménu) sa
+// kontroluje v `updateCurrent()` rovnako ako v platform-operator `update()`.
 //
 // ADR-0031 E5: rozšírené o oauthCredentials — tenant ADMIN môže nahradiť
 // vlastnú Microsoft app (clientId + clientSecret). Secret písaný cez API
@@ -361,6 +366,21 @@ const UpdateOwnOrganisationBodySchema = z
         .toLowerCase(),
     ),
     entraTenantId: z.string().uuid('entraTenantId musí byť platný UUID.').nullable(),
+    // ADR-0035 F5: vlastná doména organizácie pre prihlásenie (napr.
+    // majetok.futbalsfz.sk). Rovnaký FQDN regex + lowercase ako v
+    // `CreateOrganisationBodySchema`/`UpdateOrganisationBodySchema` (platform-
+    // operator varianty) — žiadny protokol/cesta/port, len samotný hostname.
+    // Kolidujúci zápis rieši `updateCurrent()` (rovnaká kontrola ako F1
+    // findByCustomDomain, ADR-0035 F4 dynamický CORS vyžaduje presnú zhodu).
+    customDomain: z
+      .string()
+      .max(253)
+      .regex(
+        /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/,
+        'Custom doména musí byť platné FQDN, lowercase, bez protokolu a cesty (napr. majetok.sfz.sk).',
+      )
+      .toLowerCase()
+      .nullable(),
     // ADR-0031 E5: per-tenant Microsoft OAuth credentials (write path)
     // clientSecret je plaintext — service ho zašifruje pred uložením.
     // null = odstrániť vlastnú app (späť na platformový fallback).

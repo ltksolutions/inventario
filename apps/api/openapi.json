@@ -544,6 +544,12 @@
                     "format": "uuid",
                     "nullable": true
                   },
+                  "customDomain": {
+                    "type": "string",
+                    "maxLength": 253,
+                    "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$",
+                    "nullable": true
+                  },
                   "microsoftOAuth": {
                     "type": "object",
                     "properties": {

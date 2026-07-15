@@ -1,5 +1,31 @@
 # NEXT
 
+## Aktuálny stav (2026-07-15, šieste pokračovanie) — ADR-0035 Fáza 2: F5 UI vlastná doména — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f5-vlastna-domena-ui.md`.
+
+Po overení F4 (Janika lokálne, 9/9 testov) pokračovanie do F5. Počas
+implementácie objavený konflikt s existujúcim kódom (`customDomain` bol
+zámerne platform-operator-only) — vyjasnené s Janikou cez AskUserQuestion,
+odpoveď: **"Tenant ADMIN sám v /settings/auth"**.
+
+- ✅ **Backend** — `customDomain` presunuté do
+  `UpdateOwnOrganisationBodySchema` (FQDN regex, lowercase), kolízny
+  check v `updateCurrent()` (400 pri kolízii s iným tenantom).
+- ✅ **Frontend** — nová karta „Vlastná doména pre prihlásenie“ v
+  `AuthSettingsContent.tsx` (stavový badge, validácia, DNS návod).
+- ✅ 7 nových integration testov v `organisations.test.ts` (PATCH
+  /current blok).
+
+`tsc`/`eslint`/`prettier` čisté. `vitest` v sandboxe sa nedá spustiť
+(známy limit) — Janika spustí lokálne.
+
+**Otvorené:** F6–F8 (`/tenant-login` stránka, e2e testy, docs). Bez F6 je
+F4 middleware stále no-op v praxi (rewrite cieli na stránku, ktorá ešte
+neexistuje). Čaká na Janikino potvrdenie po otestovaní F5.
+
+---
+
 ## Aktuálny stav (2026-07-15, piate pokračovanie) — ADR-0035 Fáza 2: F4 custom domain middleware + dynamický CORS — HOTOVÉ
 
 Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f4-custom-domain-cors.md`.

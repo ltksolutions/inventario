@@ -566,7 +566,7 @@ describe('/v1/organisations', () => {
 
   describe('/v1/organisations/current', () => {
     // -----------------------------------------------------------------------
-    // GET /current — ľubovolný ეlen tenanta môže čítať vlastnú org
+    // GET /current — ľubovolný člen tenanta môže čítať vlastnú org
     // -----------------------------------------------------------------------
 
     describe('GET /v1/organisations/current', () => {
@@ -937,6 +937,117 @@ describe('/v1/organisations', () => {
         });
         expect(res.statusCode).toBe(200);
         expect(res.json<{ billing: unknown }>().billing).toBeNull();
+      });
+
+      // --- ADR-0035 F5: vlastná doména pre prihlásenie (tenant self-service) ---
+
+      it('ADMIN môže nastaviť customDomain', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: 'majetok.example-f5.sk' },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ customDomain: string | null }>().customDomain).toBe(
+          'majetok.example-f5.sk',
+        );
+
+        const getRes = await app.inject({
+          method: 'GET',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+        });
+        expect(getRes.json<{ customDomain: string | null }>().customDomain).toBe(
+          'majetok.example-f5.sk',
+        );
+      });
+
+      it('customDomain sa ukladá lowercase bez ohladu na vstup', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: 'MAJETOK.Example-F5.SK' },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ customDomain: string | null }>().customDomain).toBe(
+          'majetok.example-f5.sk',
+        );
+      });
+
+      it('customDomain s neplatným formátom (nie FQDN) vráti 400', async () => {
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: 'https://nie-fqdn.sk/cesta' },
+        });
+        expect(res.statusCode).toBe(400);
+      });
+
+      it('customDomain kolidujúci s iným tenantom vráti 400', async () => {
+        const secondOrg = await createOrg(validCreateOrgBody({ slug: 'second-tenant-domain' }));
+        const { token: secondAdminToken } = await provisionUser(app, {
+          oid: 'org-admin-2',
+          role: UserRole.ADMIN,
+          organisationId: String(secondOrg['_id']),
+        });
+
+        const setupRes = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: 'majetok.koliduje.sk' },
+        });
+        expect(setupRes.statusCode).toBe(200);
+
+        const collisionRes = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${secondAdminToken}` },
+          payload: { customDomain: 'majetok.koliduje.sk' },
+        });
+        expect(collisionRes.statusCode).toBe(400);
+        expect(collisionRes.json<{ message: string }>().message).toContain('majetok.koliduje.sk');
+      });
+
+      it('customDomain: null vynuluje nastavenú doménu', async () => {
+        await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: 'majetok.example-f5.sk' },
+        });
+
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: null },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ customDomain: string | null }>().customDomain).toBeNull();
+      });
+
+      it('nastavenie rovnakého customDomain akou už org má (no-op) nevyhodí kolizúciu', async () => {
+        await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: 'majetok.example-f5.sk' },
+        });
+
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/v1/organisations/current',
+          headers: { cookie: `inv_access=${adminToken}` },
+          payload: { customDomain: 'majetok.example-f5.sk', displayName: 'Stále rovnaká doména' },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json<{ customDomain: string | null }>().customDomain).toBe(
+          'majetok.example-f5.sk',
+        );
       });
     });
   });

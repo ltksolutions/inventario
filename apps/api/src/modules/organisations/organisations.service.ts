@@ -441,6 +441,24 @@ export class OrganisationsService {
       }
 
       // -----------------------------------------------------------------------
+      // ADR-0035 F5: custom-domain collision check (only if changing) —
+      // rovnaká kontrola ako v platform-operator `update()`, teraz nutná aj
+      // tu, keďže tenant ADMIN si môže vlastnú doménu nastaviť sami.
+      // -----------------------------------------------------------------------
+      if (
+        patch.customDomain !== undefined &&
+        patch.customDomain !== null &&
+        patch.customDomain !== before.customDomain
+      ) {
+        const collision = await this.repo.findByCustomDomain(patch.customDomain, session);
+        if (collision && String(collision._id) !== organisationId) {
+          throw new BadRequestError(
+            `Vlastná doména "${patch.customDomain}" je už používaná iným tenantom.`,
+          );
+        }
+      }
+
+      // -----------------------------------------------------------------------
       // ADR-0031 E5: Microsoft OAuth credentials — šifrovanie pri zápise
       // -----------------------------------------------------------------------
       //

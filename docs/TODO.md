@@ -232,9 +232,17 @@ SPDX-License-Identifier: CC-BY-4.0
   (`modules/organisations/dynamic-cors.ts`, https-only, presná zhoda
   hostname, fail-closed, 60s cache). Nezávislá bezpečnostná revízia
   (Opus) prebehla, should-fix položky opravené (rate-limit keyGenerator
-  per (IP, cieľ), striktný https+port check). **F5–F8 ostávajú otvorené**
-  (UI na nastavenie vlastnej domény, `/tenant-login` stránka, testy,
-  docs) — bez F5 feature nemá ako sa reálne zapnúť.
+  per (IP, cieľ), striktný https+port check). **F5 DONE (2026-07-15)** —
+  tenant ADMIN si môže sami nastaviť `customDomain` v `/settings/auth`
+  (presunuté z platform-operator-only zoznamu na explicitnú Janikinu
+  žiadosť — predtým bol konflikt s existujúcim návrhom, vyjasnené cez
+  AskUserQuestion). Backend: `UpdateOwnOrganisationBodySchema` FQDN regex +
+  lowercase normalizácia, kolízny check v `updateCurrent()`. Frontend:
+  nová karta „Vlastná doména pre prihlásenie“ v `AuthSettingsContent.tsx`
+  so stavovým indikátorom a DNS návodom. **F6–F8 ostávajú otvorené**
+  (`/tenant-login` stránka, end-to-end testy F4–F6, docs) — bez F6
+  feature nemá ako sa reálne prejaviť (middleware rewrituje na stránku,
+  ktorá ešte neexistuje).
 - **Pôvodný stav (predtým):** Otvorené (nahlásené Janikou 2026-07-15, zatiaľ len zaevidované — bez fixu)
 - **Kontext:** `/login` (`apps/web/src/components/LoginPage.tsx`) je jedna globálna, tenant-agnostická stránka — zobrazuje email/heslo, passkey, Google aj Microsoft tlačidlo vždy, bez ohľadu na to, že konkrétna organizácia (napr. SFZ) má cez `/settings/auth` nastavené `allowedAuthProviders: ['MICROSOFT']` (+ prípadne `entraTenantId`). Backend obmedzenie **reálne funguje** — zamietne login inou metódou až pri pokuse o prihlásenie (`email-auth.routes.ts:433`, `oauth.routes.ts:660-676`), takže nejde o bezpečnostnú dieru, len o zavádzajúce UI.
 - **Presne predpokladané v ADR-0031** — sekcia 4 „Ako sa pri logine zistí tenant" (backend má pripravený `?org=<slug>` hint na `login/:provider`, frontend ho ale nikde nepoužíva) a sekcia „Riziká": „Bez hintu spadne na platformovú app... Treba jasné UX."
