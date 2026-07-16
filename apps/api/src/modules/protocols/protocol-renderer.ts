@@ -81,8 +81,12 @@ const FONT_SIZE = {
 
 /** Slovenský label pre typ protokolu. */
 const PROTOCOL_TYPE_LABEL: Record<LoanProtocol['type'], string> = {
-  HANDOVER: 'ODOVZDÁVACÍ PROTOKOL',
-  RETURN: 'PREBERACÍ PROTOKOL',
+  // 2026-07-16: pôvodne zamenené — HANDOVER (výdaj) tlačil "ODOVZDÁVACÍ
+  // PROTOKOL" a RETURN (vrátenie) tlačil "PREBERACÍ PROTOKOL", opačne než
+  // appka (ProtocolCard.tsx: 'Preberací protokol' / 'Protokol o vrátení').
+  // Zjednotené s appkou — nahlásené Janikou pri teste vrátenia výpožičky.
+  HANDOVER: 'PREBERACÍ PROTOKOL',
+  RETURN: 'PROTOKOL O VRÁTENÍ',
   AMENDMENT: 'DODATOK K PROTOKOLU',
 };
 
