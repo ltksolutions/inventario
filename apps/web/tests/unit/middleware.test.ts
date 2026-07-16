@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * Unit testy pre `apps/web/middleware.ts` (ADR-0035 F4, doplnené F7) —
+ * Unit testy pre `apps/web/src/middleware.ts` (ADR-0035 F4, doplnené F7) —
  * prvé frontend testy v tomto balíku (žiadna staršia infra existovala,
  * pozri `vitest.config.ts`).
  *
@@ -18,7 +18,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { middleware } from '../../middleware';
+import { middleware } from '../../src/middleware';
 
 function buildRequest(hostname: string, pathname = '/', search = ''): NextRequest {
   return new NextRequest(`https://${hostname}${pathname}${search}`, {
