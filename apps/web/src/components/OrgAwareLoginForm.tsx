@@ -17,15 +17,22 @@ import type { ReactNode, JSX } from 'react';
  *
  * `showRegisterLink` je vypnuté na `/tenant-login` — registrácia novej
  * organizácie nemá vzťah k tomu, na akej vlastnej doméne práve stojíme.
+ *
+ * `showTagline` je zapnuté len na `/tenant-login` (vlastná doména) — pre
+ * návštevníka, ktorý pristál na neznámej doméne organizácie, je vhodné
+ * krátko vysvetliť, o akú službu ide, ešte pred prihlásením. Na globálnej
+ * `/login` (kde je user typicky už oboznámený) by to bolo nadbytočné.
  */
 export function OrgAwareLoginForm({
   login,
   banners,
   showRegisterLink = true,
+  showTagline = false,
 }: {
   login: UseOrgAwareLoginResult;
   banners?: ReactNode;
   showRegisterLink?: boolean;
+  showTagline?: boolean;
 }): JSX.Element {
   const {
     loginContext,
@@ -67,6 +74,12 @@ export function OrgAwareLoginForm({
             )}
             <span className="text-xl font-bold">{loginContext?.displayName ?? 'Inventario'}</span>
           </div>
+
+          {showTagline && (
+            <p className="mb-4 text-sm text-text-muted">
+              Evidenčný systém pre správu a vypožičiavanie majetku.
+            </p>
+          )}
 
           <h1 className="text-lg font-semibold text-text-primary">Prihlásenie</h1>
 
