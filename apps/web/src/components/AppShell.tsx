@@ -72,7 +72,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/stock', label: 'Sklad', icon: Warehouse, managerOnly: true },
   { href: '/loans', label: 'Žiadosti', icon: ClipboardList },
   { href: '/my-loans', label: 'Moje výpožičky', icon: Library },
-  { href: '/protocols', label: 'Preberacie protokoly', icon: FileSignature, managerOnly: true },
+  { href: '/protocols', label: 'Protokoly', icon: FileSignature, managerOnly: true },
   { href: '/ciselniky', label: 'Číselníky', icon: ListChecks },
   { href: '/audit-log', label: 'Audit log', icon: History, managerOnly: true },
   { href: '/users', label: 'Používatelia', icon: Users, managerOnly: true },

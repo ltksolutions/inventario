@@ -4,7 +4,8 @@
 'use client';
 
 /**
- * ProtocolsContent — /protocols, zoznam preberacích protokolov (ADR-0022).
+ * ProtocolsContent — /protocols, zoznam všetkých protokolov — preberacích
+ * (HANDOVER) aj o vrátení (RETURN) — (ADR-0022).
  *
  * ASSET_MANAGER/ADMIN vidí všetky protokoly organizácie (menu položka je
  * managerOnly), backend pre EMPLOYEE vynúti filter na vlastné protokoly.
@@ -149,7 +150,7 @@ export function ProtocolsContent(): JSX.Element {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Preberacie protokoly</h1>
+        <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Protokoly</h1>
         <p className="mt-1 text-sm text-text-secondary">
           Protokoly o odovzdaní a vrátení majetku. Nepodpísané protokoly čakajú na elektronické
           potvrdenie oboch strán.

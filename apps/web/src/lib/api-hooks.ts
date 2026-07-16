@@ -2292,7 +2292,7 @@ export function useDeleteAssetCondition(): UseMutationResult<void, Error, { id: 
 }
 
 // ---------------------------------------------------------------------------
-// Preberacie protokoly (ADR-0022) — types, hooks, mutations
+// Protokoly — preberacie aj o vrátení (ADR-0022) — types, hooks, mutations
 // ---------------------------------------------------------------------------
 
 export type ProtocolType = 'HANDOVER' | 'RETURN' | 'AMENDMENT';

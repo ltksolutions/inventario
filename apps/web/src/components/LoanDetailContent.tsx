@@ -194,7 +194,7 @@ export function LoanDetailContent({ loanId }: { loanId: string }): JSX.Element {
       <section aria-labelledby="protocols-heading">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 id="protocols-heading" className="text-lg font-semibold text-text-primary">
-            Preberacie protokoly
+            Protokoly
           </h2>
           {canManage && !protocolsQuery.isLoading && (
             <BackfillButtons loan={loan} protocols={protocols} />
