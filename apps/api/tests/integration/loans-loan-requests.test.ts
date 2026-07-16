@@ -31,6 +31,7 @@ describe('Loan Requests (ADR-0026)', () => {
   let app: FastifyInstance;
   let adminToken: string;
   let managerToken: string;
+  let managerId: string;
   let employeeToken: string;
   let employeeId: string;
 
@@ -47,6 +48,7 @@ describe('Loan Requests (ADR-0026)', () => {
     adminToken = admin.token;
     const manager = await provisionUser(app, { oid: 'loan-manager', role: UserRole.ASSET_MANAGER });
     managerToken = manager.token;
+    managerId = String(manager.user._id);
     const employee = await provisionUser(app, { oid: 'loan-employee', role: UserRole.EMPLOYEE });
     employeeToken = employee.token;
     employeeId = String(employee.user._id);
@@ -871,7 +873,7 @@ describe('Loan Requests (ADR-0026)', () => {
         url: `/v1/loans/${loan._id}/return`,
         headers: { cookie: `inv_access=${managerToken}` },
         payload: {
-          returnedTo: null,
+          returnedTo: managerId,
           items: [{ assetId: cables._id, condition: 'GOOD', note: null, requiresService: false }],
         },
       });
