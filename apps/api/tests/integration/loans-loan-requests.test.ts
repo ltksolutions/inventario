@@ -11,6 +11,7 @@
  *   - reject / cancel: žiadne uvoľnenie rezervácie (nič nebolo rezervované)
  */
 
+import { ObjectId } from 'mongodb';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
@@ -401,7 +402,8 @@ describe('Loan Requests (ADR-0026)', () => {
       expect((reqDoc?.resultingLoanIds as string[]).length).toBe(2);
     });
 
-    it('over-fulfilment guard: vydanie viac než žiadané vracia 400', async () => {
+    it('žiadny strop na zostatok (2026-07-16): vydanie viac než žiadané uspeje, quantityFulfilled > quantityRequested', async () => {
+      // Žiadosť je len orientačný podnet, nie strop — správca môže vydať viac.
       const category = await insertTestCategory(app);
       const asset1 = await insertTestAsset(app, { status: 'AVAILABLE', categoryId: category._id });
       const asset2 = await insertTestAsset(app, { status: 'AVAILABLE', categoryId: category._id });
@@ -411,7 +413,7 @@ describe('Loan Requests (ADR-0026)', () => {
         url: '/v1/loan-requests',
         headers: { cookie: `inv_access=${employeeToken}` },
         payload: {
-          purpose: 'Over-fulfilment',
+          purpose: 'Vydanie viac než žiadané',
           plannedFrom: new Date(Date.now() + 1000).toISOString(),
           items: [{ categoryId: category._id, quantityRequested: 1 }],
         },
@@ -423,7 +425,7 @@ describe('Loan Requests (ADR-0026)', () => {
         headers: { cookie: `inv_access=${managerToken}` },
       });
 
-      // Pokús sa vydať 2 kusy ale žiadané bolo len 1
+      // Vydá 2 kusy, hoci žiadané bolo len 1 — musí uspieť.
       const res = await app.inject({
         method: 'POST',
         url: `/v1/loan-requests/${requestId}/fulfil`,
@@ -440,7 +442,191 @@ describe('Loan Requests (ADR-0026)', () => {
         },
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(201);
+      const reqDoc = await app.mongo.db.collection('loan_requests').findOne({});
+      expect(reqDoc?.items[0].quantityFulfilled).toBe(2);
+      expect(reqDoc?.items[0].quantityRequested).toBe(1);
+      expect(reqDoc?.status).toBe('FULFILLED');
+    });
+
+    it('viac BULK položiek v jednej kategórii (napr. SAP + Office licencia pod "Software") sa vydajú oboje naraz', async () => {
+      const category = await insertTestCategory(app);
+      const sapLicense = await insertTestAsset(app, {
+        categoryId: category._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 5,
+        name: 'SAP licencia',
+      });
+      const officeLicense = await insertTestAsset(app, {
+        categoryId: category._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 5,
+        name: 'Office licencia',
+      });
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/v1/loan-requests',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: {
+          purpose: 'Software',
+          plannedFrom: new Date(Date.now() + 1000).toISOString(),
+          items: [{ categoryId: category._id, quantityRequested: 1 }],
+        },
+      });
+      const requestId = createRes.json<{ _id: string }>()._id;
+      await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/approve`,
+        headers: { cookie: `inv_access=${managerToken}` },
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [
+            { requestItemIndex: 0, type: 'BULK', bulkItemId: sapLicense._id, quantity: 1 },
+            { requestItemIndex: 0, type: 'BULK', bulkItemId: officeLicense._id, quantity: 1 },
+          ],
+          dueAt: null,
+        },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const loan = res.json<{ items: Array<{ assetId: string }> }>();
+      expect(loan.items.map((i) => i.assetId).sort()).toEqual(
+        [sapLicense._id, officeLicense._id].sort(),
+      );
+
+      const reqDoc = await app.mongo.db.collection('loan_requests').findOne({});
+      expect(reqDoc?.items[0].quantityFulfilled).toBe(2);
+    });
+
+    it('EXTRA_SERIALIZED: správca doplní majetok mimo pôvodnej žiadosti (napr. predlžovačka), dopíše sa do žiadosti', async () => {
+      const category = await insertTestCategory(app);
+      const notebook = await insertTestAsset(app, {
+        status: 'AVAILABLE',
+        categoryId: category._id,
+      });
+
+      const extraCategory = await insertTestCategory(app);
+      const extensionCord = await insertTestAsset(app, {
+        status: 'AVAILABLE',
+        categoryId: extraCategory._id,
+        name: 'Predlžovačka',
+      });
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/v1/loan-requests',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: {
+          purpose: 'Notebook + navyše',
+          plannedFrom: new Date(Date.now() + 1000).toISOString(),
+          items: [{ categoryId: category._id, quantityRequested: 1 }],
+        },
+      });
+      const requestId = createRes.json<{ _id: string }>()._id;
+      await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/approve`,
+        headers: { cookie: `inv_access=${managerToken}` },
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [
+            { requestItemIndex: 0, type: 'SERIALIZED', assetIds: [notebook._id] },
+            {
+              type: 'EXTRA_SERIALIZED',
+              categoryId: extraCategory._id,
+              assetIds: [extensionCord._id],
+            },
+          ],
+          dueAt: null,
+        },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const loan = res.json<{ items: Array<{ assetId: string }> }>();
+      expect(loan.items.map((i) => i.assetId).sort()).toEqual(
+        [notebook._id, extensionCord._id].sort(),
+      );
+
+      const reqDoc = await app.mongo.db.collection('loan_requests').findOne({});
+      expect(reqDoc?.items).toHaveLength(2);
+      expect(reqDoc?.items[1].categoryId).toBe(extraCategory._id);
+      expect(reqDoc?.items[1].quantityRequested).toBe(1);
+      expect(reqDoc?.items[1].quantityFulfilled).toBe(1);
+      expect(reqDoc?.items[1].note).toBe('Doplnené správcom pri vydaní (mimo pôvodnej žiadosti).');
+
+      const assetDoc = await app.mongo.db
+        .collection('assets')
+        .findOne({ _id: new ObjectId(extensionCord._id) });
+      expect(assetDoc?.status).toBe('BORROWED');
+    });
+
+    it('EXTRA_BULK: správca doplní BULK majetok mimo pôvodnej žiadosti', async () => {
+      const category = await insertTestCategory(app);
+      const notebook = await insertTestAsset(app, {
+        status: 'AVAILABLE',
+        categoryId: category._id,
+      });
+
+      const extraCategory = await insertTestCategory(app);
+      const cables = await insertTestAsset(app, {
+        categoryId: extraCategory._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 20,
+        name: 'HDMI kábel',
+      });
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/v1/loan-requests',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: {
+          purpose: 'Notebook + BULK navyše',
+          plannedFrom: new Date(Date.now() + 1000).toISOString(),
+          items: [{ categoryId: category._id, quantityRequested: 1 }],
+        },
+      });
+      const requestId = createRes.json<{ _id: string }>()._id;
+      await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/approve`,
+        headers: { cookie: `inv_access=${managerToken}` },
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [
+            { requestItemIndex: 0, type: 'SERIALIZED', assetIds: [notebook._id] },
+            {
+              type: 'EXTRA_BULK',
+              categoryId: extraCategory._id,
+              bulkItemId: cables._id,
+              quantity: 2,
+            },
+          ],
+          dueAt: null,
+        },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const reqDoc = await app.mongo.db.collection('loan_requests').findOne({});
+      expect(reqDoc?.items).toHaveLength(2);
+      expect(reqDoc?.items[1].categoryId).toBe(extraCategory._id);
+      expect(reqDoc?.items[1].quantityRequested).toBe(2);
+      expect(reqDoc?.items[1].quantityFulfilled).toBe(2);
     });
 
     it('vráti 400 ak asset nie je AVAILABLE pri vydaní', async () => {

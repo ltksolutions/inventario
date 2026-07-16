@@ -177,6 +177,14 @@ export const FulfilLoanRequestSchema = z.object({
    * SERIALIZED: assetIds[] (inventárne kusy z danej kategórie).
    * BULK: bulkItemId + quantity (množstevná položka z danej kategórie).
    * Každá vydávaná položka žiadosti môže byť SERIALIZED alebo BULK, nie oboje.
+   *
+   * EXTRA_SERIALIZED / EXTRA_BULK (2026-07-16): správca môže pri vydaní
+   * pripísať majetok, ktorý žiadateľ pôvodne NEžiadal (napr. predlžovačka
+   * k notebooku) — žiadosť je len orientačný podnet, správca je jediný
+   * gatekeeper a môže vydať viac, menej, iné, alebo nič. Tieto položky
+   * nemajú requestItemIndex (nepatria k existujúcej položke žiadosti) —
+   * server ich dopíše do žiadosti ako novú položku (so snímkou kategórie
+   * a poznámkou, že ju doplnil správca).
    */
   items: z
     .array(
@@ -189,6 +197,17 @@ export const FulfilLoanRequestSchema = z.object({
         z.object({
           requestItemIndex: z.number().int().nonnegative(),
           type: z.literal('BULK'),
+          bulkItemId: ObjectIdSchema,
+          quantity: z.number().int().min(1),
+        }),
+        z.object({
+          type: z.literal('EXTRA_SERIALIZED'),
+          categoryId: ObjectIdSchema,
+          assetIds: z.array(ObjectIdSchema).min(1),
+        }),
+        z.object({
+          type: z.literal('EXTRA_BULK'),
+          categoryId: ObjectIdSchema,
           bulkItemId: ObjectIdSchema,
           quantity: z.number().int().min(1),
         }),

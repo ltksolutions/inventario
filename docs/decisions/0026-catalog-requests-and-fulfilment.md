@@ -301,6 +301,17 @@ Indexy:
 - **Over-fulfilment**: vydať viac, než žiadané (`quantityFulfilled > quantityRequested`).
   Service musí strážiť strop (alebo vedome povoliť? — default: nepovoliť, vydanie nesmie
   prekročiť žiadané množstvo položky).
+
+  > **Addendum 2026-07-16** (potvrdené s Janikou): strop bol ODSTRÁNENÝ. Žiadosť
+  > je len orientačný podnet, nie záväzná rezervácia — správca je jediný gatekeeper
+  > a môže vydať viac, menej, alebo úplne inú kategóriu, než bola žiadaná
+  > (`EXTRA_SERIALIZED`/`EXTRA_BULK` fulfil položky bez `requestItemIndex` —
+  > dopíšu sa do `items[]` s poznámkou "Doplnené správcom pri vydaní", napr.
+  > predlžovačka k notebooku, ktorú žiadateľ zabudol vyžiadať). Zároveň opravené:
+  > BULK kategória s viacerými bulk assetmi (napr. "SAP licencia" + "Office
+  > licencia" pod "Software") už ponúkne pole na množstvo pre KAŽDÚ položku,
+  > nie len prvú nájdenú.
+
 - **„Zaseknutá" APPROVED žiadosť** bez vydania — analogicky k ADR-0012 stuck PENDING.
   Mitigácia: ADMIN môže `CLOSED`-núť kedykoľvek; auto-expirácia odložená (Fáza 2).
 - **UI vydávania** pre správcu (mapovanie kategória → konkrétne kusy/BULK) je nová obrazovka

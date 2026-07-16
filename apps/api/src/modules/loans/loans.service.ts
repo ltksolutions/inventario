@@ -428,26 +428,82 @@ export class LoansService {
       // ----- Step 2: build Loan items + validate assets -----
       const loanItems: LoanItem[] = [];
       const itemIncrements: Array<{ index: number; delta: number }> = [];
+      const categoriesCol = this.getDb().collection('categories');
 
       for (const fulfilItem of input.items) {
-        const reqItem = loanRequest.items[fulfilItem.requestItemIndex];
-        if (!reqItem) {
-          throw new BadRequestError(
-            `requestItemIndex ${fulfilItem.requestItemIndex} neexistuje v tejto žiadosti.`,
+        const isExtra = fulfilItem.type === 'EXTRA_SERIALIZED' || fulfilItem.type === 'EXTRA_BULK';
+
+        let targetIndex: number;
+        let reqItem: LoanRequest['items'][number];
+
+        if (isExtra) {
+          // Položka mimo pôvodnej žiadosti (2026-07-16) — žiadateľ ju nepožiadal,
+          // žiadosť je len orientačný podnet a správca môže doplniť čokoľvek
+          // navyše (napr. predlžovačka k notebooku). Pripíšeme novú položku
+          // do žiadosti, nech to ostane vidno v jej histórii.
+          if (!ObjectId.isValid(fulfilItem.categoryId)) {
+            throw new BadRequestError(`Neplatný formát categoryId: ${fulfilItem.categoryId}`);
+          }
+          const category = await categoriesCol.findOne({
+            _id: new ObjectId(fulfilItem.categoryId) as never,
+            organisationId: tenantId,
+            deletedAt: null,
+            isActive: true,
+          });
+          if (!category) {
+            throw new BadRequestError(
+              `Kategória '${fulfilItem.categoryId}' neexistuje alebo nie je aktívna.`,
+            );
+          }
+
+          const extraQty =
+            fulfilItem.type === 'EXTRA_SERIALIZED'
+              ? fulfilItem.assetIds.length
+              : fulfilItem.quantity;
+
+          const newItem: LoanRequest['items'][number] = {
+            categoryId: fulfilItem.categoryId,
+            categorySnapshot: {
+              name: category['name'] as string,
+              slug: category['slug'] as string,
+            },
+            quantityRequested: extraQty,
+            quantityFulfilled: 0,
+            note: 'Doplnené správcom pri vydaní (mimo pôvodnej žiadosti).',
+          };
+
+          const appended = await this.loanRequestsRepo.appendItem(
+            tenantId,
+            id,
+            newItem,
+            now,
+            actorId,
+            session,
           );
+          if (!appended) throw new NotFoundError('LoanRequest', id);
+
+          targetIndex = appended.items.length - 1;
+          reqItem = newItem;
+        } else {
+          targetIndex = fulfilItem.requestItemIndex;
+          const existing = loanRequest.items[targetIndex];
+          if (!existing) {
+            throw new BadRequestError(
+              `requestItemIndex ${targetIndex} neexistuje v tejto žiadosti.`,
+            );
+          }
+          reqItem = existing;
         }
 
-        const remaining = reqItem.quantityRequested - reqItem.quantityFulfilled;
+        // Žiadny strop na "zostatok" (2026-07-16) — žiadosť je len orientačný
+        // podnet, správca je jediný gatekeeper a môže vydať viac, menej, iné,
+        // alebo nič, než bolo pôvodne žiadané.
         const issuingQty =
-          fulfilItem.type === 'SERIALIZED' ? fulfilItem.assetIds.length : fulfilItem.quantity;
+          fulfilItem.type === 'SERIALIZED' || fulfilItem.type === 'EXTRA_SERIALIZED'
+            ? fulfilItem.assetIds.length
+            : fulfilItem.quantity;
 
-        if (issuingQty > remaining) {
-          throw new BadRequestError(
-            `Položka ${fulfilItem.requestItemIndex}: vydávate ${issuingQty}, ale zostatok je len ${remaining}.`,
-          );
-        }
-
-        if (fulfilItem.type === 'SERIALIZED') {
+        if (fulfilItem.type === 'SERIALIZED' || fulfilItem.type === 'EXTRA_SERIALIZED') {
           for (const assetId of fulfilItem.assetIds) {
             const asset = await this.assetsRepo.findById(tenantId, assetId, session);
             if (!asset) {
@@ -483,7 +539,7 @@ export class LoansService {
           });
         }
 
-        itemIncrements.push({ index: fulfilItem.requestItemIndex, delta: issuingQty });
+        itemIncrements.push({ index: targetIndex, delta: issuingQty });
       }
 
       // ----- Step 3: create Loan -----

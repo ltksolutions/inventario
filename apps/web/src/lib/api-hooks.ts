@@ -1509,10 +1509,19 @@ export interface CreateLoanRequestInput {
   beneficiaryId?: string;
 }
 
-/** ADR-0026: vydanie z žiadosti — mapovanie položiek na konkrétny majetok. */
+/**
+ * ADR-0026: vydanie z žiadosti — mapovanie položiek na konkrétny majetok.
+ *
+ * EXTRA_SERIALIZED / EXTRA_BULK (2026-07-16): položka mimo pôvodnej žiadosti
+ * — žiadosť je len orientačný podnet, správca môže pripísať čokoľvek
+ * navyše (napr. predlžovačka k notebooku). Žiadny requestItemIndex — server
+ * dopíše novú položku do žiadosti.
+ */
 export type FulfilLoanRequestItem =
   | { requestItemIndex: number; type: 'SERIALIZED'; assetIds: string[] }
-  | { requestItemIndex: number; type: 'BULK'; bulkItemId: string; quantity: number };
+  | { requestItemIndex: number; type: 'BULK'; bulkItemId: string; quantity: number }
+  | { type: 'EXTRA_SERIALIZED'; categoryId: string; assetIds: string[] }
+  | { type: 'EXTRA_BULK'; categoryId: string; bulkItemId: string; quantity: number };
 
 export interface FulfilLoanRequestInput {
   items: FulfilLoanRequestItem[];

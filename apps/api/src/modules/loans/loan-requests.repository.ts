@@ -243,4 +243,42 @@ export class LoanRequestsRepository {
 
     return result ?? null;
   }
+
+  /**
+   * Pripíše novú položku na koniec `items[]` (2026-07-16, EXTRA_* fulfil).
+   *
+   * Používa sa, keď správca pri vydaní doplní majetok, ktorý žiadateľ pôvodne
+   * nepožiadal (žiadosť je len orientačný podnet, nie strop) — nová položka
+   * dostane index `items.length` PRED pripísaním (vrátený dokument to
+   * potvrdzuje). Voláteľ musí pripísavať EXTRA položky v rámci jedného
+   * fulfil volania SEKVENČNE (nie paralelne), inak by dve pripísania so
+   * stale `items.length` dostali rovnaký index.
+   */
+  async appendItem(
+    organisationId: string,
+    id: string,
+    item: LoanRequest['items'][number],
+    updatedAt: string,
+    updatedBy: string,
+    session?: ClientSession,
+  ): Promise<WithId<LoanRequest> | null> {
+    const tenantId = requireTenantId(organisationId);
+    if (!ObjectId.isValid(id)) return null;
+
+    const result = await this.collection.findOneAndUpdate(
+      tenantFilter<LoanRequest>(tenantId, {
+        _id: new ObjectId(id) as unknown as LoanRequest['_id'],
+      } as Filter<LoanRequest>),
+      {
+        $push: { items: item },
+        $set: { updatedAt, updatedBy },
+      },
+      {
+        returnDocument: 'after',
+        ...(session ? { session } : {}),
+      },
+    );
+
+    return result ?? null;
+  }
 }

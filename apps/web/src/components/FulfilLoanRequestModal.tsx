@@ -3,29 +3,56 @@
 
 'use client';
 
-import { AlertCircle, Check, X } from 'lucide-react';
+import { AlertCircle, Check, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
-import type { FulfilLoanRequestItem, LoanRequestSummary } from '@/lib/api-hooks';
+import type { AssetSummary, FulfilLoanRequestItem, LoanRequestSummary } from '@/lib/api-hooks';
 import type { JSX } from 'react';
 
+import { Combobox } from '@/components/Combobox';
 import { DateField } from '@/components/DateField';
-import { useAssets, useFulfilLoanRequest } from '@/lib/api-hooks';
+import { useAssets, useCategories, useFulfilLoanRequest } from '@/lib/api-hooks';
+import { buildGroupedCategoryOptions } from '@/lib/category-tree';
 
 /**
  * FulfilLoanRequestModal — obrazovka vydávania z katalógovej žiadosti (ADR-0026, K5).
  *
- * Správca pre každú položku žiadosti so zostatkom > 0 mapuje:
+ * Správca pre každú položku žiadosti mapuje:
  *   - SERIALIZED kategória → výber konkrétnych AVAILABLE kusov
- *   - BULK kategória → zadanie množstva
+ *   - BULK kategória → zadanie množstva PRE KAŽDÚ bulk položku v kategórii
+ *     (kategória môže obsahovať viac bulk assetov, napr. "SAP licencia" a
+ *     "Office licencia" pod kategóriou "Software" — 2026-07-16 fix, dovtedy
+ *     sa vždy ticho vydala len prvá nájdená).
  *
- * Vydanie môže byť čiastočné. closeRemainder uzavrie žiadosť aj s nevydaným zvyškom.
- * Vydaním vzniká jeden Loan.
+ * Žiadosť je len ORIENTAČNÝ PODNET (2026-07-16, potvrdené s Janikou) —
+ * žiadané množstvo NIE JE strop. Správca môže vydať viac, menej, alebo
+ * úplne inú kategóriu, než bola žiadaná ("Položky navyše" sekcia nižšie) —
+ * napr. keď žiadateľ zabudol poprosiť o predlžovačku k notebooku. Položky
+ * navyše sa dopíšu do žiadosti ako nová položka (server-side, vidno v
+ * histórii žiadosti), nie sú viazané na pôvodný requestItemIndex.
+ *
+ * Vydanie môže byť čiastočné. closeRemainder uzavrie žiadosť aj s nevydaným
+ * zvyškom (počíta sa len z pôvodne žiadaných položiek).
  */
 
 interface Props {
   request: LoanRequestSummary;
   onClose: () => void;
+}
+
+interface ExtraItemDraft {
+  /** Lokálne id pre React key (nie je to categoryId). */
+  key: string;
+  categoryId: string;
+  serializedSel: Set<string>;
+}
+
+function makeEmptyExtraItem(): ExtraItemDraft {
+  return {
+    key: `extra-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    categoryId: '',
+    serializedSel: new Set(),
+  };
 }
 
 function toDateInputValue(date: Date): string {
@@ -40,11 +67,19 @@ function toISOFromDateInput(dateStr: string): string {
 export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element {
   const fulfil = useFulfilLoanRequest();
   const assetsQuery = useAssets({ limit: 200 });
+  const categoriesQuery = useCategories({ limit: 200 });
   const allAssets = assetsQuery.data?.data ?? [];
 
-  // Per-item výber: index položky → set assetId (SERIALIZED) alebo množstvo (BULK)
+  const { options: categoryOptions, groupById: categoryGroupById } = buildGroupedCategoryOptions(
+    (categoriesQuery.data?.data ?? []).filter((c) => c.isActive),
+  );
+
+  // Per-request-item výber: index položky → set assetId (SERIALIZED).
   const [serializedSel, setSerializedSel] = useState<Record<number, Set<string>>>({});
-  const [bulkQty, setBulkQty] = useState<Record<number, number>>({});
+  // Množstvo pre BULK assety — kľúč `${scope}:${assetId}`, scope = `req:${idx}` alebo `extra:${extraKey}`.
+  const [bulkQty, setBulkQty] = useState<Record<string, number>>({});
+
+  const [extraItems, setExtraItems] = useState<ExtraItemDraft[]>([]);
 
   const [dueType, setDueType] = useState<'fixed' | 'open'>(
     request.plannedTo == null ? 'open' : 'fixed',
@@ -68,26 +103,61 @@ export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element
     });
   }
 
+  function setBulkQtyFor(key: string, n: number): void {
+    setBulkQty((prev) => ({ ...prev, [key]: Number.isNaN(n) ? 0 : Math.max(0, n) }));
+  }
+
+  function addExtraItem(): void {
+    setExtraItems((prev) => [...prev, makeEmptyExtraItem()]);
+  }
+
+  function removeExtraItem(key: string): void {
+    setExtraItems((prev) => prev.filter((it) => it.key !== key));
+    setBulkQty((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) {
+        if (k.startsWith(`extra:${key}:`)) delete next[k];
+      }
+      return next;
+    });
+  }
+
+  function updateExtraItemCategory(key: string, categoryId: string): void {
+    setExtraItems((prev) =>
+      prev.map((it) => (it.key === key ? { ...it, categoryId, serializedSel: new Set() } : it)),
+    );
+  }
+
+  function toggleExtraAsset(key: string, assetId: string): void {
+    setExtraItems((prev) =>
+      prev.map((it) => {
+        if (it.key !== key) return it;
+        const set = new Set(it.serializedSel);
+        if (set.has(assetId)) set.delete(assetId);
+        else set.add(assetId);
+        return { ...it, serializedSel: set };
+      }),
+    );
+  }
+
   function buildFulfilItems(): FulfilLoanRequestItem[] {
     const result: FulfilLoanRequestItem[] = [];
+
     request.items.forEach((item, idx) => {
-      const remaining = item.quantityRequested - (item.quantityFulfilled ?? 0);
-      if (remaining <= 0) return;
-
-      // BULK kategória? Zistíme z dostupných assetov tejto kategórie
       const categoryAssets = allAssets.filter((a) => a.categoryId === item.categoryId);
-      const isBulk = categoryAssets.some((a) => a.trackingMode === 'BULK');
+      const bulkAssets = categoryAssets.filter((a) => a.trackingMode === 'BULK');
 
-      if (isBulk) {
-        const qty = bulkQty[idx] ?? 0;
-        const bulkAsset = categoryAssets.find((a) => a.trackingMode === 'BULK');
-        if (qty > 0 && bulkAsset) {
-          result.push({
-            requestItemIndex: idx,
-            type: 'BULK',
-            bulkItemId: bulkAsset._id,
-            quantity: qty,
-          });
+      if (bulkAssets.length > 0) {
+        for (const bulkAsset of bulkAssets) {
+          const qty = bulkQty[`req:${idx}:${bulkAsset._id}`] ?? 0;
+          if (qty > 0) {
+            result.push({
+              requestItemIndex: idx,
+              type: 'BULK',
+              bulkItemId: bulkAsset._id,
+              quantity: qty,
+            });
+          }
         }
       } else {
         const selected = Array.from(serializedSel[idx] ?? []);
@@ -96,6 +166,36 @@ export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element
         }
       }
     });
+
+    for (const extra of extraItems) {
+      if (!extra.categoryId) continue;
+      const categoryAssets = allAssets.filter((a) => a.categoryId === extra.categoryId);
+      const bulkAssets = categoryAssets.filter((a) => a.trackingMode === 'BULK');
+
+      if (bulkAssets.length > 0) {
+        for (const bulkAsset of bulkAssets) {
+          const qty = bulkQty[`extra:${extra.key}:${bulkAsset._id}`] ?? 0;
+          if (qty > 0) {
+            result.push({
+              type: 'EXTRA_BULK',
+              categoryId: extra.categoryId,
+              bulkItemId: bulkAsset._id,
+              quantity: qty,
+            });
+          }
+        }
+      } else {
+        const selected = Array.from(extra.serializedSel);
+        if (selected.length > 0) {
+          result.push({
+            type: 'EXTRA_SERIALIZED',
+            categoryId: extra.categoryId,
+            assetIds: selected,
+          });
+        }
+      }
+    }
+
     return result;
   }
 
@@ -147,16 +247,9 @@ export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element
             <div className="flex flex-col gap-4">
               {request.items.map((item, idx) => {
                 const remaining = item.quantityRequested - (item.quantityFulfilled ?? 0);
-                if (remaining <= 0) {
-                  return (
-                    <div key={`${item.categoryId}-${idx}`} className="text-sm text-text-muted">
-                      {item.categorySnapshot.name} — plne vydané ✓
-                    </div>
-                  );
-                }
-
                 const categoryAssets = allAssets.filter((a) => a.categoryId === item.categoryId);
-                const isBulk = categoryAssets.some((a) => a.trackingMode === 'BULK');
+                const bulkAssets = categoryAssets.filter((a) => a.trackingMode === 'BULK');
+                const isBulk = bulkAssets.length > 0;
                 const availableSerialized = categoryAssets.filter(
                   (a) => a.trackingMode !== 'BULK' && a.status === 'AVAILABLE',
                 );
@@ -172,74 +265,111 @@ export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element
                         {item.categorySnapshot.name}
                       </span>
                       <span className="text-xs text-text-muted">
-                        Žiadané {item.quantityRequested}, zostáva {remaining}
+                        Žiadané {item.quantityRequested}, vydané {item.quantityFulfilled ?? 0}
+                        {remaining > 0 ? `, zostáva ${remaining}` : ' — plne vydané ✓'}
                         {isBulk ? ' (BULK)' : ` · vybraté ${selectedCount}`}
                       </span>
                     </div>
 
                     {isBulk ? (
-                      <div className="flex items-center gap-2">
-                        <label htmlFor={`bulk-qty-${idx}`} className="text-sm text-text-secondary">
-                          Množstvo na vydanie:
-                        </label>
-                        <input
-                          id={`bulk-qty-${idx}`}
-                          type="number"
-                          min={0}
-                          max={remaining}
-                          value={bulkQty[idx] ?? ''}
-                          onChange={(e) => {
-                            const n = parseInt(e.target.value, 10);
-                            setBulkQty((prev) => ({
-                              ...prev,
-                              [idx]: Number.isNaN(n) ? 0 : Math.min(remaining, Math.max(0, n)),
-                            }));
-                          }}
-                          className="h-9 w-20 rounded-lg border border-border-default bg-surface-card text-center text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                        />
-                      </div>
-                    ) : availableSerialized.length === 0 ? (
-                      <p className="text-xs text-text-muted">
-                        Žiadne dostupné kusy v tejto kategórii.
-                      </p>
+                      <BulkQuantityRows
+                        scope={`req:${idx}`}
+                        bulkAssets={bulkAssets}
+                        bulkQty={bulkQty}
+                        onChange={setBulkQtyFor}
+                      />
                     ) : (
-                      <ul className="max-h-40 overflow-y-auto rounded-lg border border-border-subtle divide-y divide-border-subtle">
-                        {availableSerialized.map((asset) => {
-                          const sel = (serializedSel[idx] ?? new Set()).has(asset._id);
-                          const atLimit = !sel && selectedCount >= remaining;
-                          return (
-                            <li key={asset._id}>
-                              <button
-                                type="button"
-                                onClick={() => toggleAsset(idx, asset._id)}
-                                disabled={atLimit}
-                                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition ${
-                                  sel
-                                    ? 'bg-brand-primary/10 text-text-primary'
-                                    : 'text-text-secondary hover:bg-surface-subtle disabled:opacity-40'
-                                }`}
-                              >
-                                <span>
-                                  <span className="font-medium text-text-primary">
-                                    {asset.inventoryNumber}
-                                  </span>
-                                  <span className="ml-1.5">{asset.name}</span>
-                                </span>
-                                {sel && (
-                                  <Check
-                                    aria-hidden="true"
-                                    className="h-4 w-4 shrink-0 text-brand-primary"
-                                  />
-                                )}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <SerializedAssetList
+                        assets={availableSerialized}
+                        selected={serializedSel[idx] ?? new Set()}
+                        onToggle={(assetId) => toggleAsset(idx, assetId)}
+                      />
                     )}
                   </div>
                 );
               })}
+
+              {/* Položky navyše — mimo pôvodnej žiadosti (2026-07-16) */}
+              <div className="rounded-lg border border-dashed border-border-default p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-medium text-text-primary">
+                    Položky navyše (mimo žiadosti)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={addExtraItem}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-surface-card px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-subtle"
+                  >
+                    <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+                    Pridať položku
+                  </button>
+                </div>
+
+                {extraItems.length === 0 ? (
+                  <p className="text-xs text-text-muted">
+                    Napr. keď žiadateľ zabudol poprosiť o predlžovačku k notebooku — pridajte ju
+                    sem, dopíše sa do žiadosti.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {extraItems.map((extra) => {
+                      const categoryAssets = allAssets.filter(
+                        (a) => a.categoryId === extra.categoryId,
+                      );
+                      const bulkAssets = categoryAssets.filter((a) => a.trackingMode === 'BULK');
+                      const isBulk = bulkAssets.length > 0;
+                      const availableSerialized = categoryAssets.filter(
+                        (a) => a.trackingMode !== 'BULK' && a.status === 'AVAILABLE',
+                      );
+
+                      return (
+                        <div
+                          key={extra.key}
+                          className="rounded-lg border border-border-subtle bg-surface-page p-3"
+                        >
+                          <div className="mb-2 flex items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <Combobox
+                                ariaLabel="Kategória (navyše)"
+                                placeholder="Vyberte kategóriu…"
+                                value={extra.categoryId || null}
+                                onChange={(v) => updateExtraItemCategory(extra.key, v ?? '')}
+                                options={categoryOptions}
+                                groupOf={(o) => categoryGroupById[o.id]}
+                                visibleLimit={100}
+                                className="w-full"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeExtraItem(extra.key)}
+                              aria-label="Odstrániť položku navyše"
+                              className="rounded p-1.5 text-text-muted hover:bg-surface-card hover:text-danger-fg"
+                            >
+                              <Trash2 aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {!extra.categoryId ? null : isBulk ? (
+                            <BulkQuantityRows
+                              scope={`extra:${extra.key}`}
+                              bulkAssets={bulkAssets}
+                              bulkQty={bulkQty}
+                              onChange={setBulkQtyFor}
+                            />
+                          ) : (
+                            <SerializedAssetList
+                              assets={availableSerialized}
+                              selected={extra.serializedSel}
+                              onToggle={(assetId) => toggleExtraAsset(extra.key, assetId)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Due date */}
               <div className="flex flex-wrap items-end gap-3">
@@ -290,7 +420,7 @@ export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element
                   onChange={(e) => setCloseRemainder(e.target.checked)}
                   className="h-4 w-4 rounded border-border-default text-brand-primary focus:ring-brand-primary"
                 />
-                Po tomto vydaní uzavrieť žiadosť (nevydaný zvyšok prepadne)
+                Po tomto vydaní uzavrieť žiadosť (nevydaný zvyšok pôvodných položiek prepadne)
               </label>
 
               {formError && (
@@ -325,5 +455,100 @@ export function FulfilLoanRequestModal({ request, onClose }: Props): JSX.Element
         </div>
       </td>
     </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BulkQuantityRows — pole na množstvo pre KAŽDÚ bulk položku v kategórii
+// (kategória môže obsahovať viac bulk assetov, napr. "SAP licencia" a
+// "Office licencia" pod "Software" — 2026-07-16 fix).
+// ---------------------------------------------------------------------------
+
+function BulkQuantityRows({
+  scope,
+  bulkAssets,
+  bulkQty,
+  onChange,
+}: {
+  scope: string;
+  bulkAssets: readonly AssetSummary[];
+  bulkQty: Record<string, number>;
+  onChange: (key: string, n: number) => void;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-2">
+      {bulkAssets.map((asset) => {
+        const key = `${scope}:${asset._id}`;
+        return (
+          <div key={asset._id} className="flex items-center gap-2">
+            <label
+              htmlFor={`bulk-qty-${key}`}
+              className="min-w-0 flex-1 text-sm text-text-secondary"
+            >
+              {asset.name}
+              {asset.quantityOnHand != null && (
+                <span className="ml-1 text-xs text-text-muted">
+                  (skladom {asset.quantityOnHand})
+                </span>
+              )}
+            </label>
+            <input
+              id={`bulk-qty-${key}`}
+              type="number"
+              min={0}
+              value={bulkQty[key] ?? ''}
+              onChange={(e) => onChange(key, parseInt(e.target.value, 10))}
+              className="h-9 w-20 shrink-0 rounded-lg border border-border-default bg-surface-card text-center text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SerializedAssetList — zoznam dostupných kusov na výber (bez stropu —
+// žiadosť je len orientačný podnet, 2026-07-16).
+// ---------------------------------------------------------------------------
+
+function SerializedAssetList({
+  assets,
+  selected,
+  onToggle,
+}: {
+  assets: readonly AssetSummary[];
+  selected: ReadonlySet<string>;
+  onToggle: (assetId: string) => void;
+}): JSX.Element {
+  if (assets.length === 0) {
+    return <p className="text-xs text-text-muted">Žiadne dostupné kusy v tejto kategórii.</p>;
+  }
+
+  return (
+    <ul className="max-h-40 overflow-y-auto rounded-lg border border-border-subtle divide-y divide-border-subtle">
+      {assets.map((asset) => {
+        const sel = selected.has(asset._id);
+        return (
+          <li key={asset._id}>
+            <button
+              type="button"
+              onClick={() => onToggle(asset._id)}
+              className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition ${
+                sel
+                  ? 'bg-brand-primary/10 text-text-primary'
+                  : 'text-text-secondary hover:bg-surface-subtle'
+              }`}
+            >
+              <span>
+                <span className="font-medium text-text-primary">{asset.inventoryNumber}</span>
+                <span className="ml-1.5">{asset.name}</span>
+              </span>
+              {sel && <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-brand-primary" />}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

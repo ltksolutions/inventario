@@ -128,6 +128,20 @@ const FulfilLoanRequestBodySchema = z.object({
           bulkItemId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát bulkItemId.'),
           quantity: z.number().int().min(1),
         }),
+        // Položka mimo pôvodnej žiadosti (2026-07-16) — správca doplňa majetok,
+        // ktorý žiadateľ nepožiadal (napr. predlžovačka k notebooku). Žiadny
+        // requestItemIndex — server pripíše novú položku do žiadosti.
+        z.object({
+          type: z.literal('EXTRA_SERIALIZED'),
+          categoryId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát categoryId.'),
+          assetIds: z.array(z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát assetId.')).min(1),
+        }),
+        z.object({
+          type: z.literal('EXTRA_BULK'),
+          categoryId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát categoryId.'),
+          bulkItemId: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát bulkItemId.'),
+          quantity: z.number().int().min(1),
+        }),
       ]),
     )
     .min(1, 'Vydanie musí obsahovať aspoň jednu položku.'),
