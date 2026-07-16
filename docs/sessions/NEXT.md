@@ -1,5 +1,38 @@
 # NEXT
 
+## Aktuálny stav (2026-07-16) — ADR-0036 „Vrátiť od osoby" (čiastočné + cross-loan vrátenie) — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-16-adr-0036-vratenie-od-osoby.md`.
+
+Popri dvoch menších opravách (zamenené titulky HANDOVER/RETURN v tlačovom
+PDF protokole, placeholder text v žiadosti o výpožičku) implementované
+celé ADR-0036: nová doplnková cesta „Vrátiť majetok" na detaile osoby —
+vráti ľubovoľnú podmnožinu kusov, aj cez viaceré `Loan`-y naraz, jedným
+konsolidovaným RETURN protokolom. Nový stav `LoanStatus.
+PARTIALLY_RETURNED`. **Pôvodné tlačidlo „Vrátiť" na detaile jednej
+výpožičky ostáva bezo zmeny** (explicitná Janikina korekcia) — čisto
+doplnková feature.
+
+K1–K8 hotové: shared-types schémy, `loans.service.
+listBorrowedItemsForBorrower`/`returnItemsForBorrower`, dva nové
+endpointy (`GET /v1/users/:id/borrowed-items`,
+`POST /v1/users/:id/return-items`), frontend hooky +
+`ReturnFromPersonModal.tsx`, integračné testy (napísané, staticky
+overené — vitest v sandboxe nejde spustiť), ADR-0036 → Accepted, user-
+guide addendum. Commit `5b3a967` (main), pushnuté — pri commite husky
+hook na Janikinom Macu automaticky prerátal `apps/api/openapi.json`.
+
+Janika lokálne potvrdila „all green" (`pnpm install`, `generate:api-
+types`, `pnpm test`, `pnpm typecheck`, `pnpm lint`).
+
+**Otvorené (nice-to-have, nie blocker):** v `apps/web/src/lib/api-
+hooks.ts` je dočasné pretypovanie `apiClient.GET/POST` pre
+`useBorrowerBorrowedItems`/`useReturnItemsFromBorrower` (kým `api-
+types.ts` nepoznalo nové endpointy) — teraz po `generate:api-types` sa
+môže zrušiť, je to len úklid, nie funkčná zmena.
+
+---
+
 ## Aktuálny stav (2026-07-15, deviate pokračovanie) — ADR-0035 Fáza 2: F8 docs — HOTOVÉ, Fáza 2 KOMPLETNÁ
 
 Session log: `docs/sessions/2026-07-15-adr-0035-faza-2-f8-docs.md`.
