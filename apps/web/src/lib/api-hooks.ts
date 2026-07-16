@@ -1477,6 +1477,11 @@ export interface LoanRequestSummary {
 export interface LoanItemSummary {
   assetId: string;
   snapshot: { inventoryNumber: string; name: string };
+  /**
+   * Počet kusov pre BULK položku (2026-07-16, ADR-0020 wiring) — `null`/
+   * chýba pre SERIALIZED (každá položka = 1 konkrétny kus).
+   */
+  quantity?: number | null;
 }
 
 export interface LoanSummary {
@@ -1812,6 +1817,55 @@ export function useCancelLoanRequest(): UseMutationResult<void, Error, { id: str
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+}
+
+/** Vrátenie jednej položky pri POST /v1/loans/:id/return. */
+export interface ReturnLoanItemInput {
+  assetId: string;
+  /** Fixný enum (NEW/EXCELLENT/GOOD/FAIR/POOR/UNUSABLE) — nie slug z číselníka Stavy. */
+  condition: string;
+  note?: string | null;
+  requiresService?: boolean;
+}
+
+export interface ReturnLoanInput {
+  returnedTo: string;
+  items: ReturnLoanItemInput[];
+  notes?: string | null;
+}
+
+/**
+ * POST /v1/loans/:id/return — vrátenie AKTIVNEJ výpožičky (ASSET_MANAGER/ADMIN).
+ * Obálka musí naraz obsahovať všetky položky výpožičky — čiastočné vrátenie
+ * (Fáza 2, ADR-0020) ešte nie je podporované.
+ */
+export function useReturnLoan(): UseMutationResult<
+  LoanSummary,
+  Error,
+  { id: string; input: ReturnLoanInput }
+> {
+  const queryClient = useQueryClient();
+  return useMutation<LoanSummary, Error, { id: string; input: ReturnLoanInput }>({
+    mutationFn: async ({ id, input }) => {
+      const { data, error } = await apiClient.POST('/v1/loans/{id}/return', {
+        params: { path: { id } },
+        body: input as never,
+      });
+      if (error) {
+        const e = error as unknown as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Vrátenie výpožičky zlyhalo');
+      }
+      return data as unknown as LoanSummary;
+    },
+    onSuccess: (_data, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: ['loan', id] });
+      void queryClient.invalidateQueries({ queryKey: ['loans'] });
+      void queryClient.invalidateQueries({ queryKey: ['my-loans'] });
+      void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      void queryClient.invalidateQueries({ queryKey: ['loan-protocols', id] });
     },
   });
 }

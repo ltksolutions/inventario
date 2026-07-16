@@ -16,7 +16,7 @@
  * vytvoriť protokol dodatočne (POST /v1/loans/:id/protocols).
  */
 
-import { AlertCircle, ArrowLeft, Clock, FilePlus2, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Clock, FilePlus2, Loader2, PackageCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -24,6 +24,7 @@ import type { LoanProtocolSummary, LoanSummary } from '@/lib/api-hooks';
 import type { JSX, ReactNode } from 'react';
 
 import { ProtocolCard } from '@/components/ProtocolCard';
+import { ReturnLoanModal } from '@/components/ReturnLoanModal';
 import {
   useCanManageLoans,
   useCreateLoanProtocol,
@@ -79,6 +80,7 @@ export function LoanDetailContent({ loanId }: { loanId: string }): JSX.Element {
   const canManage = useCanManageLoans();
   const loanQuery = useLoan(loanId);
   const protocolsQuery = useLoanProtocols(loanId);
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
 
   if (loanQuery.isLoading) {
     return <DetailSkeleton />;
@@ -106,6 +108,7 @@ export function LoanDetailContent({ loanId }: { loanId: string }): JSX.Element {
 
   const items = loan.items as unknown as LoanDetailItem[];
   const protocols = protocolsQuery.data ?? [];
+  const canReturn = canManage && loan.status === 'ACTIVE';
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -113,25 +116,39 @@ export function LoanDetailContent({ loanId }: { loanId: string }): JSX.Element {
 
       {/* Hlavička */}
       <header className="mb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Výpožička</h1>
-          <span
-            className={cn(
-              'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset',
-              statusConfig.className,
-            )}
-          >
-            {statusConfig.label}
-          </span>
-          {isOverdue && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
-              <Clock aria-hidden="true" className="h-3.5 w-3.5" />
-              Termín vrátenia uplynul {formatDate(loan.dueAt)}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Výpožička</h1>
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset',
+                statusConfig.className,
+              )}
+            >
+              {statusConfig.label}
             </span>
+            {isOverdue && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
+                <Clock aria-hidden="true" className="h-3.5 w-3.5" />
+                Termín vrátenia uplynul {formatDate(loan.dueAt)}
+              </span>
+            )}
+          </div>
+          {canReturn && (
+            <button
+              type="button"
+              onClick={() => setReturnModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+            >
+              <PackageCheck aria-hidden="true" className="h-4 w-4" />
+              Vrátiť
+            </button>
           )}
         </div>
         <p className="mt-1 text-sm text-text-secondary">{loan.purpose}</p>
       </header>
+
+      {returnModalOpen && <ReturnLoanModal loan={loan} onClose={() => setReturnModalOpen(false)} />}
 
       {/* Info grid */}
       <section className="mb-6 grid grid-cols-1 gap-3 rounded-xl border border-border-subtle bg-surface-card p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
