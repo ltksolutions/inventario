@@ -25,6 +25,17 @@
  *   API: POST /write s JSON { device: { uid }, data: zplString }.
  *   Pred tlačou: GET /available alebo /default — zistíme prvú dostupnú tlačiareň.
  *   Docs: https://www.zebra.com/us/en/support-downloads/software/printer-software/browser-print.html
+ *
+ *   Chrome Local Network Access (LNA, od Chrome 142, 2026): appka je na
+ *   verejnom HTTPS (`app.inventario.estate`), Browser Print agent na
+ *   `localhost` — Chrome teraz vyžaduje explicitné povolenie pred takýmto
+ *   requestom (permission prompt, podobne ako kamera/mikrofón). Fetch
+ *   anotujeme `targetAddressSpace: 'local'`, aby ho Chrome vopred rozpoznal
+ *   ako zámerný lokálny request (odporúčaný postup z Chrome docs) — bez
+ *   tejto anotácie sa v niektorých prípadoch request ticho zablokuje bez
+ *   zobrazenia povoľovacieho dialógu. Ak organizácia používa Chrome v
+ *   enterprise-managed režime, IT môže mať lokálny prístup zablokovaný
+ *   politikou — to touto anotáciou neobídeme, treba povoliť na strane IT.
  */
 
 import { Loader2, Printer } from 'lucide-react';
@@ -157,6 +168,8 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
   try {
     const res = await fetch(`${BROWSER_PRINT_BASE}/default?type=printer`, {
       signal: controller.signal,
+      // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
+      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
     });
     if (!res.ok) {
       throw new Error('Browser Print agent vrátil chybu.');
@@ -202,6 +215,8 @@ async function sendZplToPrinter(
       device: { uid: printer.uid },
       data: zpl,
     }),
+    // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
+    ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
   });
 
   if (!res.ok) {

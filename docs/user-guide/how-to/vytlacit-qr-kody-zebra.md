@@ -91,6 +91,15 @@ Skontroluj v Nastaveniach organizácie (záložka „QR kódy a štítky"), či 
 **Tlač vypadne, ale je prázdna / len čiary**
 Zlá kalibrácia tlačiarne (senzor médií) alebo nesprávny typ štítkov (gap vs. continuous). Toto je hardvérová vec na strane ZD420, nie appky — skús kalibráciu priamo na tlačiarni (feed button held / Zebra Setup Utility).
 
+**Zebra tlačidlo hádže chybu, v Chrome DevTools vidíte „Zistený prístup k lokálnej sieti“ (2026, Chrome 142+)**
+Toto je nová bezpečnostná funkcia Chrome, volá sa **Local Network Access (LNA)** — blokuje stránky na verejnom HTTPS (`app.inventario.estate`) pred tichým prístupom na `localhost` (kde beží Zebra Browser Print agent na porte 9100). Nie je to bug v appke, je to platformová zmena, ktorá postihuje všetky weby s podobnou Browser Print integráciou.
+
+Od 2026-07-16 appka fetch requesty na `localhost:9100` anotuje `targetAddressSpace: 'local'`, aby Chrome správne rozpoznal zámer a zobrazil povoľovací dialóg (namiesto tichého blokovania). Ak sa tlač aj tak nedarí:
+
+1. Klikni na ikonu zámku vedľa adresy `app.inventario.estate` v prehliadači → **Site settings** (Nastavenia webu) → hľadaj **„Local network access“** — nastav na **Povoliť**.
+2. Ak je PC riadené firemným IT (Chrome Enterprise / Google Workspace), politika môže mať lokálny prístup globálne zablokovaný — IT musí `app.inventario.estate` doplniť do zoznamu povolených stránok (`LocalNetworkAccessAllowedForUrls`).
+3. Do vyriešenia funguje PDF tlačidlo vedľa Zebra tlačidla presne rovnako ako doteraz.
+
 ---
 
 <sub>Súvisí: [ADR-0027 — Tlač QR štítkov](../../decisions/0027-qr-label-printing.md), [Ako vytlačiť QR kódy](./vytlacit-qr-kody.md) _(TODO — všeobecný návod pre PDF/koncového používateľa, tento je len pre technický Zebra test)_</sub>

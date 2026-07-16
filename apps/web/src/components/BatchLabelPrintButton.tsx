@@ -17,6 +17,12 @@
  *
  * Max 200 assetov na dávku (backend limit).
  * Ak je viac ako 200 vybraných, zobrazíme warning a odosiela sa prvých 200.
+ *
+ * Chrome Local Network Access (LNA, od Chrome 142, 2026) — rovnaká poznámka
+ * ako v `LabelPrintButton.tsx`: fetch na `localhost:9100` anotujeme
+ * `targetAddressSpace: 'local'`, aby ho Chrome vopred rozpoznal ako
+ * zámerný lokálny request (bez toho môže Chrome request ticho zablokovať
+ * bez povoľovacieho dialógu).
  */
 
 import { ChevronDown, Loader2, Printer } from 'lucide-react';
@@ -228,6 +234,8 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
   try {
     const res = await fetch(`${BROWSER_PRINT_BASE}/default?type=printer`, {
       signal: controller.signal,
+      // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
+      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
     });
     if (!res.ok) throw new Error('Browser Print agent vrátil chybu.');
     const data = (await res.json()) as { printer?: ZebraPrinter };
@@ -253,6 +261,8 @@ async function sendZplToPrinter(printer: ZebraPrinter, zpl: string): Promise<voi
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ device: { uid: printer.uid }, data: zpl }),
+    // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
+    ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
   });
   if (!res.ok) throw new Error(`Browser Print write failed: ${res.status}`);
 }
