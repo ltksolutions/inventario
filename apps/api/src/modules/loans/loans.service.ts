@@ -39,6 +39,7 @@ import type { EmailService } from '../../plugins/email.js';
 import type { AssetsRepository } from '../assets/assets.repository.js';
 import type { AuditLogService } from '../audit/audit.service.js';
 import type { LoanProtocolsRepository } from '../protocols/loan-protocols.repository.js';
+import type { StockService } from '../stock/stock.service.js';
 import type {
   Asset,
   AssetStatus,
@@ -138,6 +139,13 @@ export class LoansService {
      * Routes (K5) vždy poskytnú inštanciu.
      */
     private protocolsRepo: LoanProtocolsRepository | null = null,
+    /**
+     * 2026-07-16 (ADR-0020 wiring) — optional, ak nie je nakonfigurovaný,
+     * skladové pohyby sa pri výdaji/vrátení BULK majetku preskočia (spätná
+     * kompatibilita so staršími testami, ktoré ho nepredávajú). Routes vždy
+     * poskytnú inštanciu.
+     */
+    private readonly stockService: StockService | null = null,
   ) {}
 
   /**
@@ -428,6 +436,10 @@ export class LoansService {
       // ----- Step 2: build Loan items + validate assets -----
       const loanItems: LoanItem[] = [];
       const itemIncrements: Array<{ index: number; delta: number }> = [];
+      // BULK/EXTRA_BULK výdaje na záznam do skladového ledgera (LOAN_OUT) po
+      // vytvorení Loanu nižšie (2026-07-16, ADR-0020 wiring) — nevieme ešte
+      // loanId, tak si len poznamenávame položky a množstvo.
+      const bulkStockOps: Array<{ itemId: string; quantity: number }> = [];
       const categoriesCol = this.getDb().collection('categories');
 
       for (const fulfilItem of input.items) {
@@ -526,6 +538,7 @@ export class LoansService {
                 atPickup: { condition: 'GOOD' as const, note: null, photoIds: [] },
                 atReturn: null,
               },
+              quantity: null,
             });
           }
         } else {
@@ -536,7 +549,9 @@ export class LoansService {
               atPickup: { condition: 'GOOD' as const, note: null, photoIds: [] },
               atReturn: null,
             },
+            quantity: issuingQty,
           });
+          bulkStockOps.push({ itemId: fulfilItem.bulkItemId, quantity: issuingQty });
         }
 
         itemIncrements.push({ index: targetIndex, delta: issuingQty });
@@ -570,6 +585,24 @@ export class LoansService {
 
       const insertedLoan = await this.loansRepo.insert(loanDoc, session);
       const loanId = String(insertedLoan._id);
+
+      // ----- Step 3b: skladové pohyby LOAN_OUT pre BULK/EXTRA_BULK výdaje -----
+      // (2026-07-16, ADR-0020 wiring). Beží v rámci tej istej transakcie ako
+      // vytvorenie Loanu — buď všetko, alebo nič. `stockService` je optional
+      // (spätná kompatibilita so staršími testami) — ak chýba, pohyby sa
+      // preskočia a `quantityOnHand` sa nezmení (staré správanie).
+      if (this.stockService) {
+        for (const op of bulkStockOps) {
+          await this.stockService.recordLoanOut(
+            op.itemId,
+            op.quantity,
+            loanId,
+            actor,
+            request,
+            session,
+          );
+        }
+      }
 
       // ----- Step 4: asset state changes -----
       for (const fulfilItem of input.items) {
@@ -846,6 +879,10 @@ export class LoansService {
             atPickup: { condition: 'GOOD' as const, note: null, photoIds: [] },
             atReturn: null,
           },
+          // createDirectLoan podporuje len SERIALIZED majetok (asset.status
+          // === 'AVAILABLE' guard vyššie) — BULK tu nie je podporovaný, preto
+          // vždy null (2026-07-16, ADR-0020 wiring).
+          quantity: null,
         });
       }
 
@@ -986,13 +1023,33 @@ export class LoansService {
         const requiresService = returnItemData.requiresService ?? false;
         if (requiresService) anyRequiresService = true;
 
-        const newAssetStatus: AssetStatus = requiresService ? 'IN_SERVICE' : 'AVAILABLE';
-        await this.assetsRepo.update(
-          tenantId,
-          loanItem.assetId,
-          { status: newAssetStatus, currentLoanId: null, updatedAt: now, updatedBy: actorId },
-          session,
-        );
+        const isBulk = loanItem.quantity != null;
+
+        if (isBulk) {
+          // BULK položka (2026-07-16, ADR-0020 wiring) — asset doc je len
+          // kategóriový placeholder, jeho `status`/`currentLoanId` sa pri
+          // výdaji NIKDY nemenil (pozri fulfilLoanRequest Step 4), tak
+          // sa nemení ani tu. Fyzické množstvo sa vracia cez skladový
+          // ledger (LOAN_RETURN), nie cez status assetu.
+          if (this.stockService) {
+            await this.stockService.recordLoanReturn(
+              loanItem.assetId,
+              loanItem.quantity as number,
+              id,
+              actor,
+              request,
+              session,
+            );
+          }
+        } else {
+          const newAssetStatus: AssetStatus = requiresService ? 'IN_SERVICE' : 'AVAILABLE';
+          await this.assetsRepo.update(
+            tenantId,
+            loanItem.assetId,
+            { status: newAssetStatus, currentLoanId: null, updatedAt: now, updatedBy: actorId },
+            session,
+          );
+        }
 
         updatedItems.push({
           ...loanItem,

@@ -312,6 +312,18 @@ Indexy:
   > licencia" pod "Software") už ponúkne pole na množstvo pre KAŽDÚ položku,
   > nie len prvú nájdenú.
 
+  > **Addendum 2026-07-16 (b)**: zrušeným stropom vznikol nový, reálny limit —
+  > **fyzický sklad**. `fulfilLoanRequest` teraz volá
+  > `StockService.recordLoanOut()` (v rámci tej istej transakcie) pre každú
+  > BULK/`EXTRA_BULK` položku, ktorá zapíše `StockMovement` a zníži
+  > `quantityOnHand`. Ak by výdaj stiahol zostatok pod nulu, `StockService`
+  > vyhodí 400 a celá transakcia (vrátane Loanu a `quantityFulfilled`
+  > inkrementu) sa rollback-uje — t.j. "žiadosť je len orientačná" platí pre
+  > vzťah žiadosť↔fulfil, nie pre vzťah fulfil↔sklad. `returnLoan()` pri
+  > vrátení BULK riadku (rozpozná podľa `LoanItem.quantity !== null`)
+  > preskočí status update na asset doku a namiesto toho zapíše
+  > `LOAN_RETURN`. Podrobnosti: [ADR-0020 dodatok](0020-stock-and-bulk-items.md).
+
 - **„Zaseknutá" APPROVED žiadosť** bez vydania — analogicky k ADR-0012 stuck PENDING.
   Mitigácia: ADMIN môže `CLOSED`-núť kedykoľvek; auto-expirácia odložená (Fáza 2).
 - **UI vydávania** pre správcu (mapovanie kategória → konkrétne kusy/BULK) je nová obrazovka

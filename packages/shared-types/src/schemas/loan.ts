@@ -277,6 +277,16 @@ export const LoanItemSchema = z.object({
     name: z.string(),
   }),
   condition: LoanItemConditionSchema,
+
+  /**
+   * Počet kusov pre BULK položku (2026-07-16, ADR-0020 wiring) — `null`
+   * pre SERIALIZED (každý `LoanItem` = 1 konkrétny kus, počet je implicitný
+   * počtom entries v `items[]`). Pre BULK je JEDEN `LoanItem` = celé
+   * množstvo vydané z tejto bulk položky v rámci tohto Loanu — potrebné
+   * uchovať, aby `returnLoan` vedel, koľko vrátiť na sklad (`LOAN_RETURN`
+   * StockMovement so správnym množstvom, nie len "vrátené 1 ks").
+   */
+  quantity: z.number().int().min(1).nullable().default(null),
 });
 
 export type LoanItem = z.infer<typeof LoanItemSchema>;

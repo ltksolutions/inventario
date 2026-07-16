@@ -21,6 +21,8 @@ import fp from 'fastify-plugin';
 import { z } from 'zod';
 
 import { AssetsRepository } from '../assets/assets.repository.js';
+import { StockMovementsRepository } from '../stock/stock-movements.repository.js';
+import { StockService } from '../stock/stock.service.js';
 
 import { LoanRequestsRepository } from './loan-requests.repository.js';
 import { LoansRepository } from './loans.repository.js';
@@ -167,6 +169,16 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
   const loansRepo = new LoansRepository(fastify.mongo.db);
   const assetsRepo = new AssetsRepository(fastify.mongo.db);
 
+  // 2026-07-16 (ADR-0020 wiring) — skladové pohyby pri výdaji/vrátení BULK
+  // majetku (rovnaký konštrukčný vzor ako stock.routes.ts).
+  const stockRepo = new StockMovementsRepository(fastify.mongo.db);
+  const stockService = new StockService(
+    stockRepo,
+    assetsRepo,
+    fastify.auditLog,
+    fastify.mongo.client,
+  );
+
   const service = new LoansService(
     loanRequestsRepo,
     loansRepo,
@@ -176,6 +188,8 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.emailService,
     fastify.config.FRONTEND_BASE_URL ?? 'https://app.inventario.estate',
     fastify.mongo.db,
+    null,
+    stockService,
   );
 
   await loanRequestsRepo.ensureIndexes();

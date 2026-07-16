@@ -175,6 +175,88 @@ export class StockService {
   }
 
   /**
+   * Výdaj na zápožičku (LOAN_OUT, 2026-07-16 — ADR-0020 wiring do Loans).
+   * Volá sa z `LoansService.fulfilLoanRequest` PO vytvorení Loanu (loanId
+   * už existuje). `quantity` je KLADNé (počet vydaných kusov) — sign (-1)
+   * pre `LOAN_OUT` sa aplikuje tu, volajúci nemusí riešiť znamienko.
+   *
+   * `session` je VOLITEľné, ale v praxi voláteľ (LoansService) vždy poskytne
+   * svoju existujúcu transakciu — vydanie Loanu + pohyb skladu musí byť
+   * atomické (buď oboje, alebo nič). Bez `session` (nepriamy použiteľ mimo
+   * Loans, dnes nikto) by sa spustila vlastná transakcia.
+   */
+  async recordLoanOut(
+    itemId: string,
+    quantity: number,
+    loanId: string,
+    user: WithId<User>,
+    request: FastifyRequest,
+    session?: ClientSession,
+  ): Promise<Record<string, unknown>> {
+    if (quantity <= 0) {
+      throw new BadRequestError('Výdaj musí mať kladné množstvo (quantity > 0).');
+    }
+
+    return this.recordMovement(
+      itemId,
+      {
+        type: StockMovementType.LOAN_OUT,
+        quantity: -quantity,
+        locationId: null,
+        reason: null,
+        note: null,
+        loanId,
+      },
+      {
+        auditAction: 'STOCK_ISSUED',
+        descriptionFn: (inv, qty, bal) =>
+          `Výdaj ${Math.abs(qty)} ks na zápožičku ${loanId} — ${inv}. Nový zostatok: ${bal}`,
+      },
+      user,
+      request,
+      session,
+    );
+  }
+
+  /**
+   * Vrátenie zo zápožičky (LOAN_RETURN, 2026-07-16). Volá sa z
+   * `LoansService.returnLoan` — `quantity` je hodnota uložená na
+   * `LoanItem.quantity` pri vydaní (2026-07-16 ADR-0020 wiring).
+   */
+  async recordLoanReturn(
+    itemId: string,
+    quantity: number,
+    loanId: string,
+    user: WithId<User>,
+    request: FastifyRequest,
+    session?: ClientSession,
+  ): Promise<Record<string, unknown>> {
+    if (quantity <= 0) {
+      throw new BadRequestError('Vrátenie musí mať kladné množstvo (quantity > 0).');
+    }
+
+    return this.recordMovement(
+      itemId,
+      {
+        type: StockMovementType.LOAN_RETURN,
+        quantity,
+        locationId: null,
+        reason: null,
+        note: null,
+        loanId,
+      },
+      {
+        auditAction: 'STOCK_RETURNED',
+        descriptionFn: (inv, qty, bal) =>
+          `Vrátenie ${qty} ks zo zápožičky ${loanId} — ${inv}. Nový zostatok: ${bal}`,
+      },
+      user,
+      request,
+      session,
+    );
+  }
+
+  /**
    * Reconciliation — overí konzistenciu `asset.quantityOnHand`
    * (cache) voči `sum(stock_movements.quantity)` (zdroj pravdy).
    * Ak nie sú konzistentné, opraví cache.
@@ -249,18 +331,28 @@ export class StockService {
       | 'updatedAt'
       | 'createdBy'
       | 'updatedBy'
-    >,
+      | 'locationId'
+    > & {
+      /**
+       * `null` pre LOAN_OUT/LOAN_RETURN (2026-07-16) — zápožička nemá
+       * vlastnú lokalitu, dopočíta sa z `asset.locationId` nižšie (Step 3).
+       * RECEIPT a ADJUSTMENT locationId vždy poskytujú explicitne (povinné
+       * pole v ich vstupných schémach).
+       */
+      locationId: string | null;
+    },
     audit: {
       auditAction: 'STOCK_RECEIVED' | 'STOCK_ISSUED' | 'STOCK_RETURNED' | 'STOCK_ADJUSTED';
       descriptionFn: (inventoryNumber: string, qty: number, balanceAfter: number) => string;
     },
     user: WithId<User>,
     request: FastifyRequest,
+    externalSession?: ClientSession,
   ): Promise<Record<string, unknown>> {
     const tenantId = String(user.organisationId);
     const userId = String(user._id);
 
-    const inserted = await this.runInTransaction(async (session) => {
+    const work = async (session: ClientSession): Promise<WithId<StockMovement>> => {
       // ----- Step 1: načítaj asset + overenia -----
       const asset = await this.assetsRepo.findById(tenantId, itemId, session);
       if (!asset) throw new NotFoundError('Asset', itemId);
@@ -281,6 +373,11 @@ export class StockService {
       const now = new Date().toISOString();
       const movement: Omit<StockMovement, '_id'> = {
         ...movementData,
+        // LOAN_OUT/LOAN_RETURN neposielajú locationId (žiadosti/zápožičky
+        // s lokalitou nepracujú) — doplníme lokalitu z assetu, aby každý
+        // uložený StockMovement má platné (nenull) locationId, presne podľa
+        // schémy (2026-07-16, ADR-0020 wiring).
+        locationId: movementData.locationId ?? asset.locationId,
         organisationId: tenantId,
         itemId,
         balanceAfter,
@@ -327,7 +424,15 @@ export class StockService {
       );
 
       return insertedMovement;
-    });
+    };
+
+    // Ak voláteľ (napr. LoansService) už beží vo vlastnej transakcii,
+    // participujeme na nej priamo — nezakladáme druhú, nezávislú transakciu
+    // (Mongo transakcie sa nedajú vnárať). Inak (samostatné vyvolanie, napr.
+    // z /stock routes) založíme vlastnú transakciu ako doteraz.
+    const inserted = externalSession
+      ? await work(externalSession)
+      : await this.runInTransaction(work);
 
     return toApiShape(inserted);
   }

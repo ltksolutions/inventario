@@ -15,6 +15,22 @@ SPDX-License-Identifier: CC-BY-4.0
 > **Pozn. (2026-06-01):** [ADR-0026](0026-catalog-requests-and-fulfilment.md) integruje BULK
 > vydávanie do toku vybavovania katalógovej žiadosti — `POST /v1/loan-requests/:id/fulfil`
 > mapuje položky žiadosti na BULK+množstvo (LOAN_OUT pohyb) alebo SERIALIZED kusy.
+>
+> **Pozn. (2026-07-16):** `LOAN_OUT`/`LOAN_RETURN` pohyby, ktoré tento ADR navrhoval,
+> boli do toho času iba **enum hodnoty bez zápisovej cesty** — vydanie/vrátenie BULK
+> položky nikdy nezapísalo `StockMovement` a `quantityOnHand` sa nikdy nezmenilo
+> (zistené na priamu otázku správcu po nasadení viac-BULK vydania z ADR-0026). Doplnené:
+> `StockService.recordLoanOut()`/`recordLoanReturn()` (participujú na existujúcej Mongo
+> transakcii `LoansService` cez voliteľný `session` parameter, nezakladajú vlastnú),
+> `LoanItem.quantity` (nenull len pre BULK/EXTRA_BULK riadky — potrebné pri vrátení,
+> aby `returnLoan` vedel, koľko vrátiť na sklad), a `LoansService.returnLoan()` teraz
+> pre BULK riadky (`quantity != null`) preskočí status/`currentLoanId` update na asset
+> doku (ten sa pre BULK nikdy nemenil, viď bod 3 nižšie) a namiesto toho zapíše
+> `LOAN_RETURN`. Záporný-zostatok guard z `StockService.recordMovement()` (čl. „Riziká“
+> nižšie) je od teraz **reálne využitý** cez tento tok — ADR-0026 zrušil strop na
+> žiadanom množstve (žiadosť je len orientačná), ale fyzický sklad je tvrdý limit.
+> Podrobnosti: [ADR-0026 dodatok](0026-catalog-requests-and-fulfilment.md).
+> `TRANSFER`/`STOCKTAKE`/`WRITE_OFF` (Fáza 2) ostávajú nezmenené, mimo scope.
 
 ## Kontext
 
@@ -263,11 +279,16 @@ sa tieto dva ADR čítajú spolu.
   `stock.routes.ts` (4 endpointy), 18 integračných testov. `reconcile` je diagnostická
   oprava cache voči ledgeru (viď riziká: drift cache vs ledger), nie `STOCKTAKE` z Fázy 2.
 
-**Zostáva z Fázy 1 (frontend + loans rozmer):**
+**Doplnené 2026-07-16 (LOAN_OUT/LOAN_RETURN wiring):** `LoanItem.quantity`,
+`StockService.recordLoanOut`/`recordLoanReturn`, zapojenie do
+`LoansService.fulfilLoanRequest`/`returnLoan` v rámci existujúcej transakcie —
+viď poznámka na začiatku dokumentu.
+
+**Zostáva z Fázy 1 (frontend):**
 
 - Frontend: obrazovka príjmu/korekcie, badge SERIALIZED vs BULK, množstvo v stĺpci zoznamu
-- `quantity` na `LoanRequestItem`/`LoanItem` + čiastočné vrátenie — až v rámci Slice #5b
-  (loans), nie je súčasťou #5a foundation
+- Čiastočné vrátenie (`PARTIALLY_RETURNED` Loan status, bod 5 vyššie) — dnes vrátenie
+  BULK riadku vracia celé zaznamenané `quantity` naraz, nie po častiach
 
 ### Fáza 2 — Plný sklad (po pilote, podľa reálnej potreby)
 

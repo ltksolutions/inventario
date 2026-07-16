@@ -702,6 +702,254 @@ describe('Loan Requests (ADR-0026)', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Skladové pohyby (StockMovement) pri výdaji/vrátení BULK majetku
+  // (2026-07-16, ADR-0020 wiring — pred týmto zmenami sa `quantityOnHand`
+  // nikdy nemenilo a neexistovali žiadne LOAN_OUT/LOAN_RETURN záznamy).
+  // -------------------------------------------------------------------------
+
+  describe('Skladové pohyby pri BULK výdaji/vrátení (ADR-0020)', () => {
+    it('vydanie BULK položky zapíše LOAN_OUT pohyb a zníži quantityOnHand', async () => {
+      const category = await insertTestCategory(app);
+      const cables = await insertTestAsset(app, {
+        categoryId: category._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 5,
+        name: 'HDMI kábel',
+      });
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/v1/loan-requests',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: {
+          purpose: 'Káble',
+          plannedFrom: new Date(Date.now() + 1000).toISOString(),
+          items: [{ categoryId: category._id, quantityRequested: 2 }],
+        },
+      });
+      const requestId = createRes.json<{ _id: string }>()._id;
+      await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/approve`,
+        headers: { cookie: `inv_access=${managerToken}` },
+      });
+
+      const fulfilRes = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [{ requestItemIndex: 0, type: 'BULK', bulkItemId: cables._id, quantity: 2 }],
+          dueAt: null,
+        },
+      });
+      expect(fulfilRes.statusCode).toBe(201);
+      const loan = fulfilRes.json<{ _id: string }>();
+
+      const assetDoc = await app.mongo.db
+        .collection('assets')
+        .findOne({ _id: new ObjectId(cables._id) });
+      expect(assetDoc?.quantityOnHand).toBe(3);
+      // BULK asset doc je len kategóriový placeholder — status/currentLoanId
+      // sa pri BULK výdaji nikdy nemenil (už pred týmto wiringom).
+      expect(assetDoc?.status).toBe('AVAILABLE');
+      expect(assetDoc?.currentLoanId).toBeNull();
+
+      const movement = await app.mongo.db.collection('stock_movements').findOne({
+        itemId: cables._id,
+        type: 'LOAN_OUT',
+      });
+      expect(movement).toBeTruthy();
+      expect(movement?.quantity).toBe(-2);
+      expect(movement?.balanceAfter).toBe(3);
+      expect(movement?.loanId).toBe(loan._id);
+    });
+
+    it('viac BULK položiek v jednej kategórii zapíše samostatný LOAN_OUT pohyb pre každú', async () => {
+      const category = await insertTestCategory(app);
+      const sapLicense = await insertTestAsset(app, {
+        categoryId: category._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 5,
+        name: 'SAP licencia',
+      });
+      const officeLicense = await insertTestAsset(app, {
+        categoryId: category._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 5,
+        name: 'Office licencia',
+      });
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/v1/loan-requests',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: {
+          purpose: 'Software',
+          plannedFrom: new Date(Date.now() + 1000).toISOString(),
+          items: [{ categoryId: category._id, quantityRequested: 1 }],
+        },
+      });
+      const requestId = createRes.json<{ _id: string }>()._id;
+      await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/approve`,
+        headers: { cookie: `inv_access=${managerToken}` },
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [
+            { requestItemIndex: 0, type: 'BULK', bulkItemId: sapLicense._id, quantity: 1 },
+            { requestItemIndex: 0, type: 'BULK', bulkItemId: officeLicense._id, quantity: 3 },
+          ],
+          dueAt: null,
+        },
+      });
+      expect(res.statusCode).toBe(201);
+
+      const sapDoc = await app.mongo.db
+        .collection('assets')
+        .findOne({ _id: new ObjectId(sapLicense._id) });
+      const officeDoc = await app.mongo.db
+        .collection('assets')
+        .findOne({ _id: new ObjectId(officeLicense._id) });
+      expect(sapDoc?.quantityOnHand).toBe(4);
+      expect(officeDoc?.quantityOnHand).toBe(2);
+
+      const sapMovement = await app.mongo.db
+        .collection('stock_movements')
+        .findOne({ itemId: sapLicense._id, type: 'LOAN_OUT' });
+      const officeMovement = await app.mongo.db
+        .collection('stock_movements')
+        .findOne({ itemId: officeLicense._id, type: 'LOAN_OUT' });
+      expect(sapMovement?.quantity).toBe(-1);
+      expect(officeMovement?.quantity).toBe(-3);
+    });
+
+    it('vrátenie BULK výpožičky zapíše LOAN_RETURN pohyb a vráti quantityOnHand naspäť', async () => {
+      const category = await insertTestCategory(app);
+      const cables = await insertTestAsset(app, {
+        categoryId: category._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 5,
+        name: 'HDMI kábel',
+      });
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/v1/loan-requests',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: {
+          purpose: 'Káble',
+          plannedFrom: new Date(Date.now() + 1000).toISOString(),
+          items: [{ categoryId: category._id, quantityRequested: 2 }],
+        },
+      });
+      const requestId = createRes.json<{ _id: string }>()._id;
+      await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/approve`,
+        headers: { cookie: `inv_access=${managerToken}` },
+      });
+      const fulfilRes = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [{ requestItemIndex: 0, type: 'BULK', bulkItemId: cables._id, quantity: 2 }],
+          dueAt: null,
+        },
+      });
+      const loan = fulfilRes.json<{ _id: string }>();
+
+      const returnRes = await app.inject({
+        method: 'POST',
+        url: `/v1/loans/${loan._id}/return`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          returnedTo: null,
+          items: [{ assetId: cables._id, condition: 'GOOD', note: null, requiresService: false }],
+        },
+      });
+      expect(returnRes.statusCode).toBe(200);
+      expect(returnRes.json<{ status: string }>().status).toBe('RETURNED');
+
+      const assetDoc = await app.mongo.db
+        .collection('assets')
+        .findOne({ _id: new ObjectId(cables._id) });
+      expect(assetDoc?.quantityOnHand).toBe(5);
+      expect(assetDoc?.status).toBe('AVAILABLE');
+      expect(assetDoc?.currentLoanId).toBeNull();
+
+      const returnMovement = await app.mongo.db.collection('stock_movements').findOne({
+        itemId: cables._id,
+        type: 'LOAN_RETURN',
+      });
+      expect(returnMovement).toBeTruthy();
+      expect(returnMovement?.quantity).toBe(2);
+      expect(returnMovement?.balanceAfter).toBe(5);
+    });
+
+    it('vráti 400 ak výdaj BULK položky prekročí reálnu skladovú zásobu (záporný zostatok guard)', async () => {
+      const category = await insertTestCategory(app);
+      const cables = await insertTestAsset(app, {
+        categoryId: category._id,
+        trackingMode: 'BULK',
+        quantityOnHand: 2,
+        name: 'HDMI kábel',
+      });
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/v1/loan-requests',
+        headers: { cookie: `inv_access=${employeeToken}` },
+        payload: {
+          purpose: 'Káble',
+          plannedFrom: new Date(Date.now() + 1000).toISOString(),
+          items: [{ categoryId: category._id, quantityRequested: 5 }],
+        },
+      });
+      const requestId = createRes.json<{ _id: string }>()._id;
+      await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/approve`,
+        headers: { cookie: `inv_access=${managerToken}` },
+      });
+
+      // Žiadosť je len orientačná (žiadny strop na quantityRequested), ale
+      // fyzický sklad áno — 5 ks pri 2 na sklade musí padnúť na skladovom
+      // guarde (nie na "strope žiadosti", ten bol zrušený inou zmenou).
+      const res = await app.inject({
+        method: 'POST',
+        url: `/v1/loan-requests/${requestId}/fulfil`,
+        headers: { cookie: `inv_access=${managerToken}` },
+        payload: {
+          items: [{ requestItemIndex: 0, type: 'BULK', bulkItemId: cables._id, quantity: 5 }],
+          dueAt: null,
+        },
+      });
+      expect(res.statusCode).toBe(400);
+
+      // Transakcia sa celá rollback-ovala — quantityOnHand ostal nezmenený,
+      // žiadny StockMovement nevznikol, Loan sa nevytvoril.
+      const assetDoc = await app.mongo.db
+        .collection('assets')
+        .findOne({ _id: new ObjectId(cables._id) });
+      expect(assetDoc?.quantityOnHand).toBe(2);
+      const movement = await app.mongo.db
+        .collection('stock_movements')
+        .findOne({ itemId: cables._id });
+      expect(movement).toBeNull();
+      const loansCount = await app.mongo.db.collection('loans').countDocuments({});
+      expect(loansCount).toBe(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // POST /v1/loan-requests/:id/reject — žiadna rezervácia
   // -------------------------------------------------------------------------
 
