@@ -2,14 +2,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * Host-aware routing proxy — ADR-0035 Fáza 2 (F4).
- *
- * Premenované z `middleware.ts` na `proxy.ts` (2026-07-15) na návrh Vercel
- * supportu ako test, či Next.js/Vercel v tomto monorepo builde vôbec
- * detegovalo starý `middleware.ts` súbor — build log nikdy nevypísal
- * `ƒ Middleware` a Vercel Observability hlásil 0 invocations aj s
- * triviálnym middleware kódom a aj po `outputFileTracingRoot` fixe.
- * Logika nezmenená, len názov súboru a exportovanej funkcie.
+ * Host-aware middleware — ADR-0035 Fáza 2 (F4).
  *
  * Appka beží kanonicky na `app.inventario.estate` (a jeho Vercel preview
  * doménach). Organizácia si ale môže nastaviť vlastnú doménu pre
@@ -29,8 +22,17 @@
  *
  * Feature je neškodná, kým žiadna organizácia nemá `customDomain` nastavený
  * (F5 ešte nie je implementované) — `isRegisteredTenantDomain()` vždy vráti
- * `false` a proxy sa správa ako no-op (404 pre neznáme domény, ktoré
+ * `false` a middleware sa správa ako no-op (404 pre neznáme domény, ktoré
  * sem aj tak nemajú dôvod smerovať).
+ *
+ * POZNÁMKA (2026-07-15): tento súbor bol krátko premenovaný na `proxy.ts`
+ * ako test na návrh Vercel supportu (Next.js 16 zaviedlo `proxy.ts`
+ * konvenciu namiesto `middleware.ts`) — vrátené späť, keďže projekt bežal
+ * na Next.js 15.5.20, kde `proxy.ts` konvencia ešte neexistuje a rename
+ * problém nevyriešil (build log stále bez akéhokoľvek middleware/proxy
+ * riadku, Vercel Observability stále 0 invocations). Bug ostáva otvorený,
+ * viď `docs/sessions/NEXT.md` a task „BUG: middleware.ts sa nikdy
+ * nespustil na produkcii (F4)".
  */
 
 import { NextResponse } from 'next/server';
@@ -41,7 +43,7 @@ const API_BASE = process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:30
 const CANONICAL_APP_URL =
   process.env['NEXT_PUBLIC_CANONICAL_APP_URL'] ?? 'https://app.inventario.estate';
 
-// Domény, pod ktorými appka beží ako Inventario sama — proxy tu nič
+// Domény, pod ktorými appka beží ako Inventario sama — middleware tu nič
 // nerobí, normálny priechod. `.vercel.app` pokrýva preview deploymenty.
 // Nezávislá bezpečnostná revízia F4: dev hostname-y (localhost/127.0.0.1)
 // sa v produkcii nikdy nemajú vyskytnúť ako reálny Host header, ale
@@ -95,7 +97,7 @@ async function isRegisteredTenantDomain(hostname: string): Promise<boolean> {
   }
 }
 
-export async function proxy(request: NextRequest): Promise<NextResponse> {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
   const host = request.headers.get('host') ?? '';
 
   if (isCanonicalHost(host)) {
