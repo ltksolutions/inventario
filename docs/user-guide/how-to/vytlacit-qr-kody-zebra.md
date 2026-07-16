@@ -100,6 +100,12 @@ Od 2026-07-16 appka fetch requesty na `localhost:9100` anotuje `targetAddressSpa
 2. Ak je PC riadené firemným IT (Chrome Enterprise / Google Workspace), politika môže mať lokálny prístup globálne zablokovaný — IT musí `app.inventario.estate` doplniť do zoznamu povolených stránok (`LocalNetworkAccessAllowedForUrls`).
 3. Do vyriešenia funguje PDF tlačidlo vedľa Zebra tlačidla presne rovnako ako doteraz.
 
+**Zebra tlačidlo v Safari hádže chybu „Load failed“ — nepomáha ani povolenie, ani reštart**
+Safari (WebKit) nemá žiadny ekvivalent Chrome Local Network Access — HTTPS stránka (`app.inventario.estate`) tam nemôže vôbec vytvoriť fetch na `http://localhost:9100` (Zebra Browser Print agent). Safari to blokuje ako „mixed content“ ticho, bez povoľovacieho dialógu a bez možnosti to v nastaveniach prehliadača povoliť — je to trvalé obmedzenie platformy, nie chyba appky ani niečo, čo vieme opraviť v kóde.
+
+**Zebra tlačidlo hádže „Žiadna Zebra tlačiareň nenájdená“ aj v Chrome, aj keď je tlačiareň zapnutá**
+Táto správa sa zobrazí len keď Browser Print agent reálne odpovedal (sieť/povolenie je OK), ale v odpovedi nebola žiadna **default** tlačiareň. Skontroluj priamo v Zebra Browser Print agente (ikonka v systémovej lište na Windows / v menu bar na Mac, nie len v nastaveniach OS) — tlačiareň musí byť v jeho zozname označená ako default. Appka od tejto verzie skúsi ako fallback aj zoznam všetkých dostupných tlačiarní (`/available`) a použije prvú nájdenú, ak default chýba — ak zlyhá aj to, v agente naozaj nie je zaregistrovaná žiadna tlačiareň.
+
 ---
 
 <sub>Súvisí: [ADR-0027 — Tlač QR štítkov](../../decisions/0027-qr-label-printing.md), [Ako vytlačiť QR kódy](./vytlacit-qr-kody.md) _(TODO — všeobecný návod pre PDF/koncového používateľa, tento je len pre technický Zebra test)_</sub>

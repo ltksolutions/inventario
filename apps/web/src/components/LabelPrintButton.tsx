@@ -36,6 +36,16 @@
  *   zobrazenia povoľovacieho dialógu. Ak organizácia používa Chrome v
  *   enterprise-managed režime, IT môže mať lokálny prístup zablokovaný
  *   politikou — to touto anotáciou neobídeme, treba povoliť na strane IT.
+ *
+ *   Safari (WebKit) nemá žiadny ekvivalent LNA — fetch z HTTPS na
+ *   `localhost` tam blokuje ako mixed content bez povoľovacieho dialógu a
+ *   bez možnosti to povoliť. Zebra tlač v Safari nie je podporovaná,
+ *   PDF tlačidlo vedľa funguje bez obmedzenia (2026-07-16).
+ *
+ *   Ak agent odpovie, ale nemá nastavenú default tlačiareň (`/default`
+ *   vráti prázdno), skúsime ako fallback `/available` a vezmeme prvú
+ *   tlačiareň zo zoznamu (2026-07-16) — reálny prípad, kde je tlačiareň
+ *   pripojená a agent beží, len v ňom nie je explicitne zvolený default.
  */
 
 import { Loader2, Printer } from 'lucide-react';
@@ -175,12 +185,21 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
       throw new Error('Browser Print agent vrátil chybu.');
     }
     const data = (await res.json()) as { printer?: ZebraPrinter };
-    if (!data.printer) {
-      throw new Error(
-        'Žiadna Zebra tlačiareň nenájdená. Skontrolujte, že je tlačiareň zapnutá a Browser Print agent beží.',
-      );
+    if (data.printer) {
+      return data.printer;
     }
-    return data.printer;
+
+    // Agent beží a odpovedal, ale nemá nastavenú default tlačiareň —
+    // skúsime zoznam všetkých dostupných a vezmeme prvú (vidz komentár na
+    // začiatku súboru, 2026-07-16).
+    const fallback = await getFirstAvailableZebraPrinter(controller.signal);
+    if (fallback) {
+      return fallback;
+    }
+
+    throw new Error(
+      'Žiadna Zebra tlačiareň nenájdená. Skontrolujte, že je tlačiareň zapnutá a Browser Print agent beží.',
+    );
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error(
@@ -191,6 +210,27 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
     throw err;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * Fallback ak `/default` nevráti tlačiareň (agent beží, ale nemá default
+ * nastavený) — skúsi zoznam všetkých dostupných a vráti prvú. Ticho vráti
+ * `null` na akomkoľvek zlyhaní (volajúci potom hádze pôvodnú, jasnejšiu
+ * chybu).
+ */
+async function getFirstAvailableZebraPrinter(signal: AbortSignal): Promise<ZebraPrinter | null> {
+  try {
+    const res = await fetch(`${BROWSER_PRINT_BASE}/available?type=printer`, {
+      signal,
+      // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
+      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { printer?: ZebraPrinter[] };
+    return data.printer?.[0] ?? null;
+  } catch {
+    return null;
   }
 }
 

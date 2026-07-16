@@ -239,10 +239,18 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
     });
     if (!res.ok) throw new Error('Browser Print agent vrátil chybu.');
     const data = (await res.json()) as { printer?: ZebraPrinter };
-    if (!data.printer) {
-      throw new Error('Žiadna Zebra tlačiareň nenájdená. Skontrolujte, že tlačiareň je zapnutá.');
+    if (data.printer) {
+      return data.printer;
     }
-    return data.printer;
+
+    // Agent beží a odpovedal, ale nemá nastavenú default tlačiareň —
+    // skúsime zoznam všetkých dostupných a vezmeme prvú (2026-07-16).
+    const fallback = await getFirstAvailableZebraPrinter(controller.signal);
+    if (fallback) {
+      return fallback;
+    }
+
+    throw new Error('Žiadna Zebra tlačiareň nenájdená. Skontrolujte, že tlačiareň je zapnutá.');
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error(
@@ -253,6 +261,25 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
     throw err;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * Fallback ak `/default` nevráti tlačiareň — rovnaká logika ako v
+ * `LabelPrintButton.tsx` (DRY bude až pri module).
+ */
+async function getFirstAvailableZebraPrinter(signal: AbortSignal): Promise<ZebraPrinter | null> {
+  try {
+    const res = await fetch(`${BROWSER_PRINT_BASE}/available?type=printer`, {
+      signal,
+      // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
+      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { printer?: ZebraPrinter[] };
+    return data.printer?.[0] ?? null;
+  } catch {
+    return null;
   }
 }
 
