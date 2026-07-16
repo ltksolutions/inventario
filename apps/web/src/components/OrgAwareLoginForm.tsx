@@ -18,21 +18,23 @@ import type { ReactNode, JSX } from 'react';
  * `showRegisterLink` je vypnuté na `/tenant-login` — registrácia novej
  * organizácie nemá vzťah k tomu, na akej vlastnej doméne práve stojíme.
  *
- * `showTagline` je zapnuté len na `/tenant-login` (vlastná doména) — pre
- * návštevníka, ktorý pristál na neznámej doméne organizácie, je vhodné
- * krátko vysvetliť, o akú službu ide, ešte pred prihlásením. Na globálnej
- * `/login` (kde je user typicky už oboznámený) by to bolo nadbytočné.
+ * `heroBranding` je zapnuté len na `/tenant-login` (vlastná doména) —
+ * návštevník, ktorý pristál na neznámej doméne organizácie, potrebuje
+ * hneď vidieť, o akú organizáciu a akú službu ide, ešte pred prihlásením
+ * (väčšie logo + názov ako samostatná sekcia nad kartou + krátky popis
+ * Inventaria). Na globálnej `/login` (kde je user typicky už oboznámený)
+ * ostáva len kompaktné logo+názov v riadku, presne ako doteraz.
  */
 export function OrgAwareLoginForm({
   login,
   banners,
   showRegisterLink = true,
-  showTagline = false,
+  heroBranding = false,
 }: {
   login: UseOrgAwareLoginResult;
   banners?: ReactNode;
   showRegisterLink?: boolean;
-  showTagline?: boolean;
+  heroBranding?: boolean;
 }): JSX.Element {
   const {
     loginContext,
@@ -56,29 +58,48 @@ export function OrgAwareLoginForm({
 
   return (
     <main id="main" className="flex min-h-screen items-center justify-center bg-surface-page px-4">
-      <div className="w-full max-w-sm">
-        <div className="rounded-xl border border-border-subtle bg-surface-card p-8 shadow-md">
-          {/* Logo — org branding (ADR-0035 F2) ak poznáme organizáciu s logom,
-              inak generé Inventario branding presne ako doteraz. */}
-          <div className="mb-6 flex items-center gap-2 text-brand-primary">
+      <div className="w-full max-w-sm text-center">
+        {/* Hero branding (/tenant-login) — väčšie logo + názov organizácie
+            ako samostatná sekcia NAD kartou, nech je hneď na prvý pohľad
+            jasné, o akú organizáciu a akú službu ide. */}
+        {heroBranding && (
+          <div className="mb-6 flex flex-col items-center gap-3">
             {loginContext?.logoUrl ? (
-              // Bežné <img>, nie next/image — externé per-tenant URL nie je
-              // v next/image domains allowliste (rovnaký vzor ako AppShell logo).
               <img
                 src={loginContext.logoUrl}
                 alt={loginContext.displayName}
-                className="h-7 w-auto"
+                className="h-16 w-auto"
               />
             ) : (
-              <Layers aria-hidden="true" className="h-7 w-7" />
+              <Layers aria-hidden="true" className="h-16 w-16 text-brand-primary" />
             )}
-            <span className="text-xl font-bold">{loginContext?.displayName ?? 'Inventario'}</span>
-          </div>
-
-          {showTagline && (
-            <p className="mb-4 text-sm text-text-muted">
+            <h1 className="text-2xl font-bold text-text-primary">
+              {loginContext?.displayName ?? 'Inventario'}
+            </h1>
+            <p className="text-sm text-text-muted">
               Evidenčný systém pre správu a vypožičiavanie majetku.
             </p>
+          </div>
+        )}
+
+        <div className="rounded-xl border border-border-subtle bg-surface-card p-8 shadow-md">
+          {/* Kompaktné logo + názov v riadku — len keď hero sekcia vyššie
+              nie je zapnutá (globálna /login, org branding ADR-0035 F2). */}
+          {!heroBranding && (
+            <div className="mb-6 flex items-center justify-center gap-2 text-brand-primary">
+              {loginContext?.logoUrl ? (
+                // Bežné <img>, nie next/image — externé per-tenant URL nie je
+                // v next/image domains allowliste (rovnaký vzor ako AppShell logo).
+                <img
+                  src={loginContext.logoUrl}
+                  alt={loginContext.displayName}
+                  className="h-7 w-auto"
+                />
+              ) : (
+                <Layers aria-hidden="true" className="h-7 w-7" />
+              )}
+              <span className="text-xl font-bold">{loginContext?.displayName ?? 'Inventario'}</span>
+            </div>
           )}
 
           <h1 className="text-lg font-semibold text-text-primary">Prihlásenie</h1>
@@ -123,7 +144,7 @@ export function OrgAwareLoginForm({
                   className="mt-1 block w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
                   placeholder="••••••••••••"
                 />
-                <div className="mt-1 text-right">
+                <div className="mt-1 text-center">
                   <Link
                     href="/forgot-password"
                     className="text-xs text-text-muted hover:text-text-primary"

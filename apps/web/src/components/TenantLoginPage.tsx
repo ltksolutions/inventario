@@ -74,7 +74,7 @@ export function TenantLoginPage(): JSX.Element {
     <OrgAwareLoginForm
       login={login}
       showRegisterLink={false}
-      showTagline
+      heroBranding
       banners={
         errorKey ? (
           <div className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">
