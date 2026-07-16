@@ -287,7 +287,7 @@ export function LoanRequestContent(): JSX.Element {
                     type="text"
                     value={item.note}
                     onChange={(e) => updateItem(item.key, { note: e.target.value })}
-                    placeholder="Poznámka (voliteľné) — napr. „ak je skladom“"
+                    placeholder="Popíšte podrobnejšie o čo žiadate konkrétne."
                     maxLength={1000}
                     className="mt-2 w-full rounded-lg border border-border-default bg-surface-card px-3 py-1.5 text-sm text-text-primary placeholder-text-muted focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                   />
