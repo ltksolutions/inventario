@@ -573,7 +573,7 @@ export class LoansService {
 
       // ----- Step 4: asset state changes -----
       for (const fulfilItem of input.items) {
-        if (fulfilItem.type === 'SERIALIZED') {
+        if (fulfilItem.type === 'SERIALIZED' || fulfilItem.type === 'EXTRA_SERIALIZED') {
           for (const assetId of fulfilItem.assetIds) {
             await this.assetsRepo.update(
               tenantId,
