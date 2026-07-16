@@ -57,3 +57,4 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0026 | [Katalógové žiadosti (kategória + množstvo) + oddelené vydávanie](0026-catalog-requests-and-fulfilment.md)       | ✅ Accepted                                               | 2026-06-01 |
 | 0027 | [Tlač QR štítkov — Avery PDF hárky + Zebra ZPL](0027-qr-label-printing.md)                                       | ✅ Accepted                                               | 2026-06-01 |
 | 0028 | [Per-tenant branding — logo, farby a font (end-to-end)](0028-per-tenant-branding.md)                             | 📝 Proposed                                               | 2026-06-02 |
+| 0036 | [Vrátenie majetku od osoby — čiastočné a cross-loan vrátenie](0036-return-from-borrower-cross-loan.md)           | 📝 Proposed                                               | 2026-07-16 |
