@@ -131,6 +131,7 @@ function makeOrganisation(overrides: Partial<Organisation> = {}): Organisation {
 function makeItem(index: number, nameSuffix = ''): LoanProtocol['items'][number] {
   return {
     assetId: `asset${String(index).padStart(19, '0')}`,
+    loanId: 'loan0000000000000000001',
     snapshot: {
       inventoryNumber: `SFZ-2026-${String(index).padStart(4, '0')}`,
       name: `Notebook Lenovo ThinkPad ${nameSuffix || String(index)}`,

@@ -2,7 +2,7 @@
 
 |                   |                                                                                                                                                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**        | Proposed                                                                                                                                                                                                                            |
+| **Status**        | ✅ Accepted (implementované 2026-07-16)                                                                                                                                                                                             |
 | **Dátum**         | 2026-07-16                                                                                                                                                                                                                          |
 | **Autori**        | Ján Letko (produkt), Claude (návrh + implementácia)                                                                                                                                                                                 |
 | **Súvisiace ADR** | [ADR-0012](0012-loans-state-machine.md), [ADR-0020](0020-stock-and-bulk-items.md), [ADR-0022](0022-loan-protocol-pdf.md), [ADR-0023](0023-loan-beneficiary-and-direct-loan.md), [ADR-0026](0026-catalog-requests-and-fulfilment.md) |
@@ -113,7 +113,7 @@ export const LoanProtocolSchema = BaseDocumentSchema.merge(
 ).extend({
   type: z.enum(['HANDOVER', 'RETURN', 'AMENDMENT']),
   loanId: ObjectIdSchema, // ostáva — „primárny" loan, spätná kompatibilita
-  loanIds: z.array(ObjectIdSchema).min(1).default([]), // NOVÉ — všetky loans pokryté týmto protokolom
+  loanIds: z.array(ObjectIdSchema).min(1), // NOVÉ — všetky loans pokryté týmto protokolom, vždy explicitne dodané pri vzniku
   // ...
 });
 ```

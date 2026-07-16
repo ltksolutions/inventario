@@ -95,6 +95,7 @@ export const AuditLogSchema = z.object({
     'LOAN_REQUEST_CANCELLED',
     'LOAN_PICKED_UP',
     'LOAN_RETURNED',
+    'LOAN_PARTIALLY_RETURNED', // ADR-0036: časť kusov vrátená, časť stále u používateľa
     'LOAN_EXTENDED',
     'LOAN_MARKED_OVERDUE',
     'LOAN_MARKED_LOST',

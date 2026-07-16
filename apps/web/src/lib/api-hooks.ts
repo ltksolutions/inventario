@@ -1482,6 +1482,12 @@ export interface LoanItemSummary {
    * chýba pre SERIALIZED (každá položka = 1 konkrétny kus).
    */
   quantity?: number | null;
+  /**
+   * Stav pri vrátení TEJTO položky, `null`/chýba kým je stále u používateľa
+   * (ADR-0036 — čiastočné vrátenie: pri PARTIALLY_RETURNED loan-e má časť
+   * položiek vyplnené, časť null).
+   */
+  atReturn?: { condition: string; requiresService: boolean } | null;
 }
 
 export interface LoanSummary {
@@ -1496,7 +1502,7 @@ export interface LoanSummary {
   /** Null = výpožička bez termínu ("do odvolania", ADR-0025). */
   dueAt: string | null;
   returnedAt: string | null;
-  status: 'ACTIVE' | 'RETURNED' | 'DAMAGED' | 'LOST';
+  status: 'ACTIVE' | 'PARTIALLY_RETURNED' | 'RETURNED' | 'DAMAGED' | 'LOST';
   isOverdue: boolean;
   items: LoanItemSummary[];
   createdAt: string;
@@ -1838,8 +1844,9 @@ export interface ReturnLoanInput {
 
 /**
  * POST /v1/loans/:id/return — vrátenie AKTIVNEJ výpožičky (ASSET_MANAGER/ADMIN).
- * Obálka musí naraz obsahovať všetky položky výpožičky — čiastočné vrátenie
- * (Fáza 2, ADR-0020) ešte nie je podporované.
+ * Obálka musí naraz obsahovať všetky položky JEDNEJ výpožičky — tento endpoint
+ * ostáva nezmenený (rozhodnutie Janiky, 2026-07-16). Čiastočné/cross-loan
+ * vrátenie rieši samostatný `useReturnItemsFromBorrower` (ADR-0036, nižšie).
  */
 export function useReturnLoan(): UseMutationResult<
   LoanSummary,
@@ -1866,6 +1873,124 @@ export function useReturnLoan(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['assets'] });
       void queryClient.invalidateQueries({ queryKey: ['loan-protocols', id] });
+    },
+  });
+}
+
+/** Jeden riadok z GET /v1/users/:id/borrowed-items (ADR-0036). */
+export interface BorrowedItemSummary {
+  loanId: string;
+  assetId: string;
+  snapshot: { inventoryNumber: string; name: string };
+  /** Počet kusov pre BULK položku, `null` pre SERIALIZED. */
+  quantity: number | null;
+  purpose: string;
+  pickedUpAt: string;
+  dueAt: string | null;
+}
+
+/**
+ * GET /v1/users/:id/borrowed-items — flatten zoznam všetkého, čo daná osoba
+ * aktuálne má požičané cez VŠETKY svoje výpožičky (ADR-0036, "Vrátiť od
+ * osoby"), nezávisle od pôvodnej žiadosti. Podklad pre výber kusov pred
+ * `useReturnItemsFromBorrower`.
+ *
+ * Endpoint ešte nie je v generovaných OpenAPI typoch (api-types.ts) — bol
+ * pridaný v tomto commite a `pnpm generate:api-types` beží lokálne u
+ * Janiky. `apiClient.GET` je preto dočasne pretypovaný na voľnejší podpis;
+ * runtime správanie (auth middleware, base URL, path interpolácia) je
+ * identické ako pri typovaných volaniach.
+ */
+export function useBorrowerBorrowedItems(
+  borrowerId: string | null,
+): UseQueryResult<BorrowedItemSummary[], Error> {
+  return useQuery<BorrowedItemSummary[], Error>({
+    queryKey: ['borrowed-items', borrowerId],
+    queryFn: async () => {
+      const get = apiClient.GET as unknown as (
+        path: string,
+        init: { params: { path: { id: string } } },
+      ) => Promise<{ data?: unknown; error?: unknown }>;
+      const { data, error } = await get('/v1/users/{id}/borrowed-items', {
+        params: { path: { id: borrowerId as string } },
+      });
+      if (error) {
+        const e = error as { message?: unknown };
+        throw new Error(
+          typeof e.message === 'string' ? e.message : 'Načítanie požičaného majetku zlyhalo',
+        );
+      }
+      return (data as BorrowedItemSummary[] | undefined) ?? [];
+    },
+    enabled: borrowerId != null,
+  });
+}
+
+/** Jedna položka pri vrátení POST /v1/users/:id/return-items (ADR-0036). */
+export interface ReturnItemsForBorrowerItemInput {
+  loanId: string;
+  assetId: string;
+  /** Fixný enum (NEW/EXCELLENT/GOOD/FAIR/POOR/UNUSABLE) — rovnako ako ReturnLoanItemInput. */
+  condition: string;
+  note?: string | null;
+  requiresService?: boolean;
+}
+
+export interface ReturnItemsForBorrowerInput {
+  returnedTo: string;
+  items: ReturnItemsForBorrowerItemInput[];
+  notes?: string | null;
+}
+
+export interface ReturnItemsForBorrowerResult {
+  returnProtocolId: string | null;
+  loanIds: string[];
+}
+
+/**
+ * POST /v1/users/:id/return-items — vrátenie vybranej podmnožiny kusov
+ * jednej osoby, prípadne cez viac výpožičiek naraz, jeden konsolidovaný
+ * RETURN protokol (ADR-0036, "Vrátiť od osoby"). Doplnková cesta popri
+ * `useReturnLoan`, ktorý ostáva nezmenený pre rýchle vrátenie CELEJ jednej
+ * výpožičky. Pozri poznámku o dočasnom pretypovaní `apiClient` pri
+ * `useBorrowerBorrowedItems` vyššie — platí aj tu.
+ */
+export function useReturnItemsFromBorrower(): UseMutationResult<
+  ReturnItemsForBorrowerResult,
+  Error,
+  { borrowerId: string; input: ReturnItemsForBorrowerInput }
+> {
+  const queryClient = useQueryClient();
+  return useMutation<
+    ReturnItemsForBorrowerResult,
+    Error,
+    { borrowerId: string; input: ReturnItemsForBorrowerInput }
+  >({
+    mutationFn: async ({ borrowerId, input }) => {
+      const post = apiClient.POST as unknown as (
+        path: string,
+        init: { params: { path: { id: string } }; body: unknown },
+      ) => Promise<{ data?: unknown; error?: unknown }>;
+      const { data, error } = await post('/v1/users/{id}/return-items', {
+        params: { path: { id: borrowerId } },
+        body: input,
+      });
+      if (error) {
+        const e = error as { message?: unknown };
+        throw new Error(typeof e.message === 'string' ? e.message : 'Vrátenie majetku zlyhalo');
+      }
+      return data as ReturnItemsForBorrowerResult;
+    },
+    onSuccess: (result, { borrowerId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['borrowed-items', borrowerId] });
+      void queryClient.invalidateQueries({ queryKey: ['loans'] });
+      void queryClient.invalidateQueries({ queryKey: ['my-loans'] });
+      void queryClient.invalidateQueries({ queryKey: ['loan-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      for (const loanId of result.loanIds) {
+        void queryClient.invalidateQueries({ queryKey: ['loan', loanId] });
+        void queryClient.invalidateQueries({ queryKey: ['loan-protocols', loanId] });
+      }
     },
   });
 }

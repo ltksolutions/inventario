@@ -3358,6 +3358,7 @@
                 "LOAN_REQUEST_CANCELLED",
                 "LOAN_PICKED_UP",
                 "LOAN_RETURNED",
+                "LOAN_PARTIALLY_RETURNED",
                 "LOAN_EXTENDED",
                 "LOAN_MARKED_OVERDUE",
                 "LOAN_MARKED_LOST",
@@ -5743,6 +5744,7 @@
               "type": "string",
               "enum": [
                 "ACTIVE",
+                "PARTIALLY_RETURNED",
                 "RETURNED",
                 "DAMAGED",
                 "LOST"
@@ -5848,6 +5850,7 @@
               "type": "string",
               "enum": [
                 "ACTIVE",
+                "PARTIALLY_RETURNED",
                 "RETURNED",
                 "DAMAGED",
                 "LOST"
@@ -6259,6 +6262,184 @@
                     "null"
                   ],
                   "nullable": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{id}/borrowed-items": {
+      "get": {
+        "summary": "Zoznam požičaného majetku osoby cez všetky jej výpožičky (ADR-0036)",
+        "tags": [
+          "Loans"
+        ],
+        "description": "Vráti flatten zoznam kusov, ktoré má daná osoba aktuálne požičané (ACTIVE alebo PARTIALLY_RETURNED Loan-y), s referenciou na loanId pre každý kus. Requires ASSET_MANAGER or ADMIN role.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{id}/return-items": {
+      "post": {
+        "summary": "Vrátenie vybraných kusov osoby cez viac výpožičiek naraz (ADR-0036)",
+        "tags": [
+          "Loans"
+        ],
+        "description": "Vráti vybranú podmnožinu kusov danej osoby — každá položka nesie vlastné loanId, môžu patriť rôznym Loan-om. Loan, ktorému nebola vrátená úplne všetka jeho zásoba, prejde do PARTIALLY_RETURNED (nie terminálny stav). Vytvorí jeden RETURN protokol pokrývajúci všetky vrátené kusy. Requires ASSET_MANAGER or ADMIN role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "returnedTo": {
+                    "type": "string",
+                    "pattern": "^[a-f\\d]{24}$",
+                    "description": "MongoDB ObjectId (24 hex znakov)"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "loanId": {
+                          "type": "string",
+                          "pattern": "^[a-f\\d]{24}$",
+                          "description": "MongoDB ObjectId (24 hex znakov)"
+                        },
+                        "assetId": {
+                          "type": "string",
+                          "pattern": "^[a-f\\d]{24}$",
+                          "description": "MongoDB ObjectId (24 hex znakov)"
+                        },
+                        "condition": {
+                          "type": "string",
+                          "enum": [
+                            "NEW",
+                            "EXCELLENT",
+                            "GOOD",
+                            "FAIR",
+                            "POOR",
+                            "UNUSABLE"
+                          ]
+                        },
+                        "note": {
+                          "allOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 1000
+                            }
+                          ],
+                          "nullable": true,
+                          "default": null
+                        },
+                        "photoIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-f\\d]{24}$",
+                            "description": "MongoDB ObjectId (24 hex znakov)"
+                          },
+                          "default": []
+                        },
+                        "requiresService": {
+                          "type": "boolean",
+                          "default": false
+                        }
+                      },
+                      "required": [
+                        "loanId",
+                        "assetId",
+                        "condition"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1
+                  },
+                  "notes": {
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 0,
+                        "maxLength": 2000
+                      }
+                    ],
+                    "nullable": true,
+                    "default": null
+                  }
+                },
+                "required": [
+                  "returnedTo",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
                 }
               }
             }

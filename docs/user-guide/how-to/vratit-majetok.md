@@ -82,6 +82,28 @@ Môžeš spustiť **„Predbežné vrátenie"** — naskenuješ položky, ale pr
 
 > ⚠️ **Pozor:** Pri „Predbežnom vrátení" si stále zodpovedný za majetok, kým správca formálne nepodpíše protokol.
 
+## Vrátenie od osoby (viac zápožičiek naraz)
+
+Ak má jedna osoba požičaný majetok z **viacerých rôznych zápožičiek** naraz
+(napr. notebook z jednej žiadosti, monitor z inej), správca (ASSET_MANAGER
+alebo ADMIN) nemusí riešiť každú zápožičku osobitne. Na detaile osoby
+(**Používatelia → [meno osoby]**) je tlačidlo **„Vrátiť majetok"**, ktoré:
+
+- zobrazí **všetko**, čo osoba aktuálne má požičané, cez všetky jej zápožičky,
+- umožní vybrať **ľubovoľnú podmnožinu** kusov na vrátenie (nemusí byť naraz
+  všetko z jednej zápožičky),
+- vytvorí **jeden konsolidovaný protokol o vrátení**, aj keď vrátené kusy
+  pochádzajú z rôznych pôvodných zápožičiek.
+
+Zápožička, ktorej sa vrátila len časť kusov, prejde do stavu **„Čiastočne
+vrátená"** — zvyšné kusy ostávajú u osoby, kým sa nevrátia aj tie.
+
+> 💡 Pôvodné tlačidlo **„Vrátiť"** na detaile jednej konkrétnej zápožičky
+> (popísané vyššie) ostáva k dispozícii bezo zmeny — je rýchlejšie, keď sa
+> vracia **celá jedna** zápožička naraz. „Vrátiť majetok" na detaile osoby je
+> doplnková cesta pre prípady s viacerými zápožičkami alebo čiastočným
+> vrátením.
+
 ## Súvisiace návody
 
 - 🛠️ [Ako si požičať majetok](./poziciat-majetok.md)
@@ -91,4 +113,4 @@ Môžeš spustiť **„Predbežné vrátenie"** — naskenuješ položky, ale pr
 
 ---
 
-<sub>Posledná aktualizácia: 2025-01 · Cieľová rola: zamestnanec, externý používateľ, správca</sub>
+<sub>Posledná aktualizácia: 2026-07-16 · Cieľová rola: zamestnanec, externý používateľ, správca</sub>

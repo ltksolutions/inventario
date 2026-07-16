@@ -24,8 +24,20 @@ export const LoanProtocolSchema = BaseDocumentSchema.merge(OrganisationScopedSch
   /** Typ protokolu. */
   type: z.enum(['HANDOVER', 'RETURN', 'AMENDMENT']),
 
-  /** Referencia na zápožičku. */
+  /**
+   * Referencia na zápožičku — "primárny" loan, spätná kompatibilita.
+   * Pre HANDOVER a bežný (per-Loan) RETURN protokol je to jediná referencia.
+   * Pre cross-loan RETURN protokol (ADR-0036) je to prvý prvok `loanIds`.
+   */
   loanId: ObjectIdSchema,
+
+  /**
+   * Všetky Loan-y pokryté týmto protokolom (ADR-0036). Vždy neprázdne, vždy
+   * obsahuje `loanId` ako prvý prvok. Pre HANDOVER/bežný RETURN = `[loanId]`
+   * (žiadna zmena správania). Pre cross-loan RETURN obsahuje ID všetkých
+   * Loan-ov, z ktorých pochádza aspoň 1 vrátený kus v tomto protokole.
+   */
+  loanIds: z.array(ObjectIdSchema).min(1, 'loanIds nesmie byť prázdne.'),
 
   /** Pre AMENDMENT — referencia na pôvodný protokol. */
   originalProtocolId: ObjectIdSchema.nullable().default(null),
@@ -74,6 +86,15 @@ export const LoanProtocolSchema = BaseDocumentSchema.merge(OrganisationScopedSch
   items: z.array(
     z.object({
       assetId: ObjectIdSchema,
+
+      /**
+       * Z ktorého Loanu tento konkrétny kus pochádza (ADR-0036). `null` pre
+       * protokoly vytvorené pred týmto rozhodnutím — pre ne platí, že všetky
+       * položky patria pod jediný `protocol.loanId` (žiadny cross-loan protokol
+       * nemohol vzniknuť skôr). Pre nové protokoly sa vždy vyplňa.
+       */
+      loanId: ObjectIdSchema.nullable().default(null),
+
       snapshot: z.object({
         inventoryNumber: z.string(),
         name: z.string(),

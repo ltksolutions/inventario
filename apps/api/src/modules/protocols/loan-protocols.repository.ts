@@ -58,7 +58,8 @@ export class LoanProtocolsRepository {
    * Index rationale:
    *   - `organisationId_protocolNumber_unique` — unique constraint, race guard
    *     pri súbežných fulfil volaniach (ADR-0022).
-   *   - `organisationId_loanId` — fast lookup pre GET /v1/loans/:id/protocols (K5).
+   *   - `organisationId_loanIds` — fast lookup pre GET /v1/loans/:id/protocols (K5),
+   *     multikey index (ADR-0036) — jeden protokol môže pokrývať viac Loan-ov.
    *   - `organisationId_status` — filter podľa stavu (K5 list).
    */
   async ensureIndexes(): Promise<void> {
@@ -68,8 +69,11 @@ export class LoanProtocolsRepository {
         { unique: true, name: 'organisationId_protocolNumber_unique' },
       ),
       this.collection.createIndex(
-        { organisationId: 1, loanId: 1 },
-        { name: 'organisationId_loanId' },
+        // Multikey index na loanIds[] (ADR-0036) — cross-loan RETURN protokol
+        // sa musí zobraziť pod VŠETKÝMI Loan-mi, ktoré pokrýva, nie len pod
+        // primárnym `loanId`. MongoDB matchuje scalar-proti-poľu nativne.
+        { organisationId: 1, loanIds: 1 },
+        { name: 'organisationId_loanIds' },
       ),
       this.collection.createIndex(
         { organisationId: 1, status: 1 },
@@ -150,11 +154,13 @@ export class LoanProtocolsRepository {
   ): Promise<WithId<LoanProtocol>[]> {
     const tenantId = requireTenantId(organisationId);
 
+    // Match na loanIds[] (multikey), nie loanId (ADR-0036) — inak by sa
+    // cross-loan protokol nezobrazil pod ostatnými Loan-mi, ktoré pokrýva.
     return this.collection
       .find(
         tenantFilter<LoanProtocol>(tenantId, {
-          loanId,
-        } as Filter<LoanProtocol>),
+          loanIds: loanId,
+        } as unknown as Filter<LoanProtocol>),
         session ? { session } : undefined,
       )
       .sort({ issuedAt: 1 })

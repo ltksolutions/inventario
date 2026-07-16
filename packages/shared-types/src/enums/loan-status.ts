@@ -54,12 +54,21 @@ export const LOAN_REQUEST_TERMINAL_STATUSES: readonly LoanRequestStatus[] = [
  *   ACTIVE → OVERDUE → RETURNED
  *   ACTIVE → OVERDUE → LOST
  *   ACTIVE → DAMAGED (vrátené poškodené, ide na servis)
+ *   ACTIVE/OVERDUE → PARTIALLY_RETURNED → RETURNED/DAMAGED (čiastočné vrátenie,
+ *   ADR-0036 — aspoň 1 kus vrátený, aspoň 1 stále u používateľa; anticipované,
+ *   ale neimplementované už v ADR-0020, rozšírené aj na SERIALIZED v ADR-0036)
  */
 export const LoanStatus = {
   /** Aktívna zápožička, položka je u používateľa. */
   ACTIVE: 'ACTIVE',
   /** Termín vrátenia uplynul, ešte nevrátené. */
   OVERDUE: 'OVERDUE',
+  /**
+   * Časť kusov vrátená, časť stále u používateľa (ADR-0036). Kus je vrátený
+   * ⇔ `LoanItem.condition.atReturn !== null` — tento stav sa neukladá
+   * nezávisle, počíta sa vždy nanovo z `items[]` v tej istej transakcii.
+   */
+  PARTIALLY_RETURNED: 'PARTIALLY_RETURNED',
   /** Úspešne vrátené v poriadku. */
   RETURNED: 'RETURNED',
   /** Vrátené, ale poškodené — vyžaduje servis. */

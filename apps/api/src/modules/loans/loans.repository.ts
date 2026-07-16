@@ -197,6 +197,33 @@ export class LoansRepository {
   }
 
   /**
+   * Find all loans of a borrower that still have at least one item out
+   * (`ACTIVE` or `PARTIALLY_RETURNED` — ADR-0036). Used by the cross-loan
+   * "Vrátiť od osoby" flow to build the flattened list of everything a
+   * person currently has borrowed, regardless of which request/Loan it
+   * came from. `OVERDUE` is deliberately excluded here because it is not a
+   * persistent DB status (see file header) — `ACTIVE` already covers it.
+   */
+  async findActiveByBorrowerId(
+    organisationId: string,
+    borrowerId: string,
+    session?: ClientSession,
+  ): Promise<WithId<Loan>[]> {
+    const tenantId = requireTenantId(organisationId);
+
+    return this.collection
+      .find(
+        tenantFilter<Loan>(tenantId, {
+          borrowerId: borrowerId as unknown as Loan['borrowerId'],
+          status: { $in: ['ACTIVE', 'PARTIALLY_RETURNED'] } as unknown as Loan['status'],
+        } as Filter<Loan>),
+        session ? { session } : undefined,
+      )
+      .sort({ createdAt: -1 })
+      .toArray();
+  }
+
+  /**
    * Insert a new loan document. Returns the inserted document.
    *
    * Caller is responsible for:

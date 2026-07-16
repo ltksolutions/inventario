@@ -51,6 +51,7 @@ import type {
   LoanRequest,
   LoanRequestStatus,
   LoanStatus,
+  ReturnItemsForBorrowerInput,
   ReturnLoanInput,
   User,
 } from '@inventario/shared-types';
@@ -624,20 +625,24 @@ export class LoansService {
       }
 
       // ----- Step 4b: HANDOVER protokol (ADR-0022 K4) -----
-      const handoverProtocolId = await this.insertDraftProtocol(
-        'HANDOVER',
-        loanId,
+      const handoverProtocolId = await this.insertDraftProtocol({
+        type: 'HANDOVER',
+        loanIds: [loanId],
         tenantId,
         actorId,
         now,
-        loanItems,
-        actorId,
-        { displayName: actor.displayName, email: actor.email ?? '', organizationalUnit: null },
-        borrowerId,
-        { displayName: '', email: '', organizationalUnit: null },
-        'A4',
+        items: loanItems.map((item) => ({ loanId, item })),
+        handoverUserId: actorId,
+        handoverSnapshot: {
+          displayName: actor.displayName,
+          email: actor.email ?? '',
+          organizationalUnit: null,
+        },
+        receiveUserId: borrowerId,
+        receiveSnapshot: { displayName: '', email: '', organizationalUnit: null },
+        paperSize: 'A4',
         session,
-      );
+      });
 
       if (handoverProtocolId) {
         await this.loansRepo.update(
@@ -933,20 +938,24 @@ export class LoansService {
       }
 
       // HANDOVER protokol (ADR-0022 K4)
-      const handoverProtocolId = await this.insertDraftProtocol(
-        'HANDOVER',
-        loanId,
+      const handoverProtocolId = await this.insertDraftProtocol({
+        type: 'HANDOVER',
+        loanIds: [loanId],
         tenantId,
         actorId,
         now,
-        loanItems,
-        actorId,
-        { displayName: actor.displayName, email: actor.email ?? '', organizationalUnit: null },
-        input.borrowerId,
-        { displayName: '', email: '', organizationalUnit: null },
-        'A4',
+        items: loanItems.map((item) => ({ loanId, item })),
+        handoverUserId: actorId,
+        handoverSnapshot: {
+          displayName: actor.displayName,
+          email: actor.email ?? '',
+          organizationalUnit: null,
+        },
+        receiveUserId: input.borrowerId,
+        receiveSnapshot: { displayName: '', email: '', organizationalUnit: null },
+        paperSize: 'A4',
         session,
-      );
+      });
 
       if (handoverProtocolId) {
         await this.loansRepo.update(
@@ -1081,20 +1090,24 @@ export class LoansService {
       if (!updatedLoan) throw new NotFoundError('Loan', id);
 
       // RETURN protokol (ADR-0022 K4)
-      const returnProtocolId = await this.insertDraftProtocol(
-        'RETURN',
-        id,
+      const returnProtocolId = await this.insertDraftProtocol({
+        type: 'RETURN',
+        loanIds: [id],
         tenantId,
         actorId,
         now,
-        loan.items,
-        loan.borrowerId, // pri vrátení: odovzdávajúci = borrower
-        { displayName: '', email: '', organizationalUnit: null },
-        actorId, // preberajúci = správca (actor)
-        { displayName: actor.displayName, email: actor.email ?? '', organizationalUnit: null },
-        'A4',
+        items: loan.items.map((item) => ({ loanId: id, item })),
+        handoverUserId: loan.borrowerId, // pri vrátení: odovzdávajúci = borrower
+        handoverSnapshot: { displayName: '', email: '', organizationalUnit: null },
+        receiveUserId: actorId, // preberajúci = správca (actor)
+        receiveSnapshot: {
+          displayName: actor.displayName,
+          email: actor.email ?? '',
+          organizationalUnit: null,
+        },
+        paperSize: 'A4',
         session,
-      );
+      });
 
       if (returnProtocolId) {
         await this.loansRepo.update(
@@ -1130,6 +1143,259 @@ export class LoansService {
     this.notifyProtocolToSign('RETURN', id, String(updated.borrowerId), request);
 
     return loanToApiShape(updated);
+  }
+
+  /**
+   * Flatten zoznam všetkých kusov, ktoré má daná osoba AKTUÁLNE požičané
+   * cez VŠETKY svoje Loan-y (ACTIVE alebo PARTIALLY_RETURNED — ADR-0036).
+   * Podklad pre "Vrátiť od osoby" — každý riadok nesie `loanId`, aby
+   * frontend vedel poslať výber späť do `returnItemsForBorrower()`.
+   */
+  async listBorrowedItemsForBorrower(
+    borrowerId: string,
+    actor: WithId<User>,
+  ): Promise<Record<string, unknown>[]> {
+    const tenantId = String(actor.organisationId);
+    const loans = await this.loansRepo.findActiveByBorrowerId(tenantId, borrowerId);
+
+    const result: Record<string, unknown>[] = [];
+    for (const loan of loans) {
+      for (const item of loan.items) {
+        // Pri PARTIALLY_RETURNED sú niektoré položky Loanu už vrátené
+        // (atReturn vyplnené) — tie sa v "čo ešte má u seba" nezobrazujú.
+        if (item.condition.atReturn !== null) continue;
+        result.push({
+          loanId: String(loan._id),
+          assetId: item.assetId,
+          snapshot: item.snapshot,
+          quantity: item.quantity,
+          purpose: loan.purpose,
+          pickedUpAt: loan.pickedUpAt,
+          dueAt: loan.dueAt,
+        });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Vrátenie ľubovoľnej podmnožiny kusov jednej osoby, prípadne cez viacero
+   * Loan-ov naraz — jeden konsolidovaný RETURN protokol (ADR-0036, „Vrátiť
+   * od osoby").
+   *
+   * Na rozdiel od `returnLoan()` (ktorý ostáva bezo zmeny — vyžaduje vrátenie
+   * VŠETKÝCH položiek jedného Loanu naraz) táto metóda:
+   *   - prijíma položky tagované vlastným `loanId` — môžu patriť rôznym Loan-om
+   *     tej istej osoby naraz,
+   *   - nevyžaduje vrátenie celého Loanu naraz — nevybraté položky ostávajú
+   *     u používateľa a Loan prejde do `PARTIALLY_RETURNED` (namiesto
+   *     terminálneho stavu), kým sa nevrátia úplne všetky jeho položky,
+   *   - vytvorí JEDEN RETURN protokol pokrývajúci všetky vybrané kusy
+   *     (`LoanProtocol.loanIds` = zoznam všetkých dotknutých Loan-ov).
+   */
+  async returnItemsForBorrower(
+    borrowerId: string,
+    input: ReturnItemsForBorrowerInput,
+    actor: WithId<User>,
+    request: FastifyRequest,
+  ): Promise<Record<string, unknown>> {
+    const tenantId = String(actor.organisationId);
+    const actorId = String(actor._id);
+    const now = new Date().toISOString();
+
+    // Zoskupenie vybraných kusov podľa loanId — jeden Loan môže mať v tomto
+    // vrátení vybraných viac kusov naraz.
+    const itemsByLoanId = new Map<string, ReturnItemsForBorrowerInput['items']>();
+    for (const item of input.items) {
+      const list = itemsByLoanId.get(item.loanId) ?? [];
+      list.push(item);
+      itemsByLoanId.set(item.loanId, list);
+    }
+    const affectedLoanIds = [...itemsByLoanId.keys()];
+
+    const result = await this.runInTransaction(async (session) => {
+      const protocolItems: Array<{ loanId: string; item: LoanItem }> = [];
+      const updatedLoanById = new Map<string, WithId<Loan>>();
+      const requiresServiceByLoanId = new Map<string, boolean>();
+      const returnedCountByLoanId = new Map<string, number>();
+
+      for (const loanId of affectedLoanIds) {
+        const loan = await this.loansRepo.findById(tenantId, loanId, session);
+        if (!loan) throw new NotFoundError('Loan', loanId);
+        if (String(loan.borrowerId) !== borrowerId) {
+          throw new BadRequestError(
+            `Loan ${loanId} nepatrí osobe ${borrowerId} — nemožno ho vrátiť v tomto flow.`,
+          );
+        }
+        if (loan.status !== 'ACTIVE' && loan.status !== 'PARTIALLY_RETURNED') {
+          throw new BadRequestError(
+            `Loan ${loanId} nemožno vrátiť — aktuálny stav je ${loan.status}.`,
+          );
+        }
+
+        const returnItemMap = new Map((itemsByLoanId.get(loanId) ?? []).map((i) => [i.assetId, i]));
+
+        // Guard: každý vybraný assetId musí byť v tomto Loane a ešte nevrátený
+        // (inak by sa dal ten istý kus "vrátiť" dvakrát cez dve súbežné volania).
+        for (const assetId of returnItemMap.keys()) {
+          const loanItem = loan.items.find((i) => i.assetId === assetId);
+          if (!loanItem) {
+            throw new BadRequestError(`Asset ${assetId} nie je položkou Loanu ${loanId}.`);
+          }
+          if (loanItem.condition.atReturn !== null) {
+            throw new BadRequestError(
+              `Asset ${assetId} (${loanItem.snapshot.inventoryNumber}) je v Loane ${loanId} už vrátený.`,
+            );
+          }
+        }
+
+        let anyRequiresServiceThisBatch = false;
+        const updatedItems: LoanItem[] = [];
+
+        for (const loanItem of loan.items) {
+          const returnItemData = returnItemMap.get(loanItem.assetId);
+          if (!returnItemData) {
+            // Nevybraná položka tohto Loanu — ostáva bez zmeny (stále u používateľa).
+            updatedItems.push(loanItem);
+            continue;
+          }
+
+          const requiresService = returnItemData.requiresService ?? false;
+          if (requiresService) anyRequiresServiceThisBatch = true;
+
+          const isBulk = loanItem.quantity != null;
+          if (isBulk) {
+            // BULK položka — fyzické množstvo sa vracia cez skladový ledger
+            // (LOAN_RETURN), rovnako ako v returnLoan().
+            if (this.stockService) {
+              await this.stockService.recordLoanReturn(
+                loanItem.assetId,
+                loanItem.quantity as number,
+                loanId,
+                actor,
+                request,
+                session,
+              );
+            }
+          } else {
+            const newAssetStatus: AssetStatus = requiresService ? 'IN_SERVICE' : 'AVAILABLE';
+            await this.assetsRepo.update(
+              tenantId,
+              loanItem.assetId,
+              { status: newAssetStatus, currentLoanId: null, updatedAt: now, updatedBy: actorId },
+              session,
+            );
+          }
+
+          const updatedItem: LoanItem = {
+            ...loanItem,
+            condition: {
+              ...loanItem.condition,
+              atReturn: {
+                condition: returnItemData.condition,
+                note: returnItemData.note ?? null,
+                photoIds: [],
+                requiresService,
+              },
+            },
+          };
+          updatedItems.push(updatedItem);
+          protocolItems.push({ loanId, item: updatedItem });
+        }
+
+        const allReturned = updatedItems.every((i) => i.condition.atReturn !== null);
+        const anyRequiresServiceOverall = updatedItems.some(
+          (i) => i.condition.atReturn?.requiresService,
+        );
+        const newStatus: LoanStatus = allReturned
+          ? anyRequiresServiceOverall
+            ? 'DAMAGED'
+            : 'RETURNED'
+          : 'PARTIALLY_RETURNED';
+
+        const loanPatch: LoanPatch = {
+          status: newStatus,
+          items: updatedItems,
+          notes: input.notes ?? null,
+          updatedAt: now,
+          updatedBy: actorId,
+          ...(allReturned ? { returnedAt: now, returnedTo: input.returnedTo } : {}),
+        };
+
+        const updatedLoan = await this.loansRepo.update(tenantId, loanId, loanPatch, session);
+        if (!updatedLoan) throw new NotFoundError('Loan', loanId);
+        updatedLoanById.set(loanId, updatedLoan);
+        requiresServiceByLoanId.set(loanId, anyRequiresServiceThisBatch);
+        returnedCountByLoanId.set(loanId, returnItemMap.size);
+      }
+
+      // Jeden konsolidovaný RETURN protokol cez všetky dotknuté Loan-y (ADR-0036).
+      const returnProtocolId = await this.insertDraftProtocol({
+        type: 'RETURN',
+        loanIds: affectedLoanIds,
+        tenantId,
+        actorId,
+        now,
+        items: protocolItems,
+        handoverUserId: borrowerId, // pri vrátení: odovzdávajúci = borrower
+        handoverSnapshot: { displayName: '', email: '', organizationalUnit: null },
+        receiveUserId: actorId, // preberajúci = správca (actor)
+        receiveSnapshot: {
+          displayName: actor.displayName,
+          email: actor.email ?? '',
+          organizationalUnit: null,
+        },
+        paperSize: 'A4',
+        session,
+      });
+
+      if (returnProtocolId) {
+        for (const loanId of affectedLoanIds) {
+          await this.loansRepo.update(
+            tenantId,
+            loanId,
+            { returnProtocolId, updatedAt: now, updatedBy: actorId },
+            session,
+          );
+        }
+      }
+
+      for (const loanId of affectedLoanIds) {
+        const loan = updatedLoanById.get(loanId)!;
+        const anyRequiresServiceThisBatch = requiresServiceByLoanId.get(loanId) ?? false;
+        const returnedCount = returnedCountByLoanId.get(loanId) ?? 0;
+
+        await this.auditLog.record(
+          actor,
+          request,
+          {
+            action:
+              loan.status === 'PARTIALLY_RETURNED' ? 'LOAN_PARTIALLY_RETURNED' : 'LOAN_RETURNED',
+            target: {
+              entityType: 'Loan',
+              entityId: loanId,
+              snapshot: { status: loan.status, returnedAt: loan.returnedAt },
+            },
+            description:
+              loan.status === 'DAMAGED'
+                ? `Loan vrátený s poškodením (od osoby, ADR-0036) — ${returnedCount} kus/ov v tomto vrátení.`
+                : loan.status === 'PARTIALLY_RETURNED'
+                  ? `Loan čiastočne vrátený (od osoby, ADR-0036) — ${returnedCount} kus/ov v tomto vrátení, zvyšok stále u používateľa.`
+                  : `Loan úplne vrátený (od osoby, ADR-0036) — ${returnedCount} kus/ov v tomto vrátení.`,
+            severity: anyRequiresServiceThisBatch ? 'WARNING' : 'INFO',
+          },
+          session,
+        );
+      }
+
+      return { protocolId: returnProtocolId, loanIds: affectedLoanIds };
+    });
+
+    for (const loanId of result.loanIds) {
+      this.notifyProtocolToSign('RETURN', loanId, borrowerId, request);
+    }
+
+    return { returnProtocolId: result.protocolId, loanIds: result.loanIds };
   }
 
   /**
@@ -1255,20 +1521,20 @@ export class LoansService {
         receiveSnapshot = await this.loadPartySnapshot(receiveUserId, session);
       }
 
-      const newProtocolId = await this.insertDraftProtocol(
+      const newProtocolId = await this.insertDraftProtocol({
         type,
-        loanId,
+        loanIds: [loanId],
         tenantId,
         actorId,
         now,
-        loan.items,
+        items: loan.items.map((item) => ({ loanId, item })),
         handoverUserId,
         handoverSnapshot,
         receiveUserId,
         receiveSnapshot,
-        'A4',
+        paperSize: 'A4',
         session,
-      );
+      });
       if (!newProtocolId) {
         throw new BadRequestError('Protokol sa nepodarilo vytvoriť.');
       }
@@ -1401,21 +1667,45 @@ export class LoansService {
    * Vloží DRAFT LoanProtocol do transakcie (ADR-0022 K4).
    * Ak `protocolsRepo` nie je nastavený, ticho vráti null.
    */
-  private async insertDraftProtocol(
-    type: LoanProtocol['type'],
-    loanId: string,
-    tenantId: string,
-    actorId: string,
-    now: string,
-    loanItems: LoanItem[],
-    handoverUserId: string,
-    handoverSnapshot: LoanProtocol['parties']['handover']['snapshot'],
-    receiveUserId: string,
-    receiveSnapshot: LoanProtocol['parties']['receive']['snapshot'],
-    paperSize: LoanProtocol['paperSize'],
-    session: ClientSession,
-  ): Promise<string | null> {
+  private async insertDraftProtocol(params: {
+    type: LoanProtocol['type'];
+    /**
+     * Všetky Loan-y pokryté týmto protokolom (ADR-0036). `loanIds[0]` sa
+     * uloží ako `protocol.loanId` (primárny, spätná kompatibilita). Pre
+     * HANDOVER a bežný per-Loan RETURN je to vždy jednoprvkové pole.
+     */
+    loanIds: string[];
+    tenantId: string;
+    actorId: string;
+    now: string;
+    /** Položky tagované loanId, z ktorého konkrétny kus pochádza (ADR-0036). */
+    items: Array<{ loanId: string; item: LoanItem }>;
+    handoverUserId: string;
+    handoverSnapshot: LoanProtocol['parties']['handover']['snapshot'];
+    receiveUserId: string;
+    receiveSnapshot: LoanProtocol['parties']['receive']['snapshot'];
+    paperSize: LoanProtocol['paperSize'];
+    session: ClientSession;
+  }): Promise<string | null> {
+    const {
+      type,
+      loanIds,
+      tenantId,
+      actorId,
+      now,
+      items,
+      handoverUserId,
+      handoverSnapshot,
+      receiveUserId,
+      receiveSnapshot,
+      paperSize,
+      session,
+    } = params;
+
     if (!this.protocolsRepo) return null;
+    if (loanIds.length === 0) {
+      throw new Error('insertDraftProtocol: loanIds nesmie byť prázdne.');
+    }
 
     const db = this.getDb();
     const year = new Date(now).getUTCFullYear();
@@ -1441,7 +1731,7 @@ export class LoansService {
     // a kategóriu treba fixovať čítaním z assetu/kategórie v tej istej transakcii.
     // (loanItems.snapshot drží len inv. číslo + názov, viac polí neuchováva.)
     const assetById = new Map<string, WithId<Asset>>();
-    for (const item of loanItems) {
+    for (const { item } of items) {
       const assetId = String(item.assetId);
       if (assetById.has(assetId)) continue;
       const asset = await this.assetsRepo.findById(tenantId, assetId, session);
@@ -1473,10 +1763,11 @@ export class LoansService {
       }
     }
 
-    const protocolItems: LoanProtocol['items'] = loanItems.map((item) => {
+    const protocolItems: LoanProtocol['items'] = items.map(({ loanId: itemLoanId, item }) => {
       const asset = assetById.get(String(item.assetId));
       return {
         assetId: item.assetId,
+        loanId: itemLoanId,
         snapshot: {
           inventoryNumber: item.snapshot.inventoryNumber,
           name: item.snapshot.name,
@@ -1492,7 +1783,8 @@ export class LoansService {
     const protocolDoc: Omit<LoanProtocol, '_id'> = {
       organisationId: tenantId,
       type,
-      loanId,
+      loanId: loanIds[0]!,
+      loanIds,
       originalProtocolId: null,
       protocolNumber,
       issuedAt: now,

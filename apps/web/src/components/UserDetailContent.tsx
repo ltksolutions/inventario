@@ -3,9 +3,11 @@
 
 'use client';
 
-import { ArrowLeft, Clock, Package, ShieldOff, XCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Package, PackageCheck, ShieldOff, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
 
+import { ReturnFromPersonModal } from './ReturnFromPersonModal';
 import { CardSkeleton, TableSkeleton } from './Skeleton';
 
 import type { LoanSummary } from '@/lib/api-hooks';
@@ -47,6 +49,12 @@ import { cn } from '@/lib/cn';
 
 const LOAN_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   ACTIVE: { label: 'Aktívna', className: 'bg-green-50 text-green-700 ring-green-600/20' },
+  // ADR-0036 — časť položiek vrátená, časť stále u používateľa (čiastočné vrátenie
+  // "od osoby"). Počíta sa ako "aktuálny majetok", nie úplna história.
+  PARTIALLY_RETURNED: {
+    label: 'Čiastočne vrátená',
+    className: 'bg-blue-50 text-blue-700 ring-blue-600/20',
+  },
   RETURNED: {
     label: 'Vrátená',
     className: 'bg-surface-subtle text-text-muted ring-border-subtle',
@@ -69,6 +77,7 @@ export function UserDetailContent({ userId }: { userId: string }): JSX.Element {
   const canManage = useCanManagePersons();
   const userQuery = useUser(userId);
   const loansQuery = useLoans({ borrowerId: userId, limit: 200 });
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
 
   const backLink = (
     <Link
@@ -118,15 +127,36 @@ export function UserDetailContent({ userId }: { userId: string }): JSX.Element {
     return <div>{backLink}</div>;
   }
   const allLoans = loansQuery.data?.data ?? [];
-  const currentLoans = allLoans.filter((loan) => loan.status === 'ACTIVE');
-  const historyLoans = allLoans.filter((loan) => loan.status !== 'ACTIVE');
+  // ADR-0036: PARTIALLY_RETURNED má stále ďalšie položky vonku, takže patrí medzi
+  // "aktuálny majetok", nie do histórie.
+  const currentLoans = allLoans.filter(
+    (loan) => loan.status === 'ACTIVE' || loan.status === 'PARTIALLY_RETURNED',
+  );
+  const historyLoans = allLoans.filter(
+    (loan) => loan.status !== 'ACTIVE' && loan.status !== 'PARTIALLY_RETURNED',
+  );
+  const hasBorrowedItems = currentLoans.some((loan) =>
+    loan.items.some((item) => item.atReturn == null),
+  );
 
   return (
     <div>
       {backLink}
 
       <header className="mb-6 rounded-xl border border-border-subtle bg-surface-card p-5 shadow-sm">
-        <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">{user.displayName}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">{user.displayName}</h1>
+          {hasBorrowedItems && (
+            <button
+              type="button"
+              onClick={() => setReturnModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2"
+            >
+              <PackageCheck aria-hidden="true" className="h-4 w-4" />
+              Vrátiť majetok
+            </button>
+          )}
+        </div>
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Meno</dt>
@@ -174,6 +204,14 @@ export function UserDetailContent({ userId }: { userId: string }): JSX.Element {
           />
         )}
       </section>
+
+      {returnModalOpen && (
+        <ReturnFromPersonModal
+          borrowerId={userId}
+          borrowerDisplayName={user.displayName}
+          onClose={() => setReturnModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -188,6 +226,9 @@ interface LoanRow {
   inventoryNumber: string;
   name: string;
   status: LoanSummary['status'];
+  /** Individuálny stav TEJTO položky (ADR-0036) — pri PARTIALLY_RETURNED loan-e
+   * môžu niektoré položky byť už vrátené, iné stále vonku. */
+  itemAlreadyReturned: boolean;
   isOverdue: boolean;
   pickedUpAt: string;
   dueAt: string | null;
@@ -204,6 +245,7 @@ function toLoanRows(loans: readonly LoanSummary[]): LoanRow[] {
         inventoryNumber: item.snapshot.inventoryNumber,
         name: item.snapshot.name,
         status: loan.status,
+        itemAlreadyReturned: item.atReturn != null,
         isOverdue: loan.isOverdue,
         pickedUpAt: loan.pickedUpAt,
         dueAt: loan.dueAt,
@@ -256,7 +298,15 @@ function AssetLoanTable({
         <tbody className="divide-y divide-border-subtle">
           {rows.map((row, idx) => {
             const isOverdue = row.isOverdue && row.status === 'ACTIVE';
-            const statusKey = isOverdue ? 'OVERDUE' : row.status;
+            // ADR-0036: pri čiastočnom vrátení má zmysel zobraziť individuálny
+            // stav TEJTO položky, nie len celkový stav loanu (PARTIALLY_RETURNED
+            // by inak vyzeralo, že aj už vrátené kusy sú stále vonku).
+            const statusKey =
+              row.status === 'PARTIALLY_RETURNED' && row.itemAlreadyReturned
+                ? 'RETURNED'
+                : isOverdue
+                  ? 'OVERDUE'
+                  : row.status;
             const statusConfig = LOAN_STATUS_CONFIG[statusKey] ?? {
               label: row.status,
               className: 'bg-surface-subtle text-text-muted',

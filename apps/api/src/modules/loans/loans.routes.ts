@@ -10,6 +10,8 @@
  *   - GET  /v1/loans/:id    EMPLOYEE+ (service checks ownership for EMPLOYEE)
  *   - POST /v1/loans/:id/return  ASSET_MANAGER, ADMIN
  *   - POST /v1/loans/:id/lost    ASSET_MANAGER, ADMIN
+ *   - GET  /v1/users/:id/borrowed-items   ASSET_MANAGER, ADMIN (ADR-0036)
+ *   - POST /v1/users/:id/return-items     ASSET_MANAGER, ADMIN (ADR-0036)
  *
  * IMPORTANT: /v1/loans/my must be registered BEFORE /v1/loans/:id to
  * prevent Fastify from matching the literal "my" as the :id parameter.
@@ -20,7 +22,12 @@
  * Slice #5 K4.
  */
 
-import { LoanStatus, ReturnLoanSchema, CreateDirectLoanSchema } from '@inventario/shared-types';
+import {
+  LoanStatus,
+  ReturnLoanSchema,
+  CreateDirectLoanSchema,
+  ReturnItemsForBorrowerSchema,
+} from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
@@ -267,6 +274,64 @@ const loansRoutes: FastifyPluginAsync = async (fastify) => {
         request,
       );
       return reply.status(204).send(null);
+    },
+  );
+
+  // --- GET /v1/users/:id/borrowed-items ------------------------------------
+  // ADR-0036 — "Vrátiť od osoby": flatten zoznam všetkého, čo daná osoba
+  // aktuálne má požičané cez VŠETKY svoje Loan-y (nezávisle od pôvodnej
+  // žiadosti). Podklad pre výber kusov pred POST .../return-items.
+  app.get(
+    '/v1/users/:id/borrowed-items',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Loans'],
+        summary: 'Zoznam požičaného majetku osoby cez všetky jej výpožičky (ADR-0036)',
+        description:
+          'Vráti flatten zoznam kusov, ktoré má daná osoba aktuálne požičané ' +
+          '(ACTIVE alebo PARTIALLY_RETURNED Loan-y), s referenciou na loanId ' +
+          'pre každý kus. Requires ASSET_MANAGER or ADMIN role.',
+        security: [{ bearerAuth: [] }],
+        params: IdParamsSchema,
+        response: { 200: z.array(z.record(z.string(), z.unknown())) },
+      },
+    },
+    async (request) => {
+      return service.listBorrowedItemsForBorrower(request.params.id, request.currentUser);
+    },
+  );
+
+  // --- POST /v1/users/:id/return-items -------------------------------------
+  // ADR-0036 — vrátenie ľubovoľnej podmnožiny kusov, prípadne cez viacero
+  // Loan-ov naraz, jeden konsolidovaný RETURN protokol. Doplnková cesta k
+  // POST /v1/loans/:id/return, ktorý ostáva nezmenený.
+  app.post(
+    '/v1/users/:id/return-items',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Loans'],
+        summary: 'Vrátenie vybraných kusov osoby cez viac výpožičiek naraz (ADR-0036)',
+        description:
+          'Vráti vybranú podmnožinu kusov danej osoby — každá položka nesie ' +
+          'vlastné loanId, môžu patriť rôznym Loan-om. Loan, ktorému nebola ' +
+          'vrátená úplne všetka jeho zásoba, prejde do PARTIALLY_RETURNED ' +
+          '(nie terminálny stav). Vytvorí jeden RETURN protokol pokrývajúci ' +
+          'všetky vrátené kusy. Requires ASSET_MANAGER or ADMIN role.',
+        security: [{ bearerAuth: [] }],
+        params: IdParamsSchema,
+        body: ReturnItemsForBorrowerSchema,
+        response: { 200: SingleResponseSchema },
+      },
+    },
+    async (request) => {
+      return service.returnItemsForBorrower(
+        request.params.id,
+        request.body,
+        request.currentUser,
+        request,
+      );
     },
   );
 };

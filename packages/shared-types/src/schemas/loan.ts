@@ -418,3 +418,30 @@ export const ReturnLoanSchema = z.object({
 });
 
 export type ReturnLoanInput = z.infer<typeof ReturnLoanSchema>;
+
+/**
+ * Vrátenie ľubovoľnej podmnožiny kusov jednej osoby, prípadne cez viacero
+ * Loan-ov naraz (ADR-0036 — "Vrátiť od osoby"). Na rozdiel od `ReturnLoanSchema`
+ * NEVYŽADUJE vrátenie všetkých kusov jedného Loanu — každá položka nesie
+ * vlastné `loanId`, aby service vedel, do ktorého Loanu patrí.
+ */
+export const ReturnItemsForBorrowerSchema = z.object({
+  returnedTo: ObjectIdSchema,
+  items: z
+    .array(
+      z.object({
+        loanId: ObjectIdSchema,
+        assetId: ObjectIdSchema,
+        condition: z.enum(
+          Object.values(AssetCondition) as [string, ...string[]],
+        ) as z.ZodType<AssetCondition>,
+        note: freeText(1000).nullable().default(null),
+        photoIds: z.array(ObjectIdSchema).default([]),
+        requiresService: z.boolean().default(false),
+      }),
+    )
+    .min(1, 'Vyberte aspoň jeden kus na vrátenie.'),
+  notes: freeText(2000).nullable().default(null),
+});
+
+export type ReturnItemsForBorrowerInput = z.infer<typeof ReturnItemsForBorrowerSchema>;
