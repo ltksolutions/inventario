@@ -255,7 +255,14 @@ async function sendZplToPrinter(
 ): Promise<void> {
   const res = await fetch(`${BROWSER_PRINT_BASE}/write`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // text/plain (nie application/json) je zámer — application/json je
+    // "non-simple" hlavička a spustila by CORS preflight (OPTIONS). Zebra
+    // Browser Print agent má v starom firmvéri chybnú odpoveď na preflight
+    // (Chrome: "Cannot parse Access-Control-Allow-Headers"), takže preflight
+    // = zlyhanie. text/plain je CORS-safelisted → simple request bez
+    // preflightu; agent JSON telo parsuje bez ohľadu na content-type
+    // (dokumentovaný funkčný postup, 2026-07-17).
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
     body: JSON.stringify({
       device: { uid: printer.uid },
       data: zpl,
