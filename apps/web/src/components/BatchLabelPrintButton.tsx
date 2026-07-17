@@ -19,10 +19,12 @@
  * Ak je viac ako 200 vybraných, zobrazíme warning a odosiela sa prvých 200.
  *
  * Chrome Local Network Access (LNA, od Chrome 142, 2026) — rovnaká poznámka
- * ako v `LabelPrintButton.tsx`: fetch na `localhost:9100` anotujeme
- * `targetAddressSpace: 'local'`, aby ho Chrome vopred rozpoznal ako
- * zámerný lokálny request (bez toho môže Chrome request ticho zablokovať
- * bez povoľovacieho dialógu).
+ * ako v `LabelPrintButton.tsx`: `localhost:9100` je address space
+ * `loopback` (nie `local` — to je pre privátne LAN adresy typu
+ * 192.168.x.x), preto fetch anotujeme `targetAddressSpace: 'loopback'`.
+ * Nesprávna hodnota `'local'` spôsobuje, že Chrome request rovno
+ * zablokuje pre nezhodu address space (nie len ticho bez dialógu) —
+ * opravené 2026-07-17.
  */
 
 import { ChevronDown, Loader2, Printer } from 'lucide-react';
@@ -235,7 +237,7 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
     const res = await fetch(`${BROWSER_PRINT_BASE}/default?type=printer`, {
       signal: controller.signal,
       // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
-      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+      ...({ targetAddressSpace: 'loopback' } as Record<string, unknown>),
     });
     if (!res.ok) throw new Error('Browser Print agent vrátil chybu.');
     const data = (await res.json()) as { printer?: ZebraPrinter };
@@ -273,7 +275,7 @@ async function getFirstAvailableZebraPrinter(signal: AbortSignal): Promise<Zebra
     const res = await fetch(`${BROWSER_PRINT_BASE}/available?type=printer`, {
       signal,
       // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
-      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+      ...({ targetAddressSpace: 'loopback' } as Record<string, unknown>),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { printer?: ZebraPrinter[] };
@@ -289,7 +291,7 @@ async function sendZplToPrinter(printer: ZebraPrinter, zpl: string): Promise<voi
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ device: { uid: printer.uid }, data: zpl }),
     // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
-    ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+    ...({ targetAddressSpace: 'loopback' } as Record<string, unknown>),
   });
   if (!res.ok) throw new Error(`Browser Print write failed: ${res.status}`);
 }

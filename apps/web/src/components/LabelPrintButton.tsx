@@ -29,12 +29,17 @@
  *   Chrome Local Network Access (LNA, od Chrome 142, 2026): appka je na
  *   verejnom HTTPS (`app.inventario.estate`), Browser Print agent na
  *   `localhost` — Chrome teraz vyžaduje explicitné povolenie pred takýmto
- *   requestom (permission prompt, podobne ako kamera/mikrofón). Fetch
- *   anotujeme `targetAddressSpace: 'local'`, aby ho Chrome vopred rozpoznal
- *   ako zámerný lokálny request (odporúčaný postup z Chrome docs) — bez
- *   tejto anotácie sa v niektorých prípadoch request ticho zablokuje bez
- *   zobrazenia povoľovacieho dialógu. Ak organizácia používa Chrome v
- *   enterprise-managed režime, IT môže mať lokálny prístup zablokovaný
+ *   requestom (permission prompt, podobne ako kamera/mikrofón). `localhost`
+ *   patrí do address space `loopback` (nie `local` — to je pre privátne
+ *   LAN adresy typu 192.168.x.x), preto fetch anotujeme
+ *   `targetAddressSpace: 'loopback'`. Ak sa deklarovaná hodnota nezhoduje
+ *   so skutočným cieľom, Chrome request rovno zablokuje ešte pred
+ *   zobrazením povoľovacieho dialógu — presne to sa stalo 2026-07-17,
+ *   keď sme tu mali omylom `'local'` namiesto `'loopback'` (chyba
+ *   "target IP address space of X yet resource is in address space Y").
+ *   Povolenie sa v Chrome volá "Apps on device" (Chrome 145+) alebo
+ *   "Local Network Access" (Chrome 142-144). Ak organizácia používa Chrome
+ *   v enterprise-managed režime, IT môže mať lokálny prístup zablokovaný
  *   politikou — to touto anotáciou neobídeme, treba povoliť na strane IT.
  *
  *   Safari (WebKit) nemá žiadny ekvivalent LNA — fetch z HTTPS na
@@ -179,7 +184,7 @@ async function getDefaultZebraPrinter(): Promise<ZebraPrinter> {
     const res = await fetch(`${BROWSER_PRINT_BASE}/default?type=printer`, {
       signal: controller.signal,
       // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
-      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+      ...({ targetAddressSpace: 'loopback' } as Record<string, unknown>),
     });
     if (!res.ok) {
       throw new Error('Browser Print agent vrátil chybu.');
@@ -224,7 +229,7 @@ async function getFirstAvailableZebraPrinter(signal: AbortSignal): Promise<Zebra
     const res = await fetch(`${BROWSER_PRINT_BASE}/available?type=printer`, {
       signal,
       // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
-      ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+      ...({ targetAddressSpace: 'loopback' } as Record<string, unknown>),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { printer?: ZebraPrinter[] };
@@ -256,7 +261,7 @@ async function sendZplToPrinter(
       data: zpl,
     }),
     // Chrome Local Network Access (LNA) — vidz komentár na začiatku súboru.
-    ...({ targetAddressSpace: 'local' } as Record<string, unknown>),
+    ...({ targetAddressSpace: 'loopback' } as Record<string, unknown>),
   });
 
   if (!res.ok) {
