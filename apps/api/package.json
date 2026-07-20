@@ -28,7 +28,7 @@
     "@fastify/multipart": "^10.1.0",
     "@fastify/rate-limit": "^10.1.1",
     "@fastify/swagger": "^9.8.1",
-    "@fastify/swagger-ui": "^5.1.0",
+    "@fastify/swagger-ui": "^6.1.0",
     "@inventario/shared-types": "workspace:*",
     "@napi-rs/canvas": "^1.0.2",
     "@pdf-lib/fontkit": "^1.1.1",
