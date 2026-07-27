@@ -21,7 +21,7 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@fastify/cookie": "11.0.2",
+    "@fastify/cookie": "11.1.2",
     "@fastify/cors": "^10.0.1",
     "@fastify/helmet": "^12.0.1",
     "@fastify/jwt": "^9.0.4",
@@ -35,7 +35,7 @@
     "@simplewebauthn/server": "^13.3.2",
     "@vercel/blob": "^2.6.1",
     "arctic": "^3.0.0",
-    "argon2": "^0.44.0",
+    "argon2": "^0.45.1",
     "fastify": "^5.10.0",
     "fastify-plugin": "^5.0.1",
     "fastify-type-provider-zod": "^4.0.2",

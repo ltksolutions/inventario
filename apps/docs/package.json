@@ -15,11 +15,11 @@
     "clean": "rm -rf .next .turbo public/_pagefind *.tsbuildinfo"
   },
   "dependencies": {
-    "next": "~15.5.20",
+    "next": "~15.5.22",
     "nextra": "4.6.0",
     "nextra-theme-docs": "4.6.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
