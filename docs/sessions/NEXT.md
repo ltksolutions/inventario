@@ -45,6 +45,15 @@ prekontrolovať `contineo.app` (11,50 → 65,20 — rovnaký M10 podpis).
 'dependabot[bot]'` v `ci.yml` už nemá opodstatnenie (testy nepotrebujú
 žiadne secrets) — dá sa zrušiť, aby dependabot PR bežali aj testami.
 
+**Zálohovanie produkcie (dodatok 2 v session logu):** `inventario-prod` je
+Flex → zálohy sú **8 denných snapshotov**, bez vlastnej politiky, bez
+on-demand snapshotov a **bez Point-in-Time restore** (ten je až od M10).
+Reálne RPO až 24 h. Vedome ponechané na Flexe (M10 by stálo tých istých
+~58 USD/mes.). **Otvorené:** overiť v Atlas → Backup, že snapshoty naozaj
+existujú; spraviť DR test (restore nanečisto — stály otvorený bod od júna);
+skontrolovať, či `docs/compliance/` netvrdí o zálohovaní viac, než Flex
+reálne poskytuje.
+
 **Otvorené (kód, ak sa vráti pomalý preloader):** obmedziť
 `GlobalFetchOverlay` len na kritické requesty; presunúť `ensureIndexes()`
 mimo cold-startu (vzor ako migrácie, `00a2515`); zvážiť vypnutie Swaggeru

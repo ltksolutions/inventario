@@ -214,3 +214,65 @@ nezapísali.
   bežali aj testami — zámerne ponechané, samostatné rozhodnutie.
 - Projekty `IS sportu` (68,29 → 22,63) a `contineo.app` (11,50 → 65,20)
   vykazujú rovnaký M10 podpis. Contineo stojí za kontrolu prednostne.
+
+---
+
+## Dodatok 2 — zálohovanie produkcie na Flexe (2026-08-30)
+
+Otvorené Janikou po zmazaní dev clustera: **máme na `inventario-prod`
+zálohy, keď je to Flex?** Odpoveď: áno, ale s podstatnými limitmi, ktoré
+treba mať zapísané — najmä kvôli `docs/compliance/` (Data Retention
+Schedule, DPIA), kde by tvrdenia o zálohovaní mali sedieť s realitou.
+
+### Čo Flex dáva
+
+Zálohy sú zapnuté automaticky, nedá sa to vypnúť ani konfigurovať:
+
+- **8 posledných denných snapshotov**, možno ich stiahnuť alebo obnoviť
+  do Atlas clustera
+- snapshoty sa vždy berú zo **sekundárneho uzla** (bez dopadu na výkon)
+- správa záloh vyžaduje **Project Owner** práva
+
+### Čo Flex nedáva
+
+- **Žiadne vlastné politiky** — retencia ani čas snímania sa nedajú meniť
+- **Jeden denný snapshot** v pevný čas, začínajúci 24 h po vytvorení
+  clustera
+- **Žiadne on-demand snapshoty** — nedá sa urobiť „záloha pred rizikovou
+  migráciou"
+- **Žiadny Point-in-Time restore** — dostupný až od M10
+- Flex snapshot sa dá obnoviť len do replica setu, nie do shardovaného
+  clustera; a Atlas nevie obnoviť žiadny snapshot **do** Flex clustera
+  z dedikovaného zdroja
+
+**Reálne RPO je teda až 24 hodín.** Ak sa dáta poškodia o 17:00 a snapshot
+bol o 06:00, stráca sa všetko medzitým.
+
+### Vedomý nepomer (na záznam)
+
+Do 30. 8. 2026 mala **prázdna** dev databáza tri uzly, šifrované úložisko
+a plnohodnotné zálohy s vlastnou politikou, zatiaľ čo **ostré dáta SFZ**
+(40 kusov majetku, 29 používateľov, 17 výpožičiek, podpísané preberacie
+protokoly) majú jeden denný snapshot a 8 dní histórie. Po zmazaní dev
+clustera je to už len otvorená otázka pre produkciu.
+
+Rozhodnutie zatiaľ **nechať Flex** — M10 na produkcii by stálo tých istých
+~58 USD/mes., ktoré sme práve ušetrili, a pre pilotného tenanta je 8 denných
+snapshotov obhájiteľných. Je to ale vedomý trade-off, nie prehliadnutie.
+
+### Otvorené (bez ohľadu na tier)
+
+1. **Overiť, že snapshoty naozaj existujú** — Atlas → `inventario-prod` →
+   Backup. Zálohu, ktorú nikto nikdy nevidel, nemáme.
+2. **Skúsiť restore nanečisto (DR test)** — už je to otvorený bod v NEXT.md
+   od júna („smoke + DR test"). Flex snapshot sa dá obnoviť do iného
+   clustera alebo stiahnuť lokálne. Prvý restore nesmie byť až v deň, keď
+   o dáta reálne príde.
+3. **Zosúladiť `docs/compliance/`** — skontrolovať, či Data Retention
+   Schedule / DPIA / Security Whitepaper netvrdia o zálohovaní viac, než
+   Flex reálne poskytuje.
+4. **Pozn. k zmazanému dev clusteru:** ak boli pri ukončení ponechané jeho
+   zálohy, ostávajú dostupné pod menom pôvodného clustera (a účtujú sa),
+   kým nevypršia alebo sa nezmažú.
+
+Zdroj: MongoDB Atlas docs — Flex Cluster Backups.
