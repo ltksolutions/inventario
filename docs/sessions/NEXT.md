@@ -54,10 +54,38 @@ existujú; spraviť DR test (restore nanečisto — stály otvorený bod od jún
 skontrolovať, či `docs/compliance/` netvrdí o zálohovaní viac, než Flex
 reálne poskytuje.
 
-**Otvorené (kód, ak sa vráti pomalý preloader):** obmedziť
-`GlobalFetchOverlay` len na kritické requesty; presunúť `ensureIndexes()`
+**Otvorené (kód, ak by sa vrátil pomalý preloader):** nemalo by — všetky
+tri opatrenia sú hotové (`staleTime` `8a91c32`, Fluid Compute `b07cabc`,
+overlay len pre mutácie `1c239e0`). Ak predsa: presunúť `ensureIndexes()`
 mimo cold-startu (vzor ako migrácie, `00a2515`); zvážiť vypnutie Swaggeru
 v produkcii.
+
+---
+
+## Aktuálny stav (2026-07-17) — Zebra tlač v Chrome + GlobalFetchOverlay — HOTOVÉ
+
+Session log: `docs/sessions/2026-07-17-zebra-lna-cors-fetch-overlay.md`
+(dopísaný spätne 2026-08-30 — pôvodne po tejto session „poupratuj" nebežalo,
+takže NEXT.md aj TODO.md o týchto zmenách šesť týždňov nevedeli).
+
+- ✅ **Zebra LNA fix** (`0f170bf`) — Chrome 142+ blokoval fetch na
+  `localhost:9100`, lebo sme deklarovali `targetAddressSpace: 'local'`
+  pre cieľ, ktorý Chrome vyhodnocuje ako `loopback`. Opravené na 6
+  miestach v `LabelPrintButton.tsx` + `BatchLabelPrintButton.tsx`.
+- ✅ **Zebra CORS fix** (`45c37ae`) — `POST /write` padal na preflighte
+  (chybná `Access-Control-Allow-Headers` odpoveď starého Zebra firmvéru).
+  Riešenie: `Content-Type: text/plain;charset=UTF-8` → simple request,
+  žiadny preflight. Telo (JSON string) nezmenené.
+- ✅ **GlobalFetchOverlay len pre mutácie** (`1c239e0`) — overlay bol
+  viazaný na `useIsFetching()`, takže jeden pomalý sekundárny GET držal
+  celú obrazovku zakrytú ~10 s. Teraz sleduje `useIsMutating()`.
+  **Týmto je téma pomalého preloadera uzavretá** (tretie a posledné
+  opatrenie popri `staleTime` a Fluid Compute).
+
+**Otvorené:** živý test Zebra tlače na hardvéri (ZD420 + Browser Print) —
+softvérové blokácie sú odstránené, fyzický test (čitateľnosť QR,
+diakritika, sýtosť) ešte neprebehol. Safari ostáva nepodporované
+(mixed-content blok, rozhodnutie z 15. 7.).
 
 ---
 

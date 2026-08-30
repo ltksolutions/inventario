@@ -69,9 +69,10 @@ Janika sa pýtala, prečo inventário ping potrebuje a projekt
   3. `loading.tsx` je Suspense loader pre daný segment, nie globálny
      blokujúci `GlobalFetchOverlay` na `useIsFetching()`
 
-Poznámka: `GlobalFetchOverlay` je dôvod, prečo sa cold start v inventáriu
-vôbec „cítil" ako 10 s zamrznutie. Zostáva otvorený follow-up (odložený
-už v session logoch zo 14. aj 15. 7.).
+Poznámka: `GlobalFetchOverlay` bol dôvod, prečo sa cold start v inventáriu
+vôbec „cítil" ako 10 s zamrznutie. **Opravené už 17. 7. commitom
+`1c239e0`** (overlay sleduje `useIsMutating()`, nie `useIsFetching()`) —
+viď `docs/sessions/2026-07-17-zebra-lna-cors-fetch-overlay.md`.
 
 ### Krok 4 — skutočná príčina nákladov (Atlas Cost Explorer)
 
@@ -123,8 +124,9 @@ verifikáciu a prípadný uptime monitoring.
 3. Prejsť aj projekty `IS sportu` a `contineo.app` — rovnaký vzorec
    65–68 USD sa tam objavuje tiež (contineo 11,50 → 65,20).
 4. Subjektívne sledovať, či sa po zrušení cronu nevráti pomalý preloader.
-   Ak áno, správna odpoveď nie je vrátiť cron, ale:
-   - obmedziť `GlobalFetchOverlay` len na kritické requesty
+   Nemalo by — všetky tri opatrenia proti nemu sú hotové (`staleTime`
+   `8a91c32`, Fluid Compute `b07cabc`, overlay len pre mutácie `1c239e0`).
+   Ak by sa predsa vrátil, správna odpoveď nie je vrátiť cron, ale:
    - presunúť `ensureIndexes()` mimo cold-startu (rovnaký vzor ako
      migrácie, commit `00a2515`)
    - zvážiť vypnutie Swaggeru v produkcii
