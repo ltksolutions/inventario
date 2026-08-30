@@ -1,5 +1,35 @@
 # NEXT
 
+## Aktuálny stav (2026-08-30) — Atlas náklady + zrušený keep-warm cron — HOTOVÉ
+
+Session log: `docs/sessions/2026-08-30-atlas-naklady-keep-warm-cron.md`.
+
+Janika nahlásila nárast Atlas nákladov na projekte `inventario.estate`
+(24,56 → 68,26 USD) pri ~4 MB dát a vystopovala to ku keep-warm cronu
+`GET /health/ready` `*/4 * * * *` (commit `8a91c32`).
+
+- ✅ **Cron zrušený** — `apps/api/vercel.json`. Nie ako úspora, ale preto,
+  že je zbytočný: pôvodnú príčinu (jedna teplá inštancia = 1 request
+  naraz) vyriešil Fluid Compute (`b07cabc`, zapnutý 2,5 h po crone).
+  Komentár v `health.routes.ts` prepísaný na historickú poznámku.
+  Endpoint `/health/ready` ostáva (deploy verifikácia, uptime monitoring).
+- ✅ **Skutočná príčina nákladov nájdená** — Atlas Cost Explorer rozpad
+  podľa clustera ukázal, že `inventario-prod` je plochý (8,06 → 7,54) a
+  celý nárast +43,70 USD je cluster **`inventario-dev`** (9,65 → 60,72).
+  60,72 USD je nad stropom Flexu (~30 USD) → takmer isto dedikovaný M10.
+
+**Otvorené (P0, mimo kódu):** overiť v Atlase tier `inventario-dev`. Ak je
+to M10 → prepnúť na Flex, úspora ~55 USD/mes. Ďalej: overiť, či 68,26 USD
+nie je prebiehajúca augustová faktúra (stále rastie), a prejsť rovnakým
+spôsobom projekty `IS sportu` a `contineo.app` (rovnaký vzorec 65–68 USD).
+
+**Otvorené (kód, ak sa vráti pomalý preloader):** obmedziť
+`GlobalFetchOverlay` len na kritické requesty; presunúť `ensureIndexes()`
+mimo cold-startu (vzor ako migrácie, `00a2515`); zvážiť vypnutie Swaggeru
+v produkcii.
+
+---
+
 ## Aktuálny stav (2026-07-16) — ADR-0036 „Vrátiť od osoby" (čiastočné + cross-loan vrátenie) — HOTOVÉ
 
 Session log: `docs/sessions/2026-07-16-adr-0036-vratenie-od-osoby.md`.

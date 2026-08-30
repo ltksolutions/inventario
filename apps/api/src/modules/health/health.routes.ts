@@ -11,12 +11,14 @@
  *   - Vercel platform for deploy verification
  *   - Uptime monitors (e.g. Pingdom, BetterUptime)
  *   - Local sanity checks
- *   - Vercel Cron keep-warm ping every 4 min (see apps/api/vercel.json) —
- *     /health/ready specifically, because it also pings MongoDB, keeping
- *     the cached connection (mongo.ts) alive between real requests and
- *     reducing the odds of a cold-start hit on the next user request.
- *     See docs/sessions/2026-07-14 for the preloader-latency investigation
- *     this addresses. No auth required — side-effect-free GET.
+ *
+ * HISTORICKÁ POZNÁMKA (2026-08-30): od 2026-07-14 do 2026-08-30 na
+ * /health/ready mieril Vercel Cron keep-warm ping každé 4 min
+ * (apps/api/vercel.json). Zrušený — pôvodnú príčinu (jedna teplá
+ * inštancia = 1 request naraz) medzitým vyriešil Fluid Compute
+ * (commit b07cabc, zapnutý 2,5 h po pridaní cronu), takže ping už
+ * nemal čo riešiť. Pozri docs/sessions/2026-08-30-atlas-naklady-
+ * keep-warm-cron.md.
  */
 
 import { z } from 'zod';
