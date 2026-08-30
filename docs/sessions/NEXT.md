@@ -18,10 +18,32 @@ Janika nahlásila nárast Atlas nákladov na projekte `inventario.estate`
   celý nárast +43,70 USD je cluster **`inventario-dev`** (9,65 → 60,72).
   60,72 USD je nad stropom Flexu (~30 USD) → takmer isto dedikovaný M10.
 
-**Otvorené (P0, mimo kódu):** overiť v Atlase tier `inventario-dev`. Ak je
-to M10 → prepnúť na Flex, úspora ~55 USD/mes. Ďalej: overiť, či 68,26 USD
-nie je prebiehajúca augustová faktúra (stále rastie), a prejsť rovnakým
-spôsobom projekty `IS sportu` a `contineo.app` (rovnaký vzorec 65–68 USD).
+- ✅ **Overené v Atlase** — `inventario-dev` je **M10**, 3-node replica set,
+  Encrypted Storage + Backups Active, a je **úplne prázdny** (20 kolekcií,
+  0 dokumentov). Dedikovaný cluster sa nedá zmenšiť späť na Flex/Free.
+  Rozdiel „dev má 2 GB, prod 3,6 MB" je len rôzna metrika (_Disk Usage_
+  vrátane oplogu/journalu vs _Data Size_), nie reálne dáta.
+- ✅ **Ostré dáta sú na `inventario-prod`** — overené tromi spôsobmi
+  (obsah, živá prevádzka do 29. 8., a produkčný endpoint vracia org `_id`
+  z tohto clustera). Na dev nesedíme.
+- ✅ **Mŕtve CI secrets upratané** — `ci.yml` už nenastavuje
+  `MONGO_URI_TEST` / `ENTRA_*_TEST`; `tests/setup.ts` MONGO_URI aj tak
+  bezpodmienečne prepíše na in-memory replica set.
+
+**Rozhodnutia (Janika):** `inventario-dev` **zmazať bez náhrady** (žiadny
+M0 ani Flex) — vedomý dôsledok je, že Preview deploye `inventario-api`
+prestanú nabíehať. `apps/api/.env.local` **ostáva namierený na produkciu**
+(vedome prijaté riziko, nie otvorený bod).
+
+**Otvorené (mimo kódu, Janika):** zmazať `inventario-dev` v Atlase
+(`mongodump` netreba, nie je čo zálohovať); zmazať repo secrets
+`MONGO_URI_TEST` / `ENTRA_API_CLIENT_ID_TEST` / `ENTRA_TENANT_ID_TEST`;
+vyriešiť Preview `MONGO_URI` vo Verceli (ukazuje na mŕtvy cluster);
+prekontrolovať `contineo.app` (11,50 → 65,20 — rovnaký M10 podpis).
+
+**Otvorené (kód, samostatné rozhodnutie):** `if: github.actor !=
+'dependabot[bot]'` v `ci.yml` už nemá opodstatnenie (testy nepotrebujú
+žiadne secrets) — dá sa zrušiť, aby dependabot PR bežali aj testami.
 
 **Otvorené (kód, ak sa vráti pomalý preloader):** obmedziť
 `GlobalFetchOverlay` len na kritické requesty; presunúť `ensureIndexes()`

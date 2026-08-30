@@ -87,23 +87,26 @@ jobs:
   # Job 2: Unit tests
   #
   # Why 30 minutes:
-  #   Integration tests hit MongoDB Atlas Flex in eu-region from GitHub
-  #   Actions runners in US East. The round-trip latency is roughly
-  #   5-6x what we see on a developer machine in Slovakia (~3.5 min
-  #   locally), so 327 tests run ~13-18 min on CI. 30 min gives
-  #   comfortable headroom for transient Atlas spikes without masking
-  #   a genuinely runaway test.
+  #   Testy bežia proti in-process MongoDB (mongodb-memory-server,
+  #   spúšťa ho tests/setup.ts), takže sieťová latencia na Atlas už
+  #   nie je faktor. 30 min ostáva ako pohodlná rezerva pre pomalý
+  #   cold-start runnera bez toho, aby maskovala reálne zaseknutý test.
+  #
+  # Pozn. (2026-08-30): testy nepotrebujú ŽIADNE repo secrets —
+  #   tests/setup.ts bezpodmienečne prepíše MONGO_URI na in-memory
+  #   inštanciu a ENTRA_* sú v config pluginu optional a v auth flow
+  #   nepoužité (Slice #6c K17). Dead MONGO_URI_TEST /
+  #   ENTRA_API_CLIENT_ID_TEST / ENTRA_TENANT_ID_TEST odstránené.
+  #   Dôsledok: `if: github.actor != 'dependabot[bot]'` nižšie už nemá
+  #   pôvodné opodstatnenie (chýbajúce secrets) — dá sa zrušiť, aby
+  #   dependabot PR bežali aj testami. Zámerne ponechané, samostatné
+  #   rozhodnutie.
   # ─────────────────────────────────────────────────────────────────
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: quality
-    # Same reasoning as the openapi job below — dependabot PRs don't get
-    # repo secrets, and integration tests need a real Atlas connection.
-    # Skipping for dependabot keeps their PRs unblocked on quality
-    # signals (lint + typecheck + build), which is what we actually
-    # want for dep bumps.
     if: github.actor != 'dependabot[bot]'
 
     steps:
@@ -128,14 +131,6 @@ jobs:
         run: pnpm test
         env:
           NODE_ENV: test
-          # Integration tests need an Atlas connection and Entra app
-          # registration metadata. Stored as repo secrets and pointed
-          # at the dev cluster whose Network Access
-          # allows 0.0.0.0/0 for CI reachability. Unit tests don't read
-          # these env vars, so leaving them set has no effect there.
-          MONGO_URI: ${{ secrets.MONGO_URI_TEST }}
-          ENTRA_API_CLIENT_ID: ${{ secrets.ENTRA_API_CLIENT_ID_TEST }}
-          ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID_TEST }}
 
       - name: Upload coverage to artifacts
         if: always()

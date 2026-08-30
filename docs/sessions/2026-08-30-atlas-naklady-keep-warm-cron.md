@@ -115,9 +115,8 @@ verifikáciu a prípadný uptime monitoring.
 
 ## Ďalšie kroky
 
-1. **Prioritne (mimo kódu, na Janikinej strane):** overiť v Atlase tier
-   clustera `inventario-dev`. Ak je to M10, prepnutie na Flex ušetrí
-   ~55 USD/mesiac — rádovo viac než čokoľvek v kóde.
+1. ~~Overiť v Atlase tier clustera `inventario-dev`.~~ **Overené — je to
+   M10.** Viď dodatok na konci dokumentu.
 2. Overiť, či „Billed Date" v Cost Exploreri znamená mesiac spotreby. Ak
    áno, 68,26 USD je **prebiehajúca augustová faktúra**, ktorá stále
    narastá.
@@ -129,3 +128,89 @@ verifikáciu a prípadný uptime monitoring.
    - presunúť `ensureIndexes()` mimo cold-startu (rovnaký vzor ako
      migrácie, commit `00a2515`)
    - zvážiť vypnutie Swaggeru v produkcii
+
+---
+
+## Dodatok — overenie clusterov a rozhodnutia (2026-08-30, neskôr)
+
+### `inventario-dev` je M10 a je úplne prázdny
+
+Atlas potvrdil: `inventario-dev` = **M10 (General)**, AWS Frankfurt
+(eu-central-1), Replica Set 3 nodes, Encrypted Storage, Backups Active.
+`inventario-prod` = **Flex**. Dedikovaný cluster sa podľa dokumentácie
+MongoDB **nedá zmenšiť späť na Flex ani Free** — jediná cesta je nový
+cluster + migrácia + zmazanie starého.
+
+Janika si všimla, že dev vykazuje väčší disk než prod (2,00 GB vs
+3,60 MB). Vysvetlenie: **porovnávajú sa dve rôzne veličiny.** Dev
+(dedikovaný) zobrazuje _Disk Usage_ = obsadenosť 10 GB provisioned disku
+vrátane oplogu, journalu a WiredTiger súborov. Prod (Flex) zobrazuje
+_Data Size_ = logická veľkosť dokumentov; réžiu enginu vôbec neukáže.
+
+Data Explorer to potvrdil definitívne: `inventario-dev` má **20 kolekcií,
+všetky 0 dokumentov, 0 B data size**. Tie 2 GB sú čistá réžia mongodu.
+
+Rovnako vysvetlené aj „podozrivé" metriky dev clustera (57 spojení,
+1,6 čítania/s, 58 KB/s out oproti 13 / 0,05 / 1,36 KB/s na prode):
+externý monitoring nasadený nie je, takže ide o **Atlas automation a
+monitoring agentov + replikáciu medzi tromi uzlami**. Opcounters ukážu
+konštantných ~17–20 op/s celý mesiac na databáze bez jediného dokumentu.
+Flex túto internú prevádzku skrýva, dedikovaný cluster ju ukáže.
+
+Zaujímavý detail: dev má kompletné sady indexov (assets 9, audit_logs 7,
+locations 7…), ale nula dokumentov a chýbajúce `migrations` aj
+`asset_types`. To je odtlačok `ensureIndexes()` pri cold starte — Vercel
+Preview deploye tam appku nabootovali a vytvorili indexy, ale nikdy nič
+nezapísali.
+
+### Kde sú ostré dáta — overené tromi spôsobmi
+
+1. **Obsah `inventario-prod`:** 40 kusov majetku, 29 používateľov, 17
+   výpožičiek, 3 organizácie (`ltk-solutions-s-r-o`,
+   `slovensky-futbalovy-zvaz`, `demo`), 219 audit záznamov.
+2. **Živá prevádzka:** posledná aktivita v audit logu 10. 8. (celý reťazec
+   ASSET_CREATED → LOAN_REQUEST_APPROVED → LOAN_PICKED_UP →
+   LOAN_PROTOCOL_SIGNED), posledné prihlásenie 29. 8.
+3. **Produkcia číta tento cluster:**
+   `GET /v1/public/organisations/login-context?slug=slovensky-futbalovy-zvaz`
+   na `api.inventario.estate` vrátil dáta, ktorých `logoUrl` obsahuje
+   presne to org `_id`, ktoré je v tomto clusteri
+   (`6a2132796759f4db9a40bcad`). Kontrolný dotaz na neexistujúci slug → 404.
+
+### Konzumenti `inventario-dev`
+
+- **CI: nie.** `tests/setup.ts` nastavuje `process.env['MONGO_URI']` na
+  in-memory replica set **bezpodmienečne**, takže prepíše hodnotu z CI.
+  Secrets `MONGO_URI_TEST`, `ENTRA_API_CLIENT_ID_TEST`,
+  `ENTRA_TENANT_ID_TEST` boli mŕtve (ENTRA_* sú v config pluginu optional
+  a v auth flow nepoužité od Slice #6c K17).
+- **Lokálny vývoj: nie** — `apps/api/.env.local` mieri na
+  `inventario-prod`, DB `inventario`.
+- **Vercel Preview: áno** — jediný zostávajúci konzument.
+
+### Rozhodnutia (Janika)
+
+1. **`inventario-dev` zmazať, náhradu nerobiť.** Žiadny M0 ani Flex.
+   Vedomý dôsledok: Preview deploye `inventario-api` prestanú nabíehať
+   (mongo plugin padne pri štarte). Dependabot PR majú testy aj tak
+   preskočené, takže praktický dopad je minimálny.
+2. **`apps/api/.env.local` ostáva namierený na produkciu.** Vedome
+   prijaté riziko, nie otvorený bod — lokálny `pnpm dev` píše do ostrých
+   dát tenanta SFZ.
+3. **Mŕtve CI secrets upratané** — `.github/workflows/ci.yml`, odstránený
+   celý `env:` blok s `MONGO_URI_TEST` / `ENTRA_*_TEST` a aktualizované
+   zastarané komentáre.
+
+### Otvorené
+
+- Zmazať `inventario-dev` v Atlase (Janika, mimo kódu). Žiadny `mongodump`
+  netreba — cluster nemá čo zálohovať.
+- Zmazať nepoužívané repo secrets v GitHub Settings: `MONGO_URI_TEST`,
+  `ENTRA_API_CLIENT_ID_TEST`, `ENTRA_TENANT_ID_TEST`.
+- Vercel `inventario-api` → Preview `MONGO_URI` ukazuje na mŕtvy cluster —
+  buď premennú odstrániť, alebo Preview deploye vedome nechať padať.
+- `if: github.actor != 'dependabot[bot]'` v `ci.yml` už nemá pôvodné
+  opodstatnenie (chýbajúce secrets). Dá sa zrušiť, aby dependabot PR
+  bežali aj testami — zámerne ponechané, samostatné rozhodnutie.
+- Projekty `IS sportu` (68,29 → 22,63) a `contineo.app` (11,50 → 65,20)
+  vykazujú rovnaký M10 podpis. Contineo stojí za kontrolu prednostne.
