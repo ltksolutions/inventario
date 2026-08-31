@@ -108,4 +108,4 @@ Táto správa sa zobrazí len keď Browser Print agent reálne odpovedal (sieť/
 
 ---
 
-<sub>Súvisí: [ADR-0027 — Tlač QR štítkov](../../decisions/0027-qr-label-printing.md), [Ako vytlačiť QR kódy](./vytlacit-qr-kody.md) _(TODO — všeobecný návod pre PDF/koncového používateľa, tento je len pre technický Zebra test)_</sub>
+<sub>Súvisí: [ADR-0027 — Tlač QR štítkov](../../decisions/0027-qr-label-printing.md), Ako vytlačiť QR kódy _(TODO)_ _(TODO — všeobecný návod pre PDF/koncového používateľa, tento je len pre technický Zebra test)_</sub>

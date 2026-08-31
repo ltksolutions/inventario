@@ -670,4 +670,4 @@ Cache invalidation: pri každom `PATCH /v1/memberships/:id` server invaliduje ca
 - [Notion teamspaces architecture](https://www.notion.so/help/intro-to-teamspaces) — similar UX pattern
 - [GitHub orgs and memberships](https://docs.github.com/en/organizations) — REST API shape reference for `/users/:user/orgs`
 - [MongoDB partial unique index](https://www.mongodb.com/docs/manual/core/index-partial/) — for `isDefault` constraint
-- [OWASP Multi-tenancy Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Multi-tenancy_Cheat_Sheet.html)
+- [OWASP Multi-tenancy Cheat Sheet](https://cheatsheetseries.owasp.org/)

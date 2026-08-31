@@ -115,5 +115,5 @@ Hlavné dôvody:
 ## Referencie
 
 - [NestJS dokumentácia](https://docs.nestjs.com/)
-- [nestjs-zod](https://github.com/risenforces/nestjs-zod)
+- [nestjs-zod](https://www.npmjs.com/package/nestjs-zod)
 - [NestJS performance comparison](https://github.com/fastify/benchmarks)

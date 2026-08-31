@@ -328,7 +328,7 @@ Pre **vlastné business operations** LTK Solutions (mimo platformy Inventario) v
 - [Microsoft Entra ID GDPR Compliance](https://learn.microsoft.com/en-us/compliance/regulatory/gdpr)
 - [MongoDB Atlas Data Protection Addendum](https://www.mongodb.com/legal/dpa)
 - [Vercel Data Processing Addendum](https://vercel.com/legal/dpa)
-- [Ecomail.cz — Ochrana osobních údajů](https://www.ecomail.cz/podminky/ochrana-osobnich-udaju/)
+- [Ecomail.cz — Ochrana osobních údajů](https://www.ecomail.cz/gdpr)
 - [GDPR čl. 30 ods. 1 — Controller view (LTK vlastné spracovanie)](./gdpr-article-30-controller.md)
 - [DPA Template](./legal/dpa-template.md)
 - [Sub-processor list](./legal/sub-processors.md)

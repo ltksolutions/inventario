@@ -42,7 +42,7 @@ Ak žiadosť čaká **viac ako 24 hodín**, použi tlačidlo **Pripomenúť schv
 
 ### Môžem si požičať niekoľko vecí naraz?
 
-Áno. V katalógu si môžeš dať do **„košíka"** viacero položiek a podať jednu **hromadnú žiadosť**. Vhodné najmä pre tímové výjazdy. Pozri [Hromadná zápožička pre tím](./how-to/hromadna-zapozicka.md) _(TODO)_.
+Áno. V katalógu si môžeš dať do **„košíka"** viacero položiek a podať jednu **hromadnú žiadosť**. Vhodné najmä pre tímové výjazdy. Pozri Hromadná zápožička pre tím _(TODO)_.
 
 ### Môžem si predĺžiť zápožičku?
 
@@ -76,7 +76,7 @@ Akýkoľvek moderný — Chrome, Edge, Firefox, Safari. Najlepšiu skúsenosť m
 
 ### Mám problém — kde nahlásiť?
 
-Pre **akúkoľvek chybu, ťažkosť alebo nejasnosť** napíš na `support@futbalsfz.sk` _(TODO: overiť e-mail)_ alebo otvor [GitHub Issue](https://github.com/jletko/Asset-Management/issues).
+Pre **akúkoľvek chybu, ťažkosť alebo nejasnosť** napíš na `support@futbalsfz.sk` _(TODO: overiť e-mail)_ alebo otvor [GitHub Issue](https://github.com/ltksolutions/inventario/issues).
 
 ---
 

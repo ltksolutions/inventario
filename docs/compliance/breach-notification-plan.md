@@ -129,7 +129,7 @@ Ak **NIE** → zdokumentovať dôvod, prečo priama notifikácia nie je nutná
 | **ÚOOÚ SR**                  | Dozorný orgán SR   | statny.dozor@pdp.gov.sk         |
 | **Vercel incident**          | Vercel Support     | https://vercel.com/help         |
 | **MongoDB Atlas incident**   | MongoDB Support    | https://www.mongodb.com/support |
-| **Ecomail incident**         | Ecomail Support    | https://www.ecomail.cz/podpora  |
+| **Ecomail incident**         | Ecomail Support    | https://podpora.ecomail.cz/     |
 
 > Keď Sub-processor hlási incident na svojej strane, akceptuj oznámenie a okamžite spusti tento plán od T0.
 

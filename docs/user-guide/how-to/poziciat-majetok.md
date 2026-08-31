@@ -129,8 +129,8 @@ Iný používateľ si rezervoval rovnakú položku na prekrývajúce sa obdobie.
 ## Súvisiace návody
 
 - 🛠️ [Ako vrátiť majetok](./vratit-majetok.md)
-- 🛠️ [Ako predĺžiť zápožičku](./predlzit-zapozicku.md)
-- 🛠️ [Hromadná zápožička pre tím](./hromadna-zapozicka.md)
+- 🛠️ Ako predĺžiť zápožičku _(TODO)_
+- 🛠️ Hromadná zápožička pre tím _(TODO)_
 - 📖 [Reálny scenár: Nový zamestnanec dostáva vybavenie](../use-cases/novy-zamestnanec.md)
 - 📚 [Stavy majetku a zápožičiek](../reference/stavy.md)
 

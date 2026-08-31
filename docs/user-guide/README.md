@@ -15,10 +15,10 @@ Príručka má štyri sekcie, každú s iným účelom (postavené na [Diátaxis
 Krátke onboarding tutoriály. Hodia sa, keď systém vidíš prvýkrát. Vedú ťa krok za krokom.
 
 - ✅ [Tvoje prvé prihlásenie](./getting-started/prve-prihlasenie.md) — univerzálny štart pre všetkých
-- 📅 [Onboarding pre zamestnanca](./getting-started/onboarding-zamestnanec.md) _(TODO)_
-- 📅 [Onboarding pre trénera / manažéra tímu](./getting-started/onboarding-team-manager.md) _(TODO)_
-- 📅 [Onboarding pre správcu majetku](./getting-started/onboarding-spravca.md) _(TODO)_
-- 📅 [Onboarding pre administrátora](./getting-started/onboarding-admin.md) _(TODO)_
+- 📅 Onboarding pre zamestnanca _(TODO)_
+- 📅 Onboarding pre trénera / manažéra tímu _(TODO)_
+- 📅 Onboarding pre správcu majetku _(TODO)_
+- 📅 Onboarding pre administrátora _(TODO)_
 
 ### 🛠️ [How-To](./how-to/) – Riešim konkrétny problém
 
@@ -26,10 +26,10 @@ Návody na konkrétne úlohy. Predpokladajú, že už systém vieš používať.
 
 - ✅ [Ako si požičať majetok](./how-to/poziciat-majetok.md)
 - ✅ [Ako vrátiť majetok](./how-to/vratit-majetok.md)
-- 📅 [Ako predĺžiť zápožičku](./how-to/predlzit-zapozicku.md) _(TODO)_
-- 📅 [Hromadná zápožička pre tím](./how-to/hromadna-zapozicka.md) _(TODO)_
-- 📅 [Pridať nový majetok do evidencie](./how-to/pridat-majetok.md) _(TODO)_
-- 📅 [Vytlačiť QR kódy](./how-to/vytlacit-qr-kody.md) _(TODO)_
+- 📅 Ako predĺžiť zápožičku _(TODO)_
+- 📅 Hromadná zápožička pre tím _(TODO)_
+- 📅 Pridať nový majetok do evidencie _(TODO)_
+- 📅 Vytlačiť QR kódy _(TODO)_
 
 ### 📖 [Use Cases](./use-cases/) – Pochopím, ako to funguje v praxi
 
@@ -37,8 +37,8 @@ Reálne scenáre zo SFZ. Hodia sa, keď chceš vidieť, ako sa veci dejú „od 
 
 - ✅ [Reprezentačný výjazd: tréner si berie kompletný set výstroja](./use-cases/reprezentacny-vyjazd.md)
 - ✅ [Nový zamestnanec dostáva pracovné vybavenie](./use-cases/novy-zamestnanec.md)
-- 📅 [Mládežnícky kemp: výstroj pre 60 detí](./use-cases/mladeznicky-kemp.md) _(TODO)_
-- 📅 [Poškodené zariadenie: postup pri reklamácii a servise](./use-cases/poskodene-zariadenie.md) _(TODO)_
+- 📅 Mládežnícky kemp: výstroj pre 60 detí _(TODO)_
+- 📅 Poškodené zariadenie: postup pri reklamácii a servise _(TODO)_
 
 ### 📚 [Reference](./reference/) – Hľadám konkrétny detail
 
@@ -47,7 +47,7 @@ Slovník pojmov, prehľad rolí a oprávnení, stavy majetku, atď.
 - ✅ [Stavy majetku a zápožičiek](./reference/stavy.md)
 - ✅ [Slovník pojmov](./reference/slovnik.md)
 - 📅 [Role a oprávnenia](./reference/role-opravnenia.md) _(TODO)_
-- 📅 [Skratky a označenia](./reference/skratky.md) _(TODO)_
+- 📅 Skratky a označenia _(TODO)_
 
 ---
 

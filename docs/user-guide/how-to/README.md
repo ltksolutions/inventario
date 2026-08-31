@@ -8,32 +8,32 @@ Tu nájdeš návody na **konkrétne úlohy**. Sú písané pre niekoho, kto syst
 
 - 📦 [**Ako si požičať majetok**](./poziciat-majetok.md) — od žiadosti po prevzatie
 - 🔙 [**Ako vrátiť majetok**](./vratit-majetok.md) — vrátenie a uzavretie zápožičky
-- ⏰ [**Ako predĺžiť zápožičku**](./predlzit-zapozicku.md) _(TODO)_
-- 👥 [**Hromadná zápožička pre tím**](./hromadna-zapozicka.md) _(TODO)_
+- ⏰ **Ako predĺžiť zápožičku** _(TODO)_
+- 👥 **Hromadná zápožička pre tím** _(TODO)_
 
 ## Pre správcov majetku
 
-- ➕ [**Ako pridať nový majetok do evidencie**](./pridat-majetok.md) _(TODO)_
-- ✏️ [**Ako upraviť údaje o majetku**](./upravit-majetok.md) _(TODO)_
-- 🏷️ [**Ako vytlačiť QR kódy**](./vytlacit-qr-kody.md) _(TODO)_
+- ➕ **Ako pridať nový majetok do evidencie** _(TODO)_
+- ✏️ **Ako upraviť údaje o majetku** _(TODO)_
+- 🏷️ **Ako vytlačiť QR kódy** _(TODO)_
 - 🖨️ [**Ako vyskúšať tlač na Zebra tlačiarni (Browser Print + ZPL)**](./vytlacit-qr-kody-zebra.md) — technický test na hardvéri
-- ✅ [**Ako schváliť žiadosť o zápožičku**](./schvalit-ziadost.md) _(TODO)_
-- 🛠️ [**Ako poslať majetok na servis**](./poslat-na-servis.md) _(TODO)_
-- 🗑️ [**Ako vyradiť majetok z evidencie**](./vyradit-majetok.md) _(TODO)_
+- ✅ **Ako schváliť žiadosť o zápožičku** _(TODO)_
+- 🛠️ **Ako poslať majetok na servis** _(TODO)_
+- 🗑️ **Ako vyradiť majetok z evidencie** _(TODO)_
 
 ## Pre manažérov tímov
 
-- 👥 [**Ako vybaviť výstroj pre celý tím**](./hromadna-zapozicka.md) _(TODO)_
-- 📊 [**Ako sledovať zápožičky môjho tímu**](./sledovat-tim.md) _(TODO)_
+- 👥 **Ako vybaviť výstroj pre celý tím** _(TODO)_
+- 📊 **Ako sledovať zápožičky môjho tímu** _(TODO)_
 
 ## Pre administrátorov
 
-- 👤 [**Ako pridať nového používateľa**](./pridat-pouzivatela.md) _(TODO)_
+- 👤 **Ako pridať nového používateľa** _(TODO)_
 - 🕓 [**Ako pridať budúceho zamestnanca ešte pred jeho nástupom**](./pridat-buduceho-pouzivatela.md) — predpríprava účtu pre organizácie s firemnou doménou (auto-join)
-- 🔑 [**Ako spravovať roly a oprávnenia**](./spravovat-role.md) _(TODO)_
+- 🔑 **Ako spravovať roly a oprávnenia** _(TODO)_
 - 🌐 [**Ako nastaviť vlastnú doménu pre prihlásenie**](./vlastna-domena-prihlasenie.md) — vlastný hostname (napr. majetok.sfz.sk) namiesto app.inventario.estate
-- 🏢 [**Ako vytvoriť novú lokalitu / sklad**](./vytvorit-lokalitu.md) _(TODO)_
-- 📈 [**Ako exportovať reporty**](./exportovat-reporty.md) _(TODO)_
+- 🏢 **Ako vytvoriť novú lokalitu / sklad** _(TODO)_
+- 📈 **Ako exportovať reporty** _(TODO)_
 
 ---
 

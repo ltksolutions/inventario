@@ -114,7 +114,7 @@ Teraz si pripravený na ďalšie kroky.
 Podľa toho, čo plánuješ robiť, ti odporúčame jeden z týchto návodov:
 
 - 📦 [**Ako si požičať notebook**](../how-to/poziciat-majetok.md) – tvoja prvá zápožička, krok za krokom
-- 👥 [**Ako vybaviť výstroj pre celý tím**](../how-to/hromadna-zapozicka.md) – pre trénerov a manažérov tímov
+- 👥 **Ako vybaviť výstroj pre celý tím** _(TODO)_ – pre trénerov a manažérov tímov
 - 📖 [**Reálny scenár: Nový zamestnanec dostáva vybavenie**](../use-cases/novy-zamestnanec.md) – ako vyzerá kompletný onboarding novej osoby
 - ❓ [**FAQ – Často kladené otázky**](../faq.md) – odpovede na bežné otázky
 

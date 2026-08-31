@@ -61,8 +61,8 @@ Premenné na vyplnenie sú v {{ dvojitých zložených zátvorkách }}.
 
 ## Súvisiace návody
 
-- {{ [Ako vrátiť majetok](./vratit-majetok.md) }}
-- {{ [Ako predĺžiť zápožičku](./predlzit-zapozicku.md) }}
+- {{ `[Ako vrátiť majetok](./vratit-majetok.md)` }}
+- {{ `[Ako predĺžiť zápožičku](./predlzit-zapozicku.md)` }}
 
 ---
 

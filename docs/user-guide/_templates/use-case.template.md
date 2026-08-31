@@ -53,7 +53,7 @@ hromadnú žiadosť. Pridá k nej zoznam položiek, ktoré tím potrebuje:
 - 5× rádiové stanice
 
 Žiadosť pošle správkyni skladu Anne. Detaily o tom, ako sa vytvára hromadná
-žiadosť, nájdeš v návode [Hromadná zápožička pre tím](../how-to/hromadna-zapozicka.md)." }}
+žiadosť, nájdeš v návode `[Hromadná zápožička pre tím](../how-to/hromadna-zapozicka.md)`." }}
 
 > 📸 **TODO: insert screenshot** – {{ popis screenshotu, napr. "Formulár hromadnej žiadosti s vyplneným zoznamom položiek" }}
 
@@ -96,8 +96,8 @@ v reálnom čase a SFZ nestráca peniaze na nezvestnom majetku." }}
 
 ## Súvisiace návody a tutoriály
 
-- {{ [Hromadná zápožička pre tím](../how-to/hromadna-zapozicka.md) }}
-- {{ [Onboarding pre trénera](../getting-started/onboarding-team-manager.md) }}
+- {{ `[Hromadná zápožička pre tím](../how-to/hromadna-zapozicka.md)` }}
+- {{ `[Onboarding pre trénera](../getting-started/onboarding-team-manager.md)` }}
 
 ---
 

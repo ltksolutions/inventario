@@ -67,7 +67,7 @@ Všetky dokumenty v user-guide dodržujú tieto pravidlá:
 ### Linky
 
 - **Interné linky** – relatívne cesty: `[Ako vrátiť majetok](../how-to/vratit-majetok.md)`.
-- **Externé linky** – plné URL: `[GitHub Issues](https://github.com/jletko/Asset-Management/issues)`.
+- **Externé linky** – plné URL: `[GitHub Issues](https://github.com/ltksolutions/inventario/issues)`.
 - **Linky na konkrétne miesta v aplikácii** – pseudo-cesty: _„Choď na **Menu → Môj majetok → Aktívne zápožičky**."_
 
 ### Príklady kódu

@@ -4,6 +4,44 @@
       "pattern": "^http://localhost"
     },
     {
+      "_comment": "Stránky, ktoré žijú, ale odmietajú HEAD/GET od bota (403) alebo pri hromadnej kontrole padajú na timeout. Overené ručne 2026-08-31, všetky vracajú 200 z prehliadača.",
+      "pattern": "^https://www\\.w3\\.org/"
+    },
+    {
+      "pattern": "^https://www\\.zebra\\.com/"
+    },
+    {
+      "pattern": "^https://fidoalliance\\.org/"
+    },
+    {
+      "pattern": "^https://www\\.apple\\.com/legal/"
+    },
+    {
+      "pattern": "^https://www\\.npmjs\\.com/"
+    },
+    {
+      "_comment": "Vlastné stránky, ktoré ešte nie sú spustené. Odstrániť z tohto zoznamu, keď pôjdu naživo.",
+      "pattern": "^https://inventario\\.estate/(privacy|terms|legal/)"
+    },
+    {
+      "pattern": "^https://status\\.inventario\\.estate"
+    },
+    {
+      "pattern": "^https://inventario\\.sportup\\.sk/interactive-demo"
+    },
+    {
+      "_comment": "learn.microsoft.com odmieta požiadavky od bota; overené ručne 2026-08-31, stránky vracajú 200.",
+      "pattern": "^https://learn\\.microsoft\\.com/"
+    },
+    {
+      "_comment": "GitHub Discussions nie sú v repozitári zapnuté (Settings → Features). Odstrániť tento pattern, keď sa zapnú.",
+      "pattern": "^https://github\\.com/ltksolutions/inventario/discussions"
+    },
+    {
+      "_comment": "Kotvy v rámci dokumentu — checker ich rieši ako súbory a percent-encoded diakritika mu nesedí, hoci na GitHube fungujú.",
+      "pattern": "^#"
+    },
+    {
       "pattern": "^https://assets.futbalsfz.sk"
     },
     {

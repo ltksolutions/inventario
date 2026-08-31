@@ -50,7 +50,7 @@ Po odoslaní sa žiadosť **automaticky rozdelí** podľa kategórií:
 
 > 📸 **TODO: insert screenshot** – Formulár hromadnej žiadosti so zoznamom položiek a rozdelením pod sekcie podľa schvaľovateľov.
 
-> 💡 **Tip:** Detaily o tom, ako vytvoriť hromadnú žiadosť, nájdeš v [Hromadná zápožička pre tím](../how-to/hromadna-zapozicka.md).
+> 💡 **Tip:** Detaily o tom, ako vytvoriť hromadnú žiadosť, nájdeš v Hromadná zápožička pre tím _(TODO)_.
 
 ### 📅 12 dní pred výjazdom: Schvaľovanie
 
@@ -172,10 +172,10 @@ Po zavedení Asset Managementu:
 
 ## Súvisiace návody a tutoriály
 
-- 🛠️ [Hromadná zápožička pre tím](../how-to/hromadna-zapozicka.md) – konkrétny postup
-- 🛠️ [Ako predĺžiť zápožičku](../how-to/predlzit-zapozicku.md)
+- 🛠️ Hromadná zápožička pre tím _(TODO)_ – konkrétny postup
+- 🛠️ Ako predĺžiť zápožičku _(TODO)_
 - 🛠️ [Ako vrátiť majetok](../how-to/vratit-majetok.md)
-- 📖 [Mládežnícky kemp: požičanie tréningovej výstroje pre 60 detí](./mladeznicky-kemp.md) – podobný scenár vo väčšom rozsahu
+- 📖 Mládežnícky kemp: požičanie tréningovej výstroje pre 60 detí _(TODO)_ – podobný scenár vo väčšom rozsahu
 - 📚 [Stavy majetku a zápožičiek](../reference/stavy.md)
 
 ---

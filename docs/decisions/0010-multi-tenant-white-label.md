@@ -142,7 +142,7 @@ Microsoft Entra ID už podporuje multi-tenant aplikácie. Konfigurácia:
 ## Referencie
 
 - [Microsoft — Multi-tenancy architectural guidance](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview)
-- [MongoDB — Building with Patterns: The Multi-Tenant Pattern](https://www.mongodb.com/blog/post/building-with-patterns-the-multi-tenant-pattern)
+- [MongoDB — Building with Patterns: The Multi-Tenant Pattern](https://www.mongodb.com/company/blog/building-with-patterns-the-multi-tenant-pattern)
 - [Vercel — Multi-tenant Next.js applications](https://vercel.com/guides/nextjs-multi-tenant-application)
 - [ADR-0011: EUPL-1.2 + REUSE compliance](0011-licensing-eupl-reuse.md) — open-source forkability je súčasť tejto stratégie
 - [Session plán 2026-05-15](../sessions/2026-05-15-design-pivot.md) — kontext rozhodnutia

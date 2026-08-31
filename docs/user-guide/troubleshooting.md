@@ -128,8 +128,8 @@ Použi **filtre** — kategória, lokalita, stav. Nevyhľadávaj v 5000 položk�
 ### Niečo iné nefunguje — kde nahlásiť?
 
 1. **Skús to znova** o pár minút (môže to byť dočasná chyba)
-2. **Skontroluj [status stránku](https://status.futbalsfz.sk)** _(TODO: zaviesť)_
-3. **Otvor [GitHub Issue](https://github.com/jletko/Asset-Management/issues)** s popisom problému
+2. **Skontroluj status stránku** _(TODO: zaviesť — doména zatiaľ nebeží)_
+3. **Otvor [GitHub Issue](https://github.com/ltksolutions/inventario/issues)** s popisom problému
 4. **Napíš na `support@futbalsfz.sk`** _(TODO: overiť)_ — pripoj screenshot
 
 > 💡 **Dôležité pri hlásení:** Pripoj **dátum/čas**, **akcia, ktorú si robil**, **chybové hlásenie** a najlepšie aj **screenshot**.

@@ -54,8 +54,8 @@ stateDiagram-v2
 
 ## Súvisiace
 
-- {{ [Ako si požičať majetok](../how-to/poziciat-majetok.md) }}
-- {{ [Slovník pojmov](./slovnik.md) }}
+- {{ `[Ako si požičať majetok](../how-to/poziciat-majetok.md)` }}
+- {{ `[Slovník pojmov](./slovnik.md)` }}
 
 ---
 

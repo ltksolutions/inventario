@@ -20,9 +20,15 @@ jobs:
     name: Markdown
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # TODO: Remove continue-on-error once user guide docs are written
-    # and broken links are fixed (org rename: jletko → Slovensky-futbalovy-zvaz).
-    continue-on-error: true
+    # continue-on-error odstránené 2026-08-31 — job je zelený a zase reálne
+    # stráži. Predtým bol trvalo červený (71 mŕtvych odkazov) a nikto sa naň
+    # nepozeral, čo je horšie než žiadna kontrola.
+    #
+    # Vyriešené: org rename jletko → ltksolutions, zaniknuté externé URL
+    # (MCP docs, MongoDB blog, Ecomail), odkazy na nenapísané user-guide
+    # návody (nahradené textom + TODO značkou), HTTP 202 z eur-lexu.
+    # Domény, ktoré odmietajú bota, a zatiaľ nespustené vlastné stránky sú
+    # v ignorePatterns — každá s komentárom, prečo tam je.
 
     steps:
       - name: Checkout code

@@ -25,8 +25,8 @@ V tomto poradí:
 
 ### Pre vývojárov a integrátorov
 
-- **GitHub Issues:** [github.com/jletko/Asset-Management/issues](https://github.com/jletko/Asset-Management/issues)
-- **GitHub Discussions:** [github.com/jletko/Asset-Management/discussions](https://github.com/jletko/Asset-Management/discussions)
+- **GitHub Issues:** [github.com/ltksolutions/inventario/issues](https://github.com/ltksolutions/inventario/issues)
+- **GitHub Discussions:** [github.com/ltksolutions/inventario/discussions](https://github.com/ltksolutions/inventario/discussions)
 
 ### Bezpečnostné incidenty
 
@@ -55,10 +55,10 @@ Aby sme ti vedeli rýchlo pomôcť, pošli:
 
 Tento projekt je **open source**. Ak chceš pomôcť:
 
-- 🐛 [Nahlás chybu cez GitHub Issue](https://github.com/jletko/Asset-Management/issues/new?template=bug_report.yml)
-- ✨ [Navrhni novú funkcionalitu](https://github.com/jletko/Asset-Management/issues/new?template=feature_request.yml)
-- 📝 [Vylepši dokumentáciu](https://github.com/jletko/Asset-Management/blob/main/CONTRIBUTING.md) — pošli PR
-- 💻 [Naprav chybu](https://github.com/jletko/Asset-Management/blob/main/CONTRIBUTING.md) — pošli PR
+- 🐛 [Nahlás chybu cez GitHub Issue](https://github.com/ltksolutions/inventario/issues/new?template=bug_report.yml)
+- ✨ [Navrhni novú funkcionalitu](https://github.com/ltksolutions/inventario/issues/new?template=feature_request.yml)
+- 📝 [Vylepši dokumentáciu](https://github.com/ltksolutions/inventario/blob/main/CONTRIBUTING.md) — pošli PR
+- 💻 [Naprav chybu](https://github.com/ltksolutions/inventario/blob/main/CONTRIBUTING.md) — pošli PR
 
 Viac v [CONTRIBUTING.md](../../CONTRIBUTING.md).
 

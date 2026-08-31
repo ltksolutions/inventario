@@ -107,8 +107,8 @@ vrátená"** — zvyšné kusy ostávajú u osoby, kým sa nevrátia aj tie.
 ## Súvisiace návody
 
 - 🛠️ [Ako si požičať majetok](./poziciat-majetok.md)
-- 🛠️ [Ako predĺžiť zápožičku](./predlzit-zapozicku.md)
-- 📖 [Scenár: Poškodené zariadenie a postup pri reklamácii](../use-cases/poskodene-zariadenie.md) _(TODO)_
+- 🛠️ Ako predĺžiť zápožičku _(TODO)_
+- 📖 Scenár: Poškodené zariadenie a postup pri reklamácii _(TODO)_
 - 📚 [Stavy majetku a zápožičiek](../reference/stavy.md)
 
 ---

@@ -101,7 +101,7 @@ MCP server bude dostupný v dvoch módoch:
 
 ### OAuth 2.1 (preferované, pre Remote mód)
 
-Podľa [MCP spec autorizačnej časti](https://spec.modelcontextprotocol.io/specification/draft/basic/authorization/):
+Podľa [MCP spec autorizačnej časti](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization):
 
 1. MCP klient (Claude) zistí, že server vyžaduje auth (`401` so `WWW-Authenticate`).
 2. Klient získa `resource_metadata` z `/.well-known/oauth-protected-resource`.
@@ -577,6 +577,6 @@ apps/mcp-server/
 
 ## Referencie
 
-- [Model Context Protocol spec](https://spec.modelcontextprotocol.io/)
+- [Model Context Protocol spec](https://modelcontextprotocol.io/)
 - [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
 - [Anthropic MCP introduction](https://www.anthropic.com/news/model-context-protocol)

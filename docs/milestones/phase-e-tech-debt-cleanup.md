@@ -75,8 +75,8 @@ Posledný cleanup pred Slice #4. Posbierať technický dlh z predošlých fáz, 
 - Root `package.json` post-pivot rename:
   - `name`: `sfz-asset-management` → `inventario`
   - `description`: SFZ internal asset system → Inventario multi-tenant open-source platform (matches apps/api a apps/docs)
-  - `homepage`: `jletko/Asset-Management` GitHub → `inventario.sportup.sk` (marketing landing je canonical user-facing page)
-  - `repository` / `bugs`: `jletko/Asset-Management` → `Slovensky-futbalovy-zvaz/Asset-Management` (repo žije v SFZ org, personal username path bol stale + broke REUSE badge resolution)
+  - `homepage`: `ltksolutions/inventario` GitHub → `inventario.sportup.sk` (marketing landing je canonical user-facing page)
+  - `repository` / `bugs`: `ltksolutions/inventario` → `Slovensky-futbalovy-zvaz/Asset-Management` (repo žije v SFZ org, personal username path bol stale + broke REUSE badge resolution)
   - `license`: `MIT` → `EUPL-1.2` (matches source SPDX headers všade inde)
   - `author`: `Slovenský futbalový zväz` → `Ján Letko / LTK Solutions` (actual maintainer post-pivot)
 - Side-fix marketing site regression z E2: ADR-0010 GitHub URL na `technology.html` mal "white-label" v href atribúte nesprávne wrap-nutý do `<span lang="en">`. Wrap script v E2 spadol cez `<body>` content vrátane HTML atribútov. Fixed manuálne — href obsahuje raw filename, prose okolo zostáva wrapnutá

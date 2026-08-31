@@ -1,11 +1,11 @@
 # NNNN. Názov rozhodnutia
 
-|                   |                                                                  |
-| ----------------- | ---------------------------------------------------------------- |
-| **Status**        | Proposed / Accepted / Superseded by [ADR-XXXX](...) / Deprecated |
-| **Dátum**         | RRRR-MM-DD                                                       |
-| **Autori**        | _meno_                                                           |
-| **Súvisiace ADR** | _odkazy na predchádzajúce alebo súvisiace ADR_                   |
+|                   |                                                                    |
+| ----------------- | ------------------------------------------------------------------ |
+| **Status**        | Proposed / Accepted / Superseded by `[ADR-XXXX](...)` / Deprecated |
+| **Dátum**         | RRRR-MM-DD                                                         |
+| **Autori**        | _meno_                                                             |
+| **Súvisiace ADR** | _odkazy na predchádzajúce alebo súvisiace ADR_                     |
 
 ## Kontext
 

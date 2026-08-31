@@ -61,7 +61,7 @@ Sub-processors zapojení pri spracúvaní osobných údajov všetkých zákazní
 | **Kategórie dát**           | E-mailové adresy príjemcov, mená v salutácii, telo transakčného e-mailu (môže obsahovať identifikátor organizácie, link s tokenom) |
 | **Zachovávanie dát**        | 30 dní pre delivery logs (Ecomail default)                                                                                         |
 | **Bezpečnostné opatrenia**  | TLS 1.3 in transit; ISO/IEC 27001 (čiastočne); GDPR compliance attested                                                            |
-| **DPA**                     | https://www.ecomail.cz/podminky/ochrana-osobnich-udaju/                                                                            |
+| **DPA**                     | https://www.ecomail.cz/gdpr                                                                                                        |
 | **Transferový mechanizmus** | Žiadny — spracúvanie v rámci EÚ                                                                                                    |
 | **Webová stránka**          | https://www.ecomail.cz                                                                                                             |
 

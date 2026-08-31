@@ -816,8 +816,8 @@ apps/mcp-server/
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/specification) — Anthropic open standard
 - [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) — TypeScript SDK, MIT
 - [`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/) — type-safe HTTP client, MIT
-- [MCP HTTP+SSE transport spec](https://modelcontextprotocol.io/specification/server/transports) — remote MCP server pattern
-- [MCP tool annotations RFC](https://modelcontextprotocol.io/specification/server/tools) — `readOnlyHint`, `destructiveHint` semantics
+- [MCP HTTP+SSE transport spec](https://modelcontextprotocol.io/docs/concepts/transports) — remote MCP server pattern
+- [MCP tool annotations RFC](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) — `readOnlyHint`, `destructiveHint` semantics
 - [ADR-0013 Multi-provider auth](0013-multi-provider-auth-self-serve.md) — JWT model, refresh tokens pattern
 - [ADR-0015 Cross-tenant memberships](0015-cross-tenant-memberships.md) — tenant scoping post-Slice #9
 - [Vercel Functions](https://vercel.com/docs/functions) — runtime constraints
