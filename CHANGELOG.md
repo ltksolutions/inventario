@@ -13,7 +13,10 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
-- **Rýchlosť prvého načítania dashboardu (2026-08-31)** — session log:
+- **Rýchlosť prvého načítania dashboardu (2026-08-31)** — cesta k dátam na
+  teplej inštancii **4 023 → 1 840 ms** (−54 %), z toho
+  `GET /v1/dashboard/summary` **2 872 → 1 122 ms** (−60 %). Merané na
+  produkcii cez Resource Timing pred aj po. Session log:
   `docs/sessions/2026-08-31-pomale-nacitanie-dashboardu.md`.
   - **`maxPoolSize` 1 → 10, `maxIdleTimeMS` 10 s → 60 s** (`plugins/mongo.ts`).
     Pool veľkosti 1 serializoval aj `Promise.all` v rámci jedného requestu —
@@ -26,9 +29,12 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
     Atlas pred prvým užitočným requestom. Indexy teraz vytvára deploy-time
     endpoint `POST /v1/system/indexes/ensure`, volaný z workflow po migráciách
     — rovnaký vzor ako pri migráciách. Mimo produkcie sa nič nemení.
-  - **Swagger v produkcii vypnutý** — `ENABLE_SWAGGER` default je odvodený od
-    `NODE_ENV`. Verejné `/docs` na `api.inventario.estate` prestáva existovať;
-    dokumentácia beží na `inventario-docs`. `ENABLE_SWAGGER=true` to vráti.
+  - **`ENABLE_SWAGGER` default odvodený od `NODE_ENV`** (v produkcii `false`).
+    Pozor, je to len zmena defaultu: Vercel projekt `inventario-api` má
+    premennú nastavenú explicitne, tá prebíja default a `/docs` na
+    `api.inventario.estate` funguje ďalej. Ponechané vedome — Swagger stál
+    z cold startu ~45 ms, čo je vedľa ušetrených 1,75 s zanedbateľné.
+    Nový default slúži ako poistka, keby premennú niekto odstránil.
   - **Inštrumentácia cold startu** (`lib/boot-timing.ts`) — rozpad boot fáz do
     logu, podrobný režim cez `BOOT_TIMING=1`.
   - **UX počas načítavania dashboardu** — `PendingActionsPanel` má skeleton so
@@ -36,6 +42,16 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
     pribudne veta o dlhšom prvom načítaní (`lib/useSlowLoadingHint.ts`);
     skeleton v `StatCard` je viditeľný (`border-subtle` namiesto
     `surface-subtle`).
+
+### Fixed
+
+- **`argon2` 0.45.1 — breaking change v typoch (2026-08-31)**: knižnica
+  premenovala `Options` na `HashOptions`. `modules/auth/email-auth.routes.ts`
+  mal `argon2.Options & { raw?: false }`; s rozpadnutým typom TypeScript vybral
+  prvý overload `hash()` (ten s `raw: true`), ktorý vracia `Buffer`, a ten
+  neprešiel do `passwordHash: string`. Opravené na `argon2.HashOptions` —
+  `& { raw?: false }` netreba, bez `raw` sa trafí overload vracajúci `string`.
+  Bump a oprava museli ísť naraz, `HashOptions` v 0.44 neexistuje.
 
 ### Added
 

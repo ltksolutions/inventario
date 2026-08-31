@@ -115,13 +115,14 @@ existujú; spraviť DR test (restore nanečisto — stály otvorený bod od jún
 skontrolovať, či `docs/compliance/` netvrdí o zálohovaní viac, než Flex
 reálne poskytuje.
 
-**Otvorené (kód, ak by sa vrátil pomalý preloader):** ~~nemalo by~~ —
-**vrátil sa, riešené 31. 8.** (viď hore). Príčina nebola v tých troch
-opatreniach, ale v `maxPoolSize: 1`. Pôvodný text: všetky tri opatrenia sú
-hotové (`staleTime` `8a91c32`, Fluid Compute `b07cabc`, overlay len pre
-mutácie `1c239e0`). Ak predsa: presunúť `ensureIndexes()`
-mimo cold-startu (vzor ako migrácie, `00a2515`); zvážiť vypnutie Swaggeru
-v produkcii.
+**~~Otvorené~~ UZAVRETÉ (kód, ak by sa vrátil pomalý preloader):** vrátil
+sa a **vyriešené 31. 8.** (viď hore). Príčina nebola v tých troch
+opatreniach (`staleTime` `8a91c32`, Fluid Compute `b07cabc`, overlay len
+pre mutácie `1c239e0`), ale v `maxPoolSize: 1`. Obe tu navrhované
+záložné opatrenia sú medzitým tiež hotové: `ensureIndexes()` je mimo
+cold-startu (`3a2794f`, vzor ako migrácie `00a2515`) a `ENABLE_SWAGGER`
+má default odvodený od `NODE_ENV` (v produkcii ho prebíja explicitná
+premenná vo Verceli, ponechané vedome).
 
 ---
 
