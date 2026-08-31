@@ -97,17 +97,21 @@ jobs:
   #   inštanciu a ENTRA_* sú v config pluginu optional a v auth flow
   #   nepoužité (Slice #6c K17). Dead MONGO_URI_TEST /
   #   ENTRA_API_CLIENT_ID_TEST / ENTRA_TENANT_ID_TEST odstránené.
-  #   Dôsledok: `if: github.actor != 'dependabot[bot]'` nižšie už nemá
-  #   pôvodné opodstatnenie (chýbajúce secrets) — dá sa zrušiť, aby
-  #   dependabot PR bežali aj testami. Zámerne ponechané, samostatné
-  #   rozhodnutie.
+  #   Dôsledok: `if: github.actor != 'dependabot[bot]'` už nemalo
+  #   pôvodné opodstatnenie (chýbajúce secrets).
+  #
+  # Pozn. (2026-08-31): tá podmienka ZRUŠENÁ — testy bežia aj na
+  #   dependabot PR. Dôvod z praxe: argon2 0.45.1 obsahoval breaking
+  #   change v typoch a odhalil sa až na typecheku. Typecheck chytí
+  #   zmenu signatúry, ale nie zmenu správania — a argon2 hashuje
+  #   heslá. Bez testov by taký bump prešiel len na tom, že sa to
+  #   skompiluje.
   # ─────────────────────────────────────────────────────────────────
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: quality
-    if: github.actor != 'dependabot[bot]'
 
     steps:
       - name: Checkout code
