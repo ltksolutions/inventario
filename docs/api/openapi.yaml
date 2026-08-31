@@ -1,16 +1,13 @@
 # GENEROVANÝ SÚBOR — needituj ručne.
 # Zdroj pravdy: apps/api/openapi.json (export z Fastify swagger).
-# Regenerácia: pnpm --filter @inventario/api openapi:export  (vytvorí openapi.json),
-#   potom konverzia JSON→YAML do tohto súboru.
+# Regenerácia: pnpm --filter @inventario/api openapi:sync
 # SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
 # SPDX-License-Identifier: EUPL-1.2
 
 openapi: 3.1.0
 info:
   title: Inventario API
-  description:
-    REST API for Inventario — a multi-tenant, white-label asset management platform for sports
-    federations, municipalities, schools, and clubs. Open-source under EUPL-1.2.
+  description: REST API for Inventario — a multi-tenant, white-label asset management platform for sports federations, municipalities, schools, and clubs. Open-source under EUPL-1.2.
   version: 0.1.0
   contact:
     name: Inventario · LTK Solutions
@@ -25,14 +22,12 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description:
-        "Microsoft Entra ID access token (v2.0). Multi-tenant: the JWT `tid` claim resolves
-        the Organisation; the `oid` claim resolves the User. See apps/api/README.md for the device code
-        flow."
+      description: "Microsoft Entra ID access token (v2.0). Multi-tenant: the JWT `tid` claim resolves the Organisation; the `oid` claim resolves the User. See apps/api/README.md for the device code flow."
   schemas: {}
 paths:
   /health:
     get:
+      operationId: getHealth
       summary: Liveness probe
       tags:
         - Health
@@ -62,6 +57,7 @@ paths:
                 additionalProperties: false
   /health/ready:
     get:
+      operationId: getHealthReady
       summary: Readiness probe
       tags:
         - Health
@@ -131,13 +127,11 @@ paths:
                 additionalProperties: false
   /v1/organisations/current:
     get:
+      operationId: getV1OrganisationsCurrent
       summary: Get the current tenant (self)
       tags:
         - Organisations
-      description:
-        Returns the authenticated member's own organisation, including billing and branding.
-        The organisation id comes from the actor JWT claim, not a URL parameter — a member can only ever
-        read their own tenant.
+      description: Returns the authenticated member's own organisation, including billing and branding. The organisation id comes from the actor JWT claim, not a URL parameter — a member can only ever read their own tenant.
       security:
         - bearerAuth: []
       responses:
@@ -149,13 +143,11 @@ paths:
                 type: object
                 additionalProperties: {}
     patch:
+      operationId: patchV1OrganisationsCurrent
       summary: Update the current tenant (self, ADMIN)
       tags:
         - Organisations
-      description:
-        Tenant admin updates their own organisation's name, contact email and billing details.
-        plan/status/slug are NOT editable here (platform-operator only). Records an audit event with a
-        per-field diff. Requires ADMIN role within the tenant.
+      description: Tenant admin updates their own organisation's name, contact email and billing details. plan/status/slug are NOT editable here (platform-operator only). Records an audit event with a per-field diff. Requires ADMIN role within the tenant.
       requestBody:
         required: true
         content:
@@ -420,6 +412,11 @@ paths:
                   type: string
                   format: uuid
                   nullable: true
+                customDomain:
+                  type: string
+                  maxLength: 253
+                  pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
+                  nullable: true
                 microsoftOAuth:
                   type: object
                   properties:
@@ -444,13 +441,64 @@ paths:
                   nullable: true
                 publicAssetLookup:
                   type: boolean
+                labelPrinting:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum:
+                        - PDF_SHEET
+                        - ZEBRA_ZPL
+                      default: PDF_SHEET
+                    pdfPreset:
+                      type: string
+                      enum:
+                        - avery-l7160
+                        - avery-l7163
+                      default: avery-l7160
+                    zplLabelWidthMm:
+                      type: integer
+                      minimum: 10
+                      maximum: 200
+                      default: 50
+                    zplLabelHeightMm:
+                      type: integer
+                      minimum: 10
+                      maximum: 200
+                      default: 25
+                    zplDpi:
+                      anyOf:
+                        - type: number
+                          enum:
+                            - 203
+                        - type: number
+                          enum:
+                            - 300
+                      default: 203
+                    zplDarkness:
+                      type: integer
+                      minimum: 0
+                      maximum: 30
+                      default: 20
+                    finderText:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          default: false
+                        text:
+                          type: string
+                          maxLength: 120
+                          default: Našli ste ma? Naskenujte a pomôžte ma vrátiť.
+                      additionalProperties: false
+                      default:
+                        enabled: false
+                        text: Našli ste ma? Naskenujte a pomôžte ma vrátiť.
+                  additionalProperties: false
+                  nullable: true
               additionalProperties: false
-              description:
-                "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing,
-                branding, auth doména)."
-        description:
-          "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding,
-          auth doména)."
+              description: "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména, tlač štítkov)."
+        description: "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména, tlač štítkov)."
       security:
         - bearerAuth: []
       responses:
@@ -463,14 +511,11 @@ paths:
                 additionalProperties: {}
   /v1/organisations/current/logo:
     post:
+      operationId: postV1OrganisationsCurrentLogo
       summary: Upload tenant logo (self, ADMIN)
       tags:
         - Organisations
-      description:
-        Tenant admin uploads a logo image (PNG, JPEG or WEBP, max 512 KB) for their own organisation.
-        The file is validated by magic bytes, stored in Vercel Blob, and the resulting public URL is written
-        to brandKit.logoUrl. Any previous logo blob is deleted. Available on all plans. Requires ADMIN
-        role.
+      description: Tenant admin uploads a logo image (PNG, JPEG or WEBP, max 512 KB) for their own organisation. The file is validated by magic bytes, stored in Vercel Blob, and the resulting public URL is written to brandKit.logoUrl. Any previous logo blob is deleted. Available on all plans. Requires ADMIN role.
       security:
         - bearerAuth: []
       responses:
@@ -483,13 +528,11 @@ paths:
                 additionalProperties: {}
   /v1/organisations:
     get:
+      operationId: getV1Organisations
       summary: List organisations (admin)
       tags:
         - Organisations
-      description:
-        "Returns a paginated list of organisations sorted by displayName. Soft-deleted are
-        excluded by default; pass `includeDeleted=true` to see them. Optional filters: status, plan. Requires
-        ADMIN role."
+      description: "Returns a paginated list of organisations sorted by displayName. Soft-deleted are excluded by default; pass `includeDeleted=true` to see them. Optional filters: status, plan. Requires ADMIN role."
       parameters:
         - schema:
             type: integer
@@ -575,13 +618,11 @@ paths:
                   - pagination
                 additionalProperties: false
     post:
+      operationId: postV1Organisations
       summary: Create a new organisation (admin onboarding)
       tags:
         - Organisations
-      description:
-        Onboards a new tenant before their first SSO login. Slug + entraTenantId must both
-        be globally unique. The alternative workflow is JIT provisioning on first contact, but explicit
-        creation lets admins configure branding and plan upfront. Requires ADMIN role.
+      description: Onboards a new tenant before their first SSO login. Slug + entraTenantId must both be globally unique. The alternative workflow is JIT provisioning on first contact, but explicit creation lets admins configure branding and plan upfront. Requires ADMIN role.
       requestBody:
         required: true
         content:
@@ -806,6 +847,7 @@ paths:
                 additionalProperties: {}
   /v1/organisations/{id}:
     get:
+      operationId: getV1OrganisationsById
       summary: Get a single organisation by ID (admin)
       tags:
         - Organisations
@@ -828,13 +870,11 @@ paths:
                 type: object
                 additionalProperties: {}
     patch:
+      operationId: patchV1OrganisationsById
       summary: Update an organisation (admin)
       tags:
         - Organisations
-      description:
-        Partial update — only provided fields are changed. Slug and entraTenantId are NOT updatable
-        (stable identifiers). Custom domain uniqueness is revalidated on change. Records an audit event
-        with a per-field diff. Requires ADMIN role.
+      description: Partial update — only provided fields are changed. Slug and entraTenantId are NOT updatable (stable identifiers). Custom domain uniqueness is revalidated on change. Records an audit event with a per-field diff. Requires ADMIN role.
       requestBody:
         required: true
         content:
@@ -1051,13 +1091,11 @@ paths:
                 type: object
                 additionalProperties: {}
     delete:
+      operationId: deleteV1OrganisationsById
       summary: Soft-delete an organisation (admin)
       tags:
         - Organisations
-      description:
-        Marks the organisation as deleted. Tenant data remains in place (soft-delete is a tombstone,
-        not a purge), but no user from this tenant can log in. Records a WARNING-severity audit event.
-        Requires ADMIN role.
+      description: Marks the organisation as deleted. Tenant data remains in place (soft-delete is a tombstone, not a purge), but no user from this tenant can log in. Records a WARNING-severity audit event. Requires ADMIN role.
       parameters:
         - schema:
             type: string
@@ -1076,15 +1114,119 @@ paths:
                 enum:
                   - "null"
                 nullable: true
+  /v1/public/organisations/login-context:
+    get:
+      operationId: getV1PublicOrganisationsLoginContext
+      summary: Verejný login-context organizácie podľa slugu alebo vlastnej domény (ADR-0035)
+      tags:
+        - Public
+      description: Bez autentifikácie. Vracia len neškodné dáta (branding + povolené spôsoby prihlásenia) potrebné na to, aby /login mohol zobraziť správne tlačidlá pre danú organizáciu. Presne jeden z query parametrov (slug/domain) musí byť zadaný.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 40
+          in: query
+          name: slug
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 253
+          in: query
+          name: domain
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  slug:
+                    type: string
+                  displayName:
+                    type: string
+                  logoUrl:
+                    type: string
+                    format: uri
+                    nullable: true
+                  brandColors:
+                    type: object
+                    properties:
+                      primary:
+                        type: string
+                        pattern: ^#[0-9a-fA-F]{6}$
+                        description: "Hex farba #RRGGBB"
+                        nullable: true
+                      primaryFg:
+                        type: string
+                        pattern: ^#[0-9a-fA-F]{6}$
+                        description: "Hex farba #RRGGBB"
+                        nullable: true
+                      accent:
+                        type: string
+                        pattern: ^#[0-9a-fA-F]{6}$
+                        description: "Hex farba #RRGGBB"
+                        nullable: true
+                      accentFg:
+                        type: string
+                        pattern: ^#[0-9a-fA-F]{6}$
+                        description: "Hex farba #RRGGBB"
+                        nullable: true
+                    required:
+                      - primary
+                      - primaryFg
+                      - accent
+                      - accentFg
+                    additionalProperties: false
+                    nullable: true
+                  allowedAuthProviders:
+                    type: array
+                    items:
+                      type: string
+                  hasEntraRestriction:
+                    type: boolean
+                required:
+                  - slug
+                  - displayName
+                  - logoUrl
+                  - brandColors
+                  - allowedAuthProviders
+                  - hasEntraRestriction
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+                additionalProperties: false
   /v1/me:
     get:
+      operationId: getV1Me
       summary: Get the currently authenticated user
       tags:
         - Users
-      description:
-        Returns the user record corresponding to the JWT bearer. Creates a new user record
-        on first call (JIT provisioning) with the default `EMPLOYEE` role and binds it to the tenant resolved
-        from the JWT `tid` claim. Subsequent calls return the existing record and update `lastLoginAt`.
+      description: Returns the user record corresponding to the JWT bearer. Creates a new user record on first call (JIT provisioning) with the default `EMPLOYEE` role and binds it to the tenant resolved from the JWT `tid` claim. Subsequent calls return the existing record and update `lastLoginAt`.
       security:
         - bearerAuth: []
       responses:
@@ -1135,15 +1277,11 @@ paths:
                   - createdAt
                 additionalProperties: false
     patch:
+      operationId: patchV1Me
       summary: Update own profile (GDPR Art. 16)
       tags:
         - Users
-      description:
-        'Self-service partial update of the authenticated user''s profile. Permitted fields:
-        `firstName`, `lastName`, `displayName`, `preferences`. Forbidden fields (roles, email, isActive,
-        …) are excluded from this schema — include them in the body and they will be rejected with 400.
-        If `firstName` or `lastName` is updated without an explicit `displayName`, the server auto-derives
-        `"{firstName} {lastName}"`. Emits a USER_UPDATED audit event with a diff of changed fields.'
+      description: 'Self-service partial update of the authenticated user''s profile. Permitted fields: `firstName`, `lastName`, `displayName`, `preferences`. Forbidden fields (roles, email, isActive, …) are excluded from this schema — include them in the body and they will be rejected with 400. If `firstName` or `lastName` is updated without an explicit `displayName`, the server auto-derives `"{firstName} {lastName}"`. Emits a USER_UPDATED audit event with a diff of changed fields.'
       requestBody:
         required: true
         content:
@@ -1167,9 +1305,7 @@ paths:
                   type: object
                   additionalProperties: {}
               additionalProperties: false
-              description:
-                Self-service profile update (GDPR čl. 16); firstName, lastName, displayName,
-                preferences.
+              description: Self-service profile update (GDPR čl. 16); firstName, lastName, displayName, preferences.
         description: Self-service profile update (GDPR čl. 16); firstName, lastName, displayName, preferences.
       security:
         - bearerAuth: []
@@ -1183,14 +1319,11 @@ paths:
                 additionalProperties: {}
   /v1/me/export:
     get:
+      operationId: getV1MeExport
       summary: Export personal data (GDPR Art. 20)
       tags:
         - Users
-      description:
-        "Returns a structured JSON export of all personal data held for the currently authenticated
-        user. Covers: full profile, all tenant memberships, and all audit log entries where the user is
-        the actor. Secrets (passwordHash, mfaSecret, mfaRecoveryCodes) are always excluded. Emits a DATA_EXPORT_REQUESTED
-        audit event (GDPR Art. 30). Any authenticated user may call this endpoint for their own data only."
+      description: "Returns a structured JSON export of all personal data held for the currently authenticated user. Covers: full profile, all tenant memberships, and all audit log entries where the user is the actor. Secrets (passwordHash, mfaSecret, mfaRecoveryCodes) are always excluded. Emits a DATA_EXPORT_REQUESTED audit event (GDPR Art. 30). Any authenticated user may call this endpoint for their own data only."
       security:
         - bearerAuth: []
       responses:
@@ -1224,13 +1357,11 @@ paths:
                 additionalProperties: false
   /v1/users:
     get:
-      summary: List users (admin)
+      operationId: getV1Users
+      summary: List users (manager)
       tags:
         - Users
-      description:
-        "Returns a paginated list of users sorted by displayName. Soft-deleted users are always
-        excluded. Optional filters: role, isActive, q (free-text across email + displayName + firstName
-        + lastName, case-insensitive). Requires ADMIN role."
+      description: "Returns a paginated list of users sorted by displayName. Soft-deleted users are always excluded. Optional filters: role, isActive, q (free-text across email + displayName + firstName + lastName, case-insensitive). Requires ASSET_MANAGER or ADMIN role — but ASSET_MANAGER callers receive a trimmed shape (_id, displayName, firstName, lastName, email, roles, isActive, lastLoginAt), never the full document (MFA state, GDPR restriction flags, etc. stay ADMIN-only). See `toManagerShape` below."
       parameters:
         - schema:
             type: integer
@@ -1316,10 +1447,11 @@ paths:
                 additionalProperties: false
   /v1/users/{id}:
     get:
-      summary: Get a single user by ID (admin)
+      operationId: getV1UsersById
+      summary: Get a single user by ID (manager)
       tags:
         - Users
-      description: Returns one user by _id. 404 if not found or soft-deleted. Requires ADMIN role.
+      description: Returns one user by _id. 404 if not found or soft-deleted. Requires ASSET_MANAGER or ADMIN role — ASSET_MANAGER callers receive the same trimmed shape as the list endpoint (see GET /v1/users above).
       parameters:
         - schema:
             type: string
@@ -1338,14 +1470,11 @@ paths:
                 type: object
                 additionalProperties: {}
     patch:
+      operationId: patchV1UsersById
       summary: Update a user (admin)
       tags:
         - Users
-      description:
-        "Partial update of a user. Exposes `isActive` (and profile fields). Role changes go
-        through PATCH /v1/memberships/:id (ADR-0029). Guardrails: admins cannot deactivate themselves,
-        and the last active ADMIN cannot be deactivated (promote another user to ADMIN first). Records
-        USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. Requires ADMIN role."
+      description: "Partial update of a user. Exposes `isActive`, `firstName`, `lastName`, `displayName`, and `email`. Role changes go through PATCH /v1/memberships/:id (ADR-0029). Guardrails: admins cannot deactivate themselves, the last active ADMIN cannot be deactivated (promote another user to ADMIN first), and `email` can only be changed for LOCAL accounts (400 for OAuth-linked ENTRA_ID/GOOGLE accounts) and must be unique within the organisation (400 on duplicate). Records USER_DEACTIVATED / USER_REACTIVATED / USER_UPDATED audit events. Requires ADMIN role."
       requestBody:
         required: true
         content:
@@ -1355,9 +1484,24 @@ paths:
               properties:
                 isActive:
                   type: boolean
+                firstName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                lastName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                email:
+                  type: string
+                  format: email
               additionalProperties: false
-              description: Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id.
-        description: Čiastočná aktualizácia používateľa (admin); isActive. Roly → PATCH /v1/memberships/:id.
+              description: Čiastočná aktualizácia používateľa (admin); isActive, firstName, lastName, displayName, email (LOCAL účty len). Roly → PATCH /v1/memberships/:id.
+        description: Čiastočná aktualizácia používateľa (admin); isActive, firstName, lastName, displayName, email (LOCAL účty len). Roly → PATCH /v1/memberships/:id.
       parameters:
         - schema:
             type: string
@@ -1375,16 +1519,101 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /v1/users/directory:
+    get:
+      operationId: getV1UsersDirectory
+      summary: List persons directory (manager)
+      tags:
+        - Users
+      description: Minimalny zoznam osob v ramci tenanta (meno, rola, e-mail, aktivita) pre modul "Osoby". Na rozdiel od GET /v1/users nevracia cely User dokument. Vyzaduje ASSET_MANAGER alebo ADMIN.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          in: query
+          name: q
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        displayName:
+                          type: string
+                        email:
+                          type: string
+                        role:
+                          type: string
+                          nullable: true
+                        isActive:
+                          type: boolean
+                      required:
+                        - _id
+                        - displayName
+                        - email
+                        - role
+                        - isActive
+                      additionalProperties: false
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
   /v1/users/{id}/mfa:
     delete:
+      operationId: deleteV1UsersByIdMfa
       summary: Reset MFA for a user (admin)
       tags:
         - Users
-      description:
-        Clears MFA enrollment for the target user. Use when a user has lost access to their
-        authenticator app. The user must re-enroll on next login. Admin cannot reset their own MFA via
-        this endpoint — use POST /v1/auth/mfa/disable. Records MFA_RESET_BY_ADMIN audit event. Requires
-        ADMIN role.
+      description: Clears MFA enrollment for the target user. Use when a user has lost access to their authenticator app. The user must re-enroll on next login. Admin cannot reset their own MFA via this endpoint — use POST /v1/auth/mfa/disable. Records MFA_RESET_BY_ADMIN audit event. Requires ADMIN role.
       parameters:
         - schema:
             type: string
@@ -1406,15 +1635,11 @@ paths:
                 description: MFA reset successfully
   /v1/users/{id}/restriction:
     post:
+      operationId: postV1UsersByIdRestriction
       summary: Set or clear processing restriction (admin, GDPR Art. 18)
       tags:
         - Users
-      description:
-        "Sets (`restrict: true`) or clears (`restrict: false`) the GDPR Art. 18 processing-restriction
-        flag on a user. A restricted user's data is retained but further processing is blocked: the auth
-        middleware rejects mutating requests (POST/PATCH/DELETE) with 403 while still allowing reads (GET).
-        Optional `reason` is recorded for compliance. Emits USER_RESTRICTED or USER_UNRESTRICTED audit
-        event. Idempotent calls (already in the requested state) return 400. Requires ADMIN role."
+      description: "Sets (`restrict: true`) or clears (`restrict: false`) the GDPR Art. 18 processing-restriction flag on a user. A restricted user's data is retained but further processing is blocked: the auth middleware rejects mutating requests (POST/PATCH/DELETE) with 403 while still allowing reads (GET). Optional `reason` is recorded for compliance. Emits USER_RESTRICTED or USER_UNRESTRICTED audit event. Idempotent calls (already in the requested state) return 400. Requires ADMIN role."
       requestBody:
         required: true
         content:
@@ -1453,6 +1678,7 @@ paths:
                 additionalProperties: {}
   /v1/assets:
     get:
+      operationId: getV1Assets
       summary: List assets
       tags:
         - Assets
@@ -1514,13 +1740,11 @@ paths:
                   - pagination
                 additionalProperties: false
     post:
+      operationId: postV1Assets
       summary: Create a new asset
       tags:
         - Assets
-      description:
-        Server generuje inventoryNumber z Organisation.inventoryNumberFormat a publicToken
-        cez CSPRNG. Tenant musi mat nastaveny inventoryNumberFormat - inak 400. Vyzaduje ASSET_MANAGER
-        alebo ADMIN.
+      description: Server generuje inventoryNumber z Organisation.inventoryNumberFormat a publicToken cez CSPRNG. Tenant musi mat nastaveny inventoryNumberFormat - inak 400. Vyzaduje ASSET_MANAGER alebo ADMIN.
       requestBody:
         required: true
         content:
@@ -1538,8 +1762,11 @@ paths:
                   minLength: 1
                   maxLength: 300
                 description:
-                  type: string
-                  maxLength: 2000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
                   nullable: true
                   default: null
                 categoryId:
@@ -1581,9 +1808,12 @@ paths:
                 tags:
                   type: array
                   items:
-                    type: string
-                    minLength: 1
-                    maxLength: 50
+                    allOf:
+                      - type: string
+                      - type: string
+                        minLength: 1
+                        maxLength: 50
+                    description: Normalizovaný tag (trim, zbalené medzery, malé písmená)
                   default: []
                 imageIds:
                   type: array
@@ -1608,6 +1838,10 @@ paths:
                     - SERIALIZED
                     - BULK
                   default: SERIALIZED
+                initialQuantity:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
               required:
                 - name
                 - categoryId
@@ -1627,8 +1861,160 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /v1/assets/tags:
+    get:
+      operationId: getV1AssetsTags
+      summary: Unikátne existujúce tagy (pre autocomplete)
+      tags:
+        - Assets
+      description: Abecedne zoradený zoznam všetkých unikátnych tagov použitých na nezmazaných majetkoch tenanta. Zdroj návrhov pre TagsCombobox.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - data
+                additionalProperties: false
+  /v1/assets/tags/summary:
+    get:
+      operationId: getV1AssetsTagsSummary
+      summary: Tagy s počtom použití (pre číselník Tagov)
+      tags:
+        - Assets
+      description: Abecedne zoradený zoznam tagov s počtom nezmazaných majetkov, ktoré daný tag používajú. Zdroj pre číselník "Tagy" na /ciselniky.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag:
+                          allOf:
+                            - type: string
+                            - type: string
+                              minLength: 1
+                              maxLength: 50
+                          description: Normalizovaný tag (trim, zbalené medzery, malé písmená)
+                        count:
+                          type: integer
+                          minimum: 0
+                      required:
+                        - tag
+                        - count
+                      additionalProperties: false
+                required:
+                  - data
+                additionalProperties: false
+  /v1/assets/tags/rename:
+    post:
+      operationId: postV1AssetsTagsRename
+      summary: Premenovať tag na všetkom majetku (číselník Tagov)
+      tags:
+        - Assets
+      description: Nahradí `oldTag` za `newTag` na každom nezmazanom majetku, ktorý `oldTag` má. Ak majetok už `newTag` obsahuje, duplicita sa zlúči. Zaznamená sa audit event ASSET_TAG_RENAMED. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                oldTag:
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 1
+                      maxLength: 50
+                  description: Normalizovaný tag (trim, zbalené medzery, malé písmená)
+                newTag:
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 1
+                      maxLength: 50
+                  description: Normalizovaný tag (trim, zbalené medzery, malé písmená)
+              required:
+                - oldTag
+                - newTag
+              additionalProperties: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  affected:
+                    type: integer
+                    minimum: 0
+                required:
+                  - affected
+                additionalProperties: false
+  /v1/assets/tags/delete:
+    post:
+      operationId: postV1AssetsTagsDelete
+      summary: Zmazať tag zo všetkého majetku (číselník Tagov)
+      tags:
+        - Assets
+      description: Odstráni `tag` z poľa tags na každom nezmazanom majetku, ktorý ho má. Zaznamená sa audit event ASSET_TAG_DELETED. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tag:
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 1
+                      maxLength: 50
+                  description: Normalizovaný tag (trim, zbalené medzery, malé písmená)
+              required:
+                - tag
+              additionalProperties: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  affected:
+                    type: integer
+                    minimum: 0
+                required:
+                  - affected
+                additionalProperties: false
   /v1/assets/{id}:
     get:
+      operationId: getV1AssetsById
       summary: Get a single asset by ID
       tags:
         - Assets
@@ -1651,6 +2037,7 @@ paths:
                 type: object
                 additionalProperties: {}
     patch:
+      operationId: patchV1AssetsById
       summary: Update an existing asset
       tags:
         - Assets
@@ -1672,8 +2059,11 @@ paths:
                   minLength: 1
                   maxLength: 300
                 description:
-                  type: string
-                  maxLength: 2000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
                   nullable: true
                   default: null
                 categoryId:
@@ -1736,9 +2126,12 @@ paths:
                 tags:
                   type: array
                   items:
-                    type: string
-                    minLength: 1
-                    maxLength: 50
+                    allOf:
+                      - type: string
+                      - type: string
+                        minLength: 1
+                        maxLength: 50
+                    description: Normalizovaný tag (trim, zbalené medzery, malé písmená)
                   default: []
                 imageIds:
                   type: array
@@ -1777,6 +2170,7 @@ paths:
                 type: object
                 additionalProperties: {}
     delete:
+      operationId: deleteV1AssetsById
       summary: Soft-delete an asset
       tags:
         - Assets
@@ -1801,12 +2195,11 @@ paths:
                 nullable: true
   /v1/assets/by-token/{publicToken}:
     get:
+      operationId: getV1AssetsByTokenByPublicToken
       summary: Rozlíš majetok podľa QR tokenu (interné, prihlásené)
       tags:
         - Assets
-      description:
-        Vráti id majetku pre daný publicToken v rámci tenanta aktéra. 404 ak token neexistuje
-        alebo patrí inému tenantovi.
+      description: Vráti id majetku pre daný publicToken v rámci tenanta aktéra. 404 ak token neexistuje alebo patrí inému tenantovi.
       parameters:
         - schema:
             type: string
@@ -1832,12 +2225,11 @@ paths:
                 additionalProperties: false
   /v1/assets/{id}/audit:
     get:
+      operationId: getV1AssetsByIdAudit
       summary: Audit log majetku
       tags:
         - Assets
-      description:
-        Záznamy auditu pre konkrétny majetok (najnovšie prvé), stránkované. Len ASSET_MANAGER/ADMIN.
-        404 ak majetok neexistuje v tenantovi.
+      description: Záznamy auditu pre konkrétny majetok (najnovšie prvé), stránkované. Len ASSET_MANAGER/ADMIN. 404 ak majetok neexistuje v tenantovi.
       parameters:
         - schema:
             type: integer
@@ -1902,12 +2294,11 @@ paths:
                 additionalProperties: false
   /v1/assets/{id}/qr:
     get:
+      operationId: getV1AssetsByIdQr
       summary: Generuj QR kod pre asset (ADR-0021)
       tags:
         - Assets
-      description:
-        "On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. Vyzaduje
-        nastaveny appBaseUrl na Organisation - inak 409. format=svg (default) alebo png."
+      description: "On-demand QR render. URL zakodovana v QR: ${appBaseUrl}/scan/${publicToken}. Vyzaduje nastaveny appBaseUrl na Organisation - inak 409. Obrazok obsahuje aj logo organizacie v strede QR a inventoryNumber/nazov pod kodom. format=svg (default) alebo png."
       parameters:
         - schema:
             type: string
@@ -1929,8 +2320,254 @@ paths:
       responses:
         "200":
           description: Default Response
+  /v1/audit-log:
+    get:
+      operationId: getV1AuditLog
+      summary: Kompletný audit log aktívneho tenanta (filtrovateľný)
+      tags:
+        - Audit
+      description: Záznamy auditu pre aktívny tenant (najnovšie prvé), stránkované, s voliteľnými filtrami podľa akcie (`action`), typu entity (`entityType`), osoby (`actorUserId`) a dátumového rozsahu (`dateFrom`/`dateTo`). Vyžaduje ASSET_MANAGER alebo ADMIN.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: skip
+          required: false
+        - schema:
+            type: string
+            enum:
+              - USER_LOGIN
+              - USER_LOGIN_FAILED
+              - USER_LOGOUT
+              - USER_PASSWORD_CHANGED
+              - USER_PASSWORD_RESET_REQUESTED
+              - USER_MFA_ENABLED
+              - USER_MFA_DISABLED
+              - USER_MFA_RESET_BY_ADMIN
+              - USER_CREATED
+              - USER_UPDATED
+              - USER_DEACTIVATED
+              - USER_REACTIVATED
+              - USER_ROLE_GRANTED
+              - USER_ROLE_REVOKED
+              - ORGANISATION_CREATED
+              - ORGANISATION_UPDATED
+              - ORGANISATION_DELETED
+              - ORGANISATION_BRANDING_UPDATED
+              - ASSET_CREATED
+              - ASSET_UPDATED
+              - ASSET_DELETED
+              - ASSET_STATUS_CHANGED
+              - ASSET_LOCATION_CHANGED
+              - ASSET_DISPOSED
+              - ASSET_ATTACHMENT_ADDED
+              - ASSET_ATTACHMENT_REMOVED
+              - ASSET_ATTACHMENT_SET_PRIMARY
+              - ASSET_TAG_RENAMED
+              - ASSET_TAG_DELETED
+              - CATEGORY_CREATED
+              - CATEGORY_UPDATED
+              - CATEGORY_DELETED
+              - LOCATION_CREATED
+              - LOCATION_UPDATED
+              - LOCATION_DELETED
+              - LOAN_REQUEST_CREATED
+              - LOAN_REQUEST_APPROVED
+              - LOAN_REQUEST_REJECTED
+              - LOAN_REQUEST_CANCELLED
+              - LOAN_PICKED_UP
+              - LOAN_RETURNED
+              - LOAN_PARTIALLY_RETURNED
+              - LOAN_EXTENDED
+              - LOAN_MARKED_OVERDUE
+              - LOAN_MARKED_LOST
+              - LOAN_CREATED_DIRECT
+              - LOAN_REQUEST_FULFILLED
+              - LOAN_PROTOCOL_CREATED
+              - LOAN_PROTOCOL_SIGNED
+              - STOCK_RECEIVED
+              - STOCK_ISSUED
+              - STOCK_RETURNED
+              - STOCK_ADJUSTED
+              - DATA_EXPORT_REQUESTED
+              - DATA_DELETION_REQUESTED
+              - USER_PSEUDONYMIZED
+              - USER_RESTRICTED
+              - USER_UNRESTRICTED
+              - MEMBERSHIP_CREATED
+              - MEMBERSHIP_ROLES_CHANGED
+              - MEMBERSHIP_REMOVED
+              - USER_SWITCHED_ORGANISATION
+              - PASSKEY_REGISTERED
+              - PASSKEY_REMOVED
+              - PASSKEY_RENAMED
+              - PASSKEY_LOGIN
+              - PASSKEY_LOGIN_FAILED
+              - PASSKEY_COUNTER_WARNING
+              - ASSET_TYPE_CREATED
+              - ASSET_TYPE_UPDATED
+              - ASSET_TYPE_DELETED
+              - ASSET_CONDITION_CREATED
+              - ASSET_CONDITION_UPDATED
+              - ASSET_CONDITION_DELETED
+              - SYSTEM_CONFIG_CHANGED
+              - BULK_IMPORT_EXECUTED
+              - INTEGRATION_TOKEN_CREATED
+              - INTEGRATION_TOKEN_REVOKED
+          in: query
+          name: action
+          required: false
+        - schema:
+            type: string
+            enum:
+              - User
+              - Organisation
+              - Asset
+              - AssetType
+              - AssetCondition
+              - Loan
+              - LoanRequest
+              - LoanProtocol
+              - StockMovement
+              - Category
+              - Location
+              - Membership
+              - Passkey
+              - System
+          in: query
+          name: entityType
+          required: false
+        - schema:
+            type: string
+            pattern: ^[0-9a-fA-F]{24}$
+          in: query
+          name: actorUserId
+          required: false
+        - schema:
+            type: string
+            format: date-time
+          in: query
+          name: dateFrom
+          required: false
+        - schema:
+            type: string
+            format: date-time
+          in: query
+          name: dateTo
+          required: false
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        at:
+                          type: string
+                        actor:
+                          type: object
+                          properties:
+                            userId:
+                              type: string
+                            displayName:
+                              type: string
+                            accountType:
+                              type: string
+                          required:
+                            - userId
+                            - displayName
+                            - accountType
+                          additionalProperties: false
+                        action:
+                          type: string
+                        target:
+                          type: object
+                          properties:
+                            entityType:
+                              type: string
+                            entityId:
+                              type: string
+                              nullable: true
+                          required:
+                            - entityType
+                            - entityId
+                          additionalProperties: false
+                          nullable: true
+                        description:
+                          type: string
+                        changes:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              field:
+                                type: string
+                              before: {}
+                              after: {}
+                            required:
+                              - field
+                            additionalProperties: false
+                          nullable: true
+                        severity:
+                          type: string
+                      required:
+                        - id
+                        - at
+                        - actor
+                        - action
+                        - target
+                        - description
+                        - changes
+                        - severity
+                      additionalProperties: false
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        minimum: 0
+                      limit:
+                        type: integer
+                        exclusiveMinimum: true
+                        minimum: 0
+                      skip:
+                        type: integer
+                        minimum: 0
+                      hasMore:
+                        type: boolean
+                    required:
+                      - total
+                      - limit
+                      - skip
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - pagination
+                additionalProperties: false
   /v1/assets/{id}/attachments:
     get:
+      operationId: getV1AssetsByIdAttachments
       summary: Zoznam príloh majetku
       tags:
         - Attachments
@@ -1961,12 +2598,11 @@ paths:
                   - data
                 additionalProperties: false
     post:
+      operationId: postV1AssetsByIdAttachments
       summary: Nahrať prílohu majetku (ASSET_MANAGER/ADMIN)
       tags:
         - Attachments
-      description:
-        Multipart upload jedného súboru (PNG/JPEG/WEBP → foto, PDF → doklad). Max 20 MB. Súbor
-        sa uloží do Vercel Blob, metadata do DB.
+      description: Multipart upload jedného súboru (PNG/JPEG/WEBP → foto, PDF → doklad). Max 20 MB. Súbor sa uloží do Vercel Blob, metadata do DB.
       security:
         - bearerAuth: []
       parameters:
@@ -1980,6 +2616,7 @@ paths:
           description: Default Response
   /v1/attachments/{id}/primary:
     patch:
+      operationId: patchV1AttachmentsByIdPrimary
       summary: Nastaviť prílohu ako hlavné foto (ASSET_MANAGER/ADMIN)
       tags:
         - Attachments
@@ -2004,6 +2641,7 @@ paths:
                 nullable: true
   /v1/attachments/{id}:
     delete:
+      operationId: deleteV1AttachmentsById
       summary: Zmazať prílohu (ASSET_MANAGER/ADMIN)
       tags:
         - Attachments
@@ -2028,12 +2666,11 @@ paths:
                 nullable: true
   /v1/public/scan/{publicToken}:
     get:
+      operationId: getV1PublicScanByPublicToken
       summary: Verejny lost & found lookup po QR tokene (ADR-0021)
       tags:
         - Public
-      description:
-        Bez autentifikacie. Vracia minimalne informacie o najdenom majetku. 404 ak tenant nema
-        zapnuty publicAssetLookup ALEBO token neexistuje (no oracle).
+      description: Bez autentifikacie. Vracia minimalne informacie o najdenom majetku. 404 ak tenant nema zapnuty publicAssetLookup ALEBO token neexistuje (no oracle).
       parameters:
         - schema:
             type: string
@@ -2093,6 +2730,7 @@ paths:
                 additionalProperties: false
   /v1/asset-conditions:
     get:
+      operationId: getV1AssetConditions
       summary: List asset conditions
       tags:
         - AssetConditions
@@ -2153,6 +2791,7 @@ paths:
                   - pagination
                 additionalProperties: false
     post:
+      operationId: postV1AssetConditions
       summary: Create asset condition
       tags:
         - AssetConditions
@@ -2202,6 +2841,7 @@ paths:
                 additionalProperties: {}
   /v1/asset-conditions/{id}:
     get:
+      operationId: getV1AssetConditionsById
       summary: Get asset condition by ID
       tags:
         - AssetConditions
@@ -2223,6 +2863,7 @@ paths:
                 type: object
                 additionalProperties: {}
     patch:
+      operationId: patchV1AssetConditionsById
       summary: Update asset condition
       tags:
         - AssetConditions
@@ -2276,6 +2917,7 @@ paths:
                 type: object
                 additionalProperties: {}
     delete:
+      operationId: deleteV1AssetConditionsById
       summary: Delete asset condition (ADMIN only, FK protected)
       tags:
         - AssetConditions
@@ -2299,12 +2941,11 @@ paths:
                 nullable: true
   /v1/categories:
     get:
+      operationId: getV1Categories
       summary: List categories
       tags:
         - Categories
-      description:
-        "Returns a paginated list of categories, sorted by sortOrder then name. Soft-deleted
-        categories are excluded. Optional filters: parentId, isActive."
+      description: "Returns a paginated list of categories, sorted by sortOrder then name. Soft-deleted categories are excluded. Optional filters: parentId, isActive."
       parameters:
         - schema:
             type: integer
@@ -2378,12 +3019,11 @@ paths:
                   - pagination
                 additionalProperties: false
     post:
+      operationId: postV1Categories
       summary: Create a new category
       tags:
         - Categories
-      description:
-        Creates a new category. Slug must be unique. If parentId is supplied, the parent must
-        exist. Requires ASSET_MANAGER or ADMIN role.
+      description: Creates a new category. Slug must be unique. If parentId is supplied, the parent must exist. Requires ASSET_MANAGER or ADMIN role.
       requestBody:
         required: true
         content:
@@ -2405,8 +3045,11 @@ paths:
                   nullable: true
                   default: null
                 description:
-                  type: string
-                  maxLength: 1000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 1000
                   nullable: true
                   default: null
                 icon:
@@ -2458,6 +3101,7 @@ paths:
                 additionalProperties: {}
   /v1/categories/{id}:
     get:
+      operationId: getV1CategoriesById
       summary: Get a single category by ID
       tags:
         - Categories
@@ -2480,13 +3124,11 @@ paths:
                 type: object
                 additionalProperties: {}
     patch:
+      operationId: patchV1CategoriesById
       summary: Update an existing category
       tags:
         - Categories
-      description:
-        Partial update — only provided fields are changed. Slug uniqueness and parent existence
-        are revalidated on change. Records an audit event with a per-field diff. Requires ASSET_MANAGER
-        or ADMIN role.
+      description: Partial update — only provided fields are changed. Slug uniqueness and parent existence are revalidated on change. Records an audit event with a per-field diff. Requires ASSET_MANAGER or ADMIN role.
       requestBody:
         required: true
         content:
@@ -2509,8 +3151,11 @@ paths:
                   nullable: true
                   default: null
                 description:
-                  type: string
-                  maxLength: 1000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 1000
                   nullable: true
                   default: null
                 icon:
@@ -2567,12 +3212,11 @@ paths:
                 type: object
                 additionalProperties: {}
     delete:
+      operationId: deleteV1CategoriesById
       summary: Soft-delete a category
       tags:
         - Categories
-      description:
-        Marks a category as deleted. Refuses deletion if the category has any non-deleted child
-        categories (would orphan them), or if any non-deleted assets reference it. Requires ADMIN role.
+      description: Marks a category as deleted. Refuses deletion if the category has any non-deleted child categories (would orphan them), or if any non-deleted assets reference it. Requires ADMIN role.
       parameters:
         - schema:
             type: string
@@ -2593,12 +3237,11 @@ paths:
                 nullable: true
   /v1/locations:
     get:
+      operationId: getV1Locations
       summary: List locations
       tags:
         - Locations
-      description:
-        "Returns a paginated list of locations, sorted by name. Soft-deleted locations are
-        excluded. Optional filters: parentId, type, isActive."
+      description: "Returns a paginated list of locations, sorted by name. Soft-deleted locations are excluded. Optional filters: parentId, type, isActive."
       parameters:
         - schema:
             type: integer
@@ -2686,13 +3329,11 @@ paths:
                   - pagination
                 additionalProperties: false
     post:
+      operationId: postV1Locations
       summary: Create a new location
       tags:
         - Locations
-      description:
-        Creates a new location. Slug must be unique (or derived from name if omitted). If parentId
-        is supplied, the parent must exist and the resulting depth must not exceed the hierarchy limit.
-        Requires ASSET_MANAGER or ADMIN role.
+      description: Creates a new location. Slug must be unique (or derived from name if omitted). If parentId is supplied, the parent must exist and the resulting depth must not exceed the hierarchy limit. Requires ASSET_MANAGER or ADMIN role.
       requestBody:
         required: true
         content:
@@ -2762,8 +3403,11 @@ paths:
                   nullable: true
                   default: null
                 description:
-                  type: string
-                  maxLength: 2000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
                   nullable: true
                   default: null
                 managerId:
@@ -2792,6 +3436,7 @@ paths:
                 additionalProperties: {}
   /v1/locations/{id}:
     get:
+      operationId: getV1LocationsById
       summary: Get a single location by ID
       tags:
         - Locations
@@ -2814,13 +3459,11 @@ paths:
                 type: object
                 additionalProperties: {}
     patch:
+      operationId: patchV1LocationsById
       summary: Update an existing location
       tags:
         - Locations
-      description:
-        Partial update — only provided fields are changed. Slug uniqueness, parent existence,
-        and hierarchy invariants (cycle, depth) are revalidated on change. Records an audit event with
-        a per-field diff. Requires ASSET_MANAGER or ADMIN role.
+      description: Partial update — only provided fields are changed. Slug uniqueness, parent existence, and hierarchy invariants (cycle, depth) are revalidated on change. Records an audit event with a per-field diff. Requires ASSET_MANAGER or ADMIN role.
       requestBody:
         required: true
         content:
@@ -2891,8 +3534,11 @@ paths:
                   nullable: true
                   default: null
                 description:
-                  type: string
-                  maxLength: 2000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
                   nullable: true
                   default: null
                 managerId:
@@ -2925,12 +3571,11 @@ paths:
                 type: object
                 additionalProperties: {}
     delete:
+      operationId: deleteV1LocationsById
       summary: Soft-delete a location
       tags:
         - Locations
-      description:
-        Marks a location as deleted. Refuses deletion if the location has any non-deleted child
-        locations (would orphan them), or if any non-deleted assets reference it. Requires ADMIN role.
+      description: Marks a location as deleted. Refuses deletion if the location has any non-deleted child locations (would orphan them), or if any non-deleted assets reference it. Requires ADMIN role.
       parameters:
         - schema:
             type: string
@@ -2951,12 +3596,11 @@ paths:
                 nullable: true
   /v1/loan-requests:
     get:
+      operationId: getV1LoanRequests
       summary: List loan requests
       tags:
         - Loan Requests
-      description:
-        Vráti stránkovaný zoznam žiadostí. EMPLOYEE vidí len vlastné. ASSET_MANAGER a ADMIN
-        vidia všetky v rámci tenanta.
+      description: Vráti stránkovaný zoznam žiadostí. EMPLOYEE vidí len vlastné. ASSET_MANAGER a ADMIN vidia všetky v rámci tenanta.
       parameters:
         - schema:
             type: integer
@@ -2991,6 +3635,12 @@ paths:
             pattern: ^[a-f\d]{24}$
           in: query
           name: requesterId
+          required: false
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: query
+          name: beneficiaryId
           required: false
       security:
         - bearerAuth: []
@@ -3033,12 +3683,11 @@ paths:
                   - pagination
                 additionalProperties: false
     post:
+      operationId: postV1LoanRequests
       summary: Create a loan request (katalógová žiadosť, ADR-0026)
       tags:
         - Loan Requests
-      description:
-        Vytvorí novú katalógovú žiadosť (kategória + množstvo). Žiadosť nerezervuje majetok
-        — správca vydá pri fulfil. Každý EMPLOYEE môže podať žiadosť.
+      description: Vytvorí novú katalógovú žiadosť (kategória + množstvo). Žiadosť nerezervuje majetok — správca vydá pri fulfil. Každý EMPLOYEE môže podať žiadosť.
       requestBody:
         required: true
         content:
@@ -3047,9 +3696,11 @@ paths:
               type: object
               properties:
                 purpose:
-                  type: string
-                  minLength: 3
-                  maxLength: 500
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 3
+                      maxLength: 500
                 plannedFrom:
                   type: string
                   format: date-time
@@ -3069,8 +3720,11 @@ paths:
                         type: integer
                         minimum: 1
                       note:
-                        type: string
-                        maxLength: 1000
+                        allOf:
+                          - type: string
+                          - type: string
+                            minLength: 0
+                            maxLength: 1000
                         nullable: true
                     required:
                       - categoryId
@@ -3101,6 +3755,7 @@ paths:
                 additionalProperties: {}
   /v1/loan-requests/{id}:
     get:
+      operationId: getV1LoanRequestsById
       summary: Get a loan request by ID
       tags:
         - Loan Requests
@@ -3122,12 +3777,11 @@ paths:
                 type: object
                 additionalProperties: {}
     delete:
+      operationId: deleteV1LoanRequestsById
       summary: Cancel a loan request
       tags:
         - Loan Requests
-      description:
-        "Zruší PENDING žiadosť. ADR-0026: nič sa neuvoľňuje (nebola rezervácia). Môže len autor
-        žiadosti alebo ADMIN."
+      description: "Zruší PENDING žiadosť. ADR-0026: nič sa neuvoľňuje (nebola rezervácia). Môže len autor žiadosti alebo ADMIN."
       parameters:
         - schema:
             type: string
@@ -3148,12 +3802,11 @@ paths:
                 nullable: true
   /v1/loan-requests/{id}/approve:
     post:
+      operationId: postV1LoanRequestsByIdApprove
       summary: Approve a loan request
       tags:
         - Loan Requests
-      description:
-        "Schváli PENDING žiadosť (stav → APPROVED). ADR-0026: schválenie UŽ NEVYTVÁRA Loan
-        — to sa deje pri fulfil. Vyžaduje ASSET_MANAGER alebo ADMIN."
+      description: "Schváli PENDING žiadosť (stav → APPROVED). ADR-0026: schválenie UŽ NEVYTVÁRA Loan — to sa deje pri fulfil. Vyžaduje ASSET_MANAGER alebo ADMIN."
       parameters:
         - schema:
             type: string
@@ -3173,13 +3826,11 @@ paths:
                 additionalProperties: {}
   /v1/loan-requests/{id}/fulfil:
     post:
+      operationId: postV1LoanRequestsByIdFulfil
       summary: Fulfil a loan request (vydanie, ADR-0026)
       tags:
         - Loan Requests
-      description:
-        Vydá majetok z APPROVED / PARTIALLY_FULFILLED žiadosti. Správca mapuje položky žiadosti
-        na konkrétne kusy (SERIALIZED) alebo BULK množstvo. Vznikne nový Loan. Žiadosť prejde do PARTIALLY_FULFILLED
-        / FULFILLED / CLOSED. Vyžaduje ASSET_MANAGER alebo ADMIN.
+      description: Vydá majetok z APPROVED / PARTIALLY_FULFILLED žiadosti. Správca mapuje položky žiadosti na konkrétne kusy (SERIALIZED) alebo BULK množstvo. Vznikne nový Loan. Žiadosť prejde do PARTIALLY_FULFILLED / FULFILLED / CLOSED. Vyžaduje ASSET_MANAGER alebo ADMIN.
       requestBody:
         required: true
         content:
@@ -3232,6 +3883,47 @@ paths:
                           - bulkItemId
                           - quantity
                         additionalProperties: false
+                      - type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - EXTRA_SERIALIZED
+                          categoryId:
+                            type: string
+                            pattern: ^[a-f\d]{24}$
+                          assetIds:
+                            type: array
+                            items:
+                              type: string
+                              pattern: ^[a-f\d]{24}$
+                            minItems: 1
+                        required:
+                          - type
+                          - categoryId
+                          - assetIds
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - EXTRA_BULK
+                          categoryId:
+                            type: string
+                            pattern: ^[a-f\d]{24}$
+                          bulkItemId:
+                            type: string
+                            pattern: ^[a-f\d]{24}$
+                          quantity:
+                            type: integer
+                            minimum: 1
+                        required:
+                          - type
+                          - categoryId
+                          - bulkItemId
+                          - quantity
+                        additionalProperties: false
                   minItems: 1
                 dueAt:
                   type: string
@@ -3242,8 +3934,11 @@ paths:
                   type: boolean
                   default: false
                 notes:
-                  type: string
-                  maxLength: 2000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
                   nullable: true
                   default: null
               required:
@@ -3268,12 +3963,11 @@ paths:
                 additionalProperties: {}
   /v1/loan-requests/{id}/reject:
     post:
+      operationId: postV1LoanRequestsByIdReject
       summary: Reject a loan request
       tags:
         - Loan Requests
-      description:
-        "Zamietne PENDING žiadosť. ADR-0026: žiadna rezervácia — nič sa neuvoľňuje. Vyžaduje
-        ASSET_MANAGER alebo ADMIN."
+      description: "Zamietne PENDING žiadosť. ADR-0026: žiadna rezervácia — nič sa neuvoľňuje. Vyžaduje ASSET_MANAGER alebo ADMIN."
       requestBody:
         required: true
         content:
@@ -3282,9 +3976,11 @@ paths:
               type: object
               properties:
                 reason:
-                  type: string
-                  minLength: 5
-                  maxLength: 1000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 5
+                      maxLength: 1000
               required:
                 - reason
               additionalProperties: false
@@ -3308,12 +4004,11 @@ paths:
                 nullable: true
   /v1/loans/my:
     get:
+      operationId: getV1LoansMy
       summary: List my active and historical loans
       tags:
         - Loans
-      description:
-        "Returns a paginated list of loans for the currently authenticated user. Includes `isOverdue:
-        boolean` computed field on each loan. Available to any authenticated user."
+      description: "Returns a paginated list of loans for the currently authenticated user. Includes `isOverdue: boolean` computed field on each loan. Available to any authenticated user."
       parameters:
         - schema:
             type: integer
@@ -3334,6 +4029,7 @@ paths:
             type: string
             enum:
               - ACTIVE
+              - PARTIALLY_RETURNED
               - RETURNED
               - DAMAGED
               - LOST
@@ -3382,13 +4078,11 @@ paths:
                 additionalProperties: false
   /v1/loans:
     get:
+      operationId: getV1Loans
       summary: List loans
       tags:
         - Loans
-      description:
-        "Returns a paginated list of loans. EMPLOYEE sees only their own loans. ASSET_MANAGER
-        and ADMIN see all loans in the tenant, optionally filtered by `status`, `borrowerId`, or `assetId`.
-        Each loan includes `isOverdue: boolean` computed field."
+      description: "Returns a paginated list of loans. EMPLOYEE sees only their own loans. ASSET_MANAGER and ADMIN see all loans in the tenant, optionally filtered by `status`, `borrowerId`, or `assetId`. Each loan includes `isOverdue: boolean` computed field."
       parameters:
         - schema:
             type: integer
@@ -3409,6 +4103,7 @@ paths:
             type: string
             enum:
               - ACTIVE
+              - PARTIALLY_RETURNED
               - RETURNED
               - DAMAGED
               - LOST
@@ -3468,13 +4163,11 @@ paths:
                   - pagination
                 additionalProperties: false
     post:
+      operationId: postV1Loans
       summary: Create a direct loan (without a prior request)
       tags:
         - Loans
-      description:
-        Creates a loan immediately, without requiring a LoanRequest. Asset goes directly AVAILABLE
-        → BORROWED. Use for walk-in handover when the borrower is physically present. `requestId` is null
-        on the resulting Loan. Requires ASSET_MANAGER or ADMIN role.
+      description: Creates a loan immediately, without requiring a LoanRequest. Asset goes directly AVAILABLE → BORROWED. Use for walk-in handover when the borrower is physically present. `requestId` is null on the resulting Loan. Requires ASSET_MANAGER or ADMIN role.
       requestBody:
         required: true
         content:
@@ -3501,9 +4194,11 @@ paths:
                   minItems: 1
                   maxItems: 50
                 purpose:
-                  type: string
-                  minLength: 3
-                  maxLength: 500
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 3
+                      maxLength: 500
                 dueAt:
                   type: string
                   format: date-time
@@ -3511,8 +4206,11 @@ paths:
                   nullable: true
                   default: null
                 notes:
-                  type: string
-                  maxLength: 2000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
                   nullable: true
                   default: null
               required:
@@ -3532,12 +4230,11 @@ paths:
                 additionalProperties: {}
   /v1/loans/{id}:
     get:
+      operationId: getV1LoansById
       summary: Get a loan by ID
       tags:
         - Loans
-      description:
-        "Returns a single loan with `isOverdue: boolean` computed field. Accessible to the
-        borrower or any ASSET_MANAGER / ADMIN."
+      description: "Returns a single loan with `isOverdue: boolean` computed field. Accessible to the borrower or any ASSET_MANAGER / ADMIN."
       parameters:
         - schema:
             type: string
@@ -3557,13 +4254,11 @@ paths:
                 additionalProperties: {}
   /v1/loans/{id}/return:
     post:
+      operationId: postV1LoansByIdReturn
       summary: Return a loan
       tags:
         - Loans
-      description:
-        "Processes the return of an ACTIVE loan. For each item, `requiresService: true` moves
-        the asset to IN_SERVICE; otherwise AVAILABLE. Loan transitions to RETURNED (all ok) or DAMAGED
-        (any requiresService). Requires ASSET_MANAGER or ADMIN role."
+      description: "Processes the return of an ACTIVE loan. For each item, `requiresService: true` moves the asset to IN_SERVICE; otherwise AVAILABLE. Loan transitions to RETURNED (all ok) or DAMAGED (any requiresService). Requires ASSET_MANAGER or ADMIN role."
       requestBody:
         required: true
         content:
@@ -3594,8 +4289,11 @@ paths:
                           - POOR
                           - UNUSABLE
                       note:
-                        type: string
-                        maxLength: 1000
+                        allOf:
+                          - type: string
+                          - type: string
+                            minLength: 0
+                            maxLength: 1000
                         nullable: true
                         default: null
                       photoIds:
@@ -3613,8 +4311,11 @@ paths:
                       - condition
                     additionalProperties: false
                 notes:
-                  type: string
-                  maxLength: 2000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
                   nullable: true
                   default: null
               required:
@@ -3640,13 +4341,11 @@ paths:
                 additionalProperties: {}
   /v1/loans/{id}/lost:
     post:
+      operationId: postV1LoansByIdLost
       summary: Mark a loan as lost
       tags:
         - Loans
-      description:
-        Marks an ACTIVE loan as LOST. All borrowed assets move to LOST status. This action
-        is irreversible — create a new asset record if the item is eventually found and returned to service.
-        Requires ASSET_MANAGER or ADMIN role.
+      description: Marks an ACTIVE loan as LOST. All borrowed assets move to LOST status. This action is irreversible — create a new asset record if the item is eventually found and returned to service. Requires ASSET_MANAGER or ADMIN role.
       requestBody:
         required: true
         content:
@@ -3679,15 +4378,132 @@ paths:
                 enum:
                   - "null"
                 nullable: true
+  /v1/users/{id}/borrowed-items:
+    get:
+      operationId: getV1UsersByIdBorrowedItems
+      summary: Zoznam požičaného majetku osoby cez všetky jej výpožičky (ADR-0036)
+      tags:
+        - Loans
+      description: Vráti flatten zoznam kusov, ktoré má daná osoba aktuálne požičané (ACTIVE alebo PARTIALLY_RETURNED Loan-y), s referenciou na loanId pre každý kus. Requires ASSET_MANAGER or ADMIN role.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+  /v1/users/{id}/return-items:
+    post:
+      operationId: postV1UsersByIdReturnItems
+      summary: Vrátenie vybraných kusov osoby cez viac výpožičiek naraz (ADR-0036)
+      tags:
+        - Loans
+      description: Vráti vybranú podmnožinu kusov danej osoby — každá položka nesie vlastné loanId, môžu patriť rôznym Loan-om. Loan, ktorému nebola vrátená úplne všetka jeho zásoba, prejde do PARTIALLY_RETURNED (nie terminálny stav). Vytvorí jeden RETURN protokol pokrývajúci všetky vrátené kusy. Requires ASSET_MANAGER or ADMIN role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                returnedTo:
+                  type: string
+                  pattern: ^[a-f\d]{24}$
+                  description: MongoDB ObjectId (24 hex znakov)
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      loanId:
+                        type: string
+                        pattern: ^[a-f\d]{24}$
+                        description: MongoDB ObjectId (24 hex znakov)
+                      assetId:
+                        type: string
+                        pattern: ^[a-f\d]{24}$
+                        description: MongoDB ObjectId (24 hex znakov)
+                      condition:
+                        type: string
+                        enum:
+                          - NEW
+                          - EXCELLENT
+                          - GOOD
+                          - FAIR
+                          - POOR
+                          - UNUSABLE
+                      note:
+                        allOf:
+                          - type: string
+                          - type: string
+                            minLength: 0
+                            maxLength: 1000
+                        nullable: true
+                        default: null
+                      photoIds:
+                        type: array
+                        items:
+                          type: string
+                          pattern: ^[a-f\d]{24}$
+                          description: MongoDB ObjectId (24 hex znakov)
+                        default: []
+                      requiresService:
+                        type: boolean
+                        default: false
+                    required:
+                      - loanId
+                      - assetId
+                      - condition
+                    additionalProperties: false
+                  minItems: 1
+                notes:
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 2000
+                  nullable: true
+                  default: null
+              required:
+                - returnedTo
+                - items
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[a-f\d]{24}$
+          in: path
+          name: id
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
   /v1/protocols:
     get:
+      operationId: getV1Protocols
       summary: Zoznam preberacích protokolov
       tags:
         - Protocols
-      description:
-        Stránkovaný zoznam protokolov tenanta, najnovšie prvé. ASSET_MANAGER/ADMIN vidí všetky
-        protokoly organizácie, EMPLOYEE len tie, kde je odovzdávajúcou alebo preberajúcou stranou. Filtrovateľné
-        podľa `type` a `status`.
+      description: Stránkovaný zoznam protokolov tenanta, najnovšie prvé. ASSET_MANAGER/ADMIN vidí všetky protokoly organizácie, EMPLOYEE len tie, kde je odovzdávajúcou alebo preberajúcou stranou. Filtrovateľné podľa `type` a `status`.
       parameters:
         - schema:
             type: integer
@@ -3765,13 +4581,11 @@ paths:
                 additionalProperties: false
   /v1/loans/{id}/protocols:
     post:
+      operationId: postV1LoansByIdProtocols
       summary: Dodatočne vytvoriť protokol k výpožičke (backfill)
       tags:
         - Protocols
-      description:
-        Vytvorí DRAFT protokol pre existujúcu výpožičku, ktorá ho ešte nemá — určené pre výpožičky
-        vzniknuté pred zavedením protokolov. HANDOVER vyžaduje loan bez handoverProtocolId; RETURN vyžaduje
-        vrátený loan bez returnProtocolId. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      description: Vytvorí DRAFT protokol pre existujúcu výpožičku, ktorá ho ešte nemá — určené pre výpožičky vzniknuté pred zavedením protokolov. HANDOVER vyžaduje loan bez handoverProtocolId; RETURN vyžaduje vrátený loan bez returnProtocolId. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
       requestBody:
         required: true
         content:
@@ -3805,12 +4619,11 @@ paths:
                 type: object
                 additionalProperties: {}
     get:
+      operationId: getV1LoansByIdProtocols
       summary: Zoznam protokolov k výpožičke
       tags:
         - Protocols
-      description:
-        Vráti všetky protokoly (HANDOVER + RETURN) viazané na danú výpožičku. Prístupné borrowerovi
-        daného Loan alebo ASSET_MANAGER/ADMIN.
+      description: Vráti všetky protokoly (HANDOVER + RETURN) viazané na danú výpožičku. Prístupné borrowerovi daného Loan alebo ASSET_MANAGER/ADMIN.
       parameters:
         - schema:
             type: string
@@ -3838,12 +4651,11 @@ paths:
                 additionalProperties: false
   /v1/protocols/{protocolId}:
     get:
+      operationId: getV1ProtocolsByProtocolId
       summary: Metadata protokolu (JSON)
       tags:
         - Protocols
-      description:
-        Vráti JSON záznam protokolu (číslo, strany, stav, podpisy). Prístupné účastníkovi protokolu
-        (handover/receive strana) alebo ASSET_MANAGER/ADMIN.
+      description: Vráti JSON záznam protokolu (číslo, strany, stav, podpisy). Prístupné účastníkovi protokolu (handover/receive strana) alebo ASSET_MANAGER/ADMIN.
       parameters:
         - schema:
             type: string
@@ -3863,13 +4675,11 @@ paths:
                 additionalProperties: {}
   /v1/protocols/{protocolId}/pdf:
     get:
+      operationId: getV1ProtocolsByProtocolIdPdf
       summary: PDF protokolu (on-demand render)
       tags:
         - Protocols
-      description:
-        Vyrenderuje PDF protokolu zo záznamu a vráti ho ako application/pdf. Render je deterministický
-        — rovnaký záznam → vždy identický PDF. pdfSha256 sa dopočíta a uloží po prvom stiahnutí (lazy).
-        Prístupné účastníkovi protokolu alebo ASSET_MANAGER/ADMIN.
+      description: Vyrenderuje PDF protokolu zo záznamu a vráti ho ako application/pdf. Render je deterministický — rovnaký záznam → vždy identický PDF. pdfSha256 sa dopočíta a uloží po prvom stiahnutí (lazy). Prístupné účastníkovi protokolu alebo ASSET_MANAGER/ADMIN.
       parameters:
         - schema:
             type: string
@@ -3884,13 +4694,11 @@ paths:
           description: Default Response
   /v1/protocols/{protocolId}/sign:
     post:
+      operationId: postV1ProtocolsByProtocolIdSign
       summary: Podpísať protokol (CLICK_TO_SIGN)
       tags:
         - Protocols
-      description:
-        Zapíše podpis prihlásená strana (handover alebo receive). Keď sú obe strany podpísané,
-        protokol prejde DRAFT → SIGNED a pdfSha256 sa fixuje (hash záväznej podpísanej verzie). Každá
-        strana môže podpísať len svoju rolu.
+      description: Zapíše podpis prihlásená strana (handover alebo receive). Keď sú obe strany podpísané, protokol prejde DRAFT → SIGNED a pdfSha256 sa fixuje (hash záväznej podpísanej verzie). Každá strana môže podpísať len svoju rolu.
       requestBody:
         required: true
         content:
@@ -3922,16 +4730,152 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /v1/dashboard/summary:
+    get:
+      operationId: getV1DashboardSummary
+      summary: Agregovaný súhrn pre dashboard
+      tags:
+        - Dashboard
+      description: "Zlúči counts (assets/categories/locations/activeLoans), zoznamy žiadostí (PENDING/APPROVED/PARTIALLY_FULFILLED), aktívne výpožičky a DRAFT protokoly do jednej odpovede. RBAC: zoznamy idú cez loansService (EMPLOYEE len vlastné), protokoly cez participantUserId pravidlo."
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  counts:
+                    type: object
+                    properties:
+                      assets:
+                        type: integer
+                        minimum: 0
+                      categories:
+                        type: integer
+                        minimum: 0
+                      locations:
+                        type: integer
+                        minimum: 0
+                      activeLoans:
+                        type: integer
+                        minimum: 0
+                    required:
+                      - assets
+                      - categories
+                      - locations
+                      - activeLoans
+                    additionalProperties: false
+                  loanRequests:
+                    type: object
+                    properties:
+                      pending:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: {}
+                          pagination:
+                            type: object
+                            additionalProperties: {}
+                        required:
+                          - data
+                          - pagination
+                        additionalProperties: false
+                      approved:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: {}
+                          pagination:
+                            type: object
+                            additionalProperties: {}
+                        required:
+                          - data
+                          - pagination
+                        additionalProperties: false
+                      partiallyFulfilled:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: {}
+                          pagination:
+                            type: object
+                            additionalProperties: {}
+                        required:
+                          - data
+                          - pagination
+                        additionalProperties: false
+                    required:
+                      - pending
+                      - approved
+                      - partiallyFulfilled
+                    additionalProperties: false
+                  protocols:
+                    type: object
+                    properties:
+                      draft:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: {}
+                          pagination:
+                            type: object
+                            additionalProperties: {}
+                        required:
+                          - data
+                          - pagination
+                        additionalProperties: false
+                    required:
+                      - draft
+                    additionalProperties: false
+                  loans:
+                    type: object
+                    properties:
+                      active:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: {}
+                          pagination:
+                            type: object
+                            additionalProperties: {}
+                        required:
+                          - data
+                          - pagination
+                        additionalProperties: false
+                    required:
+                      - active
+                    additionalProperties: false
+                required:
+                  - counts
+                  - loanRequests
+                  - protocols
+                  - loans
+                additionalProperties: false
   /v1/labels/sheet:
     get:
+      operationId: getV1LabelsSheet
       summary: Avery PDF hárok so štítkami (on-demand)
       tags:
         - Labels
-      description:
-        "Vygeneruje PDF s mriežkou QR štítkov pre zvolené assety. Každý štítok obsahuje QR
-        kód (appBaseUrl/scan/publicToken), inventoryNumber a názov. Preset avery-l7160: 3×8 = 24 štítkov/A4
-        (default). Preset avery-l7163: 2×7 = 14 štítkov/A4. Vyžaduje nastavený appBaseUrl na Organisation
-        — inak 409."
+      description: "Vygeneruje PDF s mriežkou QR štítkov pre zvolené assety. Každý štítok obsahuje QR kód (appBaseUrl/scan/publicToken), inventoryNumber a názov. Preset avery-l7160: 3×8 = 24 štítkov/A4 (default). Preset avery-l7163: 2×7 = 14 štítkov/A4. Vyžaduje nastavený appBaseUrl na Organisation — inak 409."
       parameters:
         - schema:
             type: string
@@ -3954,13 +4898,11 @@ paths:
           description: Default Response
   /v1/assets/{id}/label:
     get:
+      operationId: getV1AssetsByIdLabel
       summary: ZPL string pre jeden štítok (on-demand)
       tags:
         - Labels
-      description:
-        Vygeneruje ZPL string pre jeden asset. Odovzdajte ho Zebra Browser Print agentovi na
-        doručenie na termotlačiareň. Rozmery a DPI sa berú z Organisation.labelPrinting configu. format=zpl
-        je povinný.
+      description: Vygeneruje ZPL string pre jeden asset. Odovzdajte ho Zebra Browser Print agentovi na doručenie na termotlačiareň. Rozmery a DPI sa berú z Organisation.labelPrinting configu. format=zpl je povinný.
       parameters:
         - schema:
             type: string
@@ -3992,12 +4934,11 @@ paths:
                 additionalProperties: false
   /v1/labels/zpl:
     post:
+      operationId: postV1LabelsZpl
       summary: ZPL stringy pre dávku štítkov
       tags:
         - Labels
-      description:
-        Vygeneruje ZPL string pre každý asset v dávke (max 200). Vracia pole { assetId, zpl
-        } — frontend ich odovzdá Browser Print agentovi.
+      description: Vygeneruje ZPL string pre každý asset v dávke (max 200). Vracia pole { assetId, zpl } — frontend ich odovzdá Browser Print agentovi.
       requestBody:
         required: true
         content:
@@ -4043,15 +4984,18 @@ paths:
                 additionalProperties: false
   /v1/invitations:
     post:
+      operationId: postV1Invitations
       responses:
         "200":
           description: Default Response
     get:
+      operationId: getV1Invitations
       responses:
         "200":
           description: Default Response
   /v1/invitations/{id}:
     delete:
+      operationId: deleteV1InvitationsById
       parameters:
         - schema:
             type: string
@@ -4063,6 +5007,7 @@ paths:
           description: Default Response
   /v1/invitations/{id}/resend:
     post:
+      operationId: postV1InvitationsByIdResend
       parameters:
         - schema:
             type: string
@@ -4074,6 +5019,7 @@ paths:
           description: Default Response
   /v1/auth/invitations/{token}:
     get:
+      operationId: getV1AuthInvitationsByToken
       parameters:
         - schema:
             type: string
@@ -4085,21 +5031,25 @@ paths:
           description: Default Response
   /v1/auth/accept-invitation:
     post:
+      operationId: postV1AuthAcceptInvitation
       responses:
         "200":
           description: Default Response
   /v1/members:
     get:
+      operationId: getV1Members
       responses:
         "200":
           description: Default Response
   /v1/memberships:
     get:
+      operationId: getV1Memberships
       responses:
         "200":
           description: Default Response
   /v1/memberships/{id}:
     get:
+      operationId: getV1MembershipsById
       parameters:
         - schema:
             type: string
@@ -4110,6 +5060,7 @@ paths:
         "200":
           description: Default Response
     patch:
+      operationId: patchV1MembershipsById
       parameters:
         - schema:
             type: string
@@ -4120,6 +5071,7 @@ paths:
         "200":
           description: Default Response
     delete:
+      operationId: deleteV1MembershipsById
       parameters:
         - schema:
             type: string
@@ -4129,8 +5081,15 @@ paths:
       responses:
         "200":
           description: Default Response
+  /v1/memberships/pre-provisioned:
+    post:
+      operationId: postV1MembershipsPreProvisioned
+      responses:
+        "200":
+          description: Default Response
   /v1/memberships/{id}/default:
     post:
+      operationId: postV1MembershipsByIdDefault
       parameters:
         - schema:
             type: string
@@ -4142,12 +5101,11 @@ paths:
           description: Default Response
   /v1/stock:
     get:
+      operationId: getV1Stock
       summary: Prehľad skladu — všetky BULK položky tenanta
       tags:
         - Stock
-      description:
-        Vráti zoznam všetkých BULK položiek tenanta s aktuálnym zostatkom a množstvom posledného
-        príjmu (pre farebné indikátory). Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      description: Vráti zoznam všetkých BULK položiek tenanta s aktuálnym zostatkom a množstvom posledného príjmu (pre farebné indikátory). Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
       security:
         - bearerAuth: []
       responses:
@@ -4197,12 +5155,11 @@ paths:
                 additionalProperties: false
   /v1/stock/{itemId}/movements:
     get:
+      operationId: getV1StockByItemIdMovements
       summary: Zoznam skladových pohybov položky
       tags:
         - Stock
-      description:
-        Vracia paginovaný zoznam pohybov pre BULK položku, zoradených od najnovšieho. Len pre
-        položky s trackingMode === BULK.
+      description: Vracia paginovaný zoznam pohybov pre BULK položku, zoradených od najnovšieho. Len pre položky s trackingMode === BULK.
       parameters:
         - schema:
             type: integer
@@ -4277,12 +5234,11 @@ paths:
                 additionalProperties: false
   /v1/stock/{itemId}/receive:
     post:
+      operationId: postV1StockByItemIdReceive
       summary: Príjem na sklad (RECEIPT)
       tags:
         - Stock
-      description:
-        Zaúčtuje príjem kusov na sklad. Kladné množstvo. Aktualizuje `quantityOnHand` na položke
-        a zapíše do ledgera. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      description: Zaúčtuje príjem kusov na sklad. Kladné množstvo. Aktualizuje `quantityOnHand` na položke a zapíše do ledgera. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
       requestBody:
         required: true
         content:
@@ -4298,13 +5254,19 @@ paths:
                   type: string
                   pattern: ^[a-f\d]{24}$
                 reason:
-                  type: string
-                  maxLength: 1000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 1000
                   nullable: true
                   default: null
                 note:
-                  type: string
-                  maxLength: 1000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 1000
                   nullable: true
                   default: null
               required:
@@ -4330,12 +5292,11 @@ paths:
                 additionalProperties: {}
   /v1/stock/{itemId}/adjust:
     post:
+      operationId: postV1StockByItemIdAdjust
       summary: Ručná korekcia inventúry (ADJUSTMENT)
       tags:
         - Stock
-      description:
-        Zaúčtuje ručnú korekciu skladového množstva (kladnú aj zápornú). Dôvod je povinný.
-        Nesmie stiahnut zostatok pod nulu. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
+      description: Zaúčtuje ručnú korekciu skladového množstva (kladnú aj zápornú). Dôvod je povinný. Nesmie stiahnut zostatok pod nulu. Vyžaduje ASSET_MANAGER alebo ADMIN rolu.
       requestBody:
         required: true
         content:
@@ -4349,12 +5310,17 @@ paths:
                   type: string
                   pattern: ^[a-f\d]{24}$
                 reason:
-                  type: string
-                  minLength: 3
-                  maxLength: 1000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 3
+                      maxLength: 1000
                 note:
-                  type: string
-                  maxLength: 1000
+                  allOf:
+                    - type: string
+                    - type: string
+                      minLength: 0
+                      maxLength: 1000
                   nullable: true
                   default: null
               required:
@@ -4381,12 +5347,11 @@ paths:
                 additionalProperties: {}
   /v1/stock/{itemId}/reconcile:
     post:
+      operationId: postV1StockByItemIdReconcile
       summary: Reconciliation — overenie konzistencie cache vs ledger
       tags:
         - Stock
-      description:
-        Overí že `asset.quantityOnHand` (cache) súhlasí so `sum(stock_movements.quantity)`
-        (zdroj pravdy). Ak nie, opraví cache. Diagnostická operácia — vyžaduje ADMIN rolu.
+      description: Overí že `asset.quantityOnHand` (cache) súhlasí so `sum(stock_movements.quantity)` (zdroj pravdy). Ak nie, opraví cache. Diagnostická operácia — vyžaduje ADMIN rolu.
       parameters:
         - schema:
             type: string
@@ -4419,13 +5384,27 @@ paths:
                   - cacheWas
                   - wasConsistent
                 additionalProperties: false
+  /v1/system/migrations/run:
+    post:
+      operationId: postV1SystemMigrationsRun
+      responses:
+        "200":
+          description: Default Response
+  /v1/system/indexes/ensure:
+    post:
+      operationId: postV1SystemIndexesEnsure
+      responses:
+        "200":
+          description: Default Response
   /v1/system/retention/run:
     post:
+      operationId: postV1SystemRetentionRun
       responses:
         "200":
           description: Default Response
   /:
     get:
+      operationId: get
       responses:
         "200":
           description: Default Response
@@ -4438,13 +5417,9 @@ tags:
   - name: Health
     description: Liveness and readiness probes
   - name: Organisations
-    description:
-      Tenant lifecycle management. Each Organisation is a tenant boundary; all other resources
-      are scoped to exactly one Organisation.
+    description: Tenant lifecycle management. Each Organisation is a tenant boundary; all other resources are scoped to exactly one Organisation.
   - name: Users
-    description:
-      User accounts and current-user lookup. JIT-provisioned on first login via Microsoft Entra
-      ID. Tenant-scoped per Organisation.
+    description: User accounts and current-user lookup. JIT-provisioned on first login via Microsoft Entra ID. Tenant-scoped per Organisation.
   - name: Assets
     description: Physical asset inventory — devices, equipment, vehicles, supplies.
   - name: Categories

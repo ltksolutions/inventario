@@ -26,10 +26,15 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   oprave odkazov zelený, Unit Tests tiež. Červený zostáva len OpenAPI
   job, ktorý má `continue-on-error`. PR je pripravený na merge.
 - **OpenAPI lint** (`docs.yml`, job `openapi`) — stále
-  `continue-on-error: true`. Redocly hlási `struct` chyby: `nullable: true`
-  namiesto `type: [..., null]` (OpenAPI 3.1), chýbajúce `operationId` a
-  4xx odpovede. Kým sa to neupraví, job nič nestráži — presne tá istá
-  pasca, v akej bol Markdown job do 31. 8.
+  `continue-on-error: true`, kým sa nedorieši posledná skupina chýb.
+  `operationId` je hotový (31. 8., odvodzuje sa v `plugins/swagger.ts`).
+  Zostáva **163× `nullable: true`**, čo v OpenAPI 3.1 neexistuje —
+  správne je `type: [..., null]`. Nie je to na ručnú opravu: `nullable`
+  generuje Zod → JSON Schema konverzia
+  (`fastify-type-provider-zod`), takže sa to rieši buď jej konfiguráciou,
+  alebo prevodom v `scripts/openapi-to-yaml.ts`. Kým je
+  `continue-on-error` zapnuté, job nič nestráži — presne tá istá pasca,
+  v akej bol Markdown job do 31. 8.
 - **GitHub Discussions** — v repozitári nie sú zapnuté (Settings →
   Features), ale `docs/user-guide/support.md` na ne odkazuje. Odkaz je
   zatiaľ v `ignorePatterns` link checkera; po zapnutí ten pattern

@@ -28,6 +28,7 @@
   "paths": {
     "/health": {
       "get": {
+        "operationId": "getHealth",
         "summary": "Liveness probe",
         "tags": [
           "Health"
@@ -71,6 +72,7 @@
     },
     "/health/ready": {
       "get": {
+        "operationId": "getHealthReady",
         "summary": "Readiness probe",
         "tags": [
           "Health"
@@ -172,6 +174,7 @@
     },
     "/v1/organisations/current": {
       "get": {
+        "operationId": "getV1OrganisationsCurrent",
         "summary": "Get the current tenant (self)",
         "tags": [
           "Organisations"
@@ -197,6 +200,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1OrganisationsCurrent",
         "summary": "Update the current tenant (self, ADMIN)",
         "tags": [
           "Organisations"
@@ -689,6 +693,7 @@
     },
     "/v1/organisations/current/logo": {
       "post": {
+        "operationId": "postV1OrganisationsCurrentLogo",
         "summary": "Upload tenant logo (self, ADMIN)",
         "tags": [
           "Organisations"
@@ -716,6 +721,7 @@
     },
     "/v1/organisations": {
       "get": {
+        "operationId": "getV1Organisations",
         "summary": "List organisations (admin)",
         "tags": [
           "Organisations"
@@ -845,6 +851,7 @@
         }
       },
       "post": {
+        "operationId": "postV1Organisations",
         "summary": "Create a new organisation (admin onboarding)",
         "tags": [
           "Organisations"
@@ -1146,6 +1153,7 @@
     },
     "/v1/organisations/{id}": {
       "get": {
+        "operationId": "getV1OrganisationsById",
         "summary": "Get a single organisation by ID (admin)",
         "tags": [
           "Organisations"
@@ -1182,6 +1190,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1OrganisationsById",
         "summary": "Update an organisation (admin)",
         "tags": [
           "Organisations"
@@ -1477,6 +1486,7 @@
         }
       },
       "delete": {
+        "operationId": "deleteV1OrganisationsById",
         "summary": "Soft-delete an organisation (admin)",
         "tags": [
           "Organisations"
@@ -1517,6 +1527,7 @@
     },
     "/v1/public/organisations/login-context": {
       "get": {
+        "operationId": "getV1PublicOrganisationsLoginContext",
         "summary": "Verejný login-context organizácie podľa slugu alebo vlastnej domény (ADR-0035)",
         "tags": [
           "Public"
@@ -1666,6 +1677,7 @@
     },
     "/v1/me": {
       "get": {
+        "operationId": "getV1Me",
         "summary": "Get the currently authenticated user",
         "tags": [
           "Users"
@@ -1744,6 +1756,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1Me",
         "summary": "Update own profile (GDPR Art. 16)",
         "tags": [
           "Users"
@@ -1805,6 +1818,7 @@
     },
     "/v1/me/export": {
       "get": {
+        "operationId": "getV1MeExport",
         "summary": "Export personal data (GDPR Art. 20)",
         "tags": [
           "Users"
@@ -1861,6 +1875,7 @@
     },
     "/v1/users": {
       "get": {
+        "operationId": "getV1Users",
         "summary": "List users (manager)",
         "tags": [
           "Users"
@@ -1990,6 +2005,7 @@
     },
     "/v1/users/{id}": {
       "get": {
+        "operationId": "getV1UsersById",
         "summary": "Get a single user by ID (manager)",
         "tags": [
           "Users"
@@ -2026,6 +2042,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1UsersById",
         "summary": "Update a user (admin)",
         "tags": [
           "Users"
@@ -2101,6 +2118,7 @@
     },
     "/v1/users/directory": {
       "get": {
+        "operationId": "getV1UsersDirectory",
         "summary": "List persons directory (manager)",
         "tags": [
           "Users"
@@ -2227,6 +2245,7 @@
     },
     "/v1/users/{id}/mfa": {
       "delete": {
+        "operationId": "deleteV1UsersByIdMfa",
         "summary": "Reset MFA for a user (admin)",
         "tags": [
           "Users"
@@ -2268,6 +2287,7 @@
     },
     "/v1/users/{id}/restriction": {
       "post": {
+        "operationId": "postV1UsersByIdRestriction",
         "summary": "Set or clear processing restriction (admin, GDPR Art. 18)",
         "tags": [
           "Users"
@@ -2333,6 +2353,7 @@
     },
     "/v1/assets": {
       "get": {
+        "operationId": "getV1Assets",
         "summary": "List assets",
         "tags": [
           "Assets"
@@ -2422,6 +2443,7 @@
         }
       },
       "post": {
+        "operationId": "postV1Assets",
         "summary": "Create a new asset",
         "tags": [
           "Assets"
@@ -2593,6 +2615,7 @@
     },
     "/v1/assets/tags": {
       "get": {
+        "operationId": "getV1AssetsTags",
         "summary": "Unikátne existujúce tagy (pre autocomplete)",
         "tags": [
           "Assets"
@@ -2631,6 +2654,7 @@
     },
     "/v1/assets/tags/summary": {
       "get": {
+        "operationId": "getV1AssetsTagsSummary",
         "summary": "Tagy s počtom použití (pre číselník Tagov)",
         "tags": [
           "Assets"
@@ -2693,6 +2717,7 @@
     },
     "/v1/assets/tags/rename": {
       "post": {
+        "operationId": "postV1AssetsTagsRename",
         "summary": "Premenovať tag na všetkom majetku (číselník Tagov)",
         "tags": [
           "Assets"
@@ -2772,6 +2797,7 @@
     },
     "/v1/assets/tags/delete": {
       "post": {
+        "operationId": "postV1AssetsTagsDelete",
         "summary": "Zmazať tag zo všetkého majetku (číselník Tagov)",
         "tags": [
           "Assets"
@@ -2837,6 +2863,7 @@
     },
     "/v1/assets/{id}": {
       "get": {
+        "operationId": "getV1AssetsById",
         "summary": "Get a single asset by ID",
         "tags": [
           "Assets"
@@ -2873,6 +2900,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1AssetsById",
         "summary": "Update an existing asset",
         "tags": [
           "Assets"
@@ -3056,6 +3084,7 @@
         }
       },
       "delete": {
+        "operationId": "deleteV1AssetsById",
         "summary": "Soft-delete an asset",
         "tags": [
           "Assets"
@@ -3096,6 +3125,7 @@
     },
     "/v1/assets/by-token/{publicToken}": {
       "get": {
+        "operationId": "getV1AssetsByTokenByPublicToken",
         "summary": "Rozlíš majetok podľa QR tokenu (interné, prihlásené)",
         "tags": [
           "Assets"
@@ -3143,6 +3173,7 @@
     },
     "/v1/assets/{id}/audit": {
       "get": {
+        "operationId": "getV1AssetsByIdAudit",
         "summary": "Audit log majetku",
         "tags": [
           "Assets"
@@ -3243,6 +3274,7 @@
     },
     "/v1/assets/{id}/qr": {
       "get": {
+        "operationId": "getV1AssetsByIdQr",
         "summary": "Generuj QR kod pre asset (ADR-0021)",
         "tags": [
           "Assets"
@@ -3286,6 +3318,7 @@
     },
     "/v1/audit-log": {
       "get": {
+        "operationId": "getV1AuditLog",
         "summary": "Kompletný audit log aktívneho tenanta (filtrovateľný)",
         "tags": [
           "Audit"
@@ -3599,6 +3632,7 @@
     },
     "/v1/assets/{id}/attachments": {
       "get": {
+        "operationId": "getV1AssetsByIdAttachments",
         "summary": "Zoznam príloh majetku",
         "tags": [
           "Attachments"
@@ -3647,6 +3681,7 @@
         }
       },
       "post": {
+        "operationId": "postV1AssetsByIdAttachments",
         "summary": "Nahrať prílohu majetku (ASSET_MANAGER/ADMIN)",
         "tags": [
           "Attachments"
@@ -3676,6 +3711,7 @@
     },
     "/v1/attachments/{id}/primary": {
       "patch": {
+        "operationId": "patchV1AttachmentsByIdPrimary",
         "summary": "Nastaviť prílohu ako hlavné foto (ASSET_MANAGER/ADMIN)",
         "tags": [
           "Attachments"
@@ -3716,6 +3752,7 @@
     },
     "/v1/attachments/{id}": {
       "delete": {
+        "operationId": "deleteV1AttachmentsById",
         "summary": "Zmazať prílohu (ASSET_MANAGER/ADMIN)",
         "tags": [
           "Attachments"
@@ -3756,6 +3793,7 @@
     },
     "/v1/public/scan/{publicToken}": {
       "get": {
+        "operationId": "getV1PublicScanByPublicToken",
         "summary": "Verejny lost & found lookup po QR tokene (ADR-0021)",
         "tags": [
           "Public"
@@ -3848,6 +3886,7 @@
     },
     "/v1/asset-conditions": {
       "get": {
+        "operationId": "getV1AssetConditions",
         "summary": "List asset conditions",
         "tags": [
           "AssetConditions"
@@ -3936,6 +3975,7 @@
         }
       },
       "post": {
+        "operationId": "postV1AssetConditions",
         "summary": "Create asset condition",
         "tags": [
           "AssetConditions"
@@ -4008,6 +4048,7 @@
     },
     "/v1/asset-conditions/{id}": {
       "get": {
+        "operationId": "getV1AssetConditionsById",
         "summary": "Get asset condition by ID",
         "tags": [
           "AssetConditions"
@@ -4043,6 +4084,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1AssetConditionsById",
         "summary": "Update asset condition",
         "tags": [
           "AssetConditions"
@@ -4121,6 +4163,7 @@
         }
       },
       "delete": {
+        "operationId": "deleteV1AssetConditionsById",
         "summary": "Delete asset condition (ADMIN only, FK protected)",
         "tags": [
           "AssetConditions"
@@ -4160,6 +4203,7 @@
     },
     "/v1/categories": {
       "get": {
+        "operationId": "getV1Categories",
         "summary": "List categories",
         "tags": [
           "Categories"
@@ -4272,6 +4316,7 @@
         }
       },
       "post": {
+        "operationId": "postV1Categories",
         "summary": "Create a new category",
         "tags": [
           "Categories"
@@ -4387,6 +4432,7 @@
     },
     "/v1/categories/{id}": {
       "get": {
+        "operationId": "getV1CategoriesById",
         "summary": "Get a single category by ID",
         "tags": [
           "Categories"
@@ -4423,6 +4469,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1CategoriesById",
         "summary": "Update an existing category",
         "tags": [
           "Categories"
@@ -4546,6 +4593,7 @@
         }
       },
       "delete": {
+        "operationId": "deleteV1CategoriesById",
         "summary": "Soft-delete a category",
         "tags": [
           "Categories"
@@ -4586,6 +4634,7 @@
     },
     "/v1/locations": {
       "get": {
+        "operationId": "getV1Locations",
         "summary": "List locations",
         "tags": [
           "Locations"
@@ -4716,6 +4765,7 @@
         }
       },
       "post": {
+        "operationId": "postV1Locations",
         "summary": "Create a new location",
         "tags": [
           "Locations"
@@ -4863,6 +4913,7 @@
     },
     "/v1/locations/{id}": {
       "get": {
+        "operationId": "getV1LocationsById",
         "summary": "Get a single location by ID",
         "tags": [
           "Locations"
@@ -4899,6 +4950,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1LocationsById",
         "summary": "Update an existing location",
         "tags": [
           "Locations"
@@ -5053,6 +5105,7 @@
         }
       },
       "delete": {
+        "operationId": "deleteV1LocationsById",
         "summary": "Soft-delete a location",
         "tags": [
           "Locations"
@@ -5093,6 +5146,7 @@
     },
     "/v1/loan-requests": {
       "get": {
+        "operationId": "getV1LoanRequests",
         "summary": "List loan requests",
         "tags": [
           "Loan Requests"
@@ -5217,6 +5271,7 @@
         }
       },
       "post": {
+        "operationId": "postV1LoanRequests",
         "summary": "Create a loan request (katalógová žiadosť, ADR-0026)",
         "tags": [
           "Loan Requests"
@@ -5327,6 +5382,7 @@
     },
     "/v1/loan-requests/{id}": {
       "get": {
+        "operationId": "getV1LoanRequestsById",
         "summary": "Get a loan request by ID",
         "tags": [
           "Loan Requests"
@@ -5362,6 +5418,7 @@
         }
       },
       "delete": {
+        "operationId": "deleteV1LoanRequestsById",
         "summary": "Cancel a loan request",
         "tags": [
           "Loan Requests"
@@ -5402,6 +5459,7 @@
     },
     "/v1/loan-requests/{id}/approve": {
       "post": {
+        "operationId": "postV1LoanRequestsByIdApprove",
         "summary": "Approve a loan request",
         "tags": [
           "Loan Requests"
@@ -5440,6 +5498,7 @@
     },
     "/v1/loan-requests/{id}/fulfil": {
       "post": {
+        "operationId": "postV1LoanRequestsByIdFulfil",
         "summary": "Fulfil a loan request (vydanie, ADR-0026)",
         "tags": [
           "Loan Requests"
@@ -5644,6 +5703,7 @@
     },
     "/v1/loan-requests/{id}/reject": {
       "post": {
+        "operationId": "postV1LoanRequestsByIdReject",
         "summary": "Reject a loan request",
         "tags": [
           "Loan Requests"
@@ -5712,6 +5772,7 @@
     },
     "/v1/loans/my": {
       "get": {
+        "operationId": "getV1LoansMy",
         "summary": "List my active and historical loans",
         "tags": [
           "Loans"
@@ -5818,6 +5879,7 @@
     },
     "/v1/loans": {
       "get": {
+        "operationId": "getV1Loans",
         "summary": "List loans",
         "tags": [
           "Loans"
@@ -5940,6 +6002,7 @@
         }
       },
       "post": {
+        "operationId": "postV1Loans",
         "summary": "Create a direct loan (without a prior request)",
         "tags": [
           "Loans"
@@ -6042,6 +6105,7 @@
     },
     "/v1/loans/{id}": {
       "get": {
+        "operationId": "getV1LoansById",
         "summary": "Get a loan by ID",
         "tags": [
           "Loans"
@@ -6080,6 +6144,7 @@
     },
     "/v1/loans/{id}/return": {
       "post": {
+        "operationId": "postV1LoansByIdReturn",
         "summary": "Return a loan",
         "tags": [
           "Loans"
@@ -6210,6 +6275,7 @@
     },
     "/v1/loans/{id}/lost": {
       "post": {
+        "operationId": "postV1LoansByIdLost",
         "summary": "Mark a loan as lost",
         "tags": [
           "Loans"
@@ -6271,6 +6337,7 @@
     },
     "/v1/users/{id}/borrowed-items": {
       "get": {
+        "operationId": "getV1UsersByIdBorrowedItems",
         "summary": "Zoznam požičaného majetku osoby cez všetky jej výpožičky (ADR-0036)",
         "tags": [
           "Loans"
@@ -6312,6 +6379,7 @@
     },
     "/v1/users/{id}/return-items": {
       "post": {
+        "operationId": "postV1UsersByIdReturnItems",
         "summary": "Vrátenie vybraných kusov osoby cez viac výpožičiek naraz (ADR-0036)",
         "tags": [
           "Loans"
@@ -6449,6 +6517,7 @@
     },
     "/v1/protocols": {
       "get": {
+        "operationId": "getV1Protocols",
         "summary": "Zoznam preberacích protokolov",
         "tags": [
           "Protocols"
@@ -6567,6 +6636,7 @@
     },
     "/v1/loans/{id}/protocols": {
       "post": {
+        "operationId": "postV1LoansByIdProtocols",
         "summary": "Dodatočne vytvoriť protokol k výpožičke (backfill)",
         "tags": [
           "Protocols"
@@ -6626,6 +6696,7 @@
         }
       },
       "get": {
+        "operationId": "getV1LoansByIdProtocols",
         "summary": "Zoznam protokolov k výpožičke",
         "tags": [
           "Protocols"
@@ -6676,6 +6747,7 @@
     },
     "/v1/protocols/{protocolId}": {
       "get": {
+        "operationId": "getV1ProtocolsByProtocolId",
         "summary": "Metadata protokolu (JSON)",
         "tags": [
           "Protocols"
@@ -6714,6 +6786,7 @@
     },
     "/v1/protocols/{protocolId}/pdf": {
       "get": {
+        "operationId": "getV1ProtocolsByProtocolIdPdf",
         "summary": "PDF protokolu (on-demand render)",
         "tags": [
           "Protocols"
@@ -6744,6 +6817,7 @@
     },
     "/v1/protocols/{protocolId}/sign": {
       "post": {
+        "operationId": "postV1ProtocolsByProtocolIdSign",
         "summary": "Podpísať protokol (CLICK_TO_SIGN)",
         "tags": [
           "Protocols"
@@ -6804,6 +6878,7 @@
     },
     "/v1/dashboard/summary": {
       "get": {
+        "operationId": "getV1DashboardSummary",
         "summary": "Agregovaný súhrn pre dashboard",
         "tags": [
           "Dashboard"
@@ -7001,6 +7076,7 @@
     },
     "/v1/labels/sheet": {
       "get": {
+        "operationId": "getV1LabelsSheet",
         "summary": "Avery PDF hárok so štítkami (on-demand)",
         "tags": [
           "Labels"
@@ -7043,6 +7119,7 @@
     },
     "/v1/assets/{id}/label": {
       "get": {
+        "operationId": "getV1AssetsByIdLabel",
         "summary": "ZPL string pre jeden štítok (on-demand)",
         "tags": [
           "Labels"
@@ -7100,6 +7177,7 @@
     },
     "/v1/labels/zpl": {
       "post": {
+        "operationId": "postV1LabelsZpl",
         "summary": "ZPL stringy pre dávku štítkov",
         "tags": [
           "Labels"
@@ -7176,6 +7254,7 @@
     },
     "/v1/invitations": {
       "post": {
+        "operationId": "postV1Invitations",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7183,6 +7262,7 @@
         }
       },
       "get": {
+        "operationId": "getV1Invitations",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7192,6 +7272,7 @@
     },
     "/v1/invitations/{id}": {
       "delete": {
+        "operationId": "deleteV1InvitationsById",
         "parameters": [
           {
             "schema": {
@@ -7211,6 +7292,7 @@
     },
     "/v1/invitations/{id}/resend": {
       "post": {
+        "operationId": "postV1InvitationsByIdResend",
         "parameters": [
           {
             "schema": {
@@ -7230,6 +7312,7 @@
     },
     "/v1/auth/invitations/{token}": {
       "get": {
+        "operationId": "getV1AuthInvitationsByToken",
         "parameters": [
           {
             "schema": {
@@ -7249,6 +7332,7 @@
     },
     "/v1/auth/accept-invitation": {
       "post": {
+        "operationId": "postV1AuthAcceptInvitation",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7258,6 +7342,7 @@
     },
     "/v1/members": {
       "get": {
+        "operationId": "getV1Members",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7267,6 +7352,7 @@
     },
     "/v1/memberships": {
       "get": {
+        "operationId": "getV1Memberships",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7276,6 +7362,7 @@
     },
     "/v1/memberships/{id}": {
       "get": {
+        "operationId": "getV1MembershipsById",
         "parameters": [
           {
             "schema": {
@@ -7293,6 +7380,7 @@
         }
       },
       "patch": {
+        "operationId": "patchV1MembershipsById",
         "parameters": [
           {
             "schema": {
@@ -7310,6 +7398,7 @@
         }
       },
       "delete": {
+        "operationId": "deleteV1MembershipsById",
         "parameters": [
           {
             "schema": {
@@ -7329,6 +7418,7 @@
     },
     "/v1/memberships/pre-provisioned": {
       "post": {
+        "operationId": "postV1MembershipsPreProvisioned",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7338,6 +7428,7 @@
     },
     "/v1/memberships/{id}/default": {
       "post": {
+        "operationId": "postV1MembershipsByIdDefault",
         "parameters": [
           {
             "schema": {
@@ -7357,6 +7448,7 @@
     },
     "/v1/stock": {
       "get": {
+        "operationId": "getV1Stock",
         "summary": "Prehľad skladu — všetky BULK položky tenanta",
         "tags": [
           "Stock"
@@ -7435,6 +7527,7 @@
     },
     "/v1/stock/{itemId}/movements": {
       "get": {
+        "operationId": "getV1StockByItemIdMovements",
         "summary": "Zoznam skladových pohybov položky",
         "tags": [
           "Stock"
@@ -7549,6 +7642,7 @@
     },
     "/v1/stock/{itemId}/receive": {
       "post": {
+        "operationId": "postV1StockByItemIdReceive",
         "summary": "Príjem na sklad (RECEIPT)",
         "tags": [
           "Stock"
@@ -7641,6 +7735,7 @@
     },
     "/v1/stock/{itemId}/adjust": {
       "post": {
+        "operationId": "postV1StockByItemIdAdjust",
         "summary": "Ručná korekcia inventúry (ADJUSTMENT)",
         "tags": [
           "Stock"
@@ -7730,6 +7825,7 @@
     },
     "/v1/stock/{itemId}/reconcile": {
       "post": {
+        "operationId": "postV1StockByItemIdReconcile",
         "summary": "Reconciliation — overenie konzistencie cache vs ledger",
         "tags": [
           "Stock"
@@ -7789,6 +7885,7 @@
     },
     "/v1/system/migrations/run": {
       "post": {
+        "operationId": "postV1SystemMigrationsRun",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7798,6 +7895,7 @@
     },
     "/v1/system/indexes/ensure": {
       "post": {
+        "operationId": "postV1SystemIndexesEnsure",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7807,6 +7905,7 @@
     },
     "/v1/system/retention/run": {
       "post": {
+        "operationId": "postV1SystemRetentionRun",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -7816,6 +7915,7 @@
     },
     "/": {
       "get": {
+        "operationId": "get",
         "responses": {
           "200": {
             "description": "Default Response"

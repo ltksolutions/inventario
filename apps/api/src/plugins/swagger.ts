@@ -19,7 +19,87 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import fp from 'fastify-plugin';
 import { jsonSchemaTransform } from 'fastify-type-provider-zod';
 
+import type { SwaggerTransform } from '@fastify/swagger';
 import type { FastifyPluginAsync } from 'fastify';
+
+// ---------------------------------------------------------------------------
+// operationId
+// ---------------------------------------------------------------------------
+
+/**
+ * Odvodí `operationId` z HTTP metódy a cesty.
+ *
+ * Redocly lint (`operation-operationId`) ho vyžaduje a generátory klientov
+ * z neho robia názvy funkcií. Ručne ho písať do 87 rout by znamenalo 87
+ * miest, kde sa dá spraviť preklep alebo duplicita — a pri každej novej
+ * route by sa naň dalo zabudnúť. Odvodenie z cesty je deterministické a
+ * nové routy ho dostanú samé.
+ *
+ * Route si môže `operationId` nastaviť aj sama v `schema` — tá hodnota má
+ * prednosť (viď `withOperationId` nižšie), takže sémantickejší názov sa dá
+ * kedykoľvek doplniť bez zásahu do tejto funkcie.
+ *
+ *   GET  /v1/assets              → getV1Assets
+ *   GET  /v1/assets/{id}         → getV1AssetsById
+ *   POST /v1/users/{id}/return-items → postV1UsersByIdReturnItems
+ */
+export function buildOperationId(method: string, url: string): string {
+  const words: string[] = [];
+
+  for (const segment of url.split('/').filter(Boolean)) {
+    // Transform dostáva cestu vo Fastify tvare (`:id`), nie v OpenAPI
+    // tvare (`{id}`) — podporené oboje, nech je funkcia použiteľná aj
+    // nad hotovým OpenAPI dokumentom.
+    const param = segment.startsWith(':')
+      ? segment.slice(1)
+      : segment.startsWith('{') && segment.endsWith('}')
+        ? segment.slice(1, -1)
+        : null;
+
+    if (param !== null) {
+      words.push('by', ...param.split(/[-_]/));
+    } else {
+      words.push(...segment.split(/[-_.]/));
+    }
+  }
+
+  const suffix = words
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
+
+  return method.toLowerCase() + suffix;
+}
+
+/**
+ * Obal nad `jsonSchemaTransform`, ktorý dopĺňa `operationId`. Ak si ho
+ * route nastavila v `schema`, ostáva nedotknutý.
+ *
+ * `jsonSchemaTransform` sám dostáva len `{ schema, url }` — metóda je v
+ * `route`, ktorú posiela @fastify/swagger.
+ */
+const withOperationId: SwaggerTransform = ({ schema, url, route }) => {
+  const result = jsonSchemaTransform({ schema, url });
+  const method = Array.isArray(route.method) ? route.method[0] : route.method;
+
+  if (typeof method !== 'string') return result;
+
+  const operationId = buildOperationId(method, result.url);
+  const transformed = result.schema as Record<string, unknown> | undefined;
+
+  // Časť rout je registrovaná bez `schema` (napr. invitations,
+  // memberships) — v OpenAPI dokumente sú, takže operationId potrebujú
+  // tiež, len im ho nemá kam zapísať. Vytvoríme minimálnu schému.
+  if (transformed === undefined) {
+    return { schema: { operationId }, url: result.url };
+  }
+
+  if (transformed['operationId'] === undefined) {
+    transformed['operationId'] = operationId;
+  }
+
+  return result;
+};
 
 const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
   if (!fastify.config.ENABLE_SWAGGER) {
@@ -100,7 +180,9 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
         url: 'https://docs.inventario.sportup.sk',
       },
     },
-    transform: jsonSchemaTransform,
+    // Zod → JSON Schema (fastify-type-provider-zod) a navrch doplnenie
+    // operationId, ak si ho route nenastavila sama.
+    transform: withOperationId,
   });
 
   await fastify.register(fastifySwaggerUi, {
