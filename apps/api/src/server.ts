@@ -30,6 +30,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
+import { createBootTimer } from './lib/boot-timing.js';
 import { checkPendingMigrations } from './migrations/runner.js';
 import assetConditionsRoutes from './modules/asset-conditions/asset-conditions.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
@@ -114,9 +115,15 @@ export async function buildServer(
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
+  // Rozpad cold startu na fázy — bez merania sa dá len hádať, kde tých
+  // niekoľko sekúnd vzniká. Súhrn ide do logu raz za cold start.
+  const bootTimer = createBootTimer();
+
   // --- Foundation plugins (order matters!) ---------------------------------
   await app.register(configPlugin);
   await app.register(errorHandlerPlugin);
+
+  bootTimer.mark('foundation');
 
   // --- Security middleware -------------------------------------------------
   await app.register(
@@ -164,8 +171,11 @@ export async function buildServer(
     ...(process.env['NODE_ENV'] === 'test' && { skip: () => true }),
   });
 
+  bootTimer.mark('security');
+
   // --- Infrastructure ------------------------------------------------------
   await app.register(mongoPlugin);
+  bootTimer.mark('mongo');
 
   // --- Database migrations -------------------------------------------------
   // Migrations run at DEPLOY TIME now, not on cold start — see
@@ -184,6 +194,7 @@ export async function buildServer(
   if (process.env['EXPORT_ONLY'] !== 'true' && process.env['NODE_ENV'] !== 'test') {
     await checkPendingMigrations(app.mongo.db, app.log);
   }
+  bootTimer.mark('migrationsCheck');
   await app.register(auditPlugin);
   await app.register(emailPlugin);
   await app.register(inventarioJwtPlugin);
@@ -197,8 +208,11 @@ export async function buildServer(
   await app.register(mfaRoutes);
   await app.register(passkeysRoutes);
 
+  bootTimer.mark('authPlugins');
+
   // --- API documentation ---------------------------------------------------
   await app.register(swaggerPlugin);
+  bootTimer.mark('swagger');
 
   // --- Domain routes -------------------------------------------------------
   await app.register(healthRoutes);
@@ -226,6 +240,8 @@ export async function buildServer(
   await app.register(migrationsRoutes);
   await app.register(retentionRoutes);
 
+  bootTimer.mark('domainRoutes');
+
   // --- Root redirect to /docs ----------------------------------------------
   app.get('/', async (_request, reply) => {
     if (app.config.ENABLE_SWAGGER) {
@@ -233,6 +249,8 @@ export async function buildServer(
     }
     return { name: '@sfz/api', version: '0.1.0', status: 'ok' };
   });
+
+  bootTimer.summary(app.log);
 
   return app;
 }

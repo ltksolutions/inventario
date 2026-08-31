@@ -28,8 +28,17 @@ let serverPromise: Promise<FastifyInstance> | null = null;
 
 async function getServer(): Promise<FastifyInstance> {
   if (!serverPromise) {
+    const startedAt = Date.now();
     serverPromise = buildServer().then(async (app) => {
+      const builtAt = Date.now();
       await app.ready();
+      // Celkový cold start tak, ako ho cíti prvý request: buildServer
+      // (pluginy + Atlas + ensureIndexes) + app.ready() (Fastify uzavrie
+      // route strom a skompiluje validátory).
+      app.log.info(
+        { buildMs: builtAt - startedAt, readyMs: Date.now() - builtAt },
+        'Cold start complete',
+      );
       return app;
     });
   }

@@ -70,16 +70,30 @@ async function getMongoConnection(
     readConcern: { level: 'majority' },
   });
 
+  const startedAt = Date.now();
   await client.connect();
+  const connectedAt = Date.now();
   const db = client.db(dbName);
 
   // Verify connection is actually live (ping)
   await db.command({ ping: 1 });
+  const pingedAt = Date.now();
 
   cachedClient = client;
   cachedDb = db;
 
-  logger.info({ dbName }, 'MongoDB connected and verified');
+  // Rozpad je dôležitý: `connect()` je TLS handshake + SCRAM auth + SRV
+  // lookup (cena cold startu), `ping` je jeden round-trip na Atlas (cena
+  // sieťovej latencie). Keď sa cold start rieši, treba vedieť, ktoré z
+  // toho dominuje.
+  logger.info(
+    {
+      dbName,
+      connectMs: connectedAt - startedAt,
+      pingMs: pingedAt - connectedAt,
+    },
+    'MongoDB connected and verified',
+  );
 
   return { client, db };
 }
