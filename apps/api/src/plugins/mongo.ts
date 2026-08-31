@@ -8,15 +8,23 @@
  * The MongoClient is cached at MODULE scope (not Fastify scope). Vercel
  * warm invocations share module state for ~5-15 minutes of inactivity, so
  * subsequent requests reuse the connection instead of opening a new one
- * (which would quickly hit Atlas connection limits — M0 has only 500).
+ * (which would quickly hit Atlas connection limits — Flex has 500).
  *
  * On cold start, `cachedClient` is null and we open a fresh connection.
  * On warm invocation, we reuse the existing one.
  *
- * **Important Mongo settings for serverless:**
- *   - maxPoolSize: 1     → serverless has 1 invoke = 1 request, no pooling needed
- *   - minPoolSize: 0     → don't pre-warm
- *   - maxIdleTimeMS: 10s → close after 10s idle (helps clean shutdown)
+ * **Nastavenia poolu (prehodnotené 2026-08-31):**
+ *   - maxPoolSize: 10     → pôvodne 1, s odôvodnením „serverless má 1 invoke
+ *     = 1 request, pool netreba". Od zapnutia Fluid Compute (`b07cabc`) to
+ *     neplatí: Fluid posiela na jednu inštanciu viac súbežných requestov.
+ *     Horšie, pool veľkosti 1 serializoval aj `Promise.all` V RÁMCI jedného
+ *     requestu — `GET /v1/dashboard/summary` spúšťa 9 operácií naraz, ale
+ *     cez jedno spojenie išli za sebou (namerané 2,4–2,9 s na TEPLEJ
+ *     inštancii; viď docs/sessions/2026-08-31-pomale-nacitanie-dashboardu.md).
+ *   - minPoolSize: 0      → don't pre-warm
+ *   - maxIdleTimeMS: 60s  → pôvodne 10 s, čo znamenalo, že aj na teplej
+ *     inštancii sa medzi dvoma klikmi používateľa spojenie zavrelo a ďalší
+ *     request znova platil TLS handshake + SCRAM auth.
  *
  * Usage:
  *   const assets = fastify.mongo.db.collection('assets');
@@ -47,10 +55,10 @@ async function getMongoConnection(
   logger.info({ dbName }, 'Opening new MongoDB connection');
 
   const client = new MongoClient(uri, {
-    // Serverless-tuned settings
-    maxPoolSize: 1,
+    // Serverless-tuned settings — viď hlavičku súboru
+    maxPoolSize: 10,
     minPoolSize: 0,
-    maxIdleTimeMS: 10_000,
+    maxIdleTimeMS: 60_000,
 
     // Sensible timeouts (Atlas default is 30s, too long for serverless)
     serverSelectionTimeoutMS: 5_000,
