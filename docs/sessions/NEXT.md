@@ -22,10 +22,18 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   je používateľ prihlásený. Zisk zo súbežného spustenia by bol ~0,6 s
   (1,84 → ~1,2 s). Otázka je, či to stojí za komplikáciu s obnovou
   vypršaného tokenu. Kontext: `2026-08-31-pomale-nacitanie-dashboardu.md`.
-- **Dependabot PR #19** (`actions/setup-node` 6 → 7) — zlyhania sú z
-  1. 8. a so zmenou nesúvisia: Markdown link checker berie HTTP 202 z
-     `eur-lex.europa.eu` ako mŕtvy odkaz, OpenAPI lint hlási `struct`
-     chyby. Stačí re-run proti aktuálnemu `main`.
+- **Dependabot PR #19** (`actions/setup-node` 6 → 7) — Markdown job je po
+  oprave odkazov zelený, Unit Tests tiež. Červený zostáva len OpenAPI
+  job, ktorý má `continue-on-error`. PR je pripravený na merge.
+- **OpenAPI lint** (`docs.yml`, job `openapi`) — stále
+  `continue-on-error: true`. Redocly hlási `struct` chyby: `nullable: true`
+  namiesto `type: [..., null]` (OpenAPI 3.1), chýbajúce `operationId` a
+  4xx odpovede. Kým sa to neupraví, job nič nestráži — presne tá istá
+  pasca, v akej bol Markdown job do 31. 8.
+- **GitHub Discussions** — v repozitári nie sú zapnuté (Settings →
+  Features), ale `docs/user-guide/support.md` na ne odkazuje. Odkaz je
+  zatiaľ v `ignorePatterns` link checkera; po zapnutí ten pattern
+  odstrániť.
 
 ## Úklid v kóde (nice-to-have, nie blocker)
 
