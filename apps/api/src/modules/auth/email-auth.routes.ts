@@ -49,7 +49,11 @@ import type { WithId } from 'mongodb';
 // Argon2id config — OWASP recommended 2025
 // ---------------------------------------------------------------------------
 
-const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
+// argon2 0.45 premenovalo `Options` na `HashOptions`. Zároveň `hash()` má
+// dva overloady — `raw: true` vracia Buffer, inak string. Bez `raw` sa trafí
+// ten druhý, takže `& { raw?: false }` už netreba (a s rozbitým typom by TS
+// vybral prvý overload a `passwordHash: string` by dostal Buffer).
+const ARGON2_OPTIONS: argon2.HashOptions = {
   type: argon2.argon2id,
   memoryCost: 65_536, // 64 MiB
   timeCost: 3,
