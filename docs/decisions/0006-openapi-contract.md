@@ -83,4 +83,4 @@ a `openapi-fetch` na typovaný HTTP klient. Single source of truth: `apps/api/op
 - [Phase D milestone](../milestones/phase-d-eu-compliance.md) — kde bola táto rozhodnutie implementované
 - [apps/api/scripts/export-openapi.ts](../../apps/api/scripts/export-openapi.ts)
 - [apps/api/openapi.json](../../apps/api/openapi.json)
-- [apps/web/src/lib/api-types.ts](../../apps/web/src/lib/api-types.ts)
+- `apps/web/src/lib/api-types.ts` — generovaný z `openapi.json` cez `pnpm generate:api-types`, preto nie je v gite (`apps/web/.gitignore`)
