@@ -27,16 +27,37 @@ teda nie je hlavná príčina, len to zhoršuje.
   viditeľnejší skeleton v `StatCard`.
 - ✅ **Inštrumentácia** — `lib/boot-timing.ts`, rozpad boot fáz do logu.
 
+- ✅ **Nasadené a overené (31. 8.)** — rovnaké meranie po deployi:
+  `/v1/dashboard/summary` 2 872 → **1 122 ms** (−60 %), celková cesta k
+  dátam 4 023 → **1 840 ms** (−54 %). `/v1/auth/me` klesol z 1 024 na
+  532 ms bez zásahu — bola tiež brzdená poolom 1. Workflow
+  `indexes/ensure` po deployi zbehol úspešne.
+- ✅ **`argon2` bumpnutý na 0.45.1** aj s opravou typu
+  (`argon2.Options` → `argon2.HashOptions` v `email-auth.routes.ts`).
+  Urobené priamo na `main`, aby dependabot PR #24 nepadal na breaking
+  change, ktorú sám neopraví.
+
 **Otvorené:**
 
-1. **Deploy + overenie.** Po nasadení znova zmerať tú istú sekvenciu a
-   porovnať s číslami v session logu. Pri prvom deployi skontrolovať, že
-   workflow krok `indexes/ensure` naozaj zbehol — v produkcii sa indexy
-   pri boote už nevytvárajú.
-2. **Fáza 2b — sériová auth reťaz.** Dashboard query čaká na
-   `/v1/auth/me` (`enabled: isAuthenticated`). Zámerne odložené: `me`
-   bola tiež serializovaná poolom veľkosti 1, takže sa môže zlepšiť sama.
-   Rozhodnúť podľa merania z bodu 1.
+1. **Fáza 2b — sériová auth reťaz.** Dashboard query čaká na
+   `/v1/auth/me` (`enabled: isAuthenticated`). Zisk by bol ~0,6 s
+   (1,85 → ~1,2 s). Otázka, či to stojí za komplikáciu s obnovou
+   vypršaného tokenu.
+2. **Dependabot PR #19** (`actions/setup-node` 6 → 7) — zlyhania sú z
+   1. 8. a so zmenou nesúvisia: Markdown link checker berie HTTP 202 z
+      `eur-lex.europa.eu` ako mŕtvy odkaz, OpenAPI lint hlási `struct`
+      chyby. Stačí re-run proti aktuálnemu `main`.
+
+**Vedomé rozhodnutia (nie otvorené body):**
+
+- **Swagger v produkcii ostáva zapnutý.** Vo Vercel projekte je
+  `ENABLE_SWAGGER` nastavená explicitne (Production + Preview) a prebíja
+  nový default odvodený od `NODE_ENV` — `/docs` na produkčnom API teda
+  funguje ďalej. Ponechané zámerne: Swagger stál z cold startu ~45 ms,
+  čo je po zrýchlení summary o 1,75 s zanedbateľné, a nič neodhaľuje
+  (repo je verejné aj s OpenAPI schémou). Nový default v `config.ts`
+  ostáva ako bezpečnejšie správanie pre prípad, že by premennú niekto
+  odstránil.
 
 ---
 

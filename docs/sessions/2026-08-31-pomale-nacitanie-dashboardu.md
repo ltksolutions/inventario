@@ -154,12 +154,38 @@ potvrdzuje domnienku, že bola tiež brzdená poolom veľkosti 1.
    dali spustiť súbežne, cesta k dátam by klesla z ~1,85 s na ~1,2 s.
    Otázka je, či to stojí za komplikáciu s obnovou vypršaného tokenu.
 
-3. **`ENABLE_SWAGGER` vo Verceli.** Po deployi `/docs` na produkčnom API
-   naďalej odpovedá 200, takže projekt má premennú nastavenú explicitne
-   na `true` — tá prebíja nový default odvodený od `NODE_ENV`. Ak má
-   Swagger v produkcii naozaj zmiznúť, treba ju vo Vercel projekte
-   `inventario-api` odstrániť alebo prepnúť na `false`.
-4. **Prvý deploy po tejto zmene** musí prebehnúť tak, aby workflow
-   `indexes/ensure` naozaj zbehol — v produkcii sa indexy pri boote už
-   nevytvárajú. Ak by workflow zlyhal, indexy ostanú v stave pred
-   deployom (existujúce sa nikam nestratia, len nové by nevznikli).
+3. ~~`ENABLE_SWAGGER` vo Verceli.~~ **Uzavreté — Swagger v produkcii
+   ostáva.** Projekt má premennú nastavenú explicitne (Production +
+   Preview, 111 dní), takže prebíja nový default podľa `NODE_ENV` a
+   `/docs` funguje ďalej. Ponechané vedome: pôvodný dôvod na vypnutie
+   (~45 ms z cold startu) je po zrýchlení summary o 1,75 s zanedbateľný
+   a Swagger nič neodhaľuje — repo je verejné aj s OpenAPI schémou.
+   Nový default v `config.ts` ostáva ako poistka, keby premennú niekto
+   odstránil.
+
+## Dodatok — argon2 0.45.1 (31. 8.)
+
+Dependabot PR #24 padal na typecheku kvôli `argon2` 0.45.1. Nie je to
+falošný poplach, ale skutočná breaking change v typoch:
+
+|             | 0.44             | 0.45                 |
+| ----------- | ---------------- | -------------------- |
+| typ options | `argon2.Options` | `argon2.HashOptions` |
+
+`email-auth.routes.ts` mal `const ARGON2_OPTIONS: argon2.Options & { raw?: false }`.
+V 0.45 sa `Options` nerozlíši, typ sa rozpadne a TypeScript potom vyberie
+prvý overload `hash()` (ten s `raw: true`), ktorý vracia `Buffer` — odtiaľ
+druhá chyba, `Buffer` do `passwordHash: string`.
+
+Opravené bumpom na `^0.45.1` a zmenou typu na `argon2.HashOptions`;
+`& { raw?: false }` netreba, bez `raw` sa trafí overload vracajúci
+`string`. Ostatných šesť miest s argon2 (`registration.routes.ts`,
+`invitations.routes.ts`, `mfa-crypto.ts`) používa inline objekt bez
+explicitného typu a funguje v oboch verziách.
+
+Bump musel ísť spolu s opravou — `HashOptions` v 0.44 neexistuje, takže
+samotná oprava by rozbila build na aktuálnej verzii. Overené celou sadou:
+1036 testov, vrátane auth, registrácie, pozvánok a MFA. 4. **Prvý deploy po tejto zmene** musí prebehnúť tak, aby workflow
+`indexes/ensure` naozaj zbehol — v produkcii sa indexy pri boote už
+nevytvárajú. Ak by workflow zlyhal, indexy ostanú v stave pred
+deployom (existujúce sa nikam nestratia, len nové by nevznikli).
