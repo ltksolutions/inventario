@@ -125,16 +125,41 @@ každom kliku používateľa.
   prestane existovať (Janika potvrdil); dokumentácia beží na
   `inventario-docs`. `ENABLE_SWAGGER=true` to vie kedykoľvek vrátiť.
 
+## Overenie po deployi (31. 8., produkcia)
+
+Rovnaké meranie, rovnaký prehliadač, teplá inštancia:
+
+| request                 | pred         | po                 |
+| ----------------------- | ------------ | ------------------ |
+| `/v1/auth/me`           | 1 024 ms     | 528–532 ms         |
+| `/v1/dashboard/summary` | 2 872 ms     | 1 122–1 136 ms     |
+| **celkom k dátam**      | **4 023 ms** | **1 840–1 885 ms** |
+
+`/v1/dashboard/summary` je **o 60 % rýchlejší**, celková cesta k dátam
+**o 54 %**. Potvrdzuje to diagnózu: `Promise.all` sa zparalelizoval.
+
+Vidno to aj na iných stránkach — `/assets` vypaľuje tri GETy
+(`assets`, `categories`, `locations`) a všetky tri majú v Resource Timing
+**rovnaký `startTime`** a dobiehajú v 1,18–1,35 s, teda naozaj bežia
+súbežne, nie za sebou.
+
+`/v1/auth/me` sa skrátil na polovicu bez toho, aby sme sa ho dotkli —
+potvrdzuje domnienku, že bola tiež brzdená poolom veľkosti 1.
+
 ## Otvorené
 
-1. **Overiť efekt na produkcii po deployi** — znova zmerať tú istú
-   sekvenciu (`/v1/auth/me` + `/v1/dashboard/summary`) cez Resource
-   Timing a porovnať s číslami vyššie.
-2. **Fáza 2b — sériová auth reťaz.** `/v1/auth/me` trvá 0,3–1,0 s a
-   dashboard query naň čaká (`enabled: isAuthenticated`). Zámerne
-   odložené: `me` bola tiež serializovaná poolom veľkosti 1, takže sa
-   môže po Fáze 2a zlepšiť sama. Rozhodnúť až podľa merania.
-3. **Prvý deploy po tejto zmene** musí prebehnúť tak, aby workflow
+1. ~~Overiť efekt na produkcii po deployi.~~ **Hotové, viď vyššie.**
+2. **Fáza 2b — sériová auth reťaz.** Stále platí, ale je to už menší
+   zisk: `/v1/auth/me` (0,53 s) blokuje štart dashboard query. Ak by sa
+   dali spustiť súbežne, cesta k dátam by klesla z ~1,85 s na ~1,2 s.
+   Otázka je, či to stojí za komplikáciu s obnovou vypršaného tokenu.
+
+3. **`ENABLE_SWAGGER` vo Verceli.** Po deployi `/docs` na produkčnom API
+   naďalej odpovedá 200, takže projekt má premennú nastavenú explicitne
+   na `true` — tá prebíja nový default odvodený od `NODE_ENV`. Ak má
+   Swagger v produkcii naozaj zmiznúť, treba ju vo Vercel projekte
+   `inventario-api` odstrániť alebo prepnúť na `false`.
+4. **Prvý deploy po tejto zmene** musí prebehnúť tak, aby workflow
    `indexes/ensure` naozaj zbehol — v produkcii sa indexy pri boote už
    nevytvárajú. Ak by workflow zlyhal, indexy ostanú v stave pred
    deployom (existujúce sa nikam nestratia, len nové by nevznikli).

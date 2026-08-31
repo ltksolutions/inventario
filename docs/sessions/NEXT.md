@@ -1,6 +1,6 @@
 # NEXT
 
-## Aktuálny stav (2026-08-31) — pomalé prvé načítanie dashboardu — NASADIŤ A OVERIŤ
+## Aktuálny stav (2026-08-31) — pomalé prvé načítanie dashboardu — NASADENÉ A OVERENÉ
 
 Session log: `docs/sessions/2026-08-31-pomale-nacitanie-dashboardu.md`.
 
