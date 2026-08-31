@@ -1,6 +1,46 @@
 # NEXT
 
-## Aktuálny stav (2026-08-30) — Atlas náklady + zrušený keep-warm cron — HOTOVÉ
+## Aktuálny stav (2026-08-31) — pomalé prvé načítanie dashboardu — NASADIŤ A OVERIŤ
+
+Session log: `docs/sessions/2026-08-31-pomale-nacitanie-dashboardu.md`.
+
+Janika nahlásil, že dashboard sa vykreslí rýchlo, ale dáta v ňom nie sú
+~10 s a používateľ nemá spätnú väzbu. Zmerané na produkcii cez Resource
+Timing: na **teplej** inštancii trvá cesta k dátam 4,0–5,4 s
+(`/v1/auth/me` 0,3–1,0 s → `/v1/dashboard/summary` 2,4–2,9 s). Cold start
+teda nie je hlavná príčina, len to zhoršuje.
+
+- ✅ **Nájdená príčina** — `maxPoolSize: 1` v `plugins/mongo.ts`
+  serializoval `Promise.all` v `/v1/dashboard/summary` (9 operácií cez
+  jedno spojenie). Odôvodnenie „serverless má 1 invoke = 1 request"
+  prestalo platiť zapnutím Fluid Compute (`b07cabc`).
+- ✅ **Pool a idle timeout** — `maxPoolSize` 1 → 10, `maxIdleTimeMS`
+  10 s → 60 s.
+- ✅ **`ensureIndexes()` mimo produkčného cold-startu** — 18 sériových
+  round-tripov nahradil deploy-time endpoint
+  `POST /v1/system/indexes/ensure` (`lib/ensure-indexes.ts`,
+  `modules/system/indexes.routes.ts`, krok vo workflow po migráciách).
+- ✅ **Swagger v produkcii vypnutý** — `ENABLE_SWAGGER` default podľa
+  `NODE_ENV`. Verejné `/docs` na produkčnom API zaniká (potvrdené).
+- ✅ **UX počas načítavania** — skeleton `PendingActionsPanel` so
+  skutočnou štruktúrou panelu, hint po 3 s (`lib/useSlowLoadingHint.ts`),
+  viditeľnejší skeleton v `StatCard`.
+- ✅ **Inštrumentácia** — `lib/boot-timing.ts`, rozpad boot fáz do logu.
+
+**Otvorené:**
+
+1. **Deploy + overenie.** Po nasadení znova zmerať tú istú sekvenciu a
+   porovnať s číslami v session logu. Pri prvom deployi skontrolovať, že
+   workflow krok `indexes/ensure` naozaj zbehol — v produkcii sa indexy
+   pri boote už nevytvárajú.
+2. **Fáza 2b — sériová auth reťaz.** Dashboard query čaká na
+   `/v1/auth/me` (`enabled: isAuthenticated`). Zámerne odložené: `me`
+   bola tiež serializovaná poolom veľkosti 1, takže sa môže zlepšiť sama.
+   Rozhodnúť podľa merania z bodu 1.
+
+---
+
+## Predošlý stav (2026-08-30) — Atlas náklady + zrušený keep-warm cron — HOTOVÉ
 
 Session log: `docs/sessions/2026-08-30-atlas-naklady-keep-warm-cron.md`.
 
@@ -54,9 +94,11 @@ existujú; spraviť DR test (restore nanečisto — stály otvorený bod od jún
 skontrolovať, či `docs/compliance/` netvrdí o zálohovaní viac, než Flex
 reálne poskytuje.
 
-**Otvorené (kód, ak by sa vrátil pomalý preloader):** nemalo by — všetky
-tri opatrenia sú hotové (`staleTime` `8a91c32`, Fluid Compute `b07cabc`,
-overlay len pre mutácie `1c239e0`). Ak predsa: presunúť `ensureIndexes()`
+**Otvorené (kód, ak by sa vrátil pomalý preloader):** ~~nemalo by~~ —
+**vrátil sa, riešené 31. 8.** (viď hore). Príčina nebola v tých troch
+opatreniach, ale v `maxPoolSize: 1`. Pôvodný text: všetky tri opatrenia sú
+hotové (`staleTime` `8a91c32`, Fluid Compute `b07cabc`, overlay len pre
+mutácie `1c239e0`). Ak predsa: presunúť `ensureIndexes()`
 mimo cold-startu (vzor ako migrácie, `00a2515`); zvážiť vypnutie Swaggeru
 v produkcii.
 

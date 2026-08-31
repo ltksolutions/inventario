@@ -11,6 +11,32 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### Changed
+
+- **Rýchlosť prvého načítania dashboardu (2026-08-31)** — session log:
+  `docs/sessions/2026-08-31-pomale-nacitanie-dashboardu.md`.
+  - **`maxPoolSize` 1 → 10, `maxIdleTimeMS` 10 s → 60 s** (`plugins/mongo.ts`).
+    Pool veľkosti 1 serializoval aj `Promise.all` v rámci jedného requestu —
+    `GET /v1/dashboard/summary` spúšťa 9 operácií naraz, ale cez jedno spojenie
+    išli za sebou (namerané 2,4–2,9 s na **teplej** inštancii). Pôvodné
+    odôvodnenie („serverless má 1 invoke = 1 request") prestalo platiť
+    zapnutím Fluid Compute.
+  - **`ensureIndexes()` mimo produkčného cold-startu** (`lib/ensure-indexes.ts`,
+    `modules/system/indexes.routes.ts`). Bolo to 18 sériových round-tripov na
+    Atlas pred prvým užitočným requestom. Indexy teraz vytvára deploy-time
+    endpoint `POST /v1/system/indexes/ensure`, volaný z workflow po migráciách
+    — rovnaký vzor ako pri migráciách. Mimo produkcie sa nič nemení.
+  - **Swagger v produkcii vypnutý** — `ENABLE_SWAGGER` default je odvodený od
+    `NODE_ENV`. Verejné `/docs` na `api.inventario.estate` prestáva existovať;
+    dokumentácia beží na `inventario-docs`. `ENABLE_SWAGGER=true` to vráti.
+  - **Inštrumentácia cold startu** (`lib/boot-timing.ts`) — rozpad boot fáz do
+    logu, podrobný režim cez `BOOT_TIMING=1`.
+  - **UX počas načítavania dashboardu** — `PendingActionsPanel` má skeleton so
+    skutočnou štruktúrou panelu namiesto prázdneho obdĺžnika; po 3 s čakania
+    pribudne veta o dlhšom prvom načítaní (`lib/useSlowLoadingHint.ts`);
+    skeleton v `StatCard` je viditeľný (`border-subtle` namiesto
+    `surface-subtle`).
+
 ### Added
 
 - **EU compliance — P1/P2/P3 + audit prílohy (2026-06-11)**:
