@@ -69,8 +69,11 @@ export function StatCard({
           aria-busy={isLoading}
         >
           {isLoading ? (
+            // `surface-subtle` (paper-50) je na `surface-card` prakticky
+            // neviditeľný — skeleton pôsobil ako prázdna karta. `border-subtle`
+            // (gray-200) je stále jemný, ale používateľ ho zaregistruje.
             <span
-              className="inline-block h-7 w-16 animate-pulse rounded bg-surface-subtle"
+              className="inline-block h-7 w-16 animate-pulse rounded bg-border-subtle"
               aria-label="Načítavam"
             />
           ) : isError ? (

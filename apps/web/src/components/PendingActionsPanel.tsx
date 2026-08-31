@@ -45,6 +45,7 @@ import type { JSX, ReactNode } from 'react';
 
 import { useCanManageLoans, useDashboardSummary } from '@/lib/api-hooks';
 import { useAuth } from '@/lib/auth-context';
+import { useSlowLoadingHint } from '@/lib/useSlowLoadingHint';
 
 const MAX_ITEMS_PER_GROUP = 5;
 
@@ -84,6 +85,7 @@ export function PendingActionsPanel(): JSX.Element | null {
   const summary = useDashboardSummary();
 
   const isLoading = summary.isLoading;
+  const isSlowLoading = useSlowLoadingHint(isLoading);
 
   // ── Odvodené skupiny ──────────────────────────────────────────────────────
 
@@ -114,16 +116,32 @@ export function PendingActionsPanel(): JSX.Element | null {
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (isLoading) {
+    // Prázdny sivý obdĺžnik používateľovi nepovie nič — po pár sekundách
+    // vyzerá appka pokazená. Skeleton preto drží skutočnú štruktúru panelu
+    // (nadpis + riadky) a pomenuje, čo sa deje.
     return (
       <section aria-labelledby="pending-actions-heading" className="mb-10">
-        <h2 id="pending-actions-heading" className="sr-only">
-          Čaká na vás
-        </h2>
         <div
           aria-busy="true"
-          aria-label="Načítavam čakajúce aktivity"
-          className="h-24 animate-pulse rounded-xl border border-border-subtle bg-surface-card"
-        />
+          className="rounded-xl border border-border-subtle bg-surface-card shadow-md"
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-6 py-4">
+            <h2 id="pending-actions-heading" className="text-lg font-semibold text-text-primary">
+              Čaká na vás
+            </h2>
+            <span className="text-xs text-text-secondary">Načítavam…</span>
+          </div>
+          <div className="space-y-3 px-6 py-5">
+            <div className="h-4 w-2/3 animate-pulse rounded bg-border-subtle" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-border-subtle" />
+            <div className="h-4 w-3/5 animate-pulse rounded bg-border-subtle" />
+          </div>
+          {isSlowLoading && (
+            <p className="border-t border-border-subtle px-6 py-3 text-xs text-text-secondary">
+              Prvé načítanie po dlhšej prestávke môže trvať niekoľko sekúnd.
+            </p>
+          )}
+        </div>
       </section>
     );
   }
