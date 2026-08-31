@@ -39,6 +39,7 @@ import {
 import fp from 'fastify-plugin';
 import { ObjectId } from 'mongodb';
 
+import { ensureIndexesOnBoot } from '../lib/ensure-indexes.js';
 import { MembershipsRepository } from '../modules/memberships/memberships.repository.js';
 
 import { ForbiddenError, UnauthorizedError } from './error-handler.js';
@@ -141,7 +142,7 @@ declare module 'fastify' {
 
 const authPlugin: FastifyPluginAsync = async (fastify) => {
   const membershipsRepo = new MembershipsRepository(fastify.mongo.db);
-  await membershipsRepo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'memberships', membershipsRepo);
 
   // -------------------------------------------------------------------------
   // requireAuth — verifies the inv_access cookie

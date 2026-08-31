@@ -31,6 +31,7 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { createBootTimer } from './lib/boot-timing.js';
+import indexRegistryPlugin from './lib/ensure-indexes.js';
 import { checkPendingMigrations } from './migrations/runner.js';
 import assetConditionsRoutes from './modules/asset-conditions/asset-conditions.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
@@ -60,6 +61,7 @@ import organisationsRoutes from './modules/organisations/organisations.routes.js
 import publicLoginContextRoutes from './modules/organisations/public-login-context.routes.js';
 import protocolsRoutes from './modules/protocols/protocols.routes.js';
 import stockRoutes from './modules/stock/stock.routes.js';
+import indexesRoutes from './modules/system/indexes.routes.js';
 import migrationsRoutes from './modules/system/migrations.routes.js';
 import retentionRoutes from './modules/system/retention.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
@@ -175,6 +177,7 @@ export async function buildServer(
 
   // --- Infrastructure ------------------------------------------------------
   await app.register(mongoPlugin);
+  await app.register(indexRegistryPlugin);
   bootTimer.mark('mongo');
 
   // --- Database migrations -------------------------------------------------
@@ -238,6 +241,7 @@ export async function buildServer(
   await app.register(membershipsRoutes);
   await app.register(stockRoutes);
   await app.register(migrationsRoutes);
+  await app.register(indexesRoutes);
   await app.register(retentionRoutes);
 
   bootTimer.mark('domainRoutes');

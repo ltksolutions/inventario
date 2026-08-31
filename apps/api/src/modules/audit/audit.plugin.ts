@@ -15,6 +15,8 @@
 
 import fp from 'fastify-plugin';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
+
 import { AuditLogRepository } from './audit.repository.js';
 import { AuditLogService } from './audit.service.js';
 
@@ -42,7 +44,7 @@ declare module 'fastify' {
 
 const auditPlugin: FastifyPluginAsync = async (fastify) => {
   const repo = new AuditLogRepository(fastify.mongo.db);
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'audit', repo);
 
   const service = new AuditLogService(repo);
   fastify.decorate('auditLog', service);

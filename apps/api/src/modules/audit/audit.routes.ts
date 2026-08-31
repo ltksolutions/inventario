@@ -18,6 +18,8 @@
 import { AuditLogSchema } from '@inventario/shared-types';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
+
 import { AuditLogRepository } from './audit.repository.js';
 
 import type { AuditLog } from '@inventario/shared-types';
@@ -165,7 +167,7 @@ const auditRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
   const repo = new AuditLogRepository(fastify.mongo.db);
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'audit-routes', repo);
 
   const canRead = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);
 

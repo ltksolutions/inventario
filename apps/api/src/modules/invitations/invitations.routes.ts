@@ -46,6 +46,7 @@ import fp from 'fastify-plugin';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../../plugins/error-handler.js';
 import { setAuthCookies } from '../auth/cookie-helpers.js';
 import { InvitationsRepository } from '../invitations/invitations.repository.js';
@@ -101,8 +102,8 @@ const ListInvitationsQuerySchema = z.object({
 const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   const invRepo = new InvitationsRepository(fastify.mongo.db);
   const membRepo = new MembershipsRepository(fastify.mongo.db);
-  await invRepo.ensureIndexes();
-  await membRepo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'invitations', invRepo);
+  await ensureIndexesOnBoot(fastify, 'invitations-memberships', membRepo);
 
   const { FRONTEND_BASE_URL, JWT_ACCESS_TOKEN_TTL_SECONDS, JWT_REFRESH_TOKEN_TTL_DAYS } =
     fastify.config;

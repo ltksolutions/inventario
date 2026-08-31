@@ -22,6 +22,7 @@ import { createHash } from 'node:crypto';
 import { del, put } from '@vercel/blob';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { stripImageMetadata } from '../../lib/strip-image-metadata.js';
 import { BadRequestError, HttpError, NotFoundError } from '../../plugins/error-handler.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
@@ -95,7 +96,7 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
 
   const attachmentsRepo = new AttachmentsRepository(fastify.mongo.db);
   const assetsRepo = new AssetsRepository(fastify.mongo.db);
-  await attachmentsRepo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'attachments', attachmentsRepo);
 
   // Multipart parser je registrovaný GLOBÁLNE v server.ts (limit fileSize
   // pokrýva aj prílohy). Veľkosť kontrolujeme ešte raz v handleri.

@@ -1,4 +1,4 @@
-name: Run Migrations After Deploy
+name: Run Migrations And Ensure Indexes After Deploy
 
 # Vercel sends a `repository_dispatch` event with type `vercel.deployment.success`
 # whenever a deployment finishes building AND has been promoted to production
@@ -41,4 +41,17 @@ jobs:
           curl --fail --silent --show-error \
             --max-time 60 \
             -X POST "https://api.inventario.estate/v1/system/migrations/run" \
+            -H "Authorization: Bearer ${{ secrets.MIGRATIONS_SECRET }}"
+
+      # Indexy sa od 2026-08-31 pri produkčnom cold starte nevytvárajú —
+      # bolo to 18 sériových round-tripov na Atlas pred prvým requestom.
+      # Vytvára ich tento krok, rovnakým vzorom ako migrácie vyššie.
+      # `createIndexes` je idempotentné, takže opakovaný beh je bezpečný.
+      # Beží PO migráciách zámerne: migrácia môže vytvoriť alebo prečistiť
+      # kolekciu, na ktorej index stojí.
+      - name: Call POST /v1/system/indexes/ensure
+        run: |
+          curl --fail --silent --show-error \
+            --max-time 120 \
+            -X POST "https://api.inventario.estate/v1/system/indexes/ensure" \
             -H "Authorization: Bearer ${{ secrets.MIGRATIONS_SECRET }}"

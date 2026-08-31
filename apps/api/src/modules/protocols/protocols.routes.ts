@@ -36,6 +36,7 @@ import fp from 'fastify-plugin';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
 
 import { LoanProtocolsRepository } from './loan-protocols.repository.js';
@@ -94,7 +95,7 @@ const protocolsRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
   const protocolsRepo = new LoanProtocolsRepository(fastify.mongo.db);
-  await protocolsRepo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'protocols', protocolsRepo);
 
   // Injektnúť repo do LoansService (bol dekorovaný v loan-requests-routes bez repo).
   fastify.loansService.setProtocolsRepo(protocolsRepo);

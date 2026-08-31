@@ -49,6 +49,7 @@ import { USER_ROLE_VALUES } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { AuditLogRepository } from '../audit/audit.repository.js';
 import { MembershipsRepository } from '../memberships/memberships.repository.js';
 
@@ -329,7 +330,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     auditLogRepo,
   );
 
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'users', repo);
 
   fastify.decorate('usersService', service);
 

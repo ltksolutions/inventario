@@ -19,6 +19,7 @@
 import fp from 'fastify-plugin';
 import { SignJWT, importPKCS8, importSPKI, jwtVerify, type JWTPayload, type KeyLike } from 'jose';
 
+import { ensureIndexesOnBoot } from '../lib/ensure-indexes.js';
 import { RefreshTokensRepository } from '../modules/auth/refresh-tokens.repository.js';
 
 import { UnauthorizedError } from './error-handler.js';
@@ -182,7 +183,7 @@ const inventarioJwtPlugin: FastifyPluginAsync = async (fastify) => {
   }
 
   const refreshTokens = new RefreshTokensRepository(fastify.mongo.db);
-  await refreshTokens.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'refresh-tokens', refreshTokens);
 
   fastify.log.info(
     { ttlSeconds: JWT_ACCESS_TOKEN_TTL_SECONDS, refreshTtlDays: JWT_REFRESH_TOKEN_TTL_DAYS },

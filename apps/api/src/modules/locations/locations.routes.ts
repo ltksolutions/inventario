@@ -28,6 +28,7 @@
 import { freeText, LOCATION_TYPE_VALUES, UpdateLocationSchema } from '@inventario/shared-types';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 
 import { LocationsRepository } from './locations.repository.js';
@@ -156,7 +157,7 @@ const locationsRoutes: FastifyPluginAsync = async (fastify) => {
   const assetsRepo = new AssetsRepository(fastify.mongo.db);
   const service = new LocationsService(repo, fastify.auditLog, fastify.mongo.client, assetsRepo);
 
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'locations', repo);
 
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);

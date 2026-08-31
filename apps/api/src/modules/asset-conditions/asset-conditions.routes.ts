@@ -14,6 +14,8 @@
 
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
+
 import { AssetConditionsRepository } from './asset-conditions.repository.js';
 import {
   AssetConditionsService,
@@ -68,7 +70,7 @@ const assetConditionsRoutes: FastifyPluginAsync = async (fastify) => {
   const repo = new AssetConditionsRepository(fastify.mongo.db);
   const service = new AssetConditionsService(repo, fastify.auditLog, fastify.mongo.client);
 
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'asset-conditions', repo);
 
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);

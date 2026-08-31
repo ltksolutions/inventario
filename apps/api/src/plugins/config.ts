@@ -54,9 +54,23 @@ const envSchema = z.object({
     }),
 
   // Feature flags
+  //
+  // ENABLE_SWAGGER: default je odvodený od NODE_ENV — v produkcii vypnuté.
+  // Dôvod je cold start: @fastify/swagger zbiera schémy VŠETKÝCH rout pri
+  // boote a generuje z nich OpenAPI dokument, čo je práca navyše pri každom
+  // studenom štarte serverless inštancie (lokálne namerané ~45 ms, na
+  // Verceli viac). Verejné `/docs` na produkčnom API nikto nepotrebuje —
+  // dokumentácia sa generuje do repa a beží na inventario-docs.
+  // Explicitné ENABLE_SWAGGER=true naďalej zapne Swagger aj v produkcii
+  // (napr. na dočasné ladenie). EXPORT_ONLY je výnimka — export OpenAPI
+  // schémy Swagger potrebuje bez ohľadu na NODE_ENV.
   ENABLE_SWAGGER: z
     .enum(['true', 'false'])
-    .default('true')
+    .default(
+      process.env['NODE_ENV'] === 'production' && process.env['EXPORT_ONLY'] !== 'true'
+        ? 'false'
+        : 'true',
+    )
     .transform((val) => val === 'true'),
 
   // ---------------------------------------------------------------------

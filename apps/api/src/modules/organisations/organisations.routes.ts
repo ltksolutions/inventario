@@ -43,6 +43,7 @@ import { put, del } from '@vercel/blob';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { stripImageMetadata } from '../../lib/strip-image-metadata.js';
 import { BadRequestError, HttpError } from '../../plugins/error-handler.js';
 
@@ -480,7 +481,7 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.mongo.db,
   );
 
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'organisations', repo);
 
   fastify.decorate('organisationsService', service);
 

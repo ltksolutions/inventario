@@ -30,6 +30,7 @@ import {
 import { z } from 'zod';
 
 import { resolveAppBaseUrl } from '../../lib/app-base-url.js';
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { NotFoundError } from '../../plugins/error-handler.js';
 import { AuditLogRepository } from '../audit/audit.repository.js';
 import { CategoriesRepository } from '../categories/categories.repository.js';
@@ -186,7 +187,7 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
     stockMovementsRepo,
   );
 
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'assets', repo);
 
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);

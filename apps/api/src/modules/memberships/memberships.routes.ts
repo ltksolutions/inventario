@@ -38,6 +38,7 @@ import {
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { invalidateMembershipCache } from '../../plugins/auth.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../plugins/error-handler.js';
 
@@ -91,7 +92,7 @@ const PatchMembershipBodySchema = z
 const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   const repo = new MembershipsRepository(fastify.mongo.db);
   const service = new MembershipsService(repo);
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'memberships-routes', repo);
 
   // =========================================================================
   // GET /v1/members — picker-safe zoznam aktívnych členov org (EMPLOYEE+)

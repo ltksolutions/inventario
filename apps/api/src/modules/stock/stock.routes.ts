@@ -15,6 +15,7 @@
 import { freeText } from '@inventario/shared-types';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 
 import { StockMovementsRepository } from './stock-movements.repository.js';
@@ -108,7 +109,7 @@ const stockRoutes: FastifyPluginAsync = async (fastify) => {
   const assetsRepo = new AssetsRepository(fastify.mongo.db);
   const service = new StockService(stockRepo, assetsRepo, fastify.auditLog, fastify.mongo.client);
 
-  await stockRepo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'stock', stockRepo);
 
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL'] as const);
   const canWrite = fastify.requireRole(['ASSET_MANAGER', 'ADMIN']);

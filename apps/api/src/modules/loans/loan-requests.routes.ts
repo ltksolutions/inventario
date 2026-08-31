@@ -20,6 +20,7 @@ import { freeText, LoanRequestStatus } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 import { StockMovementsRepository } from '../stock/stock-movements.repository.js';
 import { StockService } from '../stock/stock.service.js';
@@ -192,7 +193,7 @@ const loanRequestsRoutes: FastifyPluginAsync = async (fastify) => {
     stockService,
   );
 
-  await loanRequestsRepo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'loan-requests', loanRequestsRepo);
 
   fastify.decorate('loansService', service);
 

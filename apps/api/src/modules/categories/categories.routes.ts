@@ -28,6 +28,7 @@
 import { freeText, UpdateCategorySchema } from '@inventario/shared-types';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 
 import { CategoriesRepository } from './categories.repository.js';
@@ -144,7 +145,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   const assetsRepo = new AssetsRepository(fastify.mongo.db);
   const service = new CategoriesService(repo, fastify.auditLog, fastify.mongo.client, assetsRepo);
 
-  await repo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'categories', repo);
 
   // Same RBAC pattern as assets.
   const canRead = fastify.requireRole(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN', 'EXTERNAL']);

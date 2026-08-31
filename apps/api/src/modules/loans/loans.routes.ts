@@ -31,6 +31,8 @@ import {
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
+
 import { LoansRepository } from './loans.repository.js';
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -110,7 +112,7 @@ const loansRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
   const loansRepo = new LoansRepository(fastify.mongo.db);
-  await loansRepo.ensureIndexes();
+  await ensureIndexesOnBoot(fastify, 'loans', loansRepo);
 
   // Service is decorated by loan-requests.routes.ts which is registered first.
   const service = fastify.loansService;
