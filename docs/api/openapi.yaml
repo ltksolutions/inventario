@@ -11,8 +11,8 @@ info:
   version: 0.1.0
   contact:
     name: Inventario · LTK Solutions
-    url: https://inventario.sportup.sk
-    email: inventario@sportup.sk
+    url: https://inventario.estate
+    email: inventario@ltk.solutions
   license:
     name: EUPL-1.2
     url: https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
@@ -8197,10 +8197,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 servers:
+  - url: https://api.inventario.estate
+    description: Production
   - url: http://localhost:3000
     description: Local dev
-  - url: https://api.inventario.sportup.sk
-    description: Production (planned Q3 2026)
 tags:
   - name: Health
     description: Liveness and readiness probes
@@ -8216,4 +8216,4 @@ tags:
     description: Hierarchical physical location tree per tenant. Slugs are unique within an Organisation.
 externalDocs:
   description: Inventario documentation
-  url: https://docs.inventario.sportup.sk
+  url: https://docs.inventario.estate

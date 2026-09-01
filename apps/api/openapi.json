@@ -6,8 +6,8 @@
     "version": "0.1.0",
     "contact": {
       "name": "Inventario · LTK Solutions",
-      "url": "https://inventario.sportup.sk",
-      "email": "inventario@sportup.sk"
+      "url": "https://inventario.estate",
+      "email": "inventario@ltk.solutions"
     },
     "license": {
       "name": "EUPL-1.2",
@@ -12688,12 +12688,12 @@
   },
   "servers": [
     {
-      "url": "http://localhost:3000",
-      "description": "Local dev"
+      "url": "https://api.inventario.estate",
+      "description": "Production"
     },
     {
-      "url": "https://api.inventario.sportup.sk",
-      "description": "Production (planned Q3 2026)"
+      "url": "http://localhost:3000",
+      "description": "Local dev"
     }
   ],
   "tags": [
@@ -12724,6 +12724,6 @@
   ],
   "externalDocs": {
     "description": "Inventario documentation",
-    "url": "https://docs.inventario.sportup.sk"
+    "url": "https://docs.inventario.estate"
   }
 }

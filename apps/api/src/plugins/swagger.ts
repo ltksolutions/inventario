@@ -239,11 +239,19 @@ function ensureSuccessResponse(doc: unknown): void {
   }
 }
 
+/** Produkčné API. Domény sú v `infra/vercel/DNS-SETUP.md`. */
+const PRODUCTION_API_URL = 'https://api.inventario.estate';
+
 const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
   if (!fastify.config.ENABLE_SWAGGER) {
     fastify.log.info('Swagger UI disabled via ENABLE_SWAGGER=false');
     return;
   }
+
+  // `EXPORT_ONLY` je beh generátora dokumentu (openapi:sync) — ten má
+  // vyzerať ako produkčný dokument, nie ako lokálny dev.
+  const isLocalDev =
+    fastify.config.NODE_ENV !== 'production' && process.env['EXPORT_ONLY'] !== 'true';
 
   await fastify.register(fastifySwagger, {
     openapi: {
@@ -256,21 +264,28 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
         version: '0.1.0',
         contact: {
           name: 'Inventario · LTK Solutions',
-          url: 'https://inventario.sportup.sk',
-          email: 'inventario@sportup.sk',
+          url: 'https://inventario.estate',
+          email: 'inventario@ltk.solutions',
         },
         license: {
           name: 'EUPL-1.2',
           url: 'https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12',
         },
       },
-      servers: [
-        { url: `http://localhost:${fastify.config.PORT}`, description: 'Local dev' },
-        {
-          url: 'https://api.inventario.sportup.sk',
-          description: 'Production (planned Q3 2026)',
-        },
-      ],
+      // Poradie nie je kozmetika: Swagger UI berie prvý server ako
+      // predvolený cieľ pre „Try it out". Lokálne teda musí byť prvý
+      // localhost, inak by pokusný request z dev prostredia išiel na
+      // produkčné API. V produkcii (a pri exporte dokumentu pre
+      // integrátorov) je prvá produkcia.
+      servers: isLocalDev
+        ? [
+            { url: `http://localhost:${fastify.config.PORT}`, description: 'Local dev' },
+            { url: PRODUCTION_API_URL, description: 'Production' },
+          ]
+        : [
+            { url: PRODUCTION_API_URL, description: 'Production' },
+            { url: `http://localhost:${fastify.config.PORT}`, description: 'Local dev' },
+          ],
       tags: [
         { name: 'Health', description: 'Liveness and readiness probes' },
         {
@@ -329,7 +344,7 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
       },
       externalDocs: {
         description: 'Inventario documentation',
-        url: 'https://docs.inventario.sportup.sk',
+        url: 'https://docs.inventario.estate',
       },
     },
     // Zod → JSON Schema (fastify-type-provider-zod) a navrch doplnenie
