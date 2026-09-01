@@ -39,6 +39,10 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   `ERR_PNPM_UNSUPPORTED_ENGINE`. Zatiaľ sa obchádza spúšťaním binárok
   priamo z `node_modules/.bin`. Rozhodnúť: doinštalovať node 24, alebo
   uvoľniť `engines`. Kontext: `2026-09-01-openapi-chybove-odpovede.md`.
+- **`docs/sessions/README.md` má zastaralý index** — indexovaný zoznam
+  končí pri 2026-05, session logy od júna do septembra v ňom nie sú.
+  Buď doplniť, alebo index zrušiť a nechať len konvencie (adresár je
+  zoradený podľa dátumu sám). Zistené 2026-09-01.
 - **GitHub Discussions** — v repozitári nie sú zapnuté (Settings →
   Features), ale `docs/user-guide/support.md` na ne odkazuje. Odkaz je
   zatiaľ v `ignorePatterns` link checkera; po zapnutí ten pattern

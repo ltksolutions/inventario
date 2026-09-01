@@ -65,6 +65,15 @@ Tým získaš okamžitý kontext za 30 sekúnd.
 - Obsahuje: stratégie, playbook, case studies, internal pricing
 - Living document — aktualizuje sa keď sa stratégia mení
 
+### **Prompt** — zadanie pre nasledujúcu session
+
+- Slúži na predanie kontextu a zmeraných čísel do ďalšej session
+- Pomenovanie: `PROMPT-<topic>.md`
+- **Životnosť je jednorazová**: keď je práca hotová, prompt ide von.
+  Obsah zostáva v git histórii (`git show <commit>:<cesta>`), trvalým
+  záznamom je session log, nie zadanie. Prvé upratovanie 2026-09-01 —
+  tri spotrebované prompty (ADR-0022 K2, ADR-0028 branding, OpenAPI 4xx).
+
 ### **Living document** — vždy aktuálne
 
 - Slúži ako single source of truth pre stav projektu

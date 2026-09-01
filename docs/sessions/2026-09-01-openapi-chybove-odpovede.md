@@ -13,7 +13,9 @@ dva body OpenAPI lintu. Redocly bol bez chýb, ale hlásil **103 warningov**:
 `no-ambiguous-paths`. Job `openapi` v `.github/workflows/docs.yml` už
 nemá `continue-on-error`.
 
-Vstupné zadanie: `docs/sessions/PROMPT-openapi-4xx.md`.
+Vstupné zadanie bolo `docs/sessions/PROMPT-openapi-4xx.md`; po dokončení
+šlo von spolu s ostatnými spotrebovanými promptami. Obsah je v git
+histórii: `git show 8b7cdd0:docs/sessions/PROMPT-openapi-4xx.md`.
 
 ## Krok 1 — overenie pasce (a čo sa naozaj našlo)
 
