@@ -40,6 +40,7 @@ import fp from 'fastify-plugin';
 import { ObjectId } from 'mongodb';
 
 import { ensureIndexesOnBoot } from '../lib/ensure-indexes.js';
+import { tagErrorCodes } from '../lib/error-response.js';
 import { MembershipsRepository } from '../modules/memberships/memberships.repository.js';
 
 import { ForbiddenError, UnauthorizedError } from './error-handler.js';
@@ -148,138 +149,159 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
   // requireAuth — verifies the inv_access cookie
   // -------------------------------------------------------------------------
 
-  fastify.decorate('requireAuth', async (request: FastifyRequest) => {
-    const invCookie = request.cookies?.['inv_access'];
-    if (!invCookie) throw new UnauthorizedError('Not authenticated');
+  // `tagErrorCodes` len pripne zoznam HTTP kódov, ktoré hook vie vyhodiť.
+  // Číta ho `plugins/swagger.ts` a podľa neho dopĺňa spoločné chybové
+  // odpovede do OpenAPI dokumentu. Runtime chovanie hooku nemení.
+  fastify.decorate(
+    'requireAuth',
+    tagErrorCodes(
+      async (request: FastifyRequest) => {
+        const invCookie = request.cookies?.['inv_access'];
+        if (!invCookie) throw new UnauthorizedError('Not authenticated');
 
-    const claims = await fastify.inventarioJwt.verifyAccessToken(invCookie);
-    request.inventarioClaims = claims;
-    request.log.debug(
-      { sub: claims.sub, org: claims.org, mid: claims.mid },
-      'Inventario JWT verified',
-    );
-  });
+        const claims = await fastify.inventarioJwt.verifyAccessToken(invCookie);
+        request.inventarioClaims = claims;
+        request.log.debug(
+          { sub: claims.sub, org: claims.org, mid: claims.mid },
+          'Inventario JWT verified',
+        );
+      },
+      [401],
+    ),
+  );
 
   // -------------------------------------------------------------------------
   // loadCurrentUser — resolves user + org + membership
   // -------------------------------------------------------------------------
 
-  fastify.decorate('loadCurrentUser', async (request: FastifyRequest) => {
-    if (!request.inventarioClaims) {
-      throw new Error('loadCurrentUser called without prior requireAuth — fix preHandler chain.');
-    }
+  // 401: neplatný/nepoužiteľný tenant alebo user. 403: GDPR čl. 18
+  // restriction a pozastavené členstvo — obidve sa rozhodujú tu.
+  fastify.decorate(
+    'loadCurrentUser',
+    tagErrorCodes(
+      async (request: FastifyRequest) => {
+        if (!request.inventarioClaims) {
+          throw new Error(
+            'loadCurrentUser called without prior requireAuth — fix preHandler chain.',
+          );
+        }
 
-    const payload = request.inventarioClaims;
+        const payload = request.inventarioClaims;
 
-    // ----- Resolve tenant -----
-    const orgDoc = await fastify.mongo.db
-      .collection('organisations')
-      .findOne({ _id: new ObjectId(payload.org), deletedAt: null });
+        // ----- Resolve tenant -----
+        const orgDoc = await fastify.mongo.db
+          .collection('organisations')
+          .findOne({ _id: new ObjectId(payload.org), deletedAt: null });
 
-    if (!orgDoc) throw new UnauthorizedError('Tenant unavailable.');
-    if ((orgDoc['status'] as string) !== 'ACTIVE')
-      throw new UnauthorizedError(`Tenant is ${(orgDoc['status'] as string).toLowerCase()}.`);
+        if (!orgDoc) throw new UnauthorizedError('Tenant unavailable.');
+        if ((orgDoc['status'] as string) !== 'ACTIVE')
+          throw new UnauthorizedError(`Tenant is ${(orgDoc['status'] as string).toLowerCase()}.`);
 
-    request.organisation = orgDoc as unknown as WithId<Organisation>;
-    request.organisationId = String(orgDoc._id);
+        request.organisation = orgDoc as unknown as WithId<Organisation>;
+        request.organisationId = String(orgDoc._id);
 
-    // ----- Resolve user -----
-    const userDoc = await fastify.mongo.db
-      .collection('users')
-      .findOne({ _id: new ObjectId(payload.sub), deletedAt: null });
+        // ----- Resolve user -----
+        const userDoc = await fastify.mongo.db
+          .collection('users')
+          .findOne({ _id: new ObjectId(payload.sub), deletedAt: null });
 
-    if (!userDoc) throw new UnauthorizedError('User not found.');
-    if (!(userDoc['isActive'] as boolean))
-      throw new UnauthorizedError('User account is deactivated.');
+        if (!userDoc) throw new UnauthorizedError('User not found.');
+        if (!(userDoc['isActive'] as boolean))
+          throw new UnauthorizedError('User account is deactivated.');
 
-    request.currentUser = userDoc as unknown as WithId<User> & { role: UserRole };
+        request.currentUser = userDoc as unknown as WithId<User> & { role: UserRole };
 
-    // ----- GDPR čl. 18 enforcement: restricted users are read-only -----
-    //
-    // A user with `isRestricted: true` has their processing restricted: data
-    // is retained and readable, but no further processing is permitted. We
-    // enforce this by rejecting mutating HTTP methods (POST/PATCH/PUT/DELETE)
-    // with 403, while allowing safe methods (GET/HEAD/OPTIONS).
-    //
-    // Exceptions (always allowed even when restricted):
-    //   - DELETE /v1/auth/me  — right to erasure (čl. 17) overrides restriction
-    //   - lifting the restriction itself is an admin action on ANOTHER user's
-    //     account, so it runs under the admin's (unrestricted) context — no
-    //     exception needed here.
-    if (userDoc['isRestricted'] === true) {
-      const method = request.method.toUpperCase();
-      const isMutating = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
-      const isErasureRequest = method === 'DELETE' && request.url.startsWith('/v1/auth/me');
+        // ----- GDPR čl. 18 enforcement: restricted users are read-only -----
+        //
+        // A user with `isRestricted: true` has their processing restricted: data
+        // is retained and readable, but no further processing is permitted. We
+        // enforce this by rejecting mutating HTTP methods (POST/PATCH/PUT/DELETE)
+        // with 403, while allowing safe methods (GET/HEAD/OPTIONS).
+        //
+        // Exceptions (always allowed even when restricted):
+        //   - DELETE /v1/auth/me  — right to erasure (čl. 17) overrides restriction
+        //   - lifting the restriction itself is an admin action on ANOTHER user's
+        //     account, so it runs under the admin's (unrestricted) context — no
+        //     exception needed here.
+        if (userDoc['isRestricted'] === true) {
+          const method = request.method.toUpperCase();
+          const isMutating = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+          const isErasureRequest = method === 'DELETE' && request.url.startsWith('/v1/auth/me');
 
-      if (isMutating && !isErasureRequest) {
-        throw new ForbiddenError(
-          'PROCESSING_RESTRICTED: Your data processing is restricted (GDPR Art. 18). ' +
-            'Only read operations are permitted. Contact an administrator.',
-        );
-      }
-    }
+          if (isMutating && !isErasureRequest) {
+            throw new ForbiddenError(
+              'PROCESSING_RESTRICTED: Your data processing is restricted (GDPR Art. 18). ' +
+                'Only read operations are permitted. Contact an administrator.',
+            );
+          }
+        }
 
-    // ADR-0015 compat: the `organisationId` field was removed from User
-    // documents by the memberships migration (tenant scope now lives on
-    // Membership). Many service methods still read `actor.organisationId`
-    // to scope tenant-bound queries; left undefined that produces a
-    // "Malformed organisationId 'undefined'" 400. Backfill it on the
-    // per-request user object from the resolved tenant so every module
-    // gets the authoritative active organisationId without changing each
-    // service signature. Safe because currentUser is a fresh per-request
-    // object, never shared or persisted.
-    (request.currentUser as unknown as { organisationId: string }).organisationId =
-      request.organisationId;
+        // ADR-0015 compat: the `organisationId` field was removed from User
+        // documents by the memberships migration (tenant scope now lives on
+        // Membership). Many service methods still read `actor.organisationId`
+        // to scope tenant-bound queries; left undefined that produces a
+        // "Malformed organisationId 'undefined'" 400. Backfill it on the
+        // per-request user object from the resolved tenant so every module
+        // gets the authoritative active organisationId without changing each
+        // service signature. Safe because currentUser is a fresh per-request
+        // object, never shared or persisted.
+        (request.currentUser as unknown as { organisationId: string }).organisationId =
+          request.organisationId;
 
-    // ----- Resolve membership (K6) -----
-    //
-    // Try cache first. On cache miss, fetch from DB and cache the result.
-    //
-    // If JWT has a `mid` claim, validate that specific membership matches
-    // the claimed org. This detects stale tokens after tenant switch.
-    // If no `mid` (pre-K5 tokens or tokens issued before mid was wired),
-    // fall back to the active membership for the org.
+        // ----- Resolve membership (K6) -----
+        //
+        // Try cache first. On cache miss, fetch from DB and cache the result.
+        //
+        // If JWT has a `mid` claim, validate that specific membership matches
+        // the claimed org. This detects stale tokens after tenant switch.
+        // If no `mid` (pre-K5 tokens or tokens issued before mid was wired),
+        // fall back to the active membership for the org.
 
-    const userId = payload.sub;
-    const organisationId = request.organisationId;
+        const userId = payload.sub;
+        const organisationId = request.organisationId;
 
-    let membership = getFromCache(userId, organisationId);
+        let membership = getFromCache(userId, organisationId);
 
-    if (!membership) {
-      membership = await membershipsRepo.findActive({ userId, organisationId });
+        if (!membership) {
+          membership = await membershipsRepo.findActive({ userId, organisationId });
 
-      if (!membership) {
-        // No active membership found. This user has either never been in
-        // this tenant, has been removed, or the migration hasn't run yet.
-        // Fall back gracefully: synthesize a minimal membership from the
-        // JWT claims so pre-migration requests don't break.
-        // This fallback is removed after the migration runner completes.
-        membership = synthesizeMembership(payload, userDoc as unknown as WithId<User>);
-      } else {
-        setInCache(membership);
-      }
-    }
+          if (!membership) {
+            // No active membership found. This user has either never been in
+            // this tenant, has been removed, or the migration hasn't run yet.
+            // Fall back gracefully: synthesize a minimal membership from the
+            // JWT claims so pre-migration requests don't break.
+            // This fallback is removed after the migration runner completes.
+            membership = synthesizeMembership(payload, userDoc as unknown as WithId<User>);
+          } else {
+            setInCache(membership);
+          }
+        }
 
-    // Validate `mid` claim if present — reject mismatched membership
-    if (payload.mid && String(membership._id) !== payload.mid) {
-      throw new UnauthorizedError('MEMBERSHIP_MISMATCH: token is for a different active tenant.');
-    }
+        // Validate `mid` claim if present — reject mismatched membership
+        if (payload.mid && String(membership._id) !== payload.mid) {
+          throw new UnauthorizedError(
+            'MEMBERSHIP_MISMATCH: token is for a different active tenant.',
+          );
+        }
 
-    if (membership.status === 'SUSPENDED') {
-      throw new ForbiddenError(
-        'MEMBERSHIP_SUSPENDED: Your membership in this organisation is suspended.',
-      );
-    }
+        if (membership.status === 'SUSPENDED') {
+          throw new ForbiddenError(
+            'MEMBERSHIP_SUSPENDED: Your membership in this organisation is suspended.',
+          );
+        }
 
-    request.activeMembership = membership;
+        request.activeMembership = membership;
 
-    // ADR-0015 / ADR-0029 compat (role): authoritative role lives on the
-    // Membership. Service-layer RBAC helpers read `actor.role` (loans
-    // roleSatisfies, cancelLoanRequest admin check). Backfill from the
-    // resolved membership so every module sees the authoritative per-tenant
-    // role. The legacy `User.roles` array is left untouched and unused for RBAC.
-    (request.currentUser as unknown as { role: Membership['role'] }).role = membership.role;
-  });
+        // ADR-0015 / ADR-0029 compat (role): authoritative role lives on the
+        // Membership. Service-layer RBAC helpers read `actor.role` (loans
+        // roleSatisfies, cancelLoanRequest admin check). Backfill from the
+        // resolved membership so every module sees the authoritative per-tenant
+        // role. The legacy `User.roles` array is left untouched and unused for RBAC.
+        (request.currentUser as unknown as { role: Membership['role'] }).role = membership.role;
+      },
+      [401, 403],
+    ),
+  );
 
   // -------------------------------------------------------------------------
   // requireRole / requireMinRole — RBAC from activeMembership.role (ADR-0029)
@@ -315,7 +337,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
       }
     };
 
-    return handler;
+    return tagErrorCodes(handler, [403]);
   });
 
   fastify.decorate('requireMinRole', (required: UserRole) => {
@@ -342,7 +364,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
       }
     };
 
-    return handler;
+    return tagErrorCodes(handler, [403]);
   });
 };
 

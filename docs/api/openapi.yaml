@@ -17,6 +17,51 @@ info:
     name: EUPL-1.2
     url: https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
 components:
+  schemas:
+    ErrorResponse:
+      type: object
+      title: ErrorResponse
+      description: Jednotné telo chybovej odpovede. Generuje ho centrálny error handler (apps/api/src/plugins/error-handler.ts) pre všetky 4xx a 5xx odpovede.
+      required:
+        - statusCode
+        - error
+        - message
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status kód, rovnaký ako v hlavičke odpovede.
+          example: 404
+        error:
+          type: string
+          description: Krátky strojový názov chyby — `NotFound`, `BadRequest`, `Unauthorized`, `Forbidden`, prípadne text Fastify chyby (`Bad Request`).
+          example: NotFound
+        message:
+          type: string
+          description: Ľudsky čitateľný popis. Nie je určený na strojové rozhodovanie.
+          example: "Asset not found: 6a9f1c2e4b7d8a0f12345678"
+        details:
+          type: object
+          description: Voliteľný strukturovaný kontext chyby.
+          additionalProperties: true
+        issues:
+          type: array
+          description: Prítomné, keď sa k error handleru dostane ZodError priamo. Validácia vstupu cez Fastify (`params`, `querystring`, `body`) vracia jednu chybu v `message`, bez `issues`.
+          items:
+            type: object
+            required:
+              - path
+              - message
+              - code
+            properties:
+              path:
+                type: string
+                example: body.name
+              message:
+                type: string
+                example: String must contain at least 1 character(s)
+              code:
+                type: string
+                example: too_small
   securitySchemes:
     bearerAuth:
       type: http
@@ -27,7 +72,6 @@ components:
       type: http
       scheme: bearer
       description: Zdieľané tajomstvo pre servisné endpointy pod /v1/system — nie používateľský token. Migrácie a indexy používajú MIGRATIONS_SECRET (volá GitHub Actions po produkčnom deployi), retencia CRON_SECRET (volá Vercel Cron). Bez nastavenej premennej endpoint vracia 503.
-  schemas: {}
 paths:
   /health:
     get:
@@ -60,6 +104,12 @@ paths:
                   - uptime
                   - timestamp
                 additionalProperties: false
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health/ready:
     get:
       operationId: getHealthReady
@@ -100,6 +150,12 @@ paths:
                   - checks
                   - timestamp
                 additionalProperties: false
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Default Response
           content:
@@ -148,6 +204,24 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1OrganisationsCurrent
       summary: Update the current tenant (self, ADMIN)
@@ -550,6 +624,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/organisations/current/logo:
     post:
       operationId: postV1OrganisationsCurrentLogo
@@ -567,6 +665,24 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/organisations:
     get:
       operationId: getV1Organisations
@@ -657,6 +773,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1Organisations
       summary: Create a new organisation (admin onboarding)
@@ -909,6 +1049,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/organisations/{id}:
     get:
       operationId: getV1OrganisationsById
@@ -933,6 +1097,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1OrganisationsById
       summary: Update an organisation (admin)
@@ -1178,6 +1372,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteV1OrganisationsById
       summary: Soft-delete an organisation (admin)
@@ -1200,6 +1424,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/public/organisations/login-context:
     get:
       operationId: getV1PublicOrganisationsLoginContext
@@ -1296,9 +1550,34 @@ paths:
               schema:
                 type: object
                 properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
                   message:
                     type: string
+                  details:
+                    type: object
+                    additionalProperties: {}
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        message:
+                          type: string
+                        code:
+                          type: string
+                      required:
+                        - path
+                        - message
+                        - code
+                      additionalProperties: false
                 required:
+                  - statusCode
+                  - error
                   - message
                 additionalProperties: false
         "404":
@@ -1308,11 +1587,42 @@ paths:
               schema:
                 type: object
                 properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
                   message:
                     type: string
+                  details:
+                    type: object
+                    additionalProperties: {}
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        message:
+                          type: string
+                        code:
+                          type: string
+                      required:
+                        - path
+                        - message
+                        - code
+                      additionalProperties: false
                 required:
+                  - statusCode
+                  - error
                   - message
                 additionalProperties: false
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/me:
     get:
       operationId: getV1Me
@@ -1370,6 +1680,24 @@ paths:
                   - preferences
                   - createdAt
                 additionalProperties: false
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1Me
       summary: Update own profile (GDPR Art. 16)
@@ -1411,6 +1739,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/me/export:
     get:
       operationId: getV1MeExport
@@ -1449,6 +1801,24 @@ paths:
                   - memberships
                   - auditLog
                 additionalProperties: false
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users:
     get:
       operationId: getV1Users
@@ -1538,6 +1908,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/{id}:
     get:
       operationId: getV1UsersById
@@ -1562,6 +1956,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1UsersById
       summary: Update a user (admin)
@@ -1612,6 +2036,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/directory:
     get:
       operationId: getV1UsersDirectory
@@ -1700,6 +2154,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/{id}/mfa:
     delete:
       operationId: deleteV1UsersByIdMfa
@@ -1724,6 +2202,36 @@ paths:
               schema:
                 description: MFA reset successfully
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/{id}/restriction:
     post:
       operationId: postV1UsersByIdRestriction
@@ -1768,6 +2276,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets:
     get:
       operationId: getV1Assets
@@ -1830,6 +2368,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1Assets
       summary: Create a new asset
@@ -1958,6 +2520,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/tags:
     get:
       operationId: getV1AssetsTags
@@ -1982,6 +2568,24 @@ paths:
                 required:
                   - data
                 additionalProperties: false
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/tags/summary:
     get:
       operationId: getV1AssetsTagsSummary
@@ -2021,6 +2625,24 @@ paths:
                 required:
                   - data
                 additionalProperties: false
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/tags/rename:
     post:
       operationId: postV1AssetsTagsRename
@@ -2069,6 +2691,30 @@ paths:
                 required:
                   - affected
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/tags/delete:
     post:
       operationId: postV1AssetsTagsDelete
@@ -2109,6 +2755,30 @@ paths:
                 required:
                   - affected
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/{id}:
     get:
       operationId: getV1AssetsById
@@ -2133,6 +2803,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1AssetsById
       summary: Update an existing asset
@@ -2274,6 +2974,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteV1AssetsById
       summary: Soft-delete an asset
@@ -2296,6 +3026,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/by-token/{publicToken}:
     get:
       operationId: getV1AssetsByTokenByPublicToken
@@ -2326,6 +3086,36 @@ paths:
                 required:
                   - id
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/{id}/audit:
     get:
       operationId: getV1AssetsByIdAudit
@@ -2394,6 +3184,36 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/{id}/qr:
     get:
       operationId: getV1AssetsByIdQr
@@ -2422,6 +3242,36 @@ paths:
       responses:
         "200":
           description: Default Response
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/audit-log:
     get:
       operationId: getV1AuditLog
@@ -2669,6 +3519,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/{id}/attachments:
     get:
       operationId: getV1AssetsByIdAttachments
@@ -2701,6 +3575,36 @@ paths:
                 required:
                   - data
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1AssetsByIdAttachments
       summary: Nahrať prílohu majetku (ASSET_MANAGER/ADMIN)
@@ -2718,6 +3622,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/attachments/{id}/primary:
     patch:
       operationId: patchV1AttachmentsByIdPrimary
@@ -2741,6 +3669,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/attachments/{id}:
     delete:
       operationId: deleteV1AttachmentsById
@@ -2764,6 +3722,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/public/scan/{publicToken}:
     get:
       operationId: getV1PublicScanByPublicToken
@@ -2822,6 +3810,12 @@ paths:
                   - organisationLogoUrl
                   - foundContact
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Default Response
           content:
@@ -2829,11 +3823,42 @@ paths:
               schema:
                 type: object
                 properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
                   message:
                     type: string
+                  details:
+                    type: object
+                    additionalProperties: {}
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        message:
+                          type: string
+                        code:
+                          type: string
+                      required:
+                        - path
+                        - message
+                        - code
+                      additionalProperties: false
                 required:
+                  - statusCode
+                  - error
                   - message
                 additionalProperties: false
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/asset-conditions:
     get:
       operationId: getV1AssetConditions
@@ -2895,6 +3920,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1AssetConditions
       summary: Create asset condition
@@ -2946,6 +3995,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/asset-conditions/{id}:
     get:
       operationId: getV1AssetConditionsById
@@ -2969,6 +4042,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1AssetConditionsById
       summary: Update asset condition
@@ -3025,6 +4128,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteV1AssetConditionsById
       summary: Delete asset condition (ADMIN only, FK protected)
@@ -3046,6 +4179,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/categories:
     get:
       operationId: getV1Categories
@@ -3124,6 +4287,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1Categories
       summary: Create a new category
@@ -3209,6 +4396,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/categories/{id}:
     get:
       operationId: getV1CategoriesById
@@ -3233,6 +4444,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1CategoriesById
       summary: Update an existing category
@@ -3325,6 +4566,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteV1CategoriesById
       summary: Soft-delete a category
@@ -3347,6 +4618,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/locations:
     get:
       operationId: getV1Locations
@@ -3439,6 +4740,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1Locations
       summary: Create a new location
@@ -3550,6 +4875,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/locations/{id}:
     get:
       operationId: getV1LocationsById
@@ -3574,6 +4923,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1LocationsById
       summary: Update an existing location
@@ -3691,6 +5070,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteV1LocationsById
       summary: Soft-delete a location
@@ -3713,6 +5122,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loan-requests:
     get:
       operationId: getV1LoanRequests
@@ -3800,6 +5239,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1LoanRequests
       summary: Create a loan request (katalógová žiadosť, ADR-0026)
@@ -3873,6 +5336,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loan-requests/{id}:
     get:
       operationId: getV1LoanRequestsById
@@ -3896,6 +5383,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteV1LoanRequestsById
       summary: Cancel a loan request
@@ -3918,6 +5435,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loan-requests/{id}/approve:
     post:
       operationId: postV1LoanRequestsByIdApprove
@@ -3942,6 +5489,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loan-requests/{id}/fulfil:
     post:
       operationId: postV1LoanRequestsByIdFulfil
@@ -4081,6 +5658,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loan-requests/{id}/reject:
     post:
       operationId: postV1LoanRequestsByIdReject
@@ -4120,6 +5727,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loans/my:
     get:
       operationId: getV1LoansMy
@@ -4193,6 +5830,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loans:
     get:
       operationId: getV1Loans
@@ -4278,6 +5939,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: postV1Loans
       summary: Create a direct loan (without a prior request)
@@ -4346,6 +6031,30 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loans/{id}:
     get:
       operationId: getV1LoansById
@@ -4370,6 +6079,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loans/{id}/return:
     post:
       operationId: postV1LoansByIdReturn
@@ -4459,6 +6198,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loans/{id}/lost:
     post:
       operationId: postV1LoansByIdLost
@@ -4496,6 +6265,36 @@ paths:
             application/json:
               schema:
                 type: "null"
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/{id}/borrowed-items:
     get:
       operationId: getV1UsersByIdBorrowedItems
@@ -4522,6 +6321,36 @@ paths:
                 items:
                   type: object
                   additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/{id}/return-items:
     post:
       operationId: postV1UsersByIdReturnItems
@@ -4617,6 +6446,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/protocols:
     get:
       operationId: getV1Protocols
@@ -4698,6 +6557,30 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/loans/{id}/protocols:
     post:
       operationId: postV1LoansByIdProtocols
@@ -4737,6 +6620,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     get:
       operationId: getV1LoansByIdProtocols
       summary: Zoznam protokolov k výpožičke
@@ -4768,6 +6681,36 @@ paths:
                 required:
                   - data
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/protocols/{protocolId}:
     get:
       operationId: getV1ProtocolsByProtocolId
@@ -4792,6 +6735,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/protocols/{protocolId}/pdf:
     get:
       operationId: getV1ProtocolsByProtocolIdPdf
@@ -4811,6 +6784,36 @@ paths:
       responses:
         "200":
           description: Default Response
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/protocols/{protocolId}/sign:
     post:
       operationId: postV1ProtocolsByProtocolIdSign
@@ -4849,6 +6852,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/dashboard/summary:
     get:
       operationId: getV1DashboardSummary
@@ -4988,6 +7021,24 @@ paths:
                   - protocols
                   - loans
                 additionalProperties: false
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/labels/sheet:
     get:
       operationId: getV1LabelsSheet
@@ -5015,6 +7066,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/assets/{id}/label:
     get:
       operationId: getV1AssetsByIdLabel
@@ -5051,6 +7126,36 @@ paths:
                 required:
                   - zpl
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/labels/zpl:
     post:
       operationId: postV1LabelsZpl
@@ -5101,6 +7206,30 @@ paths:
                 required:
                   - labels
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/invitations:
     post:
       operationId: postV1Invitations
@@ -5112,6 +7241,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     get:
       operationId: getV1Invitations
       summary: Zoznam čakajúcich pozvánok organizácie
@@ -5122,6 +7269,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/invitations/{id}:
     delete:
       operationId: deleteV1InvitationsById
@@ -5139,6 +7304,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/invitations/{id}/resend:
     post:
       operationId: postV1InvitationsByIdResend
@@ -5156,6 +7345,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/auth/invitations/{token}:
     get:
       operationId: getV1AuthInvitationsByToken
@@ -5172,6 +7385,18 @@ paths:
       responses:
         "200":
           description: Default Response
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/auth/accept-invitation:
     post:
       operationId: postV1AuthAcceptInvitation
@@ -5182,6 +7407,12 @@ paths:
       responses:
         "200":
           description: Default Response
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/members:
     get:
       operationId: getV1Members
@@ -5193,6 +7424,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/memberships:
     get:
       operationId: getV1Memberships
@@ -5204,6 +7453,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/memberships/{id}:
     get:
       operationId: getV1MembershipsById
@@ -5221,6 +7488,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: patchV1MembershipsById
       summary: Zmena roly alebo stavu členstva (ADMIN)
@@ -5237,6 +7528,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteV1MembershipsById
       summary: Odobratie členstva
@@ -5253,6 +7568,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/memberships/pre-provisioned:
     post:
       operationId: postV1MembershipsPreProvisioned
@@ -5264,6 +7603,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/memberships/{id}/default:
     post:
       operationId: postV1MembershipsByIdDefault
@@ -5281,6 +7638,30 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/stock:
     get:
       operationId: getV1Stock
@@ -5337,6 +7718,24 @@ paths:
                   - data
                   - total
                 additionalProperties: false
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/stock/{itemId}/movements:
     get:
       operationId: getV1StockByItemIdMovements
@@ -5415,6 +7814,36 @@ paths:
                   - data
                   - pagination
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/stock/{itemId}/receive:
     post:
       operationId: postV1StockByItemIdReceive
@@ -5474,6 +7903,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/stock/{itemId}/adjust:
     post:
       operationId: postV1StockByItemIdAdjust
@@ -5530,6 +7989,36 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/stock/{itemId}/reconcile:
     post:
       operationId: postV1StockByItemIdReconcile
@@ -5570,6 +8059,36 @@ paths:
                   - cacheWas
                   - wasConsistent
                 additionalProperties: false
+        "400":
+          description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/system/migrations/run:
     post:
       operationId: postV1SystemMigrationsRun
@@ -5582,6 +8101,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/system/indexes/ensure:
     post:
       operationId: postV1SystemIndexesEnsure
@@ -5594,6 +8131,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/system/retention/run:
     post:
       operationId: postV1SystemRetentionRun
@@ -5606,6 +8161,24 @@ paths:
       responses:
         "200":
           description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /:
     get:
       operationId: get
@@ -5617,6 +8190,12 @@ paths:
       responses:
         "200":
           description: Default Response
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 servers:
   - url: http://localhost:3000
     description: Local dev

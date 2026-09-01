@@ -56,12 +56,17 @@ jobs:
     # exclusiveMinimum (lib/openapi-3-1.ts), summary + security na 17
     # rotách, ktoré nemali schému.
     #
-    # Zostáva 103 warningov, ktoré job nezhadzujú:
-    #   - operation-4xx-response (95) — schémy popisujú len 2xx odpovede.
-    #     Doplniť chybové odpovede je vecná práca na samostatný krok.
-    #   - no-ambiguous-paths (4) — /v1/assets/tags/* koliduje tvarom
-    #     s /v1/assets/{id}/*. Oprava by znamenala premenovať endpointy,
-    #     teda breaking change API. Vedome ponechané.
+    # Zostáva 5 warningov, ktoré job nezhadzujú (2026-09-01, predtým 103):
+    #   - no-ambiguous-paths (4) — /v1/assets/by-token/{publicToken}
+    #     koliduje tvarom s /v1/assets/{id}/audit|qr|attachments|label.
+    #     Oprava by znamenala premenovať endpointy, teda breaking change
+    #     API aj zásah do apps/web. Vedome ponechané.
+    #   - no-server-example (1) — localhost v servers, pre lokálny dev.
+    #
+    # operation-4xx-response (95 → 0): chybové odpovede sa dopĺňajú pri
+    # generovaní dokumentu v plugins/swagger.ts, nie v response schémach
+    # rout — response schéma je zároveň runtime serializér. Detaily:
+    # docs/sessions/2026-09-01-openapi-chybove-odpovede.md
 
     steps:
       - name: Checkout code

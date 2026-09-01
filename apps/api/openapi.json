@@ -15,6 +15,66 @@
     }
   },
   "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "title": "ErrorResponse",
+        "description": "Jednotné telo chybovej odpovede. Generuje ho centrálny error handler (apps/api/src/plugins/error-handler.ts) pre všetky 4xx a 5xx odpovede.",
+        "required": [
+          "statusCode",
+          "error",
+          "message"
+        ],
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "HTTP status kód, rovnaký ako v hlavičke odpovede.",
+            "example": 404
+          },
+          "error": {
+            "type": "string",
+            "description": "Krátky strojový názov chyby — `NotFound`, `BadRequest`, `Unauthorized`, `Forbidden`, prípadne text Fastify chyby (`Bad Request`).",
+            "example": "NotFound"
+          },
+          "message": {
+            "type": "string",
+            "description": "Ľudsky čitateľný popis. Nie je určený na strojové rozhodovanie.",
+            "example": "Asset not found: 6a9f1c2e4b7d8a0f12345678"
+          },
+          "details": {
+            "type": "object",
+            "description": "Voliteľný strukturovaný kontext chyby.",
+            "additionalProperties": true
+          },
+          "issues": {
+            "type": "array",
+            "description": "Prítomné, keď sa k error handleru dostane ZodError priamo. Validácia vstupu cez Fastify (`params`, `querystring`, `body`) vracia jednu chybu v `message`, bez `issues`.",
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "message",
+                "code"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "example": "body.name"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "String must contain at least 1 character(s)"
+                },
+                "code": {
+                  "type": "string",
+                  "example": "too_small"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
@@ -27,8 +87,7 @@
         "scheme": "bearer",
         "description": "Zdieľané tajomstvo pre servisné endpointy pod /v1/system — nie používateľský token. Migrácie a indexy používajú MIGRATIONS_SECRET (volá GitHub Actions po produkčnom deployi), retencia CRON_SECRET (volá Vercel Cron). Bez nastavenej premennej endpoint vracia 503."
       }
-    },
-    "schemas": {}
+    }
   },
   "paths": {
     "/health": {
@@ -69,6 +128,16 @@
                     "timestamp"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -127,6 +196,16 @@
                     "timestamp"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -200,6 +279,36 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -771,6 +880,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -796,6 +945,36 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -927,6 +1106,46 @@
                     "pagination"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1285,6 +1504,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1321,6 +1580,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1675,6 +1984,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -1708,6 +2067,56 @@
               "application/json": {
                 "schema": {
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1844,11 +2253,46 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
                     "message": {
                       "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message",
+                          "code"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
+                    "statusCode",
+                    "error",
                     "message"
                   ],
                   "additionalProperties": false
@@ -1863,14 +2307,59 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
                     "message": {
                       "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message",
+                          "code"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
+                    "statusCode",
+                    "error",
                     "message"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1957,6 +2446,36 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -2017,6 +2536,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2071,6 +2630,36 @@
                     "auditLog"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2203,6 +2792,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2239,6 +2868,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2313,6 +2992,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2444,6 +3173,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2480,6 +3249,56 @@
                 "schema": {
                   "description": "MFA reset successfully",
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2548,6 +3367,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2639,6 +3508,46 @@
                     "pagination"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2829,6 +3738,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2865,6 +3814,36 @@
                     "data"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2928,6 +3907,36 @@
                     "data"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3011,6 +4020,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3077,6 +4126,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3113,6 +4202,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3320,6 +4459,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -3353,6 +4542,56 @@
               "application/json": {
                 "schema": {
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3401,6 +4640,56 @@
                     "id"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3504,6 +4793,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3548,6 +4887,56 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3867,6 +5256,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3918,6 +5347,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -3946,6 +5425,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3984,6 +5503,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4019,6 +5588,56 @@
               "application/json": {
                 "schema": {
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4108,6 +5727,16 @@
               }
             }
           },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Default Response",
             "content": {
@@ -4115,14 +5744,59 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
                     "message": {
                       "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message",
+                          "code"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
+                    "statusCode",
+                    "error",
                     "message"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4216,6 +5890,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -4291,6 +6005,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4326,6 +6080,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4412,6 +6216,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -4444,6 +6298,56 @@
               "application/json": {
                 "schema": {
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4558,6 +6462,46 @@
                     "pagination"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4688,6 +6632,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4724,6 +6708,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4864,6 +6898,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -4897,6 +6981,56 @@
               "application/json": {
                 "schema": {
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5029,6 +7163,46 @@
                     "pagination"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5192,6 +7366,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5228,6 +7442,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5400,6 +7664,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -5433,6 +7747,56 @@
               "application/json": {
                 "schema": {
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5562,6 +7926,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -5679,6 +8083,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5714,6 +8158,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5753,6 +8247,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5789,6 +8333,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6005,6 +8599,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6068,6 +8712,56 @@
               "application/json": {
                 "schema": {
                   "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6174,6 +8868,46 @@
                     "pagination"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6301,6 +9035,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -6410,6 +9184,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6446,6 +9260,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6592,6 +9456,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6651,6 +9565,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6690,6 +9654,56 @@
                     "type": "object",
                     "additionalProperties": {}
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6843,6 +9857,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6961,6 +10025,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7023,6 +10127,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -7072,6 +10226,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7111,6 +10315,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7142,6 +10396,56 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7200,6 +10504,56 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7401,6 +10755,36 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7444,6 +10828,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7499,6 +10923,56 @@
                     "zpl"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7579,6 +11053,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7598,6 +11112,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -7615,6 +11159,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7644,6 +11218,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7673,6 +11287,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7698,6 +11352,26 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7713,6 +11387,16 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7732,6 +11416,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7751,6 +11465,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7780,6 +11524,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -7807,6 +11591,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -7834,6 +11658,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7853,6 +11717,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7882,6 +11776,46 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7962,6 +11896,36 @@
                     "total"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8079,6 +12043,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8183,6 +12197,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8279,6 +12343,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8341,6 +12455,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8361,6 +12525,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8381,6 +12575,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8401,6 +12625,36 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8417,6 +12671,16 @@
         "responses": {
           "200": {
             "description": "Default Response"
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }

@@ -19,6 +19,12 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import fp from 'fastify-plugin';
 import { jsonSchemaTransform } from 'fastify-type-provider-zod';
 
+import {
+  collectErrorCodes,
+  ERROR_RESPONSE_COMPONENT_NAME,
+  ERROR_RESPONSE_JSON_SCHEMA,
+  ERROR_RESPONSE_REF,
+} from '../lib/error-response.js';
 import { convertToOpenApi31 } from '../lib/openapi-3-1.js';
 
 import type { SwaggerTransform, SwaggerTransformObject } from '@fastify/swagger';
@@ -73,6 +79,79 @@ export function buildOperationId(method: string, url: string): string {
   return method.toLowerCase() + suffix;
 }
 
+// ---------------------------------------------------------------------------
+// Spoločné chybové odpovede
+// ---------------------------------------------------------------------------
+
+/**
+ * Popisy chybových kódov v dokumentácii. Text je jediné miesto, kde sa
+ * hovorí, ODKIAĽ kód pochádza — telo je pre všetky rovnaké
+ * (`#/components/schemas/ErrorResponse`).
+ */
+const ERROR_DESCRIPTIONS: Record<number, string> = {
+  400: 'Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.',
+  401: 'Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.',
+  403: 'Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).',
+  404: 'Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.',
+  429: 'Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).',
+};
+
+/**
+ * Ktoré chybové kódy má operácia dokumentovať.
+ *
+ * Prečo sa to odvodzuje a nepíše do 97 rout: 401 a 403 nevznikajú v tele
+ * routy, ale v `preHandler` reťazci (`requireAuth`, `loadCurrentUser`,
+ * `requireRole`) — tie hooky si zoznam kódov nesú sami (viď
+ * `lib/error-response.ts`), takže odvodenie je presné a nová route ho
+ * dostane automaticky. 400 vzniká validáciou vstupu, teda vždy, keď má
+ * route schému vstupu. 404 dostane route s parametrom v ceste — bez
+ * identifikátora nie je čo nenájsť.
+ *
+ * Doplnenie beží v `transform`, čo je krok generovania dokumentu. NEMENÍ
+ * to runtime serializáciu: serializér routy je skompilovaný pri
+ * registrácii z jej vlastnej `response` schémy, dávno pred týmto kódom.
+ */
+export function deriveErrorCodes(input: {
+  url: string;
+  preHandler?: unknown;
+  hasInputSchema: boolean;
+  hasSecurity: boolean;
+}): number[] {
+  const codes = new Set<number>(collectErrorCodes(input.preHandler));
+
+  // Globálny rate limit (`@fastify/rate-limit`, 100/min/IP v `server.ts`)
+  // platí pre každú route vrátane `/health`. Telo 429 posiela plugin a má
+  // rovnaký tvar `{ statusCode, error, message }`.
+  codes.add(429);
+
+  // Časť rout (invitations, memberships, accept-invitation) volá
+  // `requireAuth`/`loadCurrentUser` až v tele handlera, nie cez
+  // `preHandler` — značky z hookov ich teda nezachytia. Deklarované
+  // `security` je pre ne rovnako spoľahlivý signál: autentifikácia môže
+  // padnúť na 401 a `loadCurrentUser` na 403 (GDPR čl. 18, pozastavené
+  // členstvo).
+  if (input.hasSecurity) {
+    codes.add(401);
+    codes.add(403);
+  }
+
+  if (input.hasInputSchema) codes.add(400);
+  if (/\/[:{]/.test(input.url)) codes.add(404);
+
+  return [...codes].sort((a, b) => a - b);
+}
+
+/** Doplní chýbajúce chybové odpovede do `response` mapy operácie. */
+function addErrorResponses(response: Record<string, unknown>, codes: readonly number[]): void {
+  for (const code of codes) {
+    if (response[String(code)] !== undefined) continue;
+    response[String(code)] = {
+      $ref: ERROR_RESPONSE_REF,
+      description: ERROR_DESCRIPTIONS[code] ?? 'Chyba požiadavky.',
+    };
+  }
+}
+
 /**
  * Obal nad `jsonSchemaTransform`, ktorý dopĺňa `operationId`. Ak si ho
  * route nastavila v `schema`, ostáva nedotknutý.
@@ -89,16 +168,34 @@ const withOperationId: SwaggerTransform = ({ schema, url, route }) => {
   const operationId = buildOperationId(method, result.url);
   const transformed = result.schema as Record<string, unknown> | undefined;
 
+  const declaredSecurity = (schema as { security?: unknown } | undefined)?.security;
+
+  const errorCodes = deriveErrorCodes({
+    url: result.url,
+    preHandler: route.preHandler,
+    hasInputSchema:
+      schema?.params !== undefined ||
+      schema?.querystring !== undefined ||
+      schema?.body !== undefined,
+    hasSecurity: Array.isArray(declaredSecurity) && declaredSecurity.length > 0,
+  });
+
   // Časť rout je registrovaná bez `schema` (napr. invitations,
   // memberships) — v OpenAPI dokumente sú, takže operationId potrebujú
   // tiež, len im ho nemá kam zapísať. Vytvoríme minimálnu schému.
   if (transformed === undefined) {
-    return { schema: { operationId }, url: result.url };
+    const response: Record<string, unknown> = {};
+    addErrorResponses(response, errorCodes);
+    return { schema: { operationId, response }, url: result.url };
   }
 
   if (transformed['operationId'] === undefined) {
     transformed['operationId'] = operationId;
   }
+
+  const response = (transformed['response'] ?? {}) as Record<string, unknown>;
+  addErrorResponses(response, errorCodes);
+  transformed['response'] = response;
 
   return result;
 };
@@ -114,8 +211,33 @@ const toOpenApi31: SwaggerTransformObject = (documentObject) => {
   const doc =
     'openapiObject' in documentObject ? documentObject.openapiObject : documentObject.swaggerObject;
 
+  ensureSuccessResponse(doc);
+
   return convertToOpenApi31(doc);
 };
+
+/**
+ * Routa bez `response` schémy dostávala od @fastify/swagger náhradnú
+ * `200 Default Response`. Odkedy jej `transform` dopĺňa chybové odpovede,
+ * `response` mapa už prázdna nie je a náhradná 200 sa negeneruje — bez
+ * tohto kroku by tie operácie v dokumente stratili úspešnú odpoveď.
+ * Dopĺňa sa tu, nad hotovým dokumentom, aby to nezáviselo od interného
+ * chovania @fastify/swagger.
+ */
+function ensureSuccessResponse(doc: unknown): void {
+  const paths = (doc as { paths?: Record<string, Record<string, unknown>> }).paths;
+  if (paths === undefined) return;
+
+  for (const operations of Object.values(paths)) {
+    for (const operation of Object.values(operations)) {
+      const responses = (operation as { responses?: Record<string, unknown> }).responses;
+      if (responses === undefined) continue;
+      if (Object.keys(responses).some((code) => code.startsWith('2'))) continue;
+
+      responses['200'] = { description: 'Default Response' };
+    }
+  }
+}
 
 const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
   if (!fastify.config.ENABLE_SWAGGER) {
@@ -179,6 +301,11 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
         },
       ],
       components: {
+        schemas: {
+          // Telo každej chybovej odpovede. Spoločné 4xx odpovede sa naň
+          // odkazujú cez `$ref`, aby dokument nenosil 97× ten istý objekt.
+          [ERROR_RESPONSE_COMPONENT_NAME]: ERROR_RESPONSE_JSON_SCHEMA,
+        },
         securitySchemes: {
           bearerAuth: {
             type: 'http',
