@@ -160,56 +160,68 @@ paths:
                   minLength: 1
                   maxLength: 200
                 primaryContactEmail:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: email
-                  nullable: true
                 billing:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     legalName:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 200
-                      nullable: true
                       default: null
                     ico:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^\d{8}$
-                      nullable: true
                       default: null
                     dic:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^\d{10}$
-                      nullable: true
                       default: null
                     isVatPayer:
                       type: boolean
                       default: false
                     icDph:
-                      allOf:
-                        - type: string
-                        - type: string
-                          pattern: ^SK\d{10}$
-                      nullable: true
                       default: null
+                      anyOf:
+                        - allOf:
+                            - type: string
+                            - type: string
+                              pattern: ^SK\d{10}$
+                        - type: "null"
                     businessRegistration:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 300
-                      nullable: true
                       default: null
                     iban:
-                      allOf:
-                        - type: string
-                        - type: string
-                          pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
-                      nullable: true
                       default: null
+                      anyOf:
+                        - allOf:
+                            - type: string
+                            - type: string
+                              pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
+                        - type: "null"
                     billingEmail:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: email
-                      nullable: true
                       default: null
                     registeredAddress:
-                      type: object
+                      type:
+                        - object
+                        - "null"
                       properties:
                         street:
                           type: string
@@ -232,10 +244,11 @@ paths:
                         - city
                         - postalCode
                       additionalProperties: false
-                      nullable: true
                       default: null
                     mailingAddress:
-                      type: object
+                      type:
+                        - object
+                        - "null"
                       properties:
                         street:
                           type: string
@@ -258,87 +271,102 @@ paths:
                         - city
                         - postalCode
                       additionalProperties: false
-                      nullable: true
                       default: null
                   additionalProperties: false
-                  nullable: true
                 brandKit:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     presetId:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 64
-                      nullable: true
                       default: null
                     logoUrl:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: uri
-                      nullable: true
                       default: null
                     faviconUrl:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: uri
-                      nullable: true
                       default: null
                     primary:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     primaryFg:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     accent:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     accentFg:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     logoDot:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     fontFamilySans:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       enum:
                         - system-ui
                         - Inter
                         - Open Sans
                         - Roboto
                         - Lato
-                      nullable: true
+                        - null
                       default: null
                   additionalProperties: false
-                  nullable: true
                 foundContactInfo:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     email:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: email
-                      nullable: true
                       default: null
                     phone:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 30
-                      nullable: true
                       default: null
                     message:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 500
-                      nullable: true
                       default: null
                   additionalProperties: false
-                  nullable: true
                 inventoryNumberFormat:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     prefix:
                       type: string
@@ -357,9 +385,10 @@ paths:
                   required:
                     - prefix
                   additionalProperties: false
-                  nullable: true
                 protocolSettings:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     paperSize:
                       type: string
@@ -367,7 +396,9 @@ paths:
                         - A4
                         - LETTER
                     numberFormat:
-                      type: object
+                      type:
+                        - object
+                        - "null"
                       properties:
                         prefix:
                           type: string
@@ -384,9 +415,7 @@ paths:
                         - padding
                         - initialSeq
                       additionalProperties: false
-                      nullable: true
                   additionalProperties: false
-                  nullable: true
                 allowedAuthProviders:
                   type: array
                   items:
@@ -409,16 +438,20 @@ paths:
                     type: string
                     pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
                 entraTenantId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: uuid
-                  nullable: true
                 customDomain:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 253
                   pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
-                  nullable: true
                 microsoftOAuth:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     clientId:
                       type: string
@@ -428,21 +461,24 @@ paths:
                       type: string
                       maxLength: 500
                     tenantMode:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 64
-                      nullable: true
                   required:
                     - clientId
                   additionalProperties: false
-                  nullable: true
                 appBaseUrl:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: uri
-                  nullable: true
                 publicAssetLookup:
                   type: boolean
                 labelPrinting:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     mode:
                       type: string
@@ -495,7 +531,6 @@ paths:
                         enabled: false
                         text: Našli ste ma? Naskenujte a pomôžte ma vrátiť.
                   additionalProperties: false
-                  nullable: true
               additionalProperties: false
               description: "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména, tlač štítkov)."
         description: "Tenant self-service: úprava vlastnej organizácie (názov, kontakt, billing, branding, auth doména, tlač štítkov)."
@@ -600,8 +635,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -640,15 +674,17 @@ paths:
                   maxLength: 40
                   pattern: ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$
                 entraTenantId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: uuid
-                  nullable: true
                   default: null
                 customDomain:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 253
                   pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
-                  nullable: true
                   default: null
                 status:
                   type: string
@@ -665,113 +701,136 @@ paths:
                     - ENTERPRISE
                   default: FREE
                 primaryContactEmail:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: email
-                  nullable: true
                   default: null
                 brandKit:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     presetId:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 64
-                      nullable: true
                       default: null
                     logoUrl:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: uri
-                      nullable: true
                       default: null
                     faviconUrl:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: uri
-                      nullable: true
                       default: null
                     primary:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     primaryFg:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     accent:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     accentFg:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     logoDot:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     fontFamilySans:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       enum:
                         - system-ui
                         - Inter
                         - Open Sans
                         - Roboto
                         - Lato
-                      nullable: true
+                        - null
                       default: null
                   additionalProperties: false
-                  nullable: true
                   default: null
                 billing:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     legalName:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 200
-                      nullable: true
                       default: null
                     ico:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^\d{8}$
-                      nullable: true
                       default: null
                     dic:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^\d{10}$
-                      nullable: true
                       default: null
                     isVatPayer:
                       type: boolean
                       default: false
                     icDph:
-                      allOf:
-                        - type: string
-                        - type: string
-                          pattern: ^SK\d{10}$
-                      nullable: true
                       default: null
+                      anyOf:
+                        - allOf:
+                            - type: string
+                            - type: string
+                              pattern: ^SK\d{10}$
+                        - type: "null"
                     businessRegistration:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 300
-                      nullable: true
                       default: null
                     iban:
-                      allOf:
-                        - type: string
-                        - type: string
-                          pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
-                      nullable: true
                       default: null
+                      anyOf:
+                        - allOf:
+                            - type: string
+                            - type: string
+                              pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
+                        - type: "null"
                     billingEmail:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: email
-                      nullable: true
                       default: null
                     registeredAddress:
-                      type: object
+                      type:
+                        - object
+                        - "null"
                       properties:
                         street:
                           type: string
@@ -794,10 +853,11 @@ paths:
                         - city
                         - postalCode
                       additionalProperties: false
-                      nullable: true
                       default: null
                     mailingAddress:
-                      type: object
+                      type:
+                        - object
+                        - "null"
                       properties:
                         street:
                           type: string
@@ -820,10 +880,8 @@ paths:
                         - city
                         - postalCode
                       additionalProperties: false
-                      nullable: true
                       default: null
                   additionalProperties: false
-                  nullable: true
                   default: null
                 settings:
                   type: object
@@ -887,10 +945,11 @@ paths:
                   minLength: 1
                   maxLength: 200
                 customDomain:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 253
                   pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$
-                  nullable: true
                 status:
                   type: string
                   enum:
@@ -904,111 +963,134 @@ paths:
                     - PRO
                     - ENTERPRISE
                 primaryContactEmail:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: email
-                  nullable: true
                 brandKit:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     presetId:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 64
-                      nullable: true
                       default: null
                     logoUrl:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: uri
-                      nullable: true
                       default: null
                     faviconUrl:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: uri
-                      nullable: true
                       default: null
                     primary:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     primaryFg:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     accent:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     accentFg:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     logoDot:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^#[0-9a-fA-F]{6}$
-                      nullable: true
                       default: null
                     fontFamilySans:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       enum:
                         - system-ui
                         - Inter
                         - Open Sans
                         - Roboto
                         - Lato
-                      nullable: true
+                        - null
                       default: null
                   additionalProperties: false
-                  nullable: true
                 billing:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     legalName:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 200
-                      nullable: true
                       default: null
                     ico:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^\d{8}$
-                      nullable: true
                       default: null
                     dic:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       pattern: ^\d{10}$
-                      nullable: true
                       default: null
                     isVatPayer:
                       type: boolean
                       default: false
                     icDph:
-                      allOf:
-                        - type: string
-                        - type: string
-                          pattern: ^SK\d{10}$
-                      nullable: true
                       default: null
+                      anyOf:
+                        - allOf:
+                            - type: string
+                            - type: string
+                              pattern: ^SK\d{10}$
+                        - type: "null"
                     businessRegistration:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       maxLength: 300
-                      nullable: true
                       default: null
                     iban:
-                      allOf:
-                        - type: string
-                        - type: string
-                          pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
-                      nullable: true
                       default: null
+                      anyOf:
+                        - allOf:
+                            - type: string
+                            - type: string
+                              pattern: ^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$
+                        - type: "null"
                     billingEmail:
-                      type: string
+                      type:
+                        - string
+                        - "null"
                       format: email
-                      nullable: true
                       default: null
                     registeredAddress:
-                      type: object
+                      type:
+                        - object
+                        - "null"
                       properties:
                         street:
                           type: string
@@ -1031,10 +1113,11 @@ paths:
                         - city
                         - postalCode
                       additionalProperties: false
-                      nullable: true
                       default: null
                     mailingAddress:
-                      type: object
+                      type:
+                        - object
+                        - "null"
                       properties:
                         street:
                           type: string
@@ -1057,17 +1140,16 @@ paths:
                         - city
                         - postalCode
                       additionalProperties: false
-                      nullable: true
                       default: null
                   additionalProperties: false
-                  nullable: true
                 settings:
                   type: object
                   additionalProperties: {}
                 appBaseUrl:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: uri
-                  nullable: true
                 publicAssetLookup:
                   type: boolean
               additionalProperties: false
@@ -1111,9 +1193,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/public/organisations/login-context:
     get:
       operationId: getV1PublicOrganisationsLoginContext
@@ -1149,39 +1229,45 @@ paths:
                   displayName:
                     type: string
                   logoUrl:
-                    type: string
+                    type:
+                      - string
+                      - "null"
                     format: uri
-                    nullable: true
                   brandColors:
-                    type: object
+                    type:
+                      - object
+                      - "null"
                     properties:
                       primary:
-                        type: string
+                        type:
+                          - string
+                          - "null"
                         pattern: ^#[0-9a-fA-F]{6}$
                         description: "Hex farba #RRGGBB"
-                        nullable: true
                       primaryFg:
-                        type: string
+                        type:
+                          - string
+                          - "null"
                         pattern: ^#[0-9a-fA-F]{6}$
                         description: "Hex farba #RRGGBB"
-                        nullable: true
                       accent:
-                        type: string
+                        type:
+                          - string
+                          - "null"
                         pattern: ^#[0-9a-fA-F]{6}$
                         description: "Hex farba #RRGGBB"
-                        nullable: true
                       accentFg:
-                        type: string
+                        type:
+                          - string
+                          - "null"
                         pattern: ^#[0-9a-fA-F]{6}$
                         description: "Hex farba #RRGGBB"
-                        nullable: true
                     required:
                       - primary
                       - primaryFg
                       - accent
                       - accentFg
                     additionalProperties: false
-                    nullable: true
                   allowedAuthProviders:
                     type: array
                     items:
@@ -1256,8 +1342,9 @@ paths:
                   isActive:
                     type: boolean
                   lastLoginAt:
-                    type: string
-                    nullable: true
+                    type:
+                      - string
+                      - "null"
                   preferences:
                     type: object
                     additionalProperties: {}
@@ -1428,8 +1515,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -1571,8 +1657,9 @@ paths:
                         email:
                           type: string
                         role:
-                          type: string
-                          nullable: true
+                          type:
+                            - string
+                            - "null"
                         isActive:
                           type: boolean
                       required:
@@ -1590,8 +1677,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -1629,10 +1715,8 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
                 description: MFA reset successfully
+                type: "null"
   /v1/users/{id}/restriction:
     post:
       operationId: postV1UsersByIdRestriction
@@ -1650,10 +1734,11 @@ paths:
                 restrict:
                   type: boolean
                 reason:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   minLength: 1
                   maxLength: 500
-                  nullable: true
               required:
                 - restrict
               additionalProperties: false
@@ -1722,8 +1807,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -1753,22 +1837,24 @@ paths:
               type: object
               properties:
                 serialNumber:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 200
-                  nullable: true
                   default: null
                 name:
                   type: string
                   minLength: 1
                   maxLength: 300
                 description:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
                 categoryId:
                   type: string
                   pattern: ^[a-f\d]{24}$
@@ -1778,28 +1864,32 @@ paths:
                   type: string
                   pattern: ^[a-f\d]{24}$
                 manufacturer:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 200
-                  nullable: true
                   default: null
                 model:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 200
-                  nullable: true
                   default: null
                 acquiredAt:
                   type: string
                   format: date-time
                 acquisitionCost:
-                  type: number
+                  type:
+                    - number
+                    - "null"
                   minimum: 0
                   maximum: 1000000
-                  nullable: true
                   default: null
                 warrantyUntil:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
-                  nullable: true
                   default: null
                 specs:
                   type: object
@@ -1822,9 +1912,10 @@ paths:
                     pattern: ^[a-f\d]{24}$
                   default: []
                 internalNotes:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 5000
-                  nullable: true
                   default: null
                 isLoanable:
                   type: boolean
@@ -1840,8 +1931,7 @@ paths:
                   default: SERIALIZED
                 initialQuantity:
                   type: integer
-                  exclusiveMinimum: true
-                  minimum: 0
+                  exclusiveMinimum: 0
               required:
                 - name
                 - categoryId
@@ -2050,22 +2140,24 @@ paths:
               type: object
               properties:
                 serialNumber:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 200
-                  nullable: true
                   default: null
                 name:
                   type: string
                   minLength: 1
                   maxLength: 300
                 description:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
                 categoryId:
                   type: string
                   pattern: ^[a-f\d]{24}$
@@ -2088,36 +2180,41 @@ paths:
                   pattern: ^[a-f\d]{24}$
                   description: MongoDB ObjectId (24 hex znakov)
                 currentLoanId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^[a-f\d]{24}$
                   description: MongoDB ObjectId (24 hex znakov)
-                  nullable: true
                   default: null
                 manufacturer:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 200
-                  nullable: true
                   default: null
                 model:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 200
-                  nullable: true
                   default: null
                 acquiredAt:
                   type: string
                   format: date-time
                   description: ISO 8601 timestamp v UTC
                 acquisitionCost:
-                  type: number
+                  type:
+                    - number
+                    - "null"
                   minimum: 0
                   maximum: 1000000
-                  nullable: true
                   default: null
                 warrantyUntil:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
                   description: ISO 8601 timestamp v UTC
-                  nullable: true
                   default: null
                 specs:
                   type: object
@@ -2141,9 +2238,10 @@ paths:
                     description: MongoDB ObjectId (24 hex znakov)
                   default: []
                 internalNotes:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 5000
-                  nullable: true
                   default: null
                 isLoanable:
                   type: boolean
@@ -2190,9 +2288,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/assets/by-token/{publicToken}:
     get:
       operationId: getV1AssetsByTokenByPublicToken
@@ -2275,8 +2371,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -2501,22 +2596,26 @@ paths:
                         action:
                           type: string
                         target:
-                          type: object
+                          type:
+                            - object
+                            - "null"
                           properties:
                             entityType:
                               type: string
                             entityId:
-                              type: string
-                              nullable: true
+                              type:
+                                - string
+                                - "null"
                           required:
                             - entityType
                             - entityId
                           additionalProperties: false
-                          nullable: true
                         description:
                           type: string
                         changes:
-                          type: array
+                          type:
+                            - array
+                            - "null"
                           items:
                             type: object
                             properties:
@@ -2527,7 +2626,6 @@ paths:
                             required:
                               - field
                             additionalProperties: false
-                          nullable: true
                         severity:
                           type: string
                       required:
@@ -2548,8 +2646,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -2636,9 +2733,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/attachments/{id}:
     delete:
       operationId: deleteV1AttachmentsById
@@ -2661,9 +2756,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/public/scan/{publicToken}:
     get:
       operationId: getV1PublicScanByPublicToken
@@ -2690,27 +2783,32 @@ paths:
                   organisationName:
                     type: string
                   organisationLogoUrl:
-                    type: string
+                    type:
+                      - string
+                      - "null"
                     format: uri
-                    nullable: true
                   foundContact:
-                    type: object
+                    type:
+                      - object
+                      - "null"
                     properties:
                       email:
-                        type: string
-                        nullable: true
+                        type:
+                          - string
+                          - "null"
                       phone:
-                        type: string
-                        nullable: true
+                        type:
+                          - string
+                          - "null"
                       message:
-                        type: string
-                        nullable: true
+                        type:
+                          - string
+                          - "null"
                     required:
                       - email
                       - phone
                       - message
                     additionalProperties: false
-                    nullable: true
                 required:
                   - organisationName
                   - organisationLogoUrl
@@ -2773,8 +2871,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -2811,14 +2908,16 @@ paths:
                   pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
                   maxLength: 200
                 icon:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 50
-                  nullable: true
                   default: null
                 color:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^#[0-9a-fA-F]{6}$
-                  nullable: true
                   default: null
                 isActive:
                   type: boolean
@@ -2883,14 +2982,16 @@ paths:
                   pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
                   maxLength: 200
                 icon:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 50
-                  nullable: true
                   default: null
                 color:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^#[0-9a-fA-F]{6}$
-                  nullable: true
                   default: null
                 isActive:
                   type: boolean
@@ -2936,9 +3037,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/categories:
     get:
       operationId: getV1Categories
@@ -3001,8 +3100,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -3040,27 +3138,31 @@ paths:
                   pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
                   maxLength: 200
                 parentId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^[a-f\d]{24}$
-                  nullable: true
                   default: null
                 description:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 1000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 1000
+                    - type: "null"
                 icon:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 50
-                  nullable: true
                   default: null
                 color:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^#[0-9a-fA-F]{6}$
-                  nullable: true
                   default: null
                 approverIds:
                   type: array
@@ -3072,12 +3174,12 @@ paths:
                   type: boolean
                   default: true
                 maxLoanDays:
-                  type: integer
-                  exclusiveMinimum: true
-                  minimum: 0
+                  type:
+                    - integer
+                    - "null"
                   maximum: 3650
-                  nullable: true
                   default: null
+                  exclusiveMinimum: 0
                 isActive:
                   type: boolean
                   default: true
@@ -3145,28 +3247,32 @@ paths:
                   pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
                   maxLength: 200
                 parentId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^[a-f\d]{24}$
                   description: MongoDB ObjectId (24 hex znakov)
-                  nullable: true
                   default: null
                 description:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 1000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 1000
+                    - type: "null"
                 icon:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   maxLength: 50
-                  nullable: true
                   default: null
                 color:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^#[0-9a-fA-F]{6}$
-                  nullable: true
                   default: null
                 approverIds:
                   type: array
@@ -3179,12 +3285,12 @@ paths:
                   type: boolean
                   default: true
                 maxLoanDays:
-                  type: integer
-                  exclusiveMinimum: true
-                  minimum: 0
+                  type:
+                    - integer
+                    - "null"
                   maximum: 3650
-                  nullable: true
                   default: null
+                  exclusiveMinimum: 0
                 isActive:
                   type: boolean
                   default: true
@@ -3232,9 +3338,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/locations:
     get:
       operationId: getV1Locations
@@ -3311,8 +3415,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -3361,7 +3464,9 @@ paths:
                     - EXTERNAL
                     - IN_TRANSIT
                 address:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     street:
                       type: string
@@ -3378,10 +3483,11 @@ paths:
                       maxLength: 2
                       default: SK
                   additionalProperties: false
-                  nullable: true
                   default: null
                 coordinates:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     lat:
                       type: number
@@ -3395,25 +3501,27 @@ paths:
                     - lat
                     - lng
                   additionalProperties: false
-                  nullable: true
                   default: null
                 parentId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^[a-f\d]{24}$
-                  nullable: true
                   default: null
                 description:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
                 managerId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^[a-f\d]{24}$
-                  nullable: true
                   default: null
                 isActive:
                   type: boolean
@@ -3491,7 +3599,9 @@ paths:
                     - EXTERNAL
                     - IN_TRANSIT
                 address:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     street:
                       type: string
@@ -3508,10 +3618,11 @@ paths:
                       maxLength: 2
                       default: SK
                   additionalProperties: false
-                  nullable: true
                   default: null
                 coordinates:
-                  type: object
+                  type:
+                    - object
+                    - "null"
                   properties:
                     lat:
                       type: number
@@ -3525,27 +3636,29 @@ paths:
                     - lat
                     - lng
                   additionalProperties: false
-                  nullable: true
                   default: null
                 parentId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^[a-f\d]{24}$
                   description: MongoDB ObjectId (24 hex znakov)
-                  nullable: true
                   default: null
                 description:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
                 managerId:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   pattern: ^[a-f\d]{24}$
                   description: MongoDB ObjectId (24 hex znakov)
-                  nullable: true
                   default: null
                 isActive:
                   type: boolean
@@ -3591,9 +3704,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/loan-requests:
     get:
       operationId: getV1LoanRequests
@@ -3665,8 +3776,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -3705,9 +3815,10 @@ paths:
                   type: string
                   format: date-time
                 plannedTo:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
-                  nullable: true
                 items:
                   type: array
                   items:
@@ -3720,12 +3831,13 @@ paths:
                         type: integer
                         minimum: 1
                       note:
-                        allOf:
-                          - type: string
-                          - type: string
-                            minLength: 0
-                            maxLength: 1000
-                        nullable: true
+                        anyOf:
+                          - allOf:
+                              - type: string
+                              - type: string
+                                minLength: 0
+                                maxLength: 1000
+                          - type: "null"
                     required:
                       - categoryId
                       - quantityRequested
@@ -3797,9 +3909,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/loan-requests/{id}/approve:
     post:
       operationId: postV1LoanRequestsByIdApprove
@@ -3926,21 +4036,23 @@ paths:
                         additionalProperties: false
                   minItems: 1
                 dueAt:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
-                  nullable: true
                   default: null
                 closeRemainder:
                   type: boolean
                   default: false
                 notes:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
               required:
                 - items
               additionalProperties: false
@@ -3999,9 +4111,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/loans/my:
     get:
       operationId: getV1LoansMy
@@ -4059,8 +4169,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -4145,8 +4254,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -4200,19 +4308,21 @@ paths:
                       minLength: 3
                       maxLength: 500
                 dueAt:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
                   description: ISO 8601 timestamp v UTC
-                  nullable: true
                   default: null
                 notes:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
               required:
                 - borrowerId
                 - items
@@ -4289,13 +4399,14 @@ paths:
                           - POOR
                           - UNUSABLE
                       note:
-                        allOf:
-                          - type: string
-                          - type: string
-                            minLength: 0
-                            maxLength: 1000
-                        nullable: true
                         default: null
+                        anyOf:
+                          - allOf:
+                              - type: string
+                              - type: string
+                                minLength: 0
+                                maxLength: 1000
+                          - type: "null"
                       photoIds:
                         type: array
                         items:
@@ -4311,13 +4422,14 @@ paths:
                       - condition
                     additionalProperties: false
                 notes:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
               required:
                 - returnedTo
                 - items
@@ -4375,9 +4487,7 @@ paths:
           content:
             application/json:
               schema:
-                enum:
-                  - "null"
-                nullable: true
+                type: "null"
   /v1/users/{id}/borrowed-items:
     get:
       operationId: getV1UsersByIdBorrowedItems
@@ -4445,13 +4555,14 @@ paths:
                           - POOR
                           - UNUSABLE
                       note:
-                        allOf:
-                          - type: string
-                          - type: string
-                            minLength: 0
-                            maxLength: 1000
-                        nullable: true
                         default: null
+                        anyOf:
+                          - allOf:
+                              - type: string
+                              - type: string
+                                minLength: 0
+                                maxLength: 1000
+                          - type: "null"
                       photoIds:
                         type: array
                         items:
@@ -4469,13 +4580,14 @@ paths:
                     additionalProperties: false
                   minItems: 1
                 notes:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 2000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 2000
+                    - type: "null"
               required:
                 - returnedTo
                 - items
@@ -4562,8 +4674,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -5128,15 +5239,17 @@ paths:
                         name:
                           type: string
                         quantityOnHand:
-                          type: integer
-                          nullable: true
+                          type:
+                            - integer
+                            - "null"
                         categoryId:
                           type: string
                         locationId:
                           type: string
                         lastReceiptQuantity:
-                          type: integer
-                          nullable: true
+                          type:
+                            - integer
+                            - "null"
                       required:
                         - _id
                         - inventoryNumber
@@ -5215,8 +5328,7 @@ paths:
                         minimum: 0
                       limit:
                         type: integer
-                        exclusiveMinimum: true
-                        minimum: 0
+                        exclusiveMinimum: 0
                       skip:
                         type: integer
                         minimum: 0
@@ -5248,27 +5360,28 @@ paths:
               properties:
                 quantity:
                   type: integer
-                  exclusiveMinimum: true
-                  minimum: 0
+                  exclusiveMinimum: 0
                 locationId:
                   type: string
                   pattern: ^[a-f\d]{24}$
                 reason:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 1000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 1000
+                    - type: "null"
                 note:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 1000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 1000
+                    - type: "null"
               required:
                 - quantity
                 - locationId
@@ -5316,13 +5429,14 @@ paths:
                       minLength: 3
                       maxLength: 1000
                 note:
-                  allOf:
-                    - type: string
-                    - type: string
-                      minLength: 0
-                      maxLength: 1000
-                  nullable: true
                   default: null
+                  anyOf:
+                    - allOf:
+                        - type: string
+                        - type: string
+                          minLength: 0
+                          maxLength: 1000
+                    - type: "null"
               required:
                 - quantity
                 - locationId
@@ -5374,8 +5488,9 @@ paths:
                   ledgerBalance:
                     type: integer
                   cacheWas:
-                    type: integer
-                    nullable: true
+                    type:
+                      - integer
+                      - "null"
                   wasConsistent:
                     type: boolean
                 required:

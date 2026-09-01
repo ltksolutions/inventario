@@ -19,7 +19,9 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import fp from 'fastify-plugin';
 import { jsonSchemaTransform } from 'fastify-type-provider-zod';
 
-import type { SwaggerTransform } from '@fastify/swagger';
+import { convertToOpenApi31 } from '../lib/openapi-3-1.js';
+
+import type { SwaggerTransform, SwaggerTransformObject } from '@fastify/swagger';
 import type { FastifyPluginAsync } from 'fastify';
 
 // ---------------------------------------------------------------------------
@@ -99,6 +101,20 @@ const withOperationId: SwaggerTransform = ({ schema, url, route }) => {
   }
 
   return result;
+};
+
+/**
+ * Posledný krok pred vyrenderovaním dokumentu: `nullable: true` → 3.1 tvar.
+ *
+ * Beží nad celým dokumentom, takže platí rovnako pre `openapi.json`,
+ * `/docs` aj pre YAML v `docs/api/`. Zod → JSON Schema konverzia zatiaľ
+ * generuje 3.0 tvar; detaily v `lib/openapi-3-1.ts`.
+ */
+const toOpenApi31: SwaggerTransformObject = (documentObject) => {
+  const doc =
+    'openapiObject' in documentObject ? documentObject.openapiObject : documentObject.swaggerObject;
+
+  return convertToOpenApi31(doc);
 };
 
 const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
@@ -183,6 +199,7 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
     // Zod → JSON Schema (fastify-type-provider-zod) a navrch doplnenie
     // operationId, ak si ho route nenastavila sama.
     transform: withOperationId,
+    transformObject: toOpenApi31,
   });
 
   await fastify.register(fastifySwaggerUi, {

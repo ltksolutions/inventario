@@ -26,15 +26,23 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   oprave odkazov zelený, Unit Tests tiež. Červený zostáva len OpenAPI
   job, ktorý má `continue-on-error`. PR je pripravený na merge.
 - **OpenAPI lint** (`docs.yml`, job `openapi`) — stále
-  `continue-on-error: true`, kým sa nedorieši posledná skupina chýb.
-  `operationId` je hotový (31. 8., odvodzuje sa v `plugins/swagger.ts`).
-  Zostáva **163× `nullable: true`**, čo v OpenAPI 3.1 neexistuje —
-  správne je `type: [..., null]`. Nie je to na ručnú opravu: `nullable`
-  generuje Zod → JSON Schema konverzia
-  (`fastify-type-provider-zod`), takže sa to rieši buď jej konfiguráciou,
-  alebo prevodom v `scripts/openapi-to-yaml.ts`. Kým je
-  `continue-on-error` zapnuté, job nič nestráži — presne tá istá pasca,
-  v akej bol Markdown job do 31. 8.
+  `continue-on-error: true`. Syntax 3.1 je hotová (31. 8.): `operationId`
+  sa odvodzuje a `nullable` / `exclusiveMinimum` sa prevádzajú
+  (`lib/openapi-3-1.ts`). Z 219 `struct` chýb je **0**.
+
+  Zostáva 38 chýb z troch pravidiel, ktoré už nie sú o syntaxi, ale
+  o obsahu dokumentácie:
+
+  - **`operation-summary` (17)** — presne tie routy, ktoré sú
+    registrované bez `schema` (invitations, memberships). Nemajú v
+    dokumentácii žiadny popis. Riešenie: doplniť im `schema.summary`,
+    ideálne aj celé schémy.
+  - **`security-defined` (21)** — operácie bez deklarovaného `security`.
+    Rieši sa root-level `security` v `plugins/swagger.ts` plus
+    `security: []` na verejných endpointoch (`/health`, scan, login
+    context), aby bolo explicitné, čo je zámerne verejné.
+  - **`no-ambiguous-paths` (4)** — len warning, nie error.
+
 - **GitHub Discussions** — v repozitári nie sú zapnuté (Settings →
   Features), ale `docs/user-guide/support.md` na ne odkazuje. Odkaz je
   zatiaľ v `ignorePatterns` link checkera; po zapnutí ten pattern

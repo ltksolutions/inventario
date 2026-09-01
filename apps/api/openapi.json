@@ -219,29 +219,40 @@
                     "maxLength": 200
                   },
                   "primaryContactEmail": {
-                    "type": "string",
-                    "format": "email",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "email"
                   },
                   "billing": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "legalName": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 200,
-                        "nullable": true,
                         "default": null
                       },
                       "ico": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^\\d{8}$",
-                        "nullable": true,
                         "default": null
                       },
                       "dic": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^\\d{10}$",
-                        "nullable": true,
                         "default": null
                       },
                       "isVatPayer": {
@@ -249,45 +260,64 @@
                         "default": false
                       },
                       "icDph": {
-                        "allOf": [
+                        "default": null,
+                        "anyOf": [
                           {
-                            "type": "string"
+                            "allOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^SK\\d{10}$"
+                              }
+                            ]
                           },
                           {
-                            "type": "string",
-                            "pattern": "^SK\\d{10}$"
+                            "type": "null"
                           }
-                        ],
-                        "nullable": true,
-                        "default": null
+                        ]
                       },
                       "businessRegistration": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 300,
-                        "nullable": true,
                         "default": null
                       },
                       "iban": {
-                        "allOf": [
+                        "default": null,
+                        "anyOf": [
                           {
-                            "type": "string"
+                            "allOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                              }
+                            ]
                           },
                           {
-                            "type": "string",
-                            "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                            "type": "null"
                           }
-                        ],
-                        "nullable": true,
-                        "default": null
+                        ]
                       },
                       "billingEmail": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "email",
-                        "nullable": true,
                         "default": null
                       },
                       "registeredAddress": {
-                        "type": "object",
+                        "type": [
+                          "object",
+                          "null"
+                        ],
                         "properties": {
                           "street": {
                             "type": "string",
@@ -316,11 +346,13 @@
                           "postalCode"
                         ],
                         "additionalProperties": false,
-                        "nullable": true,
                         "default": null
                       },
                       "mailingAddress": {
-                        "type": "object",
+                        "type": [
+                          "object",
+                          "null"
+                        ],
                         "properties": {
                           "street": {
                             "type": "string",
@@ -349,107 +381,137 @@
                           "postalCode"
                         ],
                         "additionalProperties": false,
-                        "nullable": true,
                         "default": null
                       }
                     },
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "brandKit": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "presetId": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 64,
-                        "nullable": true,
                         "default": null
                       },
                       "logoUrl": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "uri",
-                        "nullable": true,
                         "default": null
                       },
                       "faviconUrl": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "uri",
-                        "nullable": true,
                         "default": null
                       },
                       "primary": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "primaryFg": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "accent": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "accentFg": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "logoDot": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "fontFamilySans": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "enum": [
                           "system-ui",
                           "Inter",
                           "Open Sans",
                           "Roboto",
-                          "Lato"
+                          "Lato",
+                          null
                         ],
-                        "nullable": true,
                         "default": null
                       }
                     },
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "foundContactInfo": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "email": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "email",
-                        "nullable": true,
                         "default": null
                       },
                       "phone": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 30,
-                        "nullable": true,
                         "default": null
                       },
                       "message": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 500,
-                        "nullable": true,
                         "default": null
                       }
                     },
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "inventoryNumberFormat": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "prefix": {
                         "type": "string",
@@ -473,11 +535,13 @@
                     "required": [
                       "prefix"
                     ],
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "protocolSettings": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "paperSize": {
                         "type": "string",
@@ -487,7 +551,10 @@
                         ]
                       },
                       "numberFormat": {
-                        "type": "object",
+                        "type": [
+                          "object",
+                          "null"
+                        ],
                         "properties": {
                           "prefix": {
                             "type": "string",
@@ -508,12 +575,10 @@
                           "padding",
                           "initialSeq"
                         ],
-                        "additionalProperties": false,
-                        "nullable": true
+                        "additionalProperties": false
                       }
                     },
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "allowedAuthProviders": {
                     "type": "array",
@@ -544,18 +609,25 @@
                     }
                   },
                   "entraTenantId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
                   },
                   "customDomain": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 253,
-                    "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$",
-                    "nullable": true
+                    "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
                   },
                   "microsoftOAuth": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "clientId": {
                         "type": "string",
@@ -567,27 +639,33 @@
                         "maxLength": 500
                       },
                       "tenantMode": {
-                        "type": "string",
-                        "maxLength": 64,
-                        "nullable": true
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 64
                       }
                     },
                     "required": [
                       "clientId"
                     ],
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "appBaseUrl": {
-                    "type": "string",
-                    "format": "uri",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uri"
                   },
                   "publicAssetLookup": {
                     "type": "boolean"
                   },
                   "labelPrinting": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "mode": {
                         "type": "string",
@@ -660,8 +738,7 @@
                         }
                       }
                     },
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false,
@@ -819,8 +896,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -876,16 +952,20 @@
                     "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"
                   },
                   "entraTenantId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "uuid",
-                    "nullable": true,
                     "default": null
                   },
                   "customDomain": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 253,
                     "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$",
-                    "nullable": true,
                     "default": null
                   },
                   "status": {
@@ -907,98 +987,130 @@
                     "default": "FREE"
                   },
                   "primaryContactEmail": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "email",
-                    "nullable": true,
                     "default": null
                   },
                   "brandKit": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "presetId": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 64,
-                        "nullable": true,
                         "default": null
                       },
                       "logoUrl": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "uri",
-                        "nullable": true,
                         "default": null
                       },
                       "faviconUrl": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "uri",
-                        "nullable": true,
                         "default": null
                       },
                       "primary": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "primaryFg": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "accent": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "accentFg": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "logoDot": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "fontFamilySans": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "enum": [
                           "system-ui",
                           "Inter",
                           "Open Sans",
                           "Roboto",
-                          "Lato"
+                          "Lato",
+                          null
                         ],
-                        "nullable": true,
                         "default": null
                       }
                     },
                     "additionalProperties": false,
-                    "nullable": true,
                     "default": null
                   },
                   "billing": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "legalName": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 200,
-                        "nullable": true,
                         "default": null
                       },
                       "ico": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^\\d{8}$",
-                        "nullable": true,
                         "default": null
                       },
                       "dic": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^\\d{10}$",
-                        "nullable": true,
                         "default": null
                       },
                       "isVatPayer": {
@@ -1006,45 +1118,64 @@
                         "default": false
                       },
                       "icDph": {
-                        "allOf": [
+                        "default": null,
+                        "anyOf": [
                           {
-                            "type": "string"
+                            "allOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^SK\\d{10}$"
+                              }
+                            ]
                           },
                           {
-                            "type": "string",
-                            "pattern": "^SK\\d{10}$"
+                            "type": "null"
                           }
-                        ],
-                        "nullable": true,
-                        "default": null
+                        ]
                       },
                       "businessRegistration": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 300,
-                        "nullable": true,
                         "default": null
                       },
                       "iban": {
-                        "allOf": [
+                        "default": null,
+                        "anyOf": [
                           {
-                            "type": "string"
+                            "allOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                              }
+                            ]
                           },
                           {
-                            "type": "string",
-                            "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                            "type": "null"
                           }
-                        ],
-                        "nullable": true,
-                        "default": null
+                        ]
                       },
                       "billingEmail": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "email",
-                        "nullable": true,
                         "default": null
                       },
                       "registeredAddress": {
-                        "type": "object",
+                        "type": [
+                          "object",
+                          "null"
+                        ],
                         "properties": {
                           "street": {
                             "type": "string",
@@ -1073,11 +1204,13 @@
                           "postalCode"
                         ],
                         "additionalProperties": false,
-                        "nullable": true,
                         "default": null
                       },
                       "mailingAddress": {
-                        "type": "object",
+                        "type": [
+                          "object",
+                          "null"
+                        ],
                         "properties": {
                           "street": {
                             "type": "string",
@@ -1106,12 +1239,10 @@
                           "postalCode"
                         ],
                         "additionalProperties": false,
-                        "nullable": true,
                         "default": null
                       }
                     },
                     "additionalProperties": false,
-                    "nullable": true,
                     "default": null
                   },
                   "settings": {
@@ -1209,10 +1340,12 @@
                     "maxLength": 200
                   },
                   "customDomain": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 253,
-                    "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$",
-                    "nullable": true
+                    "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
                   },
                   "status": {
                     "type": "string",
@@ -1231,96 +1364,128 @@
                     ]
                   },
                   "primaryContactEmail": {
-                    "type": "string",
-                    "format": "email",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "email"
                   },
                   "brandKit": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "presetId": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 64,
-                        "nullable": true,
                         "default": null
                       },
                       "logoUrl": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "uri",
-                        "nullable": true,
                         "default": null
                       },
                       "faviconUrl": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "uri",
-                        "nullable": true,
                         "default": null
                       },
                       "primary": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "primaryFg": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "accent": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "accentFg": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "logoDot": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^#[0-9a-fA-F]{6}$",
-                        "nullable": true,
                         "default": null
                       },
                       "fontFamilySans": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "enum": [
                           "system-ui",
                           "Inter",
                           "Open Sans",
                           "Roboto",
-                          "Lato"
+                          "Lato",
+                          null
                         ],
-                        "nullable": true,
                         "default": null
                       }
                     },
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "billing": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "legalName": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 200,
-                        "nullable": true,
                         "default": null
                       },
                       "ico": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^\\d{8}$",
-                        "nullable": true,
                         "default": null
                       },
                       "dic": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "pattern": "^\\d{10}$",
-                        "nullable": true,
                         "default": null
                       },
                       "isVatPayer": {
@@ -1328,45 +1493,64 @@
                         "default": false
                       },
                       "icDph": {
-                        "allOf": [
+                        "default": null,
+                        "anyOf": [
                           {
-                            "type": "string"
+                            "allOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^SK\\d{10}$"
+                              }
+                            ]
                           },
                           {
-                            "type": "string",
-                            "pattern": "^SK\\d{10}$"
+                            "type": "null"
                           }
-                        ],
-                        "nullable": true,
-                        "default": null
+                        ]
                       },
                       "businessRegistration": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 300,
-                        "nullable": true,
                         "default": null
                       },
                       "iban": {
-                        "allOf": [
+                        "default": null,
+                        "anyOf": [
                           {
-                            "type": "string"
+                            "allOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                              }
+                            ]
                           },
                           {
-                            "type": "string",
-                            "pattern": "^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$"
+                            "type": "null"
                           }
-                        ],
-                        "nullable": true,
-                        "default": null
+                        ]
                       },
                       "billingEmail": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "format": "email",
-                        "nullable": true,
                         "default": null
                       },
                       "registeredAddress": {
-                        "type": "object",
+                        "type": [
+                          "object",
+                          "null"
+                        ],
                         "properties": {
                           "street": {
                             "type": "string",
@@ -1395,11 +1579,13 @@
                           "postalCode"
                         ],
                         "additionalProperties": false,
-                        "nullable": true,
                         "default": null
                       },
                       "mailingAddress": {
-                        "type": "object",
+                        "type": [
+                          "object",
+                          "null"
+                        ],
                         "properties": {
                           "street": {
                             "type": "string",
@@ -1428,21 +1614,21 @@
                           "postalCode"
                         ],
                         "additionalProperties": false,
-                        "nullable": true,
                         "default": null
                       }
                     },
-                    "additionalProperties": false,
-                    "nullable": true
+                    "additionalProperties": false
                   },
                   "settings": {
                     "type": "object",
                     "additionalProperties": {}
                   },
                   "appBaseUrl": {
-                    "type": "string",
-                    "format": "uri",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uri"
                   },
                   "publicAssetLookup": {
                     "type": "boolean"
@@ -1514,10 +1700,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -1570,36 +1753,49 @@
                       "type": "string"
                     },
                     "logoUrl": {
-                      "type": "string",
-                      "format": "uri",
-                      "nullable": true
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     },
                     "brandColors": {
-                      "type": "object",
+                      "type": [
+                        "object",
+                        "null"
+                      ],
                       "properties": {
                         "primary": {
-                          "type": "string",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "pattern": "^#[0-9a-fA-F]{6}$",
-                          "description": "Hex farba #RRGGBB",
-                          "nullable": true
+                          "description": "Hex farba #RRGGBB"
                         },
                         "primaryFg": {
-                          "type": "string",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "pattern": "^#[0-9a-fA-F]{6}$",
-                          "description": "Hex farba #RRGGBB",
-                          "nullable": true
+                          "description": "Hex farba #RRGGBB"
                         },
                         "accent": {
-                          "type": "string",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "pattern": "^#[0-9a-fA-F]{6}$",
-                          "description": "Hex farba #RRGGBB",
-                          "nullable": true
+                          "description": "Hex farba #RRGGBB"
                         },
                         "accentFg": {
-                          "type": "string",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "pattern": "^#[0-9a-fA-F]{6}$",
-                          "description": "Hex farba #RRGGBB",
-                          "nullable": true
+                          "description": "Hex farba #RRGGBB"
                         }
                       },
                       "required": [
@@ -1608,8 +1804,7 @@
                         "accent",
                         "accentFg"
                       ],
-                      "additionalProperties": false,
-                      "nullable": true
+                      "additionalProperties": false
                     },
                     "allowedAuthProviders": {
                       "type": "array",
@@ -1724,8 +1919,10 @@
                       "type": "boolean"
                     },
                     "lastLoginAt": {
-                      "type": "string",
-                      "nullable": true
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "preferences": {
                       "type": "object",
@@ -1971,8 +2168,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -2185,8 +2381,10 @@
                             "type": "string"
                           },
                           "role": {
-                            "type": "string",
-                            "nullable": true
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "isActive": {
                             "type": "boolean"
@@ -2211,8 +2409,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -2273,11 +2470,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true,
-                  "description": "MFA reset successfully"
+                  "description": "MFA reset successfully",
+                  "type": "null"
                 }
               }
             }
@@ -2304,10 +2498,12 @@
                     "type": "boolean"
                   },
                   "reason": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "minLength": 1,
-                    "maxLength": 500,
-                    "nullable": true
+                    "maxLength": 500
                   }
                 },
                 "required": [
@@ -2411,8 +2607,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -2457,9 +2652,11 @@
                 "type": "object",
                 "properties": {
                   "serialNumber": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 200,
-                    "nullable": true,
                     "default": null
                   },
                   "name": {
@@ -2468,18 +2665,24 @@
                     "maxLength": 300
                   },
                   "description": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   },
                   "categoryId": {
                     "type": "string",
@@ -2493,15 +2696,19 @@
                     "pattern": "^[a-f\\d]{24}$"
                   },
                   "manufacturer": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 200,
-                    "nullable": true,
                     "default": null
                   },
                   "model": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 200,
-                    "nullable": true,
                     "default": null
                   },
                   "acquiredAt": {
@@ -2509,16 +2716,20 @@
                     "format": "date-time"
                   },
                   "acquisitionCost": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": 0,
                     "maximum": 1000000,
-                    "nullable": true,
                     "default": null
                   },
                   "warrantyUntil": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "date-time",
-                    "nullable": true,
                     "default": null
                   },
                   "specs": {
@@ -2552,9 +2763,11 @@
                     "default": []
                   },
                   "internalNotes": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 5000,
-                    "nullable": true,
                     "default": null
                   },
                   "isLoanable": {
@@ -2575,8 +2788,7 @@
                   },
                   "initialQuantity": {
                     "type": "integer",
-                    "exclusiveMinimum": true,
-                    "minimum": 0
+                    "exclusiveMinimum": 0
                   }
                 },
                 "required": [
@@ -2914,9 +3126,11 @@
                 "type": "object",
                 "properties": {
                   "serialNumber": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 200,
-                    "nullable": true,
                     "default": null
                   },
                   "name": {
@@ -2925,18 +3139,24 @@
                     "maxLength": 300
                   },
                   "description": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   },
                   "categoryId": {
                     "type": "string",
@@ -2965,22 +3185,28 @@
                     "description": "MongoDB ObjectId (24 hex znakov)"
                   },
                   "currentLoanId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^[a-f\\d]{24}$",
                     "description": "MongoDB ObjectId (24 hex znakov)",
-                    "nullable": true,
                     "default": null
                   },
                   "manufacturer": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 200,
-                    "nullable": true,
                     "default": null
                   },
                   "model": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 200,
-                    "nullable": true,
                     "default": null
                   },
                   "acquiredAt": {
@@ -2989,17 +3215,21 @@
                     "description": "ISO 8601 timestamp v UTC"
                   },
                   "acquisitionCost": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": 0,
                     "maximum": 1000000,
-                    "nullable": true,
                     "default": null
                   },
                   "warrantyUntil": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "date-time",
                     "description": "ISO 8601 timestamp v UTC",
-                    "nullable": true,
                     "default": null
                   },
                   "specs": {
@@ -3034,9 +3264,11 @@
                     "default": []
                   },
                   "internalNotes": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 5000,
-                    "nullable": true,
                     "default": null
                   },
                   "isLoanable": {
@@ -3112,10 +3344,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -3240,8 +3469,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -3534,28 +3762,35 @@
                             "type": "string"
                           },
                           "target": {
-                            "type": "object",
+                            "type": [
+                              "object",
+                              "null"
+                            ],
                             "properties": {
                               "entityType": {
                                 "type": "string"
                               },
                               "entityId": {
-                                "type": "string",
-                                "nullable": true
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
                               "entityType",
                               "entityId"
                             ],
-                            "additionalProperties": false,
-                            "nullable": true
+                            "additionalProperties": false
                           },
                           "description": {
                             "type": "string"
                           },
                           "changes": {
-                            "type": "array",
+                            "type": [
+                              "array",
+                              "null"
+                            ],
                             "items": {
                               "type": "object",
                               "properties": {
@@ -3569,8 +3804,7 @@
                                 "field"
                               ],
                               "additionalProperties": false
-                            },
-                            "nullable": true
+                            }
                           },
                           "severity": {
                             "type": "string"
@@ -3598,8 +3832,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -3739,10 +3972,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -3780,10 +4010,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -3823,24 +4050,35 @@
                       "type": "string"
                     },
                     "organisationLogoUrl": {
-                      "type": "string",
-                      "format": "uri",
-                      "nullable": true
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     },
                     "foundContact": {
-                      "type": "object",
+                      "type": [
+                        "object",
+                        "null"
+                      ],
                       "properties": {
                         "email": {
-                          "type": "string",
-                          "nullable": true
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "phone": {
-                          "type": "string",
-                          "nullable": true
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "message": {
-                          "type": "string",
-                          "nullable": true
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -3848,8 +4086,7 @@
                         "phone",
                         "message"
                       ],
-                      "additionalProperties": false,
-                      "nullable": true
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -3943,8 +4180,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -3998,15 +4234,19 @@
                     "maxLength": 200
                   },
                   "icon": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 50,
-                    "nullable": true,
                     "default": null
                   },
                   "color": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^#[0-9a-fA-F]{6}$",
-                    "nullable": true,
                     "default": null
                   },
                   "isActive": {
@@ -4107,15 +4347,19 @@
                     "maxLength": 200
                   },
                   "icon": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 50,
-                    "nullable": true,
                     "default": null
                   },
                   "color": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^#[0-9a-fA-F]{6}$",
-                    "nullable": true,
                     "default": null
                   },
                   "isActive": {
@@ -4190,10 +4434,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -4284,8 +4525,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -4340,35 +4580,47 @@
                     "maxLength": 200
                   },
                   "parentId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^[a-f\\d]{24}$",
-                    "nullable": true,
                     "default": null
                   },
                   "description": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 1000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   },
                   "icon": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 50,
-                    "nullable": true,
                     "default": null
                   },
                   "color": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^#[0-9a-fA-F]{6}$",
-                    "nullable": true,
                     "default": null
                   },
                   "approverIds": {
@@ -4384,12 +4636,13 @@
                     "default": true
                   },
                   "maxLoanDays": {
-                    "type": "integer",
-                    "exclusiveMinimum": true,
-                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
                     "maximum": 3650,
-                    "nullable": true,
-                    "default": null
+                    "default": null,
+                    "exclusiveMinimum": 0
                   },
                   "isActive": {
                     "type": "boolean",
@@ -4493,36 +4746,48 @@
                     "maxLength": 200
                   },
                   "parentId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^[a-f\\d]{24}$",
                     "description": "MongoDB ObjectId (24 hex znakov)",
-                    "nullable": true,
                     "default": null
                   },
                   "description": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 1000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   },
                   "icon": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 50,
-                    "nullable": true,
                     "default": null
                   },
                   "color": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^#[0-9a-fA-F]{6}$",
-                    "nullable": true,
                     "default": null
                   },
                   "approverIds": {
@@ -4539,12 +4804,13 @@
                     "default": true
                   },
                   "maxLoanDays": {
-                    "type": "integer",
-                    "exclusiveMinimum": true,
-                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
                     "maximum": 3650,
-                    "nullable": true,
-                    "default": null
+                    "default": null,
+                    "exclusiveMinimum": 0
                   },
                   "isActive": {
                     "type": "boolean",
@@ -4621,10 +4887,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -4733,8 +4996,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -4802,7 +5064,10 @@
                     ]
                   },
                   "address": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "street": {
                         "type": "string",
@@ -4824,11 +5089,13 @@
                       }
                     },
                     "additionalProperties": false,
-                    "nullable": true,
                     "default": null
                   },
                   "coordinates": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "lat": {
                         "type": "number",
@@ -4846,33 +5113,42 @@
                       "lng"
                     ],
                     "additionalProperties": false,
-                    "nullable": true,
                     "default": null
                   },
                   "parentId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^[a-f\\d]{24}$",
-                    "nullable": true,
                     "default": null
                   },
                   "description": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   },
                   "managerId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^[a-f\\d]{24}$",
-                    "nullable": true,
                     "default": null
                   },
                   "isActive": {
@@ -4987,7 +5263,10 @@
                     ]
                   },
                   "address": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "street": {
                         "type": "string",
@@ -5009,11 +5288,13 @@
                       }
                     },
                     "additionalProperties": false,
-                    "nullable": true,
                     "default": null
                   },
                   "coordinates": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "lat": {
                         "type": "number",
@@ -5031,35 +5312,44 @@
                       "lng"
                     ],
                     "additionalProperties": false,
-                    "nullable": true,
                     "default": null
                   },
                   "parentId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^[a-f\\d]{24}$",
                     "description": "MongoDB ObjectId (24 hex znakov)",
-                    "nullable": true,
                     "default": null
                   },
                   "description": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   },
                   "managerId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "pattern": "^[a-f\\d]{24}$",
                     "description": "MongoDB ObjectId (24 hex znakov)",
-                    "nullable": true,
                     "default": null
                   },
                   "isActive": {
@@ -5133,10 +5423,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -5239,8 +5526,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -5301,9 +5587,11 @@
                     "format": "date-time"
                   },
                   "plannedTo": {
-                    "type": "string",
-                    "format": "date-time",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
                   },
                   "items": {
                     "type": "array",
@@ -5319,17 +5607,23 @@
                           "minimum": 1
                         },
                         "note": {
-                          "allOf": [
+                          "anyOf": [
                             {
-                              "type": "string"
+                              "allOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "string",
+                                  "minLength": 0,
+                                  "maxLength": 1000
+                                }
+                              ]
                             },
                             {
-                              "type": "string",
-                              "minLength": 0,
-                              "maxLength": 1000
+                              "type": "null"
                             }
-                          ],
-                          "nullable": true
+                          ]
                         }
                       },
                       "required": [
@@ -5446,10 +5740,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -5638,9 +5929,11 @@
                     "minItems": 1
                   },
                   "dueAt": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "date-time",
-                    "nullable": true,
                     "default": null
                   },
                   "closeRemainder": {
@@ -5648,18 +5941,24 @@
                     "default": false
                   },
                   "notes": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   }
                 },
                 "required": [
@@ -5759,10 +6058,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -5845,8 +6141,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -5970,8 +6265,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -6052,25 +6346,33 @@
                     ]
                   },
                   "dueAt": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "date-time",
                     "description": "ISO 8601 timestamp v UTC",
-                    "nullable": true,
                     "default": null
                   },
                   "notes": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   }
                 },
                 "required": [
@@ -6184,18 +6486,24 @@
                           ]
                         },
                         "note": {
-                          "allOf": [
+                          "default": null,
+                          "anyOf": [
                             {
-                              "type": "string"
+                              "allOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "string",
+                                  "minLength": 0,
+                                  "maxLength": 1000
+                                }
+                              ]
                             },
                             {
-                              "type": "string",
-                              "minLength": 0,
-                              "maxLength": 1000
+                              "type": "null"
                             }
-                          ],
-                          "nullable": true,
-                          "default": null
+                          ]
                         },
                         "photoIds": {
                           "type": "array",
@@ -6219,18 +6527,24 @@
                     }
                   },
                   "notes": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   }
                 },
                 "required": [
@@ -6324,10 +6638,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "enum": [
-                    "null"
-                  ],
-                  "nullable": true
+                  "type": "null"
                 }
               }
             }
@@ -6424,18 +6735,24 @@
                           ]
                         },
                         "note": {
-                          "allOf": [
+                          "default": null,
+                          "anyOf": [
                             {
-                              "type": "string"
+                              "allOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "string",
+                                  "minLength": 0,
+                                  "maxLength": 1000
+                                }
+                              ]
                             },
                             {
-                              "type": "string",
-                              "minLength": 0,
-                              "maxLength": 1000
+                              "type": "null"
                             }
-                          ],
-                          "nullable": true,
-                          "default": null
+                          ]
                         },
                         "photoIds": {
                           "type": "array",
@@ -6461,18 +6778,24 @@
                     "minItems": 1
                   },
                   "notes": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 2000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 2000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   }
                 },
                 "required": [
@@ -6602,8 +6925,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -7482,8 +7804,10 @@
                             "type": "string"
                           },
                           "quantityOnHand": {
-                            "type": "integer",
-                            "nullable": true
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
                           },
                           "categoryId": {
                             "type": "string"
@@ -7492,8 +7816,10 @@
                             "type": "string"
                           },
                           "lastReceiptQuantity": {
-                            "type": "integer",
-                            "nullable": true
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -7608,8 +7934,7 @@
                         },
                         "limit": {
                           "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
+                          "exclusiveMinimum": 0
                         },
                         "skip": {
                           "type": "integer",
@@ -7657,40 +7982,51 @@
                 "properties": {
                   "quantity": {
                     "type": "integer",
-                    "exclusiveMinimum": true,
-                    "minimum": 0
+                    "exclusiveMinimum": 0
                   },
                   "locationId": {
                     "type": "string",
                     "pattern": "^[a-f\\d]{24}$"
                   },
                   "reason": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 1000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   },
                   "note": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 1000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   }
                 },
                 "required": [
@@ -7768,18 +8104,24 @@
                     ]
                   },
                   "note": {
-                    "allOf": [
+                    "default": null,
+                    "anyOf": [
                       {
-                        "type": "string"
+                        "allOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1000
+                          }
+                        ]
                       },
                       {
-                        "type": "string",
-                        "minLength": 0,
-                        "maxLength": 1000
+                        "type": "null"
                       }
-                    ],
-                    "nullable": true,
-                    "default": null
+                    ]
                   }
                 },
                 "required": [
@@ -7862,8 +8204,10 @@
                       "type": "integer"
                     },
                     "cacheWas": {
-                      "type": "integer",
-                      "nullable": true
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     },
                     "wasConsistent": {
                       "type": "boolean"
