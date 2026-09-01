@@ -230,6 +230,21 @@ const envSchema = z.object({
   CRON_SECRET: z.string().min(32).optional(),
 
   // ---------------------------------------------------------------------
+  // Object storage — Vercel Blob private store (ADR-0037)
+  // ---------------------------------------------------------------------
+  //
+  // Originály príloh ležia v PRIVATE Blob store, teda každé čítanie aj
+  // zápis vyžaduje autentifikáciu.
+  //
+  // Na Verceli si SDK berie OIDC token samo, keď je store pripojený
+  // k projektu (platforma doplní VERCEL_OIDC_TOKEN a BLOB_STORE_ID).
+  // Mimo Vercelu — lokálne a v CI — treba BLOB_READ_WRITE_TOKEN daného
+  // storu. Bez oboch beží úložisko v stub režime a prílohy sa nikam
+  // neukladajú; v produkcii to `lib/storage` zaloguje ako error.
+  BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+  BLOB_STORE_ID: z.string().min(1).optional(),
+
+  // ---------------------------------------------------------------------
   // Migrations — deploy-time trigger (POST /v1/system/migrations/run)
   // ---------------------------------------------------------------------
   //
