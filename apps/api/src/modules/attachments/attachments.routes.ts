@@ -391,6 +391,7 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Attachments'],
         summary: 'Náhľad prílohy (JPEG, dlhšia strana 800 px)',
+        security: [{ bearerAuth: [] }],
         params: AttachmentIdParamsSchema,
       },
     },
