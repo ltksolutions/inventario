@@ -131,6 +131,19 @@ sfz-minio-data`) — zámerne som ich nemazal.
 | testy `@inventario/web`                                                                              | 1 súbor, 8 passed                  |
 | `openapi:sync` + prettier + reuse                                                                    | čisté                              |
 
+## Overené v produkcii po deployi
+
+Migrácia sa spustila sama cez post-deploy workflow:
+
+```
+migrations.key = '2026-09-01-drop-sfz-naming'
+completedAt    = 2026-09-01T16:04:03.975Z
+```
+
+A jediná príloha v produkcii už pole `bucket` nemá — zostalo
+`originalFilename: image.jpg`, `sizeBytes: 2234886`. Overené read-only
+dotazom do Atlasu, nie z logu.
+
 ## Nefungovalo / zamietnuté
 
 - **Spustiť `pnpm` skripty** — Mac má node 26, repo vyžaduje 24.x
