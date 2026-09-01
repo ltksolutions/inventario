@@ -62,17 +62,18 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
   je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
   restoru.
-- **ADR-0037 čaká na schválenie** — object storage: náhľady a logá do
-  BinData v Mongu, originály do S3 úložiska tenanta s podpísanými URL.
-  Rieši tri veci naraz: prílohy sú dnes verejne čitateľné po URL, nie sú
-  v žiadnej zálohe, a limit 20 MB na upload na Verceli nikdy nefungoval
-  (platforma stráža 4,5 MB na telo requestu aj odpovede). Po schválení
-  vzniká plán implementácie; súčasťou je oprava toho limitu, ktorá sa dá
-  spraviť hneď a samostatne.
-- **Voľba S3 providera pre tenantov bez vlastného úložiska** — otvorené.
-  Kandidáti: Cloudflare R2 (egress zadarmo, $0,015/GB-mesiac), Hetzner
-  a Scaleway ako EU firmy. Každý znamená DPA a zápis do sub-processorov
-  v `docs/compliance/`.
+- **ADR-0037 je schválený, implementácia čaká na private Blob store** —
+  plán je v `docs/sessions/2026-09-01-plan-object-storage.md`. Blokuje ho
+  jeden krok, ktorý sa nedá spraviť z kódu: **vytvoriť private Blob store
+  vo Verceli** (`vercel blob create-store inventario-private --access
+private`) a pripojiť ho k projektu `inventario-api`.
+- **Dve rozhodnutia pred kódom** (detaily v pláne): ako zachovať
+  odstraňovanie EXIF pri priamom uploade do storu (dnes to robí funkcia,
+  pri podpísanom PUT ju obchádzame — je to GDPR regresia, odporúčam
+  stiahnuť a prepísať v `confirm` kroku), a kto generuje náhľad.
+- **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
+  nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
+  store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.
 - **`storageKey` nesie celú URL, nie kľúč** — pozostatok po S3, ktorý
   zjednotí ADR-0037. (`Attachment.bucket` už von je, migrácia
   `2026-09-01-drop-sfz-naming`.)
