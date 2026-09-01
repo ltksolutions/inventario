@@ -13,6 +13,26 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
+- **Odstránené „sfz" z kódu, schém, infra a testov (2026-09-01)** — „sfz"
+  je názov pilotného zákazníka, nie produktu. Migrácia
+  `2026-09-01-drop-sfz-naming`. Session log:
+  `docs/sessions/2026-09-01-sfz-naming-a-limit-uploadu.md`.
+  - **`attachments.bucket` zrušené celé** — Vercel Blob buckety nemá,
+    hodnota `'sfz-asset-attachments'` sa zapisovala natvrdo a nikto ju
+    nečítal; `'sfz-asset-protocols'` sa nezapísalo ani raz.
+  - **`affiliation.type`: `SFZ_DEPARTMENT` → `ORG_DEPARTMENT`**
+    v `memberships` a `users` (v produkcii 0 dotknutých dokumentov).
+  - **`GET /` vracalo `{ name: '@sfz/api' }`** — verejná odpoveď API,
+    teraz `@inventario/api`. Docstringy hovorili `@sfz/shared-types`,
+    pričom balík sa volá `@inventario/shared-types`.
+  - Príklady v hláškach a placeholderoch neutralizované (prefix `"INV"`,
+    domény `firma.sk`), infra kontejnery a volumes na `inventario-*`,
+    testovacia DB `inventario_test`, test JWT issuer a kid.
+- **Limit uploadu príloh 20 MB → 4 MB (2026-09-01)** — Vercel stráži
+  4,5 MB na telo requestu aj odpovede a request nad limit zahodí s 413
+  ešte pred funkciou. Overené na produkcii: 6 MB → 413, 1 KB → 401.
+  Súbory nad 4,5 MB teda nikdy nefungovali a používateľ dostal hrubú 413
+  namiesto našej hlášky. Cesta k väčším súborom je ADR-0037.
 - **Konvencie repa a prevádzkové dokumenty (2026-09-01)** — pridané
   `CLAUDE.md` (konvencie repa), `ARCHITECTURE.md` (mapa kódu — hranice
   balíkov, vrstvy API, tok requestu, multi-tenancy) a `RUNBOOK.md` (deploy,

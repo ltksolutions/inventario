@@ -62,12 +62,29 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
   je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
   restoru.
-- **`Attachment.bucket` a `storageKey` sú pozostatok po S3** — `bucket` je
-  enum `'sfz-asset-attachments' | 'sfz-asset-protocols'`, ktorý pri Vercel
-  Blobe nič neznamená (hodnota sa zapisuje natvrdo), a `storageKey` nesie
-  celú URL, nie kľúč. Zjednotenie = zmena schémy v `shared-types`
-  - migrácia existujúcich dokumentov, teda samostatná úloha s tvojím
-    súhlasom. Zistené 2026-09-01.
+- **ADR-0037 čaká na schválenie** — object storage: náhľady a logá do
+  BinData v Mongu, originály do S3 úložiska tenanta s podpísanými URL.
+  Rieši tri veci naraz: prílohy sú dnes verejne čitateľné po URL, nie sú
+  v žiadnej zálohe, a limit 20 MB na upload na Verceli nikdy nefungoval
+  (platforma stráža 4,5 MB na telo requestu aj odpovede). Po schválení
+  vzniká plán implementácie; súčasťou je oprava toho limitu, ktorá sa dá
+  spraviť hneď a samostatne.
+- **Voľba S3 providera pre tenantov bez vlastného úložiska** — otvorené.
+  Kandidáti: Cloudflare R2 (egress zadarmo, $0,015/GB-mesiac), Hetzner
+  a Scaleway ako EU firmy. Každý znamená DPA a zápis do sub-processorov
+  v `docs/compliance/`.
+- **`storageKey` nesie celú URL, nie kľúč** — pozostatok po S3, ktorý
+  zjednotí ADR-0037. (`Attachment.bucket` už von je, migrácia
+  `2026-09-01-drop-sfz-naming`.)
+- **`seed-demo-tenant.ts` má nový predvolený `--admin-email`** —
+  `jan.letko@firma.sk` namiesto pôvodného `@futbalsfz.sk` (čistenie
+  „sfz"). Bez explicitného parametra skript teraz hľadá neexistujúceho
+  používateľa. Rozhodnúť: vrátiť skutočný e-mail, alebo z parametra
+  urobiť povinný.
+- **Staré docker volumes zostali na disku** — po premenovaní projektu
+  v compose sa lokálne dáta z `sfz-mongodb-data` a `sfz-mongodb-config`
+  už nepoužívajú. Zmazať ručne (`docker volume rm`), zámerne som ich
+  nemazal.
 - **`docs/sessions/README.md` má zastaralý index** — indexovaný zoznam
   končí pri 2026-05, session logy od júna do septembra v ňom nie sú.
   Buď doplniť, alebo index zrušiť a nechať len konvencie (adresár je
