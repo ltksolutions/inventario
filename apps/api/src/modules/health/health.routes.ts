@@ -50,6 +50,11 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Health'],
         summary: 'Liveness probe',
+        // Zámerne verejný endpoint — prázdne `security` to hovorí
+        // explicitne. Bez toho Redocly hlási chýbajúcu deklaráciu
+        // (pravidlo security-defined) a nedá sa odlíšiť „verejné
+        // zámerne" od „zabudli sme".
+        security: [],
         description: 'Returns 200 if the API process is alive. Does not check dependencies.',
         response: {
           200: HealthResponseSchema,
@@ -70,6 +75,11 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Health'],
         summary: 'Readiness probe',
+        // Zámerne verejný endpoint — prázdne `security` to hovorí
+        // explicitne. Bez toho Redocly hlási chýbajúcu deklaráciu
+        // (pravidlo security-defined) a nedá sa odlíšiť „verejné
+        // zámerne" od „zabudli sme".
+        security: [],
         description: 'Returns 200 if the API can serve requests (DB reachable).',
         response: {
           200: ReadyResponseSchema,

@@ -100,146 +100,182 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   // Vracia len _id, displayName, firstName, lastName — bez citlivých polí.
   // =========================================================================
 
-  fastify.get('/v1/members', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-    await fastify.requireMinRole('EMPLOYEE' as UserRole).call(fastify, request, reply);
+  fastify.get(
+    '/v1/members',
+    {
+      schema: {
+        tags: ['Memberships'],
+        summary: 'Zoznam aktívnych členov organizácie pre výber osoby (EMPLOYEE+)',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+      await fastify.requireMinRole('EMPLOYEE' as UserRole).call(fastify, request, reply);
 
-    const { ObjectId: ObjId } = await import('mongodb');
-    const limit = Math.min(Number((request.query as Record<string, unknown>)['limit'] ?? 200), 500);
-    const skip = Number((request.query as Record<string, unknown>)['skip'] ?? 0);
+      const { ObjectId: ObjId } = await import('mongodb');
+      const limit = Math.min(
+        Number((request.query as Record<string, unknown>)['limit'] ?? 200),
+        500,
+      );
+      const skip = Number((request.query as Record<string, unknown>)['skip'] ?? 0);
 
-    // Nájdi aktívne memberships v tejto org, zoradené podľa userId
-    const memberships = await fastify.mongo.db
-      .collection('memberships')
-      .find({ organisationId: request.organisationId, status: 'ACTIVE', deletedAt: null })
-      .skip(skip)
-      .limit(limit)
-      .toArray();
+      // Nájdi aktívne memberships v tejto org, zoradené podľa userId
+      const memberships = await fastify.mongo.db
+        .collection('memberships')
+        .find({ organisationId: request.organisationId, status: 'ACTIVE', deletedAt: null })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
 
-    const total = await fastify.mongo.db.collection('memberships').countDocuments({
-      organisationId: request.organisationId,
-      status: 'ACTIVE',
-      deletedAt: null,
-    });
+      const total = await fastify.mongo.db.collection('memberships').countDocuments({
+        organisationId: request.organisationId,
+        status: 'ACTIVE',
+        deletedAt: null,
+      });
 
-    // Batch lookup userov — len picker-safe polia
-    const userIds = memberships
-      .map((m) => m['userId'] as string)
-      .filter((id) => /^[a-f0-9]{24}$/i.test(id));
+      // Batch lookup userov — len picker-safe polia
+      const userIds = memberships
+        .map((m) => m['userId'] as string)
+        .filter((id) => /^[a-f0-9]{24}$/i.test(id));
 
-    const users = userIds.length
-      ? await fastify.mongo.db
-          .collection('users')
-          .find({ _id: { $in: userIds.map((id) => new ObjId(id)) } as never })
-          .project({
-            _id: 1,
-            displayName: 1,
-            firstName: 1,
-            lastName: 1,
-            isActive: 1,
-            lastLoginAt: 1,
-          })
-          .toArray()
-      : [];
+      const users = userIds.length
+        ? await fastify.mongo.db
+            .collection('users')
+            .find({ _id: { $in: userIds.map((id) => new ObjId(id)) } as never })
+            .project({
+              _id: 1,
+              displayName: 1,
+              firstName: 1,
+              lastName: 1,
+              isActive: 1,
+              lastLoginAt: 1,
+            })
+            .toArray()
+        : [];
 
-    const userMap = new Map(users.map((u) => [String(u['_id']), u]));
+      const userMap = new Map(users.map((u) => [String(u['_id']), u]));
 
-    const data = memberships
-      .map((m) => {
-        const user = userMap.get(m['userId'] as string);
-        if (!user) return null;
-        return {
-          _id: String(user['_id']),
-          displayName:
-            (user['displayName'] as string) || `${user['firstName']} ${user['lastName']}`.trim(),
-          firstName: user['firstName'] as string,
-          lastName: user['lastName'] as string,
-          isActive: user['isActive'] as boolean,
-          membershipId: String(m['_id']),
-          role: m['role'],
-          // ADR-0034: predpripravený člen (pridaný cez pre-provisioned) nikdy
-          // neprihlásený — lastLoginAt je null až do jeho prvého SSO prihlásenia.
-          hasLoggedIn: user['lastLoginAt'] != null,
-        };
-      })
-      .filter(Boolean);
+      const data = memberships
+        .map((m) => {
+          const user = userMap.get(m['userId'] as string);
+          if (!user) return null;
+          return {
+            _id: String(user['_id']),
+            displayName:
+              (user['displayName'] as string) || `${user['firstName']} ${user['lastName']}`.trim(),
+            firstName: user['firstName'] as string,
+            lastName: user['lastName'] as string,
+            isActive: user['isActive'] as boolean,
+            membershipId: String(m['_id']),
+            role: m['role'],
+            // ADR-0034: predpripravený člen (pridaný cez pre-provisioned) nikdy
+            // neprihlásený — lastLoginAt je null až do jeho prvého SSO prihlásenia.
+            hasLoggedIn: user['lastLoginAt'] != null,
+          };
+        })
+        .filter(Boolean);
 
-    return reply.send({
-      data,
-      pagination: { total, limit, skip, hasMore: skip + memberships.length < total },
-    });
-  });
+      return reply.send({
+        data,
+        pagination: { total, limit, skip, hasMore: skip + memberships.length < total },
+      });
+    },
+  );
 
   // =========================================================================
   // GET /v1/memberships — list členov org (ADMIN only, K19)
   // =========================================================================
 
-  fastify.get('/v1/memberships', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-    await fastify.requireMinRole('ADMIN' as UserRole).call(fastify, request, reply);
+  fastify.get(
+    '/v1/memberships',
+    {
+      schema: {
+        tags: ['Memberships'],
+        summary: 'Zoznam členstiev v organizácii (ADMIN)',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+      await fastify.requireMinRole('ADMIN' as UserRole).call(fastify, request, reply);
 
-    const q = request.query as Record<string, unknown>;
-    const limit = Math.min(Number(q['limit'] ?? 50), 200);
-    const skip = Number(q['skip'] ?? 0);
+      const q = request.query as Record<string, unknown>;
+      const limit = Math.min(Number(q['limit'] ?? 50), 200);
+      const skip = Number(q['skip'] ?? 0);
 
-    const { items, total } = await repo.listByOrganisation(request.organisationId, { limit, skip });
+      const { items, total } = await repo.listByOrganisation(request.organisationId, {
+        limit,
+        skip,
+      });
 
-    // Obohatiť o user displayName + email (single batch lookup)
-    const { ObjectId } = await import('mongodb');
-    const userIds = items.map((m) => m.userId).filter((id) => /^[a-f0-9]{24}$/i.test(id));
-    const usersRaw = userIds.length
-      ? await fastify.mongo.db
-          .collection('users')
-          .find({ _id: { $in: userIds.map((id) => new ObjectId(id)) } as never })
-          .project({ _id: 1, displayName: 1, email: 1, lastLoginAt: 1 })
-          .toArray()
-      : [];
-    const userMap = new Map(usersRaw.map((u) => [String(u['_id']), u]));
+      // Obohatiť o user displayName + email (single batch lookup)
+      const { ObjectId } = await import('mongodb');
+      const userIds = items.map((m) => m.userId).filter((id) => /^[a-f0-9]{24}$/i.test(id));
+      const usersRaw = userIds.length
+        ? await fastify.mongo.db
+            .collection('users')
+            .find({ _id: { $in: userIds.map((id) => new ObjectId(id)) } as never })
+            .project({ _id: 1, displayName: 1, email: 1, lastLoginAt: 1 })
+            .toArray()
+        : [];
+      const userMap = new Map(usersRaw.map((u) => [String(u['_id']), u]));
 
-    return reply.send({
-      data: items.map((m) => ({
-        ...toPublic(m as unknown as Record<string, unknown>),
-        userEmail: userMap.get(m.userId)?.['email'] ?? null,
-        userDisplayName: userMap.get(m.userId)?.['displayName'] ?? null,
-        // ADR-0034: odznak „Očakáva sa nástup“ v UI, keď hasLoggedIn === false.
-        hasLoggedIn: userMap.get(m.userId)?.['lastLoginAt'] != null,
-      })),
-      pagination: { total, limit, skip, hasMore: skip + items.length < total },
-    });
-  });
+      return reply.send({
+        data: items.map((m) => ({
+          ...toPublic(m as unknown as Record<string, unknown>),
+          userEmail: userMap.get(m.userId)?.['email'] ?? null,
+          userDisplayName: userMap.get(m.userId)?.['displayName'] ?? null,
+          // ADR-0034: odznak „Očakáva sa nástup“ v UI, keď hasLoggedIn === false.
+          hasLoggedIn: userMap.get(m.userId)?.['lastLoginAt'] != null,
+        })),
+        pagination: { total, limit, skip, hasMore: skip + items.length < total },
+      });
+    },
+  );
 
   // =========================================================================
   // GET /v1/memberships/:id
   // =========================================================================
 
-  fastify.get('/v1/memberships/:id', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
+  fastify.get(
+    '/v1/memberships/:id',
+    {
+      schema: {
+        tags: ['Memberships'],
+        summary: 'Detail členstva',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
 
-    const { id } = request.params as { id: string };
-    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
-      throw new BadRequestError('Neplatný formát ID.');
-    }
+      const { id } = request.params as { id: string };
+      if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+        throw new BadRequestError('Neplatný formát ID.');
+      }
 
-    const membership = await repo.findById(id);
-    if (!membership || membership.organisationId !== request.organisationId) {
-      throw new NotFoundError('Membership', id);
-    }
+      const membership = await repo.findById(id);
+      if (!membership || membership.organisationId !== request.organisationId) {
+        throw new NotFoundError('Membership', id);
+      }
 
-    const actorId = String(request.currentUser._id);
-    const isAdmin = request.activeMembership.role === ('ADMIN' as UserRole);
-    const isSelf = membership.userId === actorId;
+      const actorId = String(request.currentUser._id);
+      const isAdmin = request.activeMembership.role === ('ADMIN' as UserRole);
+      const isSelf = membership.userId === actorId;
 
-    if (!isAdmin && !isSelf) {
-      throw new ForbiddenError(
-        'Môžete zobraziť len vlastnú membership alebo vyžadujete rolu ADMIN.',
-      );
-    }
+      if (!isAdmin && !isSelf) {
+        throw new ForbiddenError(
+          'Môžete zobraziť len vlastnú membership alebo vyžadujete rolu ADMIN.',
+        );
+      }
 
-    return reply.send(toPublic(membership));
-  });
+      return reply.send(toPublic(membership));
+    },
+  );
 
   // =========================================================================
   // POST /v1/memberships/pre-provisioned — predpríprava budúceho používateľa
@@ -247,369 +283,409 @@ const membershipsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   // DOMAIN_RESTRICTED a domain z autoJoinDomains — inak 400.
   // =========================================================================
 
-  fastify.post('/v1/memberships/pre-provisioned', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-    await fastify
-      .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
-      .call(fastify, request, reply);
-
-    const parsed = CreatePreProvisionedMemberSchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Neplatný vstup.');
-    }
-    const { firstName, lastName, localPart, domain } = parsed.data;
-
-    const org = request.organisation;
-    const orgId = request.organisationId;
-    const actor = request.currentUser;
-    const actorId = String(actor._id);
-
-    if (org.memberJoinPolicy !== MemberJoinPolicy.DOMAIN_RESTRICTED) {
-      throw new BadRequestError(
-        'DOMAIN_RESTRICTED_ONLY: Predpríprava budúceho používateľa je dostupná len pre ' +
-          'organizácie s doménovým auto-joinom (Nastavenia → Prihlasovanie).',
-      );
-    }
-
-    const allowedDomains = (org.autoJoinDomains ?? []).map((d) => d.toLowerCase());
-    if (!allowedDomains.includes(domain)) {
-      throw new BadRequestError(
-        `DOMAIN_NOT_ALLOWED: Doména '@${domain}' nie je v zozname povolených domén tejto organizácie.`,
-      );
-    }
-
-    const email = `${localPart}@${domain}`;
-
-    const usersCol = fastify.mongo.db.collection<User>('users');
-    const existingUser = await usersCol.findOne({ email, deletedAt: null } as never);
-    if (existingUser) {
-      throw Object.assign(new Error(`E-mailová adresa '${email}' už v systéme existuje.`), {
-        statusCode: 409,
-        name: 'ConflictError',
-      });
-    }
-
-    const now = new Date().toISOString();
-    const displayName = `${firstName} ${lastName}`.trim();
-
-    // User + Membership vznikajú vopred, bez autentifikácie (ADR-0034).
-    // authProviders: [] a passwordHash: null → osoba sa nemôže prihlásiť, kým
-    // sa nezaregistruje sama cez firemnú doménu (attemptDomainAutoJoin v
-    // oauth.routes.ts ju pri prvom SSO prihlásení nájde podľa e-mailu a
-    // dolinkuje provider na TENTO záznam — žiadny duplicitný User nevznikne).
-    // lastLoginAt: null je zdroj pravdy pre `hasLoggedIn` v UI (K3).
-    const userInsert = await usersCol.insertOne({
-      email,
-      firstName,
-      lastName,
-      displayName,
-      accountType: AccountType.ENTRA_ID,
-      entraOid: null,
-      authProviders: [],
-      emailVerified: false,
-      emailVerificationToken: null,
-      emailVerificationExpiresAt: null,
-      passwordResetToken: null,
-      passwordResetExpiresAt: null,
-      passwordHash: null,
-      roles: [UserRole.EMPLOYEE],
-      isActive: true,
-      lastLoginAt: null,
-      mfaEnabled: false,
-      mfaSecret: null,
-      mfaRecoveryCodes: [],
-      mfaEnabledAt: null,
-      preferences: { language: 'sk', timezone: 'Europe/Bratislava' },
-      createdAt: now,
-      updatedAt: now,
-      createdBy: actorId,
-      updatedBy: actorId,
-      deletedAt: null,
-      deletedBy: null,
-    } as never);
-
-    const userId = String(userInsert.insertedId);
-
-    const membership = await repo.create({
-      userId,
-      organisationId: orgId,
-      role: UserRole.EMPLOYEE,
-      organizationalUnit: null,
-      teams: [],
-      status: 'ACTIVE',
-      isDefault: true,
-      invitedBy: actorId,
-      invitedAt: now,
-      acceptedAt: null,
-      mustChangePassword: false,
-      lastAccessedAt: null,
-      notifications: { email: true, push: false },
-      createdAt: now,
-      updatedAt: now,
-      createdBy: actorId,
-      updatedBy: actorId,
-      deletedAt: null,
-      deletedBy: null,
-    });
-
-    await fastify.mongo.db.collection('audit_logs').insertOne({
-      action: 'MEMBER_PRE_PROVISIONED',
-      severity: 'INFO',
-      actor: { userId: actorId, email: actor.email },
-      target: { entityType: 'User', entityId: userId },
-      organisationId: orgId,
-      metadata: {
-        email,
-        role: UserRole.EMPLOYEE,
-        membershipId: String(membership._id),
+  fastify.post(
+    '/v1/memberships/pre-provisioned',
+    {
+      schema: {
+        tags: ['Memberships'],
+        summary: 'Predpríprava členstva pre budúceho používateľa (ADR-0034)',
+        security: [{ bearerAuth: [] }],
       },
-      createdAt: now,
-    });
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+      await fastify
+        .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
+        .call(fastify, request, reply);
 
-    fastify.log.info(
-      { userId, membershipId: String(membership._id), email, actorId },
-      'Member pre-provisioned (ADR-0034)',
-    );
+      const parsed = CreatePreProvisionedMemberSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Neplatný vstup.');
+      }
+      const { firstName, lastName, localPart, domain } = parsed.data;
 
-    return reply.code(201).send({
-      membershipId: String(membership._id),
-      userId,
-      email,
-      firstName,
-      lastName,
-      displayName,
-      role: UserRole.EMPLOYEE,
-      hasLoggedIn: false,
-      createdAt: now,
-    });
-  });
+      const org = request.organisation;
+      const orgId = request.organisationId;
+      const actor = request.currentUser;
+      const actorId = String(actor._id);
+
+      if (org.memberJoinPolicy !== MemberJoinPolicy.DOMAIN_RESTRICTED) {
+        throw new BadRequestError(
+          'DOMAIN_RESTRICTED_ONLY: Predpríprava budúceho používateľa je dostupná len pre ' +
+            'organizácie s doménovým auto-joinom (Nastavenia → Prihlasovanie).',
+        );
+      }
+
+      const allowedDomains = (org.autoJoinDomains ?? []).map((d) => d.toLowerCase());
+      if (!allowedDomains.includes(domain)) {
+        throw new BadRequestError(
+          `DOMAIN_NOT_ALLOWED: Doména '@${domain}' nie je v zozname povolených domén tejto organizácie.`,
+        );
+      }
+
+      const email = `${localPart}@${domain}`;
+
+      const usersCol = fastify.mongo.db.collection<User>('users');
+      const existingUser = await usersCol.findOne({ email, deletedAt: null } as never);
+      if (existingUser) {
+        throw Object.assign(new Error(`E-mailová adresa '${email}' už v systéme existuje.`), {
+          statusCode: 409,
+          name: 'ConflictError',
+        });
+      }
+
+      const now = new Date().toISOString();
+      const displayName = `${firstName} ${lastName}`.trim();
+
+      // User + Membership vznikajú vopred, bez autentifikácie (ADR-0034).
+      // authProviders: [] a passwordHash: null → osoba sa nemôže prihlásiť, kým
+      // sa nezaregistruje sama cez firemnú doménu (attemptDomainAutoJoin v
+      // oauth.routes.ts ju pri prvom SSO prihlásení nájde podľa e-mailu a
+      // dolinkuje provider na TENTO záznam — žiadny duplicitný User nevznikne).
+      // lastLoginAt: null je zdroj pravdy pre `hasLoggedIn` v UI (K3).
+      const userInsert = await usersCol.insertOne({
+        email,
+        firstName,
+        lastName,
+        displayName,
+        accountType: AccountType.ENTRA_ID,
+        entraOid: null,
+        authProviders: [],
+        emailVerified: false,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        passwordHash: null,
+        roles: [UserRole.EMPLOYEE],
+        isActive: true,
+        lastLoginAt: null,
+        mfaEnabled: false,
+        mfaSecret: null,
+        mfaRecoveryCodes: [],
+        mfaEnabledAt: null,
+        preferences: { language: 'sk', timezone: 'Europe/Bratislava' },
+        createdAt: now,
+        updatedAt: now,
+        createdBy: actorId,
+        updatedBy: actorId,
+        deletedAt: null,
+        deletedBy: null,
+      } as never);
+
+      const userId = String(userInsert.insertedId);
+
+      const membership = await repo.create({
+        userId,
+        organisationId: orgId,
+        role: UserRole.EMPLOYEE,
+        organizationalUnit: null,
+        teams: [],
+        status: 'ACTIVE',
+        isDefault: true,
+        invitedBy: actorId,
+        invitedAt: now,
+        acceptedAt: null,
+        mustChangePassword: false,
+        lastAccessedAt: null,
+        notifications: { email: true, push: false },
+        createdAt: now,
+        updatedAt: now,
+        createdBy: actorId,
+        updatedBy: actorId,
+        deletedAt: null,
+        deletedBy: null,
+      });
+
+      await fastify.mongo.db.collection('audit_logs').insertOne({
+        action: 'MEMBER_PRE_PROVISIONED',
+        severity: 'INFO',
+        actor: { userId: actorId, email: actor.email },
+        target: { entityType: 'User', entityId: userId },
+        organisationId: orgId,
+        metadata: {
+          email,
+          role: UserRole.EMPLOYEE,
+          membershipId: String(membership._id),
+        },
+        createdAt: now,
+      });
+
+      fastify.log.info(
+        { userId, membershipId: String(membership._id), email, actorId },
+        'Member pre-provisioned (ADR-0034)',
+      );
+
+      return reply.code(201).send({
+        membershipId: String(membership._id),
+        userId,
+        email,
+        firstName,
+        lastName,
+        displayName,
+        role: UserRole.EMPLOYEE,
+        hasLoggedIn: false,
+        createdAt: now,
+      });
+    },
+  );
 
   // =========================================================================
   // PATCH /v1/memberships/:id
   // =========================================================================
 
-  fastify.patch('/v1/memberships/:id', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-    await fastify.requireMinRole('ADMIN' as UserRole).call(fastify, request, reply);
-
-    const { id } = request.params as { id: string };
-    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
-      throw new BadRequestError('Neplatný formát ID.');
-    }
-
-    const parsed = PatchMembershipBodySchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Neplatný vstup.');
-    }
-    const patch = parsed.data;
-
-    const existing = await repo.findById(id);
-    if (!existing || existing.organisationId !== request.organisationId) {
-      throw new NotFoundError('Membership', id);
-    }
-
-    const actorId = String(request.currentUser._id);
-
-    // K16: assertNotLastAdmin — ak sa mení role a cieľový user je ADMIN,
-    // skontroluje, že v org zostane aspoň jeden iný ADMIN.
-    if (patch.role !== undefined && patch.role !== ('ADMIN' as UserRole)) {
-      await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.role);
-    }
-
-    const now = new Date().toISOString();
-    const updated = await repo.update(id, {
-      ...patch,
-      updatedAt: now,
-      updatedBy: actorId,
-    });
-
-    if (!updated) throw new NotFoundError('Membership', id);
-
-    // Invalidate auth cache — rola/status sa mohla zmeniť
-    invalidateMembershipCache(existing.userId, request.organisationId);
-
-    // K18: MEMBERSHIP_ROLES_CHANGED audit event
-    await fastify.mongo.db.collection('audit_logs').insertOne({
-      action: 'MEMBERSHIP_ROLES_CHANGED',
-      severity: 'INFO',
-      actor: { userId: actorId, email: request.currentUser.email },
-      target: { entityType: 'Membership', entityId: id },
-      organisationId: request.organisationId,
-      metadata: {
-        targetUserId: existing.userId,
-        membershipId: id,
-        changedFields: Object.keys(patch),
-        roleAfter: patch.role ?? existing.role,
+  fastify.patch(
+    '/v1/memberships/:id',
+    {
+      schema: {
+        tags: ['Memberships'],
+        summary: 'Zmena roly alebo stavu členstva (ADMIN)',
+        security: [{ bearerAuth: [] }],
       },
-      createdAt: now,
-    });
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+      await fastify.requireMinRole('ADMIN' as UserRole).call(fastify, request, reply);
 
-    // E-mail notifikácia dotknutému používateľovi pri zmene roly (oprávnení).
-    // Fire-and-forget — zlyhanie e-mailu nesmie zhodiť PATCH. Self-zmenu
-    // (admin mení vlastnú rolu) nenotifikujeme.
-    if (
-      patch.role !== undefined &&
-      patch.role !== existing.role &&
-      existing.userId !== actorId &&
-      /^[a-f0-9]{24}$/i.test(existing.userId)
-    ) {
-      const targetUserId = existing.userId;
-      const newRole = patch.role;
-      void (async () => {
-        try {
-          const { ObjectId } = await import('mongodb');
-          const targetUser = await fastify.mongo.db
-            .collection('users')
-            .findOne({ _id: new ObjectId(targetUserId) } as never, {
-              projection: { email: 1, displayName: 1 },
-            });
-          const toEmail = targetUser?.['email'] as string | undefined;
-          if (toEmail) {
-            await fastify.emailService.sendRoleChangedEmail(toEmail, {
-              userName: (targetUser?.['displayName'] as string | undefined) ?? toEmail,
-              roleLabel: ROLE_LABELS_SK[newRole] ?? newRole,
-              changedByName: request.currentUser.displayName ?? request.currentUser.email,
-              frontendUrl: fastify.config.FRONTEND_BASE_URL ?? 'https://app.inventario.estate',
-            });
+      const { id } = request.params as { id: string };
+      if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+        throw new BadRequestError('Neplatný formát ID.');
+      }
+
+      const parsed = PatchMembershipBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Neplatný vstup.');
+      }
+      const patch = parsed.data;
+
+      const existing = await repo.findById(id);
+      if (!existing || existing.organisationId !== request.organisationId) {
+        throw new NotFoundError('Membership', id);
+      }
+
+      const actorId = String(request.currentUser._id);
+
+      // K16: assertNotLastAdmin — ak sa mení role a cieľový user je ADMIN,
+      // skontroluje, že v org zostane aspoň jeden iný ADMIN.
+      if (patch.role !== undefined && patch.role !== ('ADMIN' as UserRole)) {
+        await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.role);
+      }
+
+      const now = new Date().toISOString();
+      const updated = await repo.update(id, {
+        ...patch,
+        updatedAt: now,
+        updatedBy: actorId,
+      });
+
+      if (!updated) throw new NotFoundError('Membership', id);
+
+      // Invalidate auth cache — rola/status sa mohla zmeniť
+      invalidateMembershipCache(existing.userId, request.organisationId);
+
+      // K18: MEMBERSHIP_ROLES_CHANGED audit event
+      await fastify.mongo.db.collection('audit_logs').insertOne({
+        action: 'MEMBERSHIP_ROLES_CHANGED',
+        severity: 'INFO',
+        actor: { userId: actorId, email: request.currentUser.email },
+        target: { entityType: 'Membership', entityId: id },
+        organisationId: request.organisationId,
+        metadata: {
+          targetUserId: existing.userId,
+          membershipId: id,
+          changedFields: Object.keys(patch),
+          roleAfter: patch.role ?? existing.role,
+        },
+        createdAt: now,
+      });
+
+      // E-mail notifikácia dotknutému používateľovi pri zmene roly (oprávnení).
+      // Fire-and-forget — zlyhanie e-mailu nesmie zhodiť PATCH. Self-zmenu
+      // (admin mení vlastnú rolu) nenotifikujeme.
+      if (
+        patch.role !== undefined &&
+        patch.role !== existing.role &&
+        existing.userId !== actorId &&
+        /^[a-f0-9]{24}$/i.test(existing.userId)
+      ) {
+        const targetUserId = existing.userId;
+        const newRole = patch.role;
+        void (async () => {
+          try {
+            const { ObjectId } = await import('mongodb');
+            const targetUser = await fastify.mongo.db
+              .collection('users')
+              .findOne({ _id: new ObjectId(targetUserId) } as never, {
+                projection: { email: 1, displayName: 1 },
+              });
+            const toEmail = targetUser?.['email'] as string | undefined;
+            if (toEmail) {
+              await fastify.emailService.sendRoleChangedEmail(toEmail, {
+                userName: (targetUser?.['displayName'] as string | undefined) ?? toEmail,
+                roleLabel: ROLE_LABELS_SK[newRole] ?? newRole,
+                changedByName: request.currentUser.displayName ?? request.currentUser.email,
+                frontendUrl: fastify.config.FRONTEND_BASE_URL ?? 'https://app.inventario.estate',
+              });
+            }
+          } catch (err) {
+            fastify.log.error({ err, membershipId: id }, 'Failed to send role-changed email');
           }
-        } catch (err) {
-          fastify.log.error({ err, membershipId: id }, 'Failed to send role-changed email');
-        }
-      })();
-    }
+        })();
+      }
 
-    fastify.log.info(
-      { membershipId: id, actorId, patch: Object.keys(patch) },
-      'Membership updated',
-    );
+      fastify.log.info(
+        { membershipId: id, actorId, patch: Object.keys(patch) },
+        'Membership updated',
+      );
 
-    return reply.send(toPublic(updated));
-  });
+      return reply.send(toPublic(updated));
+    },
+  );
 
   // =========================================================================
   // DELETE /v1/memberships/:id
   // =========================================================================
 
-  fastify.delete('/v1/memberships/:id', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-
-    const { id } = request.params as { id: string };
-    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
-      throw new BadRequestError('Neplatný formát ID.');
-    }
-
-    const existing = await repo.findById(id);
-    if (!existing || existing.organisationId !== request.organisationId) {
-      throw new NotFoundError('Membership', id);
-    }
-
-    const actorId = String(request.currentUser._id);
-    const isAdmin = request.activeMembership.role === ('ADMIN' as UserRole);
-    const isSelf = existing.userId === actorId;
-
-    // RBAC: ADMIN môže odstraňovať kohokovek; user môže len seba samého (opustenie org)
-    if (!isAdmin && !isSelf) {
-      throw new ForbiddenError(
-        'Môžete odstrániť len vlastnú membership alebo vyžadujete rolu ADMIN.',
-      );
-    }
-
-    // K16: assertNotLastAdmin — chráni pred odstránením posledného ADMINa
-    await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.role);
-
-    const now = new Date().toISOString();
-    const deleted = await repo.softDelete(id, {
-      deletedAt: now,
-      deletedBy: actorId,
-      updatedAt: now,
-      updatedBy: actorId,
-    });
-
-    if (!deleted) throw new NotFoundError('Membership', id);
-
-    // Invalidate auth cache
-    invalidateMembershipCache(existing.userId, request.organisationId);
-
-    // K18: MEMBERSHIP_REMOVED audit event
-    await fastify.mongo.db.collection('audit_logs').insertOne({
-      action: 'MEMBERSHIP_REMOVED',
-      severity: 'WARNING',
-      actor: { userId: actorId, email: request.currentUser.email },
-      target: { entityType: 'Membership', entityId: id },
-      organisationId: request.organisationId,
-      metadata: {
-        targetUserId: existing.userId,
-        membershipId: id,
-        roleAtDeletion: existing.role,
+  fastify.delete(
+    '/v1/memberships/:id',
+    {
+      schema: {
+        tags: ['Memberships'],
+        summary: 'Odobratie členstva',
+        security: [{ bearerAuth: [] }],
       },
-      createdAt: now,
-    });
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
 
-    fastify.log.info(
-      { membershipId: id, targetUserId: existing.userId, actorId },
-      'Membership soft-deleted',
-    );
+      const { id } = request.params as { id: string };
+      if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+        throw new BadRequestError('Neplatný formát ID.');
+      }
 
-    return reply.code(204).send();
-  });
+      const existing = await repo.findById(id);
+      if (!existing || existing.organisationId !== request.organisationId) {
+        throw new NotFoundError('Membership', id);
+      }
+
+      const actorId = String(request.currentUser._id);
+      const isAdmin = request.activeMembership.role === ('ADMIN' as UserRole);
+      const isSelf = existing.userId === actorId;
+
+      // RBAC: ADMIN môže odstraňovať kohokovek; user môže len seba samého (opustenie org)
+      if (!isAdmin && !isSelf) {
+        throw new ForbiddenError(
+          'Môžete odstrániť len vlastnú membership alebo vyžadujete rolu ADMIN.',
+        );
+      }
+
+      // K16: assertNotLastAdmin — chráni pred odstránením posledného ADMINa
+      await service.assertNotLastAdmin(request.organisationId, existing.userId, existing.role);
+
+      const now = new Date().toISOString();
+      const deleted = await repo.softDelete(id, {
+        deletedAt: now,
+        deletedBy: actorId,
+        updatedAt: now,
+        updatedBy: actorId,
+      });
+
+      if (!deleted) throw new NotFoundError('Membership', id);
+
+      // Invalidate auth cache
+      invalidateMembershipCache(existing.userId, request.organisationId);
+
+      // K18: MEMBERSHIP_REMOVED audit event
+      await fastify.mongo.db.collection('audit_logs').insertOne({
+        action: 'MEMBERSHIP_REMOVED',
+        severity: 'WARNING',
+        actor: { userId: actorId, email: request.currentUser.email },
+        target: { entityType: 'Membership', entityId: id },
+        organisationId: request.organisationId,
+        metadata: {
+          targetUserId: existing.userId,
+          membershipId: id,
+          roleAtDeletion: existing.role,
+        },
+        createdAt: now,
+      });
+
+      fastify.log.info(
+        { membershipId: id, targetUserId: existing.userId, actorId },
+        'Membership soft-deleted',
+      );
+
+      return reply.code(204).send();
+    },
+  );
 
   // =========================================================================
   // POST /v1/memberships/:id/default — self-service default org
   // =========================================================================
 
-  fastify.post('/v1/memberships/:id/default', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
+  fastify.post(
+    '/v1/memberships/:id/default',
+    {
+      schema: {
+        tags: ['Memberships'],
+        summary: 'Nastavenie predvolenej organizácie prihláseného používateľa',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
 
-    const { id } = request.params as { id: string };
-    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
-      throw new BadRequestError('Neplatný formát ID.');
-    }
+      const { id } = request.params as { id: string };
+      if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+        throw new BadRequestError('Neplatný formát ID.');
+      }
 
-    const actorId = String(request.currentUser._id);
+      const actorId = String(request.currentUser._id);
 
-    // Načítame membership bez org-scope (isDefault je cross-org operácia)
-    const membership = await repo.findById(id);
-    if (!membership || membership.deletedAt !== null) {
-      throw new NotFoundError('Membership', id);
-    }
+      // Načítame membership bez org-scope (isDefault je cross-org operácia)
+      const membership = await repo.findById(id);
+      if (!membership || membership.deletedAt !== null) {
+        throw new NotFoundError('Membership', id);
+      }
 
-    // Len vlastná membership — nie je povolené meniť default iného používateľa
-    if (membership.userId !== actorId) {
-      throw new ForbiddenError('Môžete nastaviť ako default len vlastnú membership.');
-    }
+      // Len vlastná membership — nie je povolené meniť default iného používateľa
+      if (membership.userId !== actorId) {
+        throw new ForbiddenError('Môžete nastaviť ako default len vlastnú membership.');
+      }
 
-    // Membership musí byť ACTIVE — SUSPENDED membership nemôže byť default
-    if (membership.status !== 'ACTIVE') {
-      throw new BadRequestError(
-        'MEMBERSHIP_SUSPENDED: Suspended membership nemôže byť nastavená ako default.',
+      // Membership musí byť ACTIVE — SUSPENDED membership nemôže byť default
+      if (membership.status !== 'ACTIVE') {
+        throw new BadRequestError(
+          'MEMBERSHIP_SUSPENDED: Suspended membership nemôže byť nastavená ako default.',
+        );
+      }
+
+      const session = fastify.mongo.client.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const now = new Date().toISOString();
+          const ok = await repo.setDefault(id, actorId, now, session);
+          if (!ok) throw new NotFoundError('Membership', id);
+        });
+      } finally {
+        await session.endSession();
+      }
+
+      // TODO K18: USER_SWITCHED_ORGANISATION emitovaný v auth-session.routes.ts (K7)
+      // Pre post/:id/default nie je potrebný špeciálny audit event.
+
+      fastify.log.info(
+        { membershipId: id, actorId, organisationId: membership.organisationId },
+        'Default membership updated',
       );
-    }
 
-    const session = fastify.mongo.client.startSession();
-    try {
-      await session.withTransaction(async () => {
-        const now = new Date().toISOString();
-        const ok = await repo.setDefault(id, actorId, now, session);
-        if (!ok) throw new NotFoundError('Membership', id);
-      });
-    } finally {
-      await session.endSession();
-    }
-
-    // TODO K18: USER_SWITCHED_ORGANISATION emitovaný v auth-session.routes.ts (K7)
-    // Pre post/:id/default nie je potrebný špeciálny audit event.
-
-    fastify.log.info(
-      { membershipId: id, actorId, organisationId: membership.organisationId },
-      'Default membership updated',
-    );
-
-    return reply.code(204).send();
-  });
+      return reply.code(204).send();
+    },
+  );
 };
 
 export default fp(membershipsRoutesPlugin, {

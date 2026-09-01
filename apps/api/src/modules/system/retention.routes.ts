@@ -41,48 +41,62 @@ const retentionRoutes: FastifyPluginAsync = async (fastify) => {
   const repo = new RetentionRepository(fastify.mongo.db);
   const service = new RetentionService(repo, fastify.log);
 
-  fastify.post('/v1/system/retention/run', async (request, reply) => {
-    // ---- Guard: CRON_SECRET must be configured --------------------------
-    const cronSecret = fastify.config.CRON_SECRET;
-    if (!cronSecret) {
-      fastify.log.warn('[retention] CRON_SECRET not configured — endpoint disabled');
-      return reply.code(503).send({
-        error: 'RETENTION_DISABLED',
-        message: 'Retention job is not configured. Set CRON_SECRET env var.',
-      });
-    }
+  fastify.post(
+    '/v1/system/retention/run',
+    {
+      schema: {
+        tags: ['System'],
+        summary: 'Mesačné uplatnenie retenčnej politiky',
+        description:
+          'Volá Vercel Cron (mesačne). Maže a pseudonymizuje dáta podľa docs/compliance/data-retention-schedule.md.',
+        // Nie používateľský token — zdieľané tajomstvo, viď
+        // securityScheme deploymentSecret v plugins/swagger.ts.
+        security: [{ deploymentSecret: [] }],
+      },
+    },
+    async (request, reply) => {
+      // ---- Guard: CRON_SECRET must be configured --------------------------
+      const cronSecret = fastify.config.CRON_SECRET;
+      if (!cronSecret) {
+        fastify.log.warn('[retention] CRON_SECRET not configured — endpoint disabled');
+        return reply.code(503).send({
+          error: 'RETENTION_DISABLED',
+          message: 'Retention job is not configured. Set CRON_SECRET env var.',
+        });
+      }
 
-    // ---- Guard: validate Authorization header ---------------------------
-    // Vercel sends: `Authorization: Bearer <CRON_SECRET>`
-    const authHeader = request.headers['authorization'];
-    const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
+      // ---- Guard: validate Authorization header ---------------------------
+      // Vercel sends: `Authorization: Bearer <CRON_SECRET>`
+      const authHeader = request.headers['authorization'];
+      const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
 
-    if (!token || token !== cronSecret) {
-      fastify.log.warn(
-        { ip: request.ip, path: request.url },
-        '[retention] Unauthorized cron attempt',
-      );
-      return reply.code(401).send({
-        error: 'UNAUTHORIZED',
-        message: 'Invalid or missing Authorization header.',
-      });
-    }
+      if (!token || token !== cronSecret) {
+        fastify.log.warn(
+          { ip: request.ip, path: request.url },
+          '[retention] Unauthorized cron attempt',
+        );
+        return reply.code(401).send({
+          error: 'UNAUTHORIZED',
+          message: 'Invalid or missing Authorization header.',
+        });
+      }
 
-    // ---- Run retention job ----------------------------------------------
-    fastify.log.info({ ip: request.ip }, '[retention] Authorized cron trigger');
+      // ---- Run retention job ----------------------------------------------
+      fastify.log.info({ ip: request.ip }, '[retention] Authorized cron trigger');
 
-    try {
-      const result = await service.run();
-      return reply.code(200).send(result);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      fastify.log.error({ error: msg }, '[retention] Retention job failed');
-      return reply.code(500).send({
-        error: 'RETENTION_FAILED',
-        message: msg,
-      });
-    }
-  });
+      try {
+        const result = await service.run();
+        return reply.code(200).send(result);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        fastify.log.error({ error: msg }, '[retention] Retention job failed');
+        return reply.code(500).send({
+          error: 'RETENTION_FAILED',
+          message: msg,
+        });
+      }
+    },
+  );
 };
 
 export default fp(retentionRoutes, {

@@ -189,6 +189,15 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
               'resolves the Organisation; the `oid` claim resolves the User. ' +
               'See apps/api/README.md for the device code flow.',
           },
+          deploymentSecret: {
+            type: 'http',
+            scheme: 'bearer',
+            description:
+              'Zdieľané tajomstvo pre servisné endpointy pod /v1/system — nie používateľský ' +
+              'token. Migrácie a indexy používajú MIGRATIONS_SECRET (volá GitHub Actions po ' +
+              'produkčnom deployi), retencia CRON_SECRET (volá Vercel Cron). Bez nastavenej ' +
+              'premennej endpoint vracia 503.',
+          },
         },
       },
       externalDocs: {

@@ -23,6 +23,10 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: "Microsoft Entra ID access token (v2.0). Multi-tenant: the JWT `tid` claim resolves the Organisation; the `oid` claim resolves the User. See apps/api/README.md for the device code flow."
+    deploymentSecret:
+      type: http
+      scheme: bearer
+      description: Zdieľané tajomstvo pre servisné endpointy pod /v1/system — nie používateľský token. Migrácie a indexy používajú MIGRATIONS_SECRET (volá GitHub Actions po produkčnom deployi), retencia CRON_SECRET (volá Vercel Cron). Bez nastavenej premennej endpoint vracia 503.
   schemas: {}
 paths:
   /health:
@@ -32,6 +36,7 @@ paths:
       tags:
         - Health
       description: Returns 200 if the API process is alive. Does not check dependencies.
+      security: []
       responses:
         "200":
           description: Default Response
@@ -62,6 +67,7 @@ paths:
       tags:
         - Health
       description: Returns 200 if the API can serve requests (DB reachable).
+      security: []
       responses:
         "200":
           description: Default Response
@@ -1216,6 +1222,7 @@ paths:
           in: query
           name: domain
           required: false
+      security: []
       responses:
         "200":
           description: Default Response
@@ -2772,6 +2779,7 @@ paths:
           in: path
           name: publicToken
           required: true
+      security: []
       responses:
         "200":
           description: Default Response
@@ -5096,17 +5104,32 @@ paths:
   /v1/invitations:
     post:
       operationId: postV1Invitations
+      summary: Vytvorenie pozvánky do organizácie
+      tags:
+        - Invitations
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Default Response
     get:
       operationId: getV1Invitations
+      summary: Zoznam čakajúcich pozvánok organizácie
+      tags:
+        - Invitations
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Default Response
   /v1/invitations/{id}:
     delete:
       operationId: deleteV1InvitationsById
+      summary: Zrušenie čakajúcej pozvánky
+      tags:
+        - Invitations
+      security:
+        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -5119,6 +5142,11 @@ paths:
   /v1/invitations/{id}/resend:
     post:
       operationId: postV1InvitationsByIdResend
+      summary: Opätovné odoslanie e-mailu s pozvánkou
+      tags:
+        - Invitations
+      security:
+        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -5131,6 +5159,10 @@ paths:
   /v1/auth/invitations/{token}:
     get:
       operationId: getV1AuthInvitationsByToken
+      summary: Náhľad pozvánky podľa tokenu (pre neprihláseného pozvaného)
+      tags:
+        - Invitations
+      security: []
       parameters:
         - schema:
             type: string
@@ -5143,24 +5175,43 @@ paths:
   /v1/auth/accept-invitation:
     post:
       operationId: postV1AuthAcceptInvitation
+      summary: Prijatie pozvánky — nový aj existujúci používateľ
+      tags:
+        - Invitations
+      security: []
       responses:
         "200":
           description: Default Response
   /v1/members:
     get:
       operationId: getV1Members
+      summary: Zoznam aktívnych členov organizácie pre výber osoby (EMPLOYEE+)
+      tags:
+        - Memberships
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Default Response
   /v1/memberships:
     get:
       operationId: getV1Memberships
+      summary: Zoznam členstiev v organizácii (ADMIN)
+      tags:
+        - Memberships
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Default Response
   /v1/memberships/{id}:
     get:
       operationId: getV1MembershipsById
+      summary: Detail členstva
+      tags:
+        - Memberships
+      security:
+        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -5172,6 +5223,11 @@ paths:
           description: Default Response
     patch:
       operationId: patchV1MembershipsById
+      summary: Zmena roly alebo stavu členstva (ADMIN)
+      tags:
+        - Memberships
+      security:
+        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -5183,6 +5239,11 @@ paths:
           description: Default Response
     delete:
       operationId: deleteV1MembershipsById
+      summary: Odobratie členstva
+      tags:
+        - Memberships
+      security:
+        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -5195,12 +5256,22 @@ paths:
   /v1/memberships/pre-provisioned:
     post:
       operationId: postV1MembershipsPreProvisioned
+      summary: Predpríprava členstva pre budúceho používateľa (ADR-0034)
+      tags:
+        - Memberships
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Default Response
   /v1/memberships/{id}/default:
     post:
       operationId: postV1MembershipsByIdDefault
+      summary: Nastavenie predvolenej organizácie prihláseného používateľa
+      tags:
+        - Memberships
+      security:
+        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -5502,24 +5573,47 @@ paths:
   /v1/system/migrations/run:
     post:
       operationId: postV1SystemMigrationsRun
+      summary: Spustenie čakajúcich DB migrácií po deployi
+      tags:
+        - System
+      description: Volá GitHub Actions po úspešnom produkčnom deployi. Cold start migrácie nespúšťa, robí len pasívnu kontrolu. Opakované spustenie je bezpečné.
+      security:
+        - deploymentSecret: []
       responses:
         "200":
           description: Default Response
   /v1/system/indexes/ensure:
     post:
       operationId: postV1SystemIndexesEnsure
+      summary: Vytvorenie MongoDB indexov po deployi
+      tags:
+        - System
+      description: Volá GitHub Actions po úspešnom produkčnom deployi. V produkcii sa indexy pri boote nevytvárajú — detaily v lib/ensure-indexes.ts. Idempotentné.
+      security:
+        - deploymentSecret: []
       responses:
         "200":
           description: Default Response
   /v1/system/retention/run:
     post:
       operationId: postV1SystemRetentionRun
+      summary: Mesačné uplatnenie retenčnej politiky
+      tags:
+        - System
+      description: Volá Vercel Cron (mesačne). Maže a pseudonymizuje dáta podľa docs/compliance/data-retention-schedule.md.
+      security:
+        - deploymentSecret: []
       responses:
         "200":
           description: Default Response
   /:
     get:
       operationId: get
+      summary: Koreň API — presmerovanie na /docs, inak identifikácia služby
+      tags:
+        - Health
+      description: So zapnutým Swaggerom presmeruje na /docs. V produkcii (Swagger vypnutý) vracia názov a verziu služby — slúži ako najlacnejší liveness signál.
+      security: []
       responses:
         "200":
           description: Default Response

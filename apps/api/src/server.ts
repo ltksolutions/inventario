@@ -247,12 +247,26 @@ export async function buildServer(
   bootTimer.mark('domainRoutes');
 
   // --- Root redirect to /docs ----------------------------------------------
-  app.get('/', async (_request, reply) => {
-    if (app.config.ENABLE_SWAGGER) {
-      return reply.redirect('/docs');
-    }
-    return { name: '@sfz/api', version: '0.1.0', status: 'ok' };
-  });
+  app.get(
+    '/',
+    {
+      schema: {
+        tags: ['Health'],
+        summary: 'Koreň API — presmerovanie na /docs, inak identifikácia služby',
+        description:
+          'So zapnutým Swaggerom presmeruje na /docs. V produkcii (Swagger vypnutý) ' +
+          'vracia názov a verziu služby — slúži ako najlacnejší liveness signál.',
+        // Zámerne verejný endpoint — viď health.routes.ts.
+        security: [],
+      },
+    },
+    async (_request, reply) => {
+      if (app.config.ENABLE_SWAGGER) {
+        return reply.redirect('/docs');
+      }
+      return { name: '@sfz/api', version: '0.1.0', status: 'ok' };
+    },
+  );
 
   bootTimer.summary(app.log);
 

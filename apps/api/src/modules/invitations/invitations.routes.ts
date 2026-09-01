@@ -120,7 +120,14 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/v1/invitations',
-    { ...(IS_TEST ? {} : { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }) },
+    {
+      ...(IS_TEST ? {} : { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }),
+      schema: {
+        tags: ['Invitations'],
+        summary: 'Vytvorenie pozvánky do organizácie',
+        security: [{ bearerAuth: [] }],
+      },
+    },
     async (request, reply) => {
       await fastify.requireAuth(request);
       await fastify.loadCurrentUser(request);
@@ -298,340 +305,429 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
   // GET /v1/invitations — list pending invitations
   // =========================================================================
 
-  fastify.get('/v1/invitations', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-    await fastify
-      .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
-      .call(fastify, request, reply);
+  fastify.get(
+    '/v1/invitations',
+    {
+      schema: {
+        tags: ['Invitations'],
+        summary: 'Zoznam čakajúcich pozvánok organizácie',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+      await fastify
+        .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
+        .call(fastify, request, reply);
 
-    const parsed = ListInvitationsQuerySchema.safeParse(request.query);
-    if (!parsed.success) {
-      throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid query');
-    }
-    const { limit, skip, q } = parsed.data;
+      const parsed = ListInvitationsQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid query');
+      }
+      const { limit, skip, q } = parsed.data;
 
-    const { items, total } = await invRepo.list({
-      organisationId: request.organisationId,
-      limit,
-      skip,
-      ...(q !== undefined ? { q } : {}),
-    });
+      const { items, total } = await invRepo.list({
+        organisationId: request.organisationId,
+        limit,
+        skip,
+        ...(q !== undefined ? { q } : {}),
+      });
 
-    return reply.send({
-      data: items.map((inv) => invRepo.toPublic(inv)),
-      pagination: { total, limit, skip, hasMore: skip + items.length < total },
-    });
-  });
+      return reply.send({
+        data: items.map((inv) => invRepo.toPublic(inv)),
+        pagination: { total, limit, skip, hasMore: skip + items.length < total },
+      });
+    },
+  );
 
   // =========================================================================
   // DELETE /v1/invitations/:id — revoke pending invite
   // =========================================================================
 
-  fastify.delete('/v1/invitations/:id', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-    await fastify
-      .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
-      .call(fastify, request, reply);
+  fastify.delete(
+    '/v1/invitations/:id',
+    {
+      schema: {
+        tags: ['Invitations'],
+        summary: 'Zrušenie čakajúcej pozvánky',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+      await fastify
+        .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
+        .call(fastify, request, reply);
 
-    const { id } = request.params as { id: string };
-    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
-      throw new BadRequestError('Invalid invitation id');
-    }
+      const { id } = request.params as { id: string };
+      if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+        throw new BadRequestError('Invalid invitation id');
+      }
 
-    const existing = await invRepo.findById(request.organisationId, id);
-    if (!existing) throw new NotFoundError('Invitation', id);
+      const existing = await invRepo.findById(request.organisationId, id);
+      if (!existing) throw new NotFoundError('Invitation', id);
 
-    const now = new Date().toISOString();
-    const revoked = await invRepo.revoke(request.organisationId, id, {
-      deletedAt: now,
-      deletedBy: String(request.currentUser._id),
-      updatedAt: now,
-      updatedBy: String(request.currentUser._id),
-    });
-    if (!revoked) throw new NotFoundError('Invitation', id);
+      const now = new Date().toISOString();
+      const revoked = await invRepo.revoke(request.organisationId, id, {
+        deletedAt: now,
+        deletedBy: String(request.currentUser._id),
+        updatedAt: now,
+        updatedBy: String(request.currentUser._id),
+      });
+      if (!revoked) throw new NotFoundError('Invitation', id);
 
-    await fastify.mongo.db.collection('audit_logs').insertOne({
-      action: 'USER_INVITATION_REVOKED',
-      severity: 'WARNING',
-      actor: { userId: String(request.currentUser._id), email: request.currentUser.email },
-      target: { entityType: 'Invitation', entityId: id },
-      organisationId: request.organisationId,
-      metadata: { revokedEmail: existing.email },
-      createdAt: now,
-    });
+      await fastify.mongo.db.collection('audit_logs').insertOne({
+        action: 'USER_INVITATION_REVOKED',
+        severity: 'WARNING',
+        actor: { userId: String(request.currentUser._id), email: request.currentUser.email },
+        target: { entityType: 'Invitation', entityId: id },
+        organisationId: request.organisationId,
+        metadata: { revokedEmail: existing.email },
+        createdAt: now,
+      });
 
-    return reply.code(204).send();
-  });
+      return reply.code(204).send();
+    },
+  );
 
   // =========================================================================
   // POST /v1/invitations/:id/resend — resend pending invite email
   // =========================================================================
 
-  fastify.post('/v1/invitations/:id/resend', async (request, reply) => {
-    await fastify.requireAuth(request);
-    await fastify.loadCurrentUser(request);
-    await fastify
-      .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
-      .call(fastify, request, reply);
+  fastify.post(
+    '/v1/invitations/:id/resend',
+    {
+      schema: {
+        tags: ['Invitations'],
+        summary: 'Opätovné odoslanie e-mailu s pozvánkou',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      await fastify.requireAuth(request);
+      await fastify.loadCurrentUser(request);
+      await fastify
+        .requireRole([UserRole.ADMIN, UserRole.ASSET_MANAGER])
+        .call(fastify, request, reply);
 
-    const { id } = request.params as { id: string };
-    if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
-      throw new BadRequestError('Invalid invitation id');
-    }
+      const { id } = request.params as { id: string };
+      if (!id || !/^[a-f0-9]{24}$/i.test(id)) {
+        throw new BadRequestError('Invalid invitation id');
+      }
 
-    const existing = await invRepo.findById(request.organisationId, id);
-    if (!existing) throw new NotFoundError('Invitation', id);
+      const existing = await invRepo.findById(request.organisationId, id);
+      if (!existing) throw new NotFoundError('Invitation', id);
 
-    if ((existing as Record<string, unknown>)['status'] !== 'PENDING') {
-      throw new BadRequestError('Only PENDING invitations can be resent.');
-    }
+      if ((existing as Record<string, unknown>)['status'] !== 'PENDING') {
+        throw new BadRequestError('Only PENDING invitations can be resent.');
+      }
 
-    // Generate a new token + extended expiry
-    const now = new Date().toISOString();
-    const newToken = randomBytes(32).toString('hex');
-    const newExpiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString();
+      // Generate a new token + extended expiry
+      const now = new Date().toISOString();
+      const newToken = randomBytes(32).toString('hex');
+      const newExpiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString();
 
-    await fastify.mongo.db
-      .collection('invitations')
-      .updateOne({ _id: (existing as Record<string, unknown>)['_id'] } as never, {
-        $set: {
-          token: newToken,
-          expiresAt: newExpiresAt,
-          updatedAt: now,
-          updatedBy: String(request.currentUser._id),
-        },
-      });
+      await fastify.mongo.db
+        .collection('invitations')
+        .updateOne({ _id: (existing as Record<string, unknown>)['_id'] } as never, {
+          $set: {
+            token: newToken,
+            expiresAt: newExpiresAt,
+            updatedAt: now,
+            updatedBy: String(request.currentUser._id),
+          },
+        });
 
-    const org = request.organisation;
-    const inviter = request.currentUser;
-    const email = existing.email;
-    const role = existing.role as UserRole;
-    const roleLabels = ROLE_LABELS[role] ?? role;
-    const invitedUserId =
-      ((existing as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
-    const isRejoin = !!(await fastify.mongo.db.collection('memberships').findOne({
-      userId: invitedUserId,
-      organisationId: request.organisationId,
-      deletedAt: { $ne: null },
-    }));
+      const org = request.organisation;
+      const inviter = request.currentUser;
+      const email = existing.email;
+      const role = existing.role as UserRole;
+      const roleLabels = ROLE_LABELS[role] ?? role;
+      const invitedUserId =
+        ((existing as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
+      const isRejoin = !!(await fastify.mongo.db.collection('memberships').findOne({
+        userId: invitedUserId,
+        organisationId: request.organisationId,
+        deletedAt: { $ne: null },
+      }));
 
-    try {
-      if (isRejoin) {
-        await fastify.emailService.send({
-          to: email,
-          subject: `Ste pozvaný späť do ${org.displayName} — Inventario`,
-          html: rejoinInviteHtml({
-            url: `${frontendUrl}/accept-invite?token=${newToken}`,
+      try {
+        if (isRejoin) {
+          await fastify.emailService.send({
+            to: email,
+            subject: `Ste pozvaný späť do ${org.displayName} — Inventario`,
+            html: rejoinInviteHtml({
+              url: `${frontendUrl}/accept-invite?token=${newToken}`,
+              tenantName: org.displayName,
+              roleLabels,
+            }),
+            text: `Boli ste pozvaný späť do ${org.displayName} (${roleLabels}). Prijmite pozvánku: ${frontendUrl}/accept-invite?token=${newToken}`,
+          });
+        } else {
+          await fastify.emailService.sendInvitationEmail(email, {
+            inviterName: inviter.displayName,
             tenantName: org.displayName,
             roleLabels,
-          }),
-          text: `Boli ste pozvaný späť do ${org.displayName} (${roleLabels}). Prijmite pozvánku: ${frontendUrl}/accept-invite?token=${newToken}`,
-        });
-      } else {
-        await fastify.emailService.sendInvitationEmail(email, {
-          inviterName: inviter.displayName,
-          tenantName: org.displayName,
-          roleLabels,
-          token: newToken,
-          frontendUrl,
-        });
+            token: newToken,
+            frontendUrl,
+          });
+        }
+      } catch (err) {
+        fastify.log.error({ err, to: email }, 'Resend invitation email failed');
       }
-    } catch (err) {
-      fastify.log.error({ err, to: email }, 'Resend invitation email failed');
-    }
 
-    fastify.log.info(
-      { invitationId: id, invitedEmail: email, resentBy: String(inviter._id) },
-      'Invitation resent',
-    );
+      fastify.log.info(
+        { invitationId: id, invitedEmail: email, resentBy: String(inviter._id) },
+        'Invitation resent',
+      );
 
-    return reply.code(204).send();
-  });
+      return reply.code(204).send();
+    },
+  );
 
   // =========================================================================
   // K11: GET /v1/auth/invitations/:token — extended preview
   // =========================================================================
 
-  fastify.get('/v1/auth/invitations/:token', async (request, reply) => {
-    const { token } = request.params as { token: string };
-    if (!token || !/^[a-f0-9]{64}$/.test(token)) {
-      return reply.code(410).send({ error: 'Invitation not found or expired' });
-    }
+  fastify.get(
+    '/v1/auth/invitations/:token',
+    {
+      schema: {
+        tags: ['Invitations'],
+        summary: 'Náhľad pozvánky podľa tokenu (pre neprihláseného pozvaného)',
+        // Zámerne verejné — pozvaný ešte nemá účet. Prístup chráni
+        // jednorazový token v ceste, nie prihlásenie.
+        security: [],
+      },
+    },
+    async (request, reply) => {
+      const { token } = request.params as { token: string };
+      if (!token || !/^[a-f0-9]{64}$/.test(token)) {
+        return reply.code(410).send({ error: 'Invitation not found or expired' });
+      }
 
-    const inv = await invRepo.findByToken(token);
-    if (!inv) return reply.code(410).send({ error: 'Invitation not found or expired' });
+      const inv = await invRepo.findByToken(token);
+      if (!inv) return reply.code(410).send({ error: 'Invitation not found or expired' });
 
-    // Check expiry (expiresAt on Invitation, or emailVerificationExpiresAt on ghost-user)
-    const expiresAt =
-      ((inv as Record<string, unknown>)['expiresAt'] as string) ??
-      ((inv as Record<string, unknown>)['emailVerificationExpiresAt'] as string);
-    if (expiresAt && new Date(expiresAt) < new Date()) {
-      return reply.code(410).send({ error: 'Invitation not found or expired' });
-    }
+      // Check expiry (expiresAt on Invitation, or emailVerificationExpiresAt on ghost-user)
+      const expiresAt =
+        ((inv as Record<string, unknown>)['expiresAt'] as string) ??
+        ((inv as Record<string, unknown>)['emailVerificationExpiresAt'] as string);
+      if (expiresAt && new Date(expiresAt) < new Date()) {
+        return reply.code(410).send({ error: 'Invitation not found or expired' });
+      }
 
-    // Check status — ACCEPTED/REVOKED/EXPIRED invitations are no longer valid
-    const invStatus = (inv as Record<string, unknown>)['status'] as string | undefined;
-    if (invStatus && invStatus !== 'PENDING') {
-      return reply.code(410).send({ error: 'Invitation not found or expired' });
-    }
+      // Check status — ACCEPTED/REVOKED/EXPIRED invitations are no longer valid
+      const invStatus = (inv as Record<string, unknown>)['status'] as string | undefined;
+      if (invStatus && invStatus !== 'PENDING') {
+        return reply.code(410).send({ error: 'Invitation not found or expired' });
+      }
 
-    // Load org for preview
-    const orgDoc = await fastify.mongo.db
-      .collection<Organisation>('organisations')
-      .findOne(
-        { _id: new ObjectId(inv.organisationId) as never, deletedAt: null },
-        { projection: { displayName: 1, slug: 1, brandKit: 1 } },
-      );
+      // Load org for preview
+      const orgDoc = await fastify.mongo.db
+        .collection<Organisation>('organisations')
+        .findOne(
+          { _id: new ObjectId(inv.organisationId) as never, deletedAt: null },
+          { projection: { displayName: 1, slug: 1, brandKit: 1 } },
+        );
 
-    // Load inviter for preview
-    const inviterDoc = ObjectId.isValid(inv.invitedBy as string)
-      ? await fastify.mongo.db
+      // Load inviter for preview
+      const inviterDoc = ObjectId.isValid(inv.invitedBy as string)
+        ? await fastify.mongo.db
+            .collection<User>('users')
+            .findOne(
+              { _id: new ObjectId(inv.invitedBy as string) as never },
+              { projection: { displayName: 1 } },
+            )
+        : null;
+
+      // K11: acceptMode + existingUserPreview
+      const invitedUserId =
+        ((inv as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
+      const acceptMode = invitedUserId ? 'existing-user' : 'new-user';
+
+      let existingUserPreview: { displayName: string; authProviders: string[] } | null = null;
+      if (acceptMode === 'existing-user' && invitedUserId) {
+        const existingUser = await fastify.mongo.db
           .collection<User>('users')
           .findOne(
-            { _id: new ObjectId(inv.invitedBy as string) as never },
-            { projection: { displayName: 1 } },
-          )
-      : null;
-
-    // K11: acceptMode + existingUserPreview
-    const invitedUserId =
-      ((inv as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
-    const acceptMode = invitedUserId ? 'existing-user' : 'new-user';
-
-    let existingUserPreview: { displayName: string; authProviders: string[] } | null = null;
-    if (acceptMode === 'existing-user' && invitedUserId) {
-      const existingUser = await fastify.mongo.db
-        .collection<User>('users')
-        .findOne(
-          { _id: new ObjectId(invitedUserId) as never, deletedAt: null },
-          { projection: { displayName: 1, authProviders: 1 } },
-        );
-      if (existingUser) {
-        const providers = (
-          (existingUser['authProviders'] as Array<{ provider: string }>) ?? []
-        ).map((p) => p.provider);
-        existingUserPreview = {
-          displayName: existingUser['displayName'] as string,
-          authProviders: providers,
-        };
+            { _id: new ObjectId(invitedUserId) as never, deletedAt: null },
+            { projection: { displayName: 1, authProviders: 1 } },
+          );
+        if (existingUser) {
+          const providers = (
+            (existingUser['authProviders'] as Array<{ provider: string }>) ?? []
+          ).map((p) => p.provider);
+          existingUserPreview = {
+            displayName: existingUser['displayName'] as string,
+            authProviders: providers,
+          };
+        }
       }
-    }
 
-    return reply.send({
-      email: inv.email,
-      role: inv.role,
-      firstName: inv.firstName ?? null,
-      lastName: inv.lastName ?? null,
-      organisation: {
-        displayName: orgDoc?.displayName ?? 'Inventario',
-        slug: orgDoc?.slug ?? '',
-        brandKit: orgDoc?.brandKit ?? null,
-      },
-      inviter: { displayName: (inviterDoc?.['displayName'] as string) ?? 'Inventario' },
-      expiresAt,
-      acceptMode,
-      existingUserPreview,
-    });
-  });
+      return reply.send({
+        email: inv.email,
+        role: inv.role,
+        firstName: inv.firstName ?? null,
+        lastName: inv.lastName ?? null,
+        organisation: {
+          displayName: orgDoc?.displayName ?? 'Inventario',
+          slug: orgDoc?.slug ?? '',
+          brandKit: orgDoc?.brandKit ?? null,
+        },
+        inviter: { displayName: (inviterDoc?.['displayName'] as string) ?? 'Inventario' },
+        expiresAt,
+        acceptMode,
+        existingUserPreview,
+      });
+    },
+  );
 
   // =========================================================================
   // K12: POST /v1/auth/accept-invitation — new-user + existing-user paths
   // =========================================================================
 
-  fastify.post('/v1/auth/accept-invitation', async (request, reply) => {
-    const parsed = AcceptInvitationSchema.safeParse(request.body);
-    if (!parsed.success) {
-      throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid input');
-    }
-    const { token, password, firstName, lastName } = parsed.data;
+  fastify.post(
+    '/v1/auth/accept-invitation',
+    {
+      schema: {
+        tags: ['Invitations'],
+        summary: 'Prijatie pozvánky — nový aj existujúci používateľ',
+        // Zámerne verejné — pozvaný ešte nemá účet. Prístup chráni
+        // jednorazový token v ceste, nie prihlásenie.
+        security: [],
+      },
+    },
+    async (request, reply) => {
+      const parsed = AcceptInvitationSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid input');
+      }
+      const { token, password, firstName, lastName } = parsed.data;
 
-    const inv = await invRepo.findByToken(token);
-    if (!inv) throw new BadRequestError('Invitation is invalid or has already been used.');
+      const inv = await invRepo.findByToken(token);
+      if (!inv) throw new BadRequestError('Invitation is invalid or has already been used.');
 
-    // Check status — only PENDING invitations can be accepted
-    const invStatus = (inv as Record<string, unknown>)['status'] as string | undefined;
-    if (invStatus && invStatus !== 'PENDING') {
-      throw new BadRequestError('Invitation is invalid or has already been used.');
-    }
-
-    const expiresAt =
-      ((inv as Record<string, unknown>)['expiresAt'] as string) ??
-      ((inv as Record<string, unknown>)['emailVerificationExpiresAt'] as string);
-    if (expiresAt && new Date(expiresAt) < new Date()) {
-      throw new BadRequestError(
-        'Invitation has expired. Ask your administrator to send a new one.',
-      );
-    }
-
-    const invitedUserId =
-      ((inv as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
-    const now = new Date().toISOString();
-
-    // Load target org
-    const org = (await fastify.mongo.db
-      .collection<Organisation>('organisations')
-      .findOne({ _id: new ObjectId(inv.organisationId) as never })) as WithId<Organisation> | null;
-    if (!org) throw new BadRequestError('Organisation not found.');
-
-    let userId: string;
-    let auditAction = 'USER_INVITATION_ACCEPTED';
-    let isRejoin = false;
-
-    if (invitedUserId) {
-      // -----------------------------------------------------------------------
-      // K12: existing-user path — logged-in matching user
-      // -----------------------------------------------------------------------
-      const accessCookie = request.cookies?.['inv_access'];
-      if (!accessCookie) {
-        // Not logged in — frontend must redirect to login with invite token in state
-        throw new UnauthorizedError(
-          'LOGIN_REQUIRED: Please log in with your existing account to accept this invitation.',
-        );
+      // Check status — only PENDING invitations can be accepted
+      const invStatus = (inv as Record<string, unknown>)['status'] as string | undefined;
+      if (invStatus && invStatus !== 'PENDING') {
+        throw new BadRequestError('Invitation is invalid or has already been used.');
       }
 
-      // Verify the cookie belongs to the correct user
-      let claims;
-      try {
-        claims = await fastify.inventarioJwt.verifyAccessToken(accessCookie);
-      } catch {
-        throw new UnauthorizedError('Invalid session. Please log in again.');
-      }
-
-      if (claims.sub !== invitedUserId) {
+      const expiresAt =
+        ((inv as Record<string, unknown>)['expiresAt'] as string) ??
+        ((inv as Record<string, unknown>)['emailVerificationExpiresAt'] as string);
+      if (expiresAt && new Date(expiresAt) < new Date()) {
         throw new BadRequestError(
-          `EMAIL_MISMATCH: This invitation is for a different account. ` +
-            `Please log in as the invited user and try again.`,
+          'Invitation has expired. Ask your administrator to send a new one.',
         );
       }
 
-      userId = invitedUserId;
+      const invitedUserId =
+        ((inv as Record<string, unknown>)['invitedUserId'] as string | null) ?? null;
+      const now = new Date().toISOString();
 
-      // Check whether this is a rejoin (soft-deleted membership exists)
-      // findByUser returns only deletedAt:null — check raw collection for soft-deleted
-      const softDeleted = await fastify.mongo.db
-        .collection('memberships')
-        .findOne({ userId, organisationId: inv.organisationId, deletedAt: { $ne: null } });
-      isRejoin = !!softDeleted;
+      // Load target org
+      const org = (await fastify.mongo.db.collection<Organisation>('organisations').findOne({
+        _id: new ObjectId(inv.organisationId) as never,
+      })) as WithId<Organisation> | null;
+      if (!org) throw new BadRequestError('Organisation not found.');
 
-      // Rejoin: reactivate the soft-deleted membership instead of inserting a new
-      // one — a plain insertOne would hit the unique index {userId, organisationId}
-      // which covers ALL documents regardless of deletedAt, causing E11000 → 500.
-      let membership: WithId<Membership> | { _id: unknown };
-      if (isRejoin) {
-        const reactivated = await membRepo.reactivate({
-          userId,
-          organisationId: inv.organisationId,
-          role: inv.role,
-          acceptedAt: now,
-          invitedBy: inv.invitedBy,
-          invitedAt: inv.createdAt,
-          updatedAt: now,
-          updatedBy: userId,
-        });
-        if (!reactivated) {
-          // Race condition: reactivate found nothing — fall through to create
+      let userId: string;
+      let auditAction = 'USER_INVITATION_ACCEPTED';
+      let isRejoin = false;
+
+      if (invitedUserId) {
+        // -----------------------------------------------------------------------
+        // K12: existing-user path — logged-in matching user
+        // -----------------------------------------------------------------------
+        const accessCookie = request.cookies?.['inv_access'];
+        if (!accessCookie) {
+          // Not logged in — frontend must redirect to login with invite token in state
+          throw new UnauthorizedError(
+            'LOGIN_REQUIRED: Please log in with your existing account to accept this invitation.',
+          );
+        }
+
+        // Verify the cookie belongs to the correct user
+        let claims;
+        try {
+          claims = await fastify.inventarioJwt.verifyAccessToken(accessCookie);
+        } catch {
+          throw new UnauthorizedError('Invalid session. Please log in again.');
+        }
+
+        if (claims.sub !== invitedUserId) {
+          throw new BadRequestError(
+            `EMAIL_MISMATCH: This invitation is for a different account. ` +
+              `Please log in as the invited user and try again.`,
+          );
+        }
+
+        userId = invitedUserId;
+
+        // Check whether this is a rejoin (soft-deleted membership exists)
+        // findByUser returns only deletedAt:null — check raw collection for soft-deleted
+        const softDeleted = await fastify.mongo.db
+          .collection('memberships')
+          .findOne({ userId, organisationId: inv.organisationId, deletedAt: { $ne: null } });
+        isRejoin = !!softDeleted;
+
+        // Rejoin: reactivate the soft-deleted membership instead of inserting a new
+        // one — a plain insertOne would hit the unique index {userId, organisationId}
+        // which covers ALL documents regardless of deletedAt, causing E11000 → 500.
+        let membership: WithId<Membership> | { _id: unknown };
+        if (isRejoin) {
+          const reactivated = await membRepo.reactivate({
+            userId,
+            organisationId: inv.organisationId,
+            role: inv.role,
+            acceptedAt: now,
+            invitedBy: inv.invitedBy,
+            invitedAt: inv.createdAt,
+            updatedAt: now,
+            updatedBy: userId,
+          });
+          if (!reactivated) {
+            // Race condition: reactivate found nothing — fall through to create
+            try {
+              membership = await membRepo.create({
+                userId,
+                organisationId: inv.organisationId,
+                role: inv.role,
+                organizationalUnit: null,
+                teams: [],
+                status: 'ACTIVE',
+                isDefault: false,
+                invitedBy: inv.invitedBy,
+                invitedAt: inv.createdAt,
+                acceptedAt: now,
+                mustChangePassword: false,
+                lastAccessedAt: now,
+                notifications: { email: true, push: false },
+                createdAt: now,
+                updatedAt: now,
+                createdBy: userId,
+                updatedBy: userId,
+                deletedAt: null,
+                deletedBy: null,
+              });
+            } catch (err: unknown) {
+              if ((err as { code?: number }).code === 11000) {
+                throw Object.assign(new Error('ALREADY_MEMBER'), {
+                  statusCode: 409,
+                  name: 'ConflictError',
+                });
+              }
+              throw err;
+            }
+          } else {
+            membership = reactivated;
+          }
+        } else {
+          // Cross-tenant: user exists but has no membership in this org yet
           try {
             membership = await membRepo.create({
               userId,
@@ -640,7 +736,7 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
               organizationalUnit: null,
               teams: [],
               status: 'ACTIVE',
-              isDefault: false,
+              isDefault: false, // existing users keep their current default
               invitedBy: inv.invitedBy,
               invitedAt: inv.createdAt,
               acceptedAt: now,
@@ -663,205 +759,170 @@ const invitationsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
             }
             throw err;
           }
-        } else {
-          membership = reactivated;
         }
+
+        // Mark invitation ACCEPTED
+        await invRepo.accept(String(inv._id), {
+          acceptedAt: now,
+          membershipId: String(membership._id),
+          updatedAt: now,
+          updatedBy: userId,
+        });
+
+        // Issue new JWT with target org as active tenant
+        const userDoc = (await fastify.mongo.db
+          .collection<User>('users')
+          .findOne({ _id: new ObjectId(userId) as never })) as WithId<User> | null;
+        if (!userDoc) throw new BadRequestError('User not found.');
+
+        const accessToken = await fastify.inventarioJwt.issueAccessToken(
+          userDoc as never,
+          org as never,
+          String(membership._id),
+          inv.role,
+        );
+        const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
+        setAuthCookies(
+          reply,
+          accessToken,
+          refreshToken,
+          JWT_ACCESS_TOKEN_TTL_SECONDS,
+          JWT_REFRESH_TOKEN_TTL_DAYS,
+        );
+
+        auditAction = isRejoin ? 'USER_REJOINED_ORGANISATION' : 'USER_JOINED_ORGANISATION';
       } else {
-        // Cross-tenant: user exists but has no membership in this org yet
-        try {
-          membership = await membRepo.create({
-            userId,
-            organisationId: inv.organisationId,
-            role: inv.role,
-            organizationalUnit: null,
-            teams: [],
-            status: 'ACTIVE',
-            isDefault: false, // existing users keep their current default
-            invitedBy: inv.invitedBy,
-            invitedAt: inv.createdAt,
-            acceptedAt: now,
-            mustChangePassword: false,
-            lastAccessedAt: now,
-            notifications: { email: true, push: false },
-            createdAt: now,
-            updatedAt: now,
-            createdBy: userId,
-            updatedBy: userId,
-            deletedAt: null,
-            deletedBy: null,
-          });
-        } catch (err: unknown) {
-          if ((err as { code?: number }).code === 11000) {
-            throw Object.assign(new Error('ALREADY_MEMBER'), {
-              statusCode: 409,
-              name: 'ConflictError',
-            });
-          }
-          throw err;
-        }
+        // -----------------------------------------------------------------------
+        // new-user path — create User + Membership
+        // -----------------------------------------------------------------------
+        if (!password) throw new BadRequestError('Password is required to accept this invitation.');
+        if (!firstName || !lastName) throw new BadRequestError('First and last name are required.');
+
+        const passwordHash = await argon2.hash(password, {
+          type: argon2.argon2id,
+          memoryCost: 65_536,
+          timeCost: 3,
+          parallelism: 4,
+        });
+
+        const displayName = `${firstName} ${lastName}`.trim();
+
+        // Insert new User
+        const userInsert = await fastify.mongo.db.collection<User>('users').insertOne({
+          email: inv.email,
+          firstName,
+          lastName,
+          displayName,
+          accountType: AccountType.LOCAL,
+          entraOid: null,
+          authProviders: [
+            {
+              provider: AuthProvider.EMAIL,
+              providerId: inv.email,
+              email: inv.email,
+              linkedAt: now,
+            },
+          ],
+          emailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpiresAt: null,
+          passwordResetToken: null,
+          passwordResetExpiresAt: null,
+          passwordHash,
+          roles: [inv.role],
+          isActive: true,
+          lastLoginAt: now,
+          mfaEnabled: false,
+          mfaSecret: null,
+          mfaRecoveryCodes: [],
+          mfaEnabledAt: null,
+          preferences: { language: 'sk', timezone: 'Europe/Bratislava' },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'SYSTEM',
+          updatedBy: 'SYSTEM',
+          deletedAt: null,
+          deletedBy: null,
+        } as never);
+
+        userId = String(userInsert.insertedId);
+
+        // Create default Membership in target org
+        const membership = await membRepo.create({
+          userId,
+          organisationId: inv.organisationId,
+          role: inv.role,
+          organizationalUnit: null,
+          teams: [],
+          status: 'ACTIVE',
+          isDefault: true,
+          invitedBy: inv.invitedBy,
+          invitedAt: inv.createdAt,
+          acceptedAt: now,
+          mustChangePassword: false,
+          lastAccessedAt: now,
+          notifications: { email: true, push: false },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: userId,
+          updatedBy: userId,
+          deletedAt: null,
+          deletedBy: null,
+        });
+
+        // Mark invitation ACCEPTED
+        await invRepo.accept(String(inv._id), {
+          acceptedAt: now,
+          membershipId: String(membership._id),
+          updatedAt: now,
+          updatedBy: userId,
+        });
+
+        // Issue JWT
+        const userDoc = (await fastify.mongo.db
+          .collection<User>('users')
+          .findOne({ _id: new ObjectId(userId) as never })) as never;
+
+        const accessToken = await fastify.inventarioJwt.issueAccessToken(
+          userDoc,
+          org as never,
+          String(membership._id),
+          inv.role,
+        );
+        const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
+        setAuthCookies(
+          reply,
+          accessToken,
+          refreshToken,
+          JWT_ACCESS_TOKEN_TTL_SECONDS,
+          JWT_REFRESH_TOKEN_TTL_DAYS,
+        );
       }
 
-      // Mark invitation ACCEPTED
-      await invRepo.accept(String(inv._id), {
-        acceptedAt: now,
-        membershipId: String(membership._id),
-        updatedAt: now,
-        updatedBy: userId,
-      });
-
-      // Issue new JWT with target org as active tenant
-      const userDoc = (await fastify.mongo.db
-        .collection<User>('users')
-        .findOne({ _id: new ObjectId(userId) as never })) as WithId<User> | null;
-      if (!userDoc) throw new BadRequestError('User not found.');
-
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(
-        userDoc as never,
-        org as never,
-        String(membership._id),
-        inv.role,
-      );
-      const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
-      setAuthCookies(
-        reply,
-        accessToken,
-        refreshToken,
-        JWT_ACCESS_TOKEN_TTL_SECONDS,
-        JWT_REFRESH_TOKEN_TTL_DAYS,
-      );
-
-      auditAction = isRejoin ? 'USER_REJOINED_ORGANISATION' : 'USER_JOINED_ORGANISATION';
-    } else {
-      // -----------------------------------------------------------------------
-      // new-user path — create User + Membership
-      // -----------------------------------------------------------------------
-      if (!password) throw new BadRequestError('Password is required to accept this invitation.');
-      if (!firstName || !lastName) throw new BadRequestError('First and last name are required.');
-
-      const passwordHash = await argon2.hash(password, {
-        type: argon2.argon2id,
-        memoryCost: 65_536,
-        timeCost: 3,
-        parallelism: 4,
-      });
-
-      const displayName = `${firstName} ${lastName}`.trim();
-
-      // Insert new User
-      const userInsert = await fastify.mongo.db.collection<User>('users').insertOne({
-        email: inv.email,
-        firstName,
-        lastName,
-        displayName,
-        accountType: AccountType.LOCAL,
-        entraOid: null,
-        authProviders: [
-          {
-            provider: AuthProvider.EMAIL,
-            providerId: inv.email,
-            email: inv.email,
-            linkedAt: now,
-          },
-        ],
-        emailVerified: true,
-        emailVerificationToken: null,
-        emailVerificationExpiresAt: null,
-        passwordResetToken: null,
-        passwordResetExpiresAt: null,
-        passwordHash,
-        roles: [inv.role],
-        isActive: true,
-        lastLoginAt: now,
-        mfaEnabled: false,
-        mfaSecret: null,
-        mfaRecoveryCodes: [],
-        mfaEnabledAt: null,
-        preferences: { language: 'sk', timezone: 'Europe/Bratislava' },
-        createdAt: now,
-        updatedAt: now,
-        createdBy: 'SYSTEM',
-        updatedBy: 'SYSTEM',
-        deletedAt: null,
-        deletedBy: null,
-      } as never);
-
-      userId = String(userInsert.insertedId);
-
-      // Create default Membership in target org
-      const membership = await membRepo.create({
-        userId,
+      // K14: Audit
+      await fastify.mongo.db.collection('audit_logs').insertOne({
+        action: auditAction,
+        severity: 'INFO',
+        actor: { userId, email: inv.email },
+        target: { entityType: 'Organisation', entityId: inv.organisationId },
         organisationId: inv.organisationId,
-        role: inv.role,
-        organizationalUnit: null,
-        teams: [],
-        status: 'ACTIVE',
-        isDefault: true,
-        invitedBy: inv.invitedBy,
-        invitedAt: inv.createdAt,
-        acceptedAt: now,
-        mustChangePassword: false,
-        lastAccessedAt: now,
-        notifications: { email: true, push: false },
+        metadata: {
+          via: invitedUserId ? 'existing-user' : 'password',
+          role: inv.role,
+          isRejoin,
+          invitationId: String(inv._id),
+        },
         createdAt: now,
-        updatedAt: now,
-        createdBy: userId,
-        updatedBy: userId,
-        deletedAt: null,
-        deletedBy: null,
       });
 
-      // Mark invitation ACCEPTED
-      await invRepo.accept(String(inv._id), {
-        acceptedAt: now,
-        membershipId: String(membership._id),
-        updatedAt: now,
-        updatedBy: userId,
-      });
-
-      // Issue JWT
-      const userDoc = (await fastify.mongo.db
-        .collection<User>('users')
-        .findOne({ _id: new ObjectId(userId) as never })) as never;
-
-      const accessToken = await fastify.inventarioJwt.issueAccessToken(
-        userDoc,
-        org as never,
-        String(membership._id),
-        inv.role,
+      fastify.log.info(
+        { userId, email: inv.email, org: inv.organisationId, action: auditAction },
+        'Invitation accepted',
       );
-      const refreshToken = await fastify.inventarioJwt.issueRefreshToken(userId, request);
-      setAuthCookies(
-        reply,
-        accessToken,
-        refreshToken,
-        JWT_ACCESS_TOKEN_TTL_SECONDS,
-        JWT_REFRESH_TOKEN_TTL_DAYS,
-      );
-    }
 
-    // K14: Audit
-    await fastify.mongo.db.collection('audit_logs').insertOne({
-      action: auditAction,
-      severity: 'INFO',
-      actor: { userId, email: inv.email },
-      target: { entityType: 'Organisation', entityId: inv.organisationId },
-      organisationId: inv.organisationId,
-      metadata: {
-        via: invitedUserId ? 'existing-user' : 'password',
-        role: inv.role,
-        isRejoin,
-        invitationId: String(inv._id),
-      },
-      createdAt: now,
-    });
-
-    fastify.log.info(
-      { userId, email: inv.email, org: inv.organisationId, action: auditAction },
-      'Invitation accepted',
-    );
-
-    return reply.code(204).send();
-  });
+      return reply.code(204).send();
+    },
+  );
 };
 
 export default fp(invitationsRoutesPlugin, {

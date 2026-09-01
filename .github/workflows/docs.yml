@@ -50,9 +50,18 @@ jobs:
     name: OpenAPI
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # TODO: Remove continue-on-error once OpenAPI 3.1 syntax cleanup is done
-    # (nullable: true → type: [..., null]) and operationId/4xx responses added.
-    continue-on-error: true
+    # continue-on-error odstránené 2026-09-01 — Redocly hlási 0 chýb a job
+    # zase reálne stráži. Doriešené: operationId (odvodzuje sa v
+    # plugins/swagger.ts), nullable → type: [..., null] a booleovský
+    # exclusiveMinimum (lib/openapi-3-1.ts), summary + security na 17
+    # rotách, ktoré nemali schému.
+    #
+    # Zostáva 103 warningov, ktoré job nezhadzujú:
+    #   - operation-4xx-response (95) — schémy popisujú len 2xx odpovede.
+    #     Doplniť chybové odpovede je vecná práca na samostatný krok.
+    #   - no-ambiguous-paths (4) — /v1/assets/tags/* koliduje tvarom
+    #     s /v1/assets/{id}/*. Oprava by znamenala premenovať endpointy,
+    #     teda breaking change API. Vedome ponechané.
 
     steps:
       - name: Checkout code

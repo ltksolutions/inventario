@@ -68,6 +68,11 @@ const publicAssetsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Public'],
         summary: 'Verejny lost & found lookup po QR tokene (ADR-0021)',
+        // Zámerne verejný endpoint — prázdne `security` to hovorí
+        // explicitne. Bez toho Redocly hlási chýbajúcu deklaráciu
+        // (pravidlo security-defined) a nedá sa odlíšiť „verejné
+        // zámerne" od „zabudli sme".
+        security: [],
         description:
           'Bez autentifikacie. Vracia minimalne informacie o najdenom majetku. ' +
           '404 ak tenant nema zapnuty publicAssetLookup ALEBO token neexistuje (no oracle).',

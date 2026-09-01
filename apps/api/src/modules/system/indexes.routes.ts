@@ -25,58 +25,75 @@ import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
 
 const indexesRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/v1/system/indexes/ensure', async (request, reply) => {
-    const secret = fastify.config.MIGRATIONS_SECRET;
-    if (!secret) {
-      fastify.log.warn('[indexes] MIGRATIONS_SECRET not configured — endpoint disabled');
-      return reply.code(503).send({
-        error: 'INDEXES_DISABLED',
-        message: 'Index endpoint is not configured. Set MIGRATIONS_SECRET env var.',
-      });
-    }
-
-    const authHeader = request.headers['authorization'];
-    const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
-
-    if (!token || token !== secret) {
-      fastify.log.warn(
-        { ip: request.ip, path: request.url },
-        '[indexes] Unauthorized trigger attempt',
-      );
-      return reply.code(401).send({
-        error: 'UNAUTHORIZED',
-        message: 'Invalid or missing Authorization header.',
-      });
-    }
-
-    const ensurers = fastify.indexEnsurers;
-    fastify.log.info({ count: ensurers.length }, '[indexes] Authorized trigger — ensuring indexes');
-
-    const failed: { name: string; error: string }[] = [];
-
-    // Sériovo a s pokračovaním po chybe: jeden pokazený index (napr. unique
-    // index, ktorý koliduje s existujúcimi dátami) nemá zabrániť vytvoreniu
-    // ostatných. Zoznam zlyhaní ide do odpovede aj do logu.
-    for (const ensurer of ensurers) {
-      try {
-        await ensurer.run();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        fastify.log.error({ name: ensurer.name, error: msg }, '[indexes] ensureIndexes failed');
-        failed.push({ name: ensurer.name, error: msg });
+  fastify.post(
+    '/v1/system/indexes/ensure',
+    {
+      schema: {
+        tags: ['System'],
+        summary: 'Vytvorenie MongoDB indexov po deployi',
+        description:
+          'Volá GitHub Actions po úspešnom produkčnom deployi. V produkcii sa indexy pri boote nevytvárajú — detaily v lib/ensure-indexes.ts. Idempotentné.',
+        // Nie používateľský token — zdieľané tajomstvo, viď
+        // securityScheme deploymentSecret v plugins/swagger.ts.
+        security: [{ deploymentSecret: [] }],
+      },
+    },
+    async (request, reply) => {
+      const secret = fastify.config.MIGRATIONS_SECRET;
+      if (!secret) {
+        fastify.log.warn('[indexes] MIGRATIONS_SECRET not configured — endpoint disabled');
+        return reply.code(503).send({
+          error: 'INDEXES_DISABLED',
+          message: 'Index endpoint is not configured. Set MIGRATIONS_SECRET env var.',
+        });
       }
-    }
 
-    if (failed.length > 0) {
-      return reply.code(500).send({
-        error: 'INDEXES_PARTIALLY_FAILED',
-        message: `${String(failed.length)} of ${String(ensurers.length)} index sets failed.`,
-        failed,
-      });
-    }
+      const authHeader = request.headers['authorization'];
+      const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
 
-    return reply.code(200).send({ status: 'ok', ensured: ensurers.length });
-  });
+      if (!token || token !== secret) {
+        fastify.log.warn(
+          { ip: request.ip, path: request.url },
+          '[indexes] Unauthorized trigger attempt',
+        );
+        return reply.code(401).send({
+          error: 'UNAUTHORIZED',
+          message: 'Invalid or missing Authorization header.',
+        });
+      }
+
+      const ensurers = fastify.indexEnsurers;
+      fastify.log.info(
+        { count: ensurers.length },
+        '[indexes] Authorized trigger — ensuring indexes',
+      );
+
+      const failed: { name: string; error: string }[] = [];
+
+      // Sériovo a s pokračovaním po chybe: jeden pokazený index (napr. unique
+      // index, ktorý koliduje s existujúcimi dátami) nemá zabrániť vytvoreniu
+      // ostatných. Zoznam zlyhaní ide do odpovede aj do logu.
+      for (const ensurer of ensurers) {
+        try {
+          await ensurer.run();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          fastify.log.error({ name: ensurer.name, error: msg }, '[indexes] ensureIndexes failed');
+          failed.push({ name: ensurer.name, error: msg });
+        }
+      }
+
+      if (failed.length > 0) {
+        return reply.code(500).send({
+          error: 'INDEXES_PARTIALLY_FAILED',
+          message: `${String(failed.length)} of ${String(ensurers.length)} index sets failed.`,
+          failed,
+        });
+      }
+
+      return reply.code(200).send({ status: 'ok', ensured: ensurers.length });
+    },
+  );
 };
 
 export default fp(indexesRoutes, {

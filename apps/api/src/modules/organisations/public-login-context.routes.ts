@@ -104,6 +104,11 @@ const publicLoginContextRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Public'],
         summary: 'Verejný login-context organizácie podľa slugu alebo vlastnej domény (ADR-0035)',
+        // Zámerne verejný endpoint — prázdne `security` to hovorí
+        // explicitne. Bez toho Redocly hlási chýbajúcu deklaráciu
+        // (pravidlo security-defined) a nedá sa odlíšiť „verejné
+        // zámerne" od „zabudli sme".
+        security: [],
         description:
           'Bez autentifikácie. Vracia len neškodné dáta (branding + povolené spôsoby ' +
           'prihlásenia) potrebné na to, aby /login mohol zobraziť správne tlačidlá pre ' +

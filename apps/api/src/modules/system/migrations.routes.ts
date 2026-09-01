@@ -43,47 +43,61 @@ import { runPendingMigrations } from '../../migrations/runner.js';
 import type { FastifyPluginAsync } from 'fastify';
 
 const migrationsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/v1/system/migrations/run', async (request, reply) => {
-    // ---- Guard: MIGRATIONS_SECRET must be configured ---------------------
-    const migrationsSecret = fastify.config.MIGRATIONS_SECRET;
-    if (!migrationsSecret) {
-      fastify.log.warn('[migrations] MIGRATIONS_SECRET not configured — endpoint disabled');
-      return reply.code(503).send({
-        error: 'MIGRATIONS_DISABLED',
-        message: 'Migration endpoint is not configured. Set MIGRATIONS_SECRET env var.',
-      });
-    }
+  fastify.post(
+    '/v1/system/migrations/run',
+    {
+      schema: {
+        tags: ['System'],
+        summary: 'Spustenie čakajúcich DB migrácií po deployi',
+        description:
+          'Volá GitHub Actions po úspešnom produkčnom deployi. Cold start migrácie nespúšťa, robí len pasívnu kontrolu. Opakované spustenie je bezpečné.',
+        // Nie používateľský token — zdieľané tajomstvo, viď
+        // securityScheme deploymentSecret v plugins/swagger.ts.
+        security: [{ deploymentSecret: [] }],
+      },
+    },
+    async (request, reply) => {
+      // ---- Guard: MIGRATIONS_SECRET must be configured ---------------------
+      const migrationsSecret = fastify.config.MIGRATIONS_SECRET;
+      if (!migrationsSecret) {
+        fastify.log.warn('[migrations] MIGRATIONS_SECRET not configured — endpoint disabled');
+        return reply.code(503).send({
+          error: 'MIGRATIONS_DISABLED',
+          message: 'Migration endpoint is not configured. Set MIGRATIONS_SECRET env var.',
+        });
+      }
 
-    // ---- Guard: validate Authorization header -----------------------------
-    const authHeader = request.headers['authorization'];
-    const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
+      // ---- Guard: validate Authorization header -----------------------------
+      const authHeader = request.headers['authorization'];
+      const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
 
-    if (!token || token !== migrationsSecret) {
-      fastify.log.warn(
-        { ip: request.ip, path: request.url },
-        '[migrations] Unauthorized trigger attempt',
-      );
-      return reply.code(401).send({
-        error: 'UNAUTHORIZED',
-        message: 'Invalid or missing Authorization header.',
-      });
-    }
+      if (!token || token !== migrationsSecret) {
+        fastify.log.warn(
+          { ip: request.ip, path: request.url },
+          '[migrations] Unauthorized trigger attempt',
+        );
+        return reply.code(401).send({
+          error: 'UNAUTHORIZED',
+          message: 'Invalid or missing Authorization header.',
+        });
+      }
 
-    // ---- Run pending migrations --------------------------------------------
-    fastify.log.info({ ip: request.ip }, '[migrations] Authorized trigger — running migrations');
+      // ---- Run pending migrations --------------------------------------------
+      fastify.log.info({ ip: request.ip }, '[migrations] Authorized trigger — running migrations');
 
-    try {
-      await runPendingMigrations(fastify.mongo.db, fastify.log);
-      return reply.code(200).send({ status: 'ok' });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      fastify.log.error({ error: msg }, '[migrations] Migration run failed');
-      return reply.code(500).send({
-        error: 'MIGRATIONS_FAILED',
-        message: msg,
-      });
-    }
-  });
+      try {
+        await runPendingMigrations(fastify.mongo.db, fastify.log);
+        return reply.code(200).send({ status: 'ok' });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        fastify.log.error({ error: msg }, '[migrations] Migration run failed');
+        return reply.code(500).send({
+          error: 'MIGRATIONS_FAILED',
+          message: msg,
+        });
+      }
+    },
+  );
 };
 
 export default fp(migrationsRoutes, {
