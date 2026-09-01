@@ -22,9 +22,6 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   je používateľ prihlásený. Zisk zo súbežného spustenia by bol ~0,6 s
   (1,84 → ~1,2 s). Otázka je, či to stojí za komplikáciu s obnovou
   vypršaného tokenu. Kontext: `2026-08-31-pomale-nacitanie-dashboardu.md`.
-- **Dependabot PR #19** (`actions/setup-node` 6 → 7) — Markdown job je po
-  oprave odkazov zelený, Unit Tests tiež. Červený zostáva len OpenAPI
-  job, ktorý má `continue-on-error`. PR je pripravený na merge.
 - **Slovník `error` na `/v1/system`** — `migrations`, `indexes` a
   `retention` majú v poli `error` skratky v SCREAMING_SNAKE
   (`INDEXES_DISABLED`, `UNAUTHORIZED`) namiesto konvencie zvyšku API
@@ -37,6 +34,11 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   field-level chyby vždy, treba prepojiť `setErrorHandler` s Fastify
   `schemaErrorFormatter`. Kontext:
   `2026-09-01-openapi-chybove-odpovede.md`.
+- **Node 24 na dev stroji** — Mac má len node 26, `package.json` vyžaduje
+  `engines.node: 24.x`, takže `pnpm` skripty padajú na
+  `ERR_PNPM_UNSUPPORTED_ENGINE`. Zatiaľ sa obchádza spúšťaním binárok
+  priamo z `node_modules/.bin`. Rozhodnúť: doinštalovať node 24, alebo
+  uvoľniť `engines`. Kontext: `2026-09-01-openapi-chybove-odpovede.md`.
 - **GitHub Discussions** — v repozitári nie sú zapnuté (Settings →
   Features), ale `docs/user-guide/support.md` na ne odkazuje. Odkaz je
   zatiaľ v `ignorePatterns` link checkera; po zapnutí ten pattern
