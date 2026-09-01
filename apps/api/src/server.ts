@@ -59,6 +59,7 @@ import membershipsRoutes from './modules/memberships/memberships.routes.js';
 import { createDynamicCorsOrigin } from './modules/organisations/dynamic-cors.js';
 import organisationsRoutes from './modules/organisations/organisations.routes.js';
 import publicLoginContextRoutes from './modules/organisations/public-login-context.routes.js';
+import publicOrganisationLogoRoutes from './modules/organisations/public-organisation-logo.routes.js';
 import protocolsRoutes from './modules/protocols/protocols.routes.js';
 import stockRoutes from './modules/stock/stock.routes.js';
 import indexesRoutes from './modules/system/indexes.routes.js';
@@ -233,6 +234,7 @@ export async function buildServer(
   // when loadCurrentUser resolves the tenant from the JWT tid claim.
   await app.register(organisationsRoutes);
   await app.register(publicLoginContextRoutes);
+  await app.register(publicOrganisationLogoRoutes);
   await app.register(usersRoutes);
   await app.register(assetsRoutes);
   await app.register(auditRoutes);

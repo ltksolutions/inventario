@@ -9,8 +9,9 @@
  * `organisationId`. Mazanie je soft-delete; reálny blob maže service.
  */
 
-import { Binary, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
+import { bsonBinaryToBuffer } from '../../lib/bson-binary.js';
 import { requireTenantId, tenantFilter } from '../../lib/organisation-scoping.js';
 
 import type { Attachment } from '@inventario/shared-types';
@@ -32,16 +33,6 @@ export type AttachmentWithoutThumbnail = Omit<Attachment, 'thumbnail'>;
  * `attachments-thumbnail-projection`.
  */
 const WITHOUT_THUMBNAIL = { thumbnail: 0 } as const;
-
-/**
- * BSON `Binary` → `Buffer`. Driver pri čítaní BinData vracia `Binary`,
- * ktorý NIE JE `Uint8Array`, takže `Buffer.from(...)` naň dá prázdny
- * buffer — ticho a bez chyby. Preto explicitná vetva.
- */
-function toBuffer(value: Uint8Array): Buffer {
-  if (value instanceof Binary) return Buffer.from(value.buffer);
-  return Buffer.from(value);
-}
 
 export class AttachmentsRepository {
   private readonly collection: Collection<Attachment>;
@@ -119,7 +110,7 @@ export class AttachmentsRepository {
     if (!doc?.thumbnail) return doc;
     return {
       ...doc,
-      thumbnail: { ...doc.thumbnail, data: toBuffer(doc.thumbnail.data) },
+      thumbnail: { ...doc.thumbnail, data: bsonBinaryToBuffer(doc.thumbnail.data) },
     };
   }
 

@@ -371,6 +371,50 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(204).send(null);
     },
   );
+
+  // --- GET /v1/attachments/:id/thumbnail -----------------------------------
+  //
+  // Servíruje náhľad z BinData. Za autentifikáciou, s tenant scope, pretože
+  // fotka majetku je interný údaj — na rozdiel od loga organizácie.
+  //
+  // ŽIADNA response schéma: `fastify-type-provider-zod` používa response
+  // schému aj ako runtime serializér, takže by z Bufferu spravil JSON.
+  // Content-Type a telo nastavujeme sami.
+  //
+  // `private, no-cache`: odpoveď závisí od prihláseného používateľa a
+  // CDN ju nesmie zdieľať. ETag + `If-None-Match` napriek tomu ušetria
+  // prenos — prehliadač si náhľad drží a pýta sa len na zmenu.
+  app.get(
+    '/v1/attachments/:id/thumbnail',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
+      schema: {
+        tags: ['Attachments'],
+        summary: 'Náhľad prílohy (JPEG, dlhšia strana 800 px)',
+        params: AttachmentIdParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const { id } = request.params;
+
+      const found = await attachmentsRepo.findThumbnailById(tenantId, id);
+      if (!found?.thumbnail) throw new NotFoundError('Thumbnail', id);
+
+      // ETag z updatedAt: náhľad sa mení len spolu s dokumentom prílohy.
+      const etag = `W/"thumb-${id}-${found.updatedAt}"`;
+      reply.header('Cache-Control', 'private, no-cache');
+      reply.header('ETag', etag);
+
+      if (request.headers['if-none-match'] === etag) {
+        return reply.status(304).send();
+      }
+
+      reply.header('Content-Type', found.thumbnail.mimeType);
+      // Repository už BinData normalizovalo na Buffer (`bsonBinaryToBuffer`).
+      return reply.send(found.thumbnail.data);
+    },
+  );
 };
 
 export default attachmentsRoutes;
