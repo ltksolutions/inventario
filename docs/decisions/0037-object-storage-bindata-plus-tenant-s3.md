@@ -1,193 +1,216 @@
-<!--
-SPDX-FileCopyrightText: 2026 Ján Letko / LTK Solutions
-SPDX-License-Identifier: CC-BY-4.0
--->
-
-# 0037. Object storage — náhľady v BinData, originály v S3 úložisku tenanta
+# 0037. Object storage — náhľady v BinData, originály v private Blob storu
 
 |                   |                                                                                                                                                                                                           |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**        | Proposed                                                                                                                                                                                                  |
+| **Status**        | Accepted                                                                                                                                                                                                  |
 | **Dátum**         | 2026-09-01                                                                                                                                                                                                |
 | **Autori**        | Ján Letko                                                                                                                                                                                                 |
 | **Súvisiace ADR** | [0028](0028-per-tenant-branding.md) (logá tenantov, Vercel Blob), [0031](0031-per-tenant-oauth-credentials.md) (per-tenant secrety šifrované v DB), [0021](0021-asset-qr-codes.md) (verejný lost & found) |
 
+> **Poznámka k verzii.** Prvý návrh tohto ADR (rovnaký deň) staval na tom,
+> že Vercel Blob nedokáže súbory chrániť autentifikáciou, a preto navrhoval
+> per-tenant S3 úložisko s vlastným SigV4 podpisovaním. **Táto premisa už
+> neplatí** — Vercel Blob má medzitým **private stores** (GA) aj
+> **podpísané URL** pre GET a PUT. ADR je preto prepísaný ešte pred
+> schválením; pôvodná verzia je v git histórii.
+
 ## Kontext
 
-Prílohy majetku (fotky, dokumenty) a logá organizácií dnes ležia vo
-**Vercel Blobe** (`@vercel/blob`, `BLOB_READ_WRITE_TOKEN`). Pri audite
-dokumentácie 2026-09-01 sa ukázali tri problémy, každý overený v kóde
-alebo v dokumentácii platformy.
+Prílohy majetku (fotky, dokumenty) a logá organizácií dnes ležia
+v **public** Vercel Blob store (`@vercel/blob`, `access: 'public'`). Audit
+2026-09-01 našiel tri problémy, každý overený v kóde alebo v dokumentácii
+platformy.
 
-### 1. Prílohy sú verejné
+### 1. Prílohy sú verejne čitateľné
 
 `attachments.routes.ts` ukladá s `access: 'public'` a API vracia klientovi
 priamu Blob URL — komentár v mapperi to hovorí otvorene: _„verejná Blob
 URL"_. Kto má odkaz, vidí fotku bez prihlásenia a bez kontroly tenanta.
-Pri repe, ktorý má `docs/compliance/` s DPIA a whitepaperom, je to
-rozpor medzi dokumentáciou a implementáciou.
+Repo má pritom `docs/compliance/` s DPIA a security whitepaperom.
 
 ### 2. Prílohy nie sú v žiadnej zálohe
 
 Atlas snapshot obsahuje metadáta prílohy, ale samotný súbor je v Blobe.
 Po obnove zo snapshotu (DR test #1, 2026-05-23) by dokumenty ukazovali na
-súbory, ktoré nikto nezálohuje. Vercel Blob zálohovanie ani verzovanie
-neposkytuje — overené.
+súbory, ktoré nikto nezálohuje. **Vercel Blob neposkytuje zálohovanie ani
+verzovanie** — overené.
 
-### 3. Limit 20 MB na upload na Verceli nikdy nefungoval
+### 3. Limit 20 MB na upload nikdy nefungoval
 
-`server.ts` má `limits: { fileSize: 20 * 1024 * 1024 }` a handler hlási
-vlastnú chybu „Maximálna veľkosť je 20 MB". Vercel má ale **strop 4,5 MB
-na telo requestu aj odpovede** ([dokumentácia limitov][vercel-limits]),
-nad ktorý vracia `413 FUNCTION_PAYLOAD_TOO_LARGE` **skôr, než sa request
-dostane k funkcii**. Upload 5–20 MB súboru teda v produkcii padal a
-používateľ dostal 413 namiesto našej hlášky. Nikto to nenahlásil, lebo
-jediná nahraná príloha má 2,23 MB.
+Vercel stráži **4,5 MB na telo requestu aj odpovede** ([limity][limits])
+a request nad limit zahodí s `413 FUNCTION_PAYLOAD_TOO_LARGE` **skôr, než
+sa dostane k funkcii**. Overené na produkcii: 6 MB → 413, 1 KB → 401.
+Opravené samostatne (limit na 4 MB, commit `2afa929`), ale správne
+riešenie je upload, ktorý funkciu obchádza.
 
 ### Zmeraný stav (produkcia, 2026-09-01)
 
-|                      |                     |
+| položka              | hodnota             |
 | -------------------- | ------------------- |
 | prílohy              | 1 dokument, 2,23 MB |
 | logá organizácií     | 2 (z 3 organizácií) |
 | celá DB `inventario` | 4,1 MB              |
 
-Migrácia dát je teda triviálna. Rozhodnutie je o architektúre, nie o
-objeme.
+Migrácia dát je teda triviálna. Rozhodnutie je o architektúre.
+
+### Čo platforma naozaj umožňuje (overené v dokumentácii)
+
+- **Private Blob stores** sú GA. Vyžadujú autentifikáciu na každé čítanie
+  aj zápis, URL má tvar `<store-id>.private.blob.vercel-storage.com` a nie
+  je verejne dostupná. Potrebujú `@vercel/blob` >= 2.3 — **repo má
+  `^2.8.0`, takže žiadna nová závislosť.**
+- **Podpísané URL** fungujú pre GET aj PUT, expirácia až 7 dní, a
+  **prehliadač ich vie použiť priamo** (aj v `<img src>`), bez funkcie
+  v ceste. Každá URL je zúžená na jednu operáciu, jeden pathname a jednu
+  expiráciu; GET-podpis sa nedá použiť ako PUT.
+- **Client uploads** idú z prehliadača priamo do storu a **nemajú
+  data-transfer poplatky**.
+- Vercel **výslovne odporúča neCDN-cachovať** odpovede s privátnym
+  obsahom (`s-maxage`) a overovať autorizáciu priamo v handleri pri
+  `get()`, nie v middleware. Pre privátny obsah radí
+  `Cache-Control: private, no-cache` a `ETag`/`If-None-Match`, čo dáva
+  efektívne `304`.
+- Odpovede funkcií **sa dajú** CDN-cachovať, ale len keď request nemá
+  hlavičku `Authorization`, je to `GET`/`HEAD`, odpoveď má 200 a do 10 MB
+  a nemá `set-cookie`. To sedí na verejné logo, nie na prílohy.
 
 ### Obmedzenia, ktoré musí riešenie rešpektovať
 
-- **4,5 MB na telo odpovede.** Nič, čo tečie cez našu funkciu, nemôže byť
-  väčšie. Streamovanie na tom nič nemení.
-- **Logo musí byť čitateľné bez prihlásenia.** `login-context` (ADR-0035)
-  a verejný scan (ADR-0021) ho vracajú neautentifikovanému klientovi,
+- **Logo musí byť čitateľné bez prihlásenia** — `login-context` (ADR-0035)
+  aj verejný scan (ADR-0021) ho vracajú neautentifikovanému klientovi
   a `protocols/logo-loader.ts` si ho ťahá po URL pri generovaní PDF.
 - **Cold start.** Session 2026-08-31 ušetrila 1,75 s na ceste k dátam.
-  Riešenie, ktoré posadí každý obrázok na serverless funkciu bez CDN, tú
-  prácu vracia späť.
+  Riešenie, ktoré posadí každý obrázok na serverless funkciu bez cache,
+  tú prácu vracia späť.
 
 ## Možnosti
 
-### Možnosť A: Nechať Vercel Blob, doriešiť zálohu vlastným cronom
+### Možnosť A: Nechať public Blob, doriešiť len zálohu
 
 - Plus: najmenej práce.
-- Mínus: nerieši verejné URL. Zálohu si píšeme sami. Limit 4,5 MB
-  zostáva na uploade.
+- Mínus: nerieši verejné URL.
 
-### Možnosť B: Všetko do Monga — GridFS
+### Možnosť B: Všetko do Monga (GridFS alebo BinData)
 
-- Plus: autorizácia aj záloha vyriešené, žiadny nový dodávateľ.
-- Mínus: **strop 4,5 MB zostáva**, lebo súbor tečie cez funkciu. Žiadne
+- Plus: autorizácia aj záloha vyriešené, žiadny externý storage.
+- Mínus: **strop 4,5 MB zostáva**, lebo súbor tečie cez funkciu. Žiadna
   CDN, invokácia a Atlas read na každý obrázok. Binárky nafúknu DB
   a snapshoty (dnes 4,1 MB; sto fotiek po 3 MB je sedemdesiatnásobok).
+  Pri BinData navyše platí, že binárka v doméne vlečie megabajty v každom
+  výpise, ktorý zabudne `projection` — presne ten typ chyby, na ktorom
+  projekt zhorel v session 2026-08-31. (Base64 by nafúklo dáta o ~33 %;
+  ak už do dokumentu, tak `BinData`.)
 
-### Možnosť C: Všetko do Monga — BinData v dokumente
+### Možnosť C: Per-tenant S3 úložisko s vlastným SigV4
 
-- Plus: najjednoduchšia implementácia.
-- Mínus: všetko z možnosti B **plus** dve vlastné pasce. Base64 nafúkne
-  dáta o ~33 % (ak už, tak `BinData`, nikdy nie base64 string). A binárka
-  v doméne znamená, že každý výpis, ktorý zabudne `projection`, vlečie
-  megabajty — presne ten typ chyby, na ktorom projekt zhorel v session
-  2026-08-31. Limit 16 MB na dokument je až druhá prekážka; prvá je
-  Vercel so 4,5 MB.
+Pôvodný návrh tohto ADR.
 
-### Možnosť D: Platformové S3-kompatibilné úložisko s podpísanými URL
+- Plus: data residency a záloha v rukách tenanta.
+- Mínus: rieši autorizáciu, ktorú platforma teraz dáva zadarmo, za cenu
+  SSRF plochy (tenant zadáva endpoint, na ktorý siaha náš server), CORS
+  na jeho strane, výmazu do cudzieho bucketu a novej závislosti na
+  `@aws-sdk`. Neúmerná cena za problém, ktorý už riešiť netreba.
 
-- Plus: rieši všetko vrátane stropu — upload ide z prehliadača priamo do
-  úložiska, funkciu obchádza.
-- Mínus: platíme za dáta zákazníkov, pribúda sub-processor pre všetkých
-  tenantov naraz, a data residency je naša, nie ich.
-
-### Možnosť E: Hybrid — malé v BinData, originály v S3 úložisku tenanta
-
-Ako D, ale bucket si pripája **tenant** vo svojich nastaveniach, a malé
-veci (logo, náhľad) zostávajú v Mongu.
+### Možnosť D: Private Blob store + podpísané URL, malé veci v BinData
 
 ## Rozhodnutie
 
-**Možnosť E.**
+**Možnosť D.**
 
-| dáta                                               | kde                                  | prístup                                                                         |
-| -------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
-| logo organizácie (≤512 KB, limit už dnes)          | BinData v Mongu                      | verejný endpoint s `Cache-Control` — login stránka ho potrebuje bez prihlásenia |
-| náhľad prílohy (~200–300 KB, dlhšia strana 800 px) | BinData v Mongu                      | po `requireAuth` + tenant checku, priamo z API                                  |
-| originál prílohy                                   | S3-kompatibilné úložisko **tenanta** | krátkodobá podpísaná URL, vydaná až po autorizácii                              |
+| dáta                                               | kde                    | ako sa doručí                                                                                           |
+| -------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| logo organizácie (≤512 KB, limit už dnes)          | BinData v Mongu        | verejný endpoint s `Cache-Control: s-maxage` — CDN ho cachuje, login stránka ho vidí bez prihlásenia    |
+| náhľad prílohy (dlhšia strana 800 px, ~200–300 KB) | BinData v Mongu        | po `requireAuth` + tenant checku priamo z API, `private, no-cache` + `ETag`                             |
+| originál prílohy                                   | **private** Blob store | upload z prehliadača podpísaným PUT; download krátkodobou podpísanou GET URL, vydanou až po autorizácii |
 
-Tenant si v nastaveniach organizácie pripojí vlastný bucket (endpoint,
-region, názov bucketu, access key, secret). **Kľúče sa šifrujú v DB
-rovnakým vzorom ako per-tenant OAuth secrety podľa ADR-0031** — vlastným
-`STORAGE_SECRET_ENCRYPTION_KEY` (princíp najmenšieho oprávnenia: iný kľúč
-než OAuth a než MFA), a bez nastaveného kľúča ukladanie prístupových
-údajov vracia 503, presne ako to robí ADR-0031.
+Konkrétne:
 
-**Bez pripojeného S3** sa originál uloží do Monga ako BinData, ak má do
-**4 MB**. Nad to upload zlyhá s hláškou, ktorá povie, že treba pripojiť
-úložisko. Nie je to obmedzenie navyše — je to dnešná realita platformy,
-len konečne priznaná. Appka tak funguje aj pre tenanta bez vlastného
-úložiska (SFZ dnes žiadne nemá) a S3 je vylepšenie, nie podmienka.
+- **Upload** originálu ide z prehliadača **priamo do storu** podpísaným
+  PUT. API pred tým overí oprávnenie a vydá podpis, po dokončení si zapíše
+  metadáta a vygeneruje náhľad. Tým sa 4,5 MB strop obchádza úplne a limit
+  na veľkosť súboru je zase náš, nie platformy.
+- **Download** originálu: API overí `requireAuth`, tenant a rolu, potom
+  vydá **podpísanú GET URL s krátkou expiráciou** (návrh 15 minút).
+  Prehliadač si súbor stiahne priamo zo storu — žiadna funkcia v ceste,
+  žiadny 4,5 MB strop, žiadny Fast Data Transfer za prietok cez funkciu.
+- **Náhľady a logá** generuje `@napi-rs/canvas` (Skia), ktorý v `apps/api`
+  už je — používa ho `qr-image-renderer.ts` a sám rozpoznáva PNG aj JPEG.
+  Žiadna nová závislosť.
+- **Per-tenant S3** sa neimplementuje. Zostáva ako možné rozšírenie, ak
+  niektorý tenant bude vyžadovať data residency vo vlastnej infrastruktúre;
+  vtedy sa vráti aj vzor per-tenant secretov podľa ADR-0031.
 
-**Podpisovanie**: `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`.
-SigV4 si nepíšeme sami — je to autentifikačná kryptografia a chyba v nej
-je ticho, nie pád. Bundle limit Vercelu je 250 MB, veľkosť SDK teda
-nebolí.
+### Prečo náhľad v Mongu a nie tiež v Blobe
 
-**Náhľady**: `@napi-rs/canvas` (Skia), ktorý v `apps/api` už je —
-používa ho `qr-image-renderer.ts` a sám rozpoznáva PNG aj JPEG.
-Žiadna nová závislosť.
+Kvôli zálohe. Blob nemá verzovanie ani snapshoty, takže po obnove Atlasu
+by originály chýbali. Náhľad v BinData znamená, že **DB snapshot vždy nesie
+degradovanú kópiu každej prílohy** — evidencia majetku po obnove nie je
+prázdna, len má menšie obrázky. Je to lacná poistka (300 KB na prílohu),
+ktorá zároveň zrýchli zoznam a detail majetku.
 
-**Upload originálu** ide z prehliadača priamo do bucketu tenanta cez
-podpísaný PUT. API pred tým vydá podpis a po dokončení si zapíše
-metadáta. Tým sa 4,5 MB strop Vercelu obchádza úplne a limit 20 MB
-platí naozaj.
+Plná záloha originálov je **samostatné rozhodnutie**, nie súčasť tohto ADR
+— viď „Zostáva otvorené".
 
 ## Dôsledky
 
 ### Pozitívne
 
-- Prílohy prestanú byť verejne čitateľné po URL.
-- Náhľady a logá sú v Atlas snapshote, teda konečne zálohované.
-- Zoznam a detail majetku sa vykreslia z Monga, bez druhého dodávateľa
-  a bez podpisovania.
-- Data residency originálov je v rukách tenanta — pri verejnej správe
-  a školách je to argument, nie komplikácia.
-- Náklady na fotky nesie ten, kto ich nahral.
-- Limit 20 MB začne platiť.
+- Prílohy prestanú byť verejne čitateľné po URL. Autorizácia sa overuje
+  v handleri, ktorý URL vydáva.
+- Náhľady a logá sú v Atlas snapshote, teda zálohované.
+- Limit na veľkosť súboru prestane byť limitom platformy — upload ani
+  download netečie cez funkciu.
+- Zoznam a detail majetku sa vykreslia z Monga, bez podpisovania a bez
+  druhého round-tripu.
+- Žiadna nová závislosť a žiadny nový dodávateľ, teda ani DPA a ani zápis
+  do sub-processorov.
+- Verejné logo sa cachuje na CDN, takže login stránka nečaká na Atlas.
 
 ### Negatívne / kompromisy
 
-- Tenant bez vlastného úložiska má strop 4 MB na súbor.
-- Pribúda konfigurácia, ktorú treba vysvetliť v user-guide, a „otestuj
-  pripojenie" endpoint, inak to bude podpora naveky.
-- Náhľady nafúknu DB — pri 300 KB na prílohu a tisíc prílohách 300 MB.
-  Treba to sledovať proti stropu Atlas Flex.
-- Dva zdroje pravdy pre jeden súbor (náhľad v DB, originál v buckete);
-  mazanie musí zvládnuť oba.
+- **Podpísaná URL je prenosná.** Kto ju do expirácie získa, súbor vidí.
+  Je to slabšie než kontrola na každý request, ale výrazne lepšie než
+  dnešná trvalá verejná URL. Preto krátka expirácia a žiadne logovanie
+  celých URL.
+- Náhľady nafúknu DB — pri 300 KB a tisíc prílohách 300 MB. Treba to
+  sledovať proti stropu Atlas Flex.
+- Dva zdroje pravdy pre jeden súbor (náhľad v DB, originál v store);
+  mazanie a GDPR výmaz musia zvládnuť oba.
+- Existujúce dáta (1 príloha, 2 logá) treba presunúť z public storu.
 
 ### Riziká, ktoré treba sledovať
 
-- **SSRF.** Tenant zadá endpoint URL, na ktorý potom náš server siaha
-  (mazanie, kontrola po uploade). Treba vynútiť `https`, zakázať privátne
-  a link-local adresy aj metadata endpointy cloudov. Nie voliteľné.
-- **CORS na strane tenanta.** Priamy upload z prehliadača vyžaduje, aby
-  jeho bucket povolil náš origin. Bez čitateľnej diagnostiky to bude
-  neriešiteľné na diaľku.
-- **Právo na výmaz (GDPR čl. 17).** Mazanie musí doraziť do cudzieho
-  bucketu. Ak tenant zrotoval kľúče, výmaz tichom zlyhá — treba audit
-  a retry, nie best effort.
-- **Cachovanie verejného loga.** Endpoint musí mať `Cache-Control`, aby
-  login stránka neťahala logo z Atlasu pri každom otvorení. Či Vercel
-  cachuje odpovede funkcií na CDN, treba overiť pred implementáciou —
-  v dokumentácii limitov je „Cache responses: Yes", ale neoverené.
-- **Voľba providera pre tých, čo si vlastný nepripoja**, zostáva otvorená
-  (kandidáti: Cloudflare R2 — $0,015/GB-mesiac a egress zadarmo;
-  Hetzner alebo Scaleway ako EU firmy). Každý znamená DPA a zápis do
-  sub-processorov.
+- **Autorizáciu overovať v handleri pri vydávaní podpisu**, nie
+  v middleware — Vercel to výslovne odporúča a dôvod je, že chyba
+  v middleware odhalí privátny obsah.
+- **Verejný logo endpoint nesmie tiecť nič okrem loga.** Je bez
+  autentifikácie a CDN-cachovaný, takže akákoľvek chyba v tenant scope je
+  cachovaná chyba.
+- **Náhľad sa nesmie dostať do výpisov.** Každý dotaz, ktorý číta
+  `attachments` bez `projection`, potiahne binárku. Chce to explicitný
+  projection a test, ktorý to stráži.
+- **Mazanie v private store** po soft-delete prílohy a po výmaze podľa
+  GDPR čl. 17.
+
+## Zostáva otvorené
+
+- **Plná záloha originálov.** Náhľad v DB je degradovaná poistka, nie
+  záloha. Možnosti: mesačný cron, ktorý zrkadlí private store inam
+  (infrastruktúra pre cron už existuje — retencia), alebo zmierenie sa
+  s tým, že originály sú jediná kópia. Rozhodnúť samostatne.
+- **Expirácia podpísanej URL** — návrh 15 minút, treba overiť na reálnom
+  používaní (galéria s viacerými fotkami, pomalé pripojenie).
+- **Náklady.** Private store sa účtuje ako Blob Data Transfer + Fast
+  Origin Transfer pri čítaní cez funkciu; pri podpísanej URL ide prietok
+  mimo funkcie. Presné čísla pri reálnom objeme neprepočítané.
 
 ## Referencie
 
-- [Vercel Functions Limits][vercel-limits] — 4,5 MB na telo requestu aj odpovede
-- [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/)
-- `docs/sessions/2026-09-01-konvencie-a-runbook.md` — audit, v ktorom sa to našlo
+- [Vercel Functions Limits][limits] — 4,5 MB na telo requestu aj odpovede
+- [Vercel Blob — Private Storage](https://vercel.com/docs/vercel-blob/private-storage)
+- [Vercel Blob — signed URLs](https://vercel.com/changelog/signed-urls-are-now-available-for-vercel-blob)
+- [Vercel CDN Cache](https://vercel.com/docs/caching/cdn-cache) — kritériá cachovateľnosti
+- `docs/sessions/2026-09-01-sfz-naming-a-limit-uploadu.md` — oprava limitu
 - `docs/sessions/2026-08-31-pomale-nacitanie-dashboardu.md` — prečo nechceme obrázky cez funkciu
 
-[vercel-limits]: https://vercel.com/docs/functions/limitations
+[limits]: https://vercel.com/docs/functions/limitations
