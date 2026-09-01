@@ -42,12 +42,6 @@
       "pattern": "^#"
     },
     {
-      "pattern": "^https://assets.futbalsfz.sk"
-    },
-    {
-      "pattern": "^https://api.futbalsfz.sk"
-    },
-    {
       "pattern": "^mailto:"
     }
   ],

@@ -73,6 +73,3 @@ sbom.cdx.xml
 .cache/
 .eslintcache
 .parcel-cache/
-
-inventario@0.1.0
-turbo

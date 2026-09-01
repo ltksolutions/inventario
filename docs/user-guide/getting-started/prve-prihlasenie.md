@@ -19,7 +19,7 @@ Vitaj v **Inventario** – internej aplikácii SFZ na evidenciu a požičiavanie
 Vo svojom prehliadači zadaj adresu:
 
 ```
-https://assets.futbalsfz.sk
+https://app.inventario.estate
 ```
 
 > 📸 **TODO: insert screenshot** – Prihlasovacia stránka s logom SFZ a dvoma tlačidlami: **Prihlásiť cez SFZ účet** (modré, primárne) a **Prihlásiť pomocou e-mailu** (sekundárne pre externých).

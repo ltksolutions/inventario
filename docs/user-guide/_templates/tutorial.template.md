@@ -29,7 +29,7 @@ Komentáre v <!-- ... --> odstráň po vyplnení.
 
 {{ Vysvetlenie kroku – 1-2 vety. }}
 
-1. {{ Konkrétna akcia. Napr. "Otvor svoj prehliadač a zadaj adresu **assets.futbalsfz.sk**." }}
+1. {{ Konkrétna akcia. Napr. "Otvor svoj prehliadač a zadaj adresu **app.inventario.estate**." }}
 2. {{ Ďalšia akcia. }}
 
 > 📸 **TODO: insert screenshot** – {{ popis screenshotu, napr. "Prihlasovacia stránka s tlačidlom 'Prihlásiť cez SFZ účet'" }}

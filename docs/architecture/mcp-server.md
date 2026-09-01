@@ -86,7 +86,7 @@ REST API budeme mať tak či tak – MCP server je **tenká vrstva nad REST API*
 MCP server bude dostupný v dvoch módoch:
 
 1. **Remote (SSE)** – primárny mód pre Claude.ai a webových klientov.
-   - URL: `https://mcp.assets.futbalsfz.sk/sse`
+   - URL: `https://mcp.inventario.estate/sse`
    - Autentifikácia: OAuth 2.1 s redirect na Entra ID
    - Stateful session per používateľ
 
@@ -504,7 +504,7 @@ Claude:    [volá search_assets(query="dres číslo 10 reprezentácia A")]
       "command": "npx",
       "args": ["-y", "@sfz/mcp-server-assets"],
       "env": {
-        "SFZ_API_URL": "https://api.assets.futbalsfz.sk/api/v1",
+        "INVENTARIO_API_URL": "https://api.inventario.estate/v1",
         "SFZ_PAT_TOKEN": "sfz_pat_..."
       }
     }
@@ -515,7 +515,7 @@ Claude:    [volá search_assets(query="dres číslo 10 reprezentácia A")]
 ### Claude.ai (remote SSE mód)
 
 1. Settings → Integrations → Add MCP server
-2. URL: `https://mcp.assets.futbalsfz.sk/sse`
+2. URL: `https://mcp.inventario.estate/sse`
 3. Authenticate cez OAuth flow (presmeruje na Entra ID)
 4. Hotovo
 

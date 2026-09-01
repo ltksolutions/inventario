@@ -28,7 +28,7 @@ Kontaktuj `support@futbalsfz.sk` _(TODO: overiť)_ alebo svojho manažéra.
 Vyskúšaj v tomto poradí:
 
 1. **Tvrdé obnovenie** — `Ctrl + Shift + R` (Windows) / `Cmd + Shift + R` (Mac)
-2. **Vymaž cookies a cache** pre `assets.futbalsfz.sk`
+2. **Vymaž cookies a cache** pre `app.inventario.estate`
 3. **Vyskúšaj iný prehliadač** — pre overenie, či je problém v lokálnych dátach
 4. **Vyskúšaj inkognito** — vylúči problémy s rozšíreniami
 
