@@ -103,9 +103,11 @@ sfz-minio-data`) — zámerne som ich nemazal.
 ### Čo som nechal a prečo
 
 - **`.github/markdown-link-check.json`** má výnimky pre
-  `assets.futbalsfz.sk` a `api.futbalsfz.sk`. To sú **skutočné externé
-  domény SFZ**, na ktoré sa odvoláva user-guide a `mcp-server.md`.
-  Odstránenie patternu by zhodilo link check.
+  `assets.futbalsfz.sk` a `api.futbalsfz.sk` — v prvom kole som ich nechal
+  s odôvodnením, že sú to skutočné externé domény SFZ. **To bolo
+  nesprávne** a Janika to zachytil: `assets.futbalsfz.sk` bola **stará
+  doména tejto appky** pred prechodom na `inventario.estate` (máj 2026).
+  Doriešené v druhom kole, viď nižšie.
 - **`apps/web/src/middleware.ts`** drží `app.inventario.sportup.sk`
   v `CANONICAL_HOSTS` — to nie je „sfz" a je to vedomý druhý kanonický
   host.
@@ -159,3 +161,48 @@ dotazom do Atlasu, nie z logu.
 - `storageKey` nesie celú URL, nie kľúč — pozostatok, ktorý zjednotí
   ADR-0037.
 - ADR-0037 čaká na schválenie.
+
+---
+
+## Druhé kolo — staré domény, junk súbory a e-mail
+
+### Staré domény boli stale, nie externé
+
+`assets.futbalsfz.sk` nie je doména SFZ, ktorú by bolo treba obchádzať —
+je to **stará doména tejto appky** pred prechodom na `inventario.estate`
+(session `2026-05-22-domain-rename.md`). Zostala na štyroch miestach
+v dokumentácii, ktoré ten prechod prehliadli:
+
+| kde                                              | bolo                                                                                    | je                                                                            |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `user-guide/getting-started/prve-prihlasenie.md` | `https://assets.futbalsfz.sk`                                                           | `https://app.inventario.estate`                                               |
+| `user-guide/troubleshooting.md`                  | cookies pre `assets.futbalsfz.sk`                                                       | `app.inventario.estate`                                                       |
+| `user-guide/_templates/tutorial.template.md`     | príklad adresy                                                                          | `app.inventario.estate`                                                       |
+| `architecture/mcp-server.md`                     | `mcp.assets.futbalsfz.sk/sse`, `api.assets.futbalsfz.sk/api/v1`, premenná `SFZ_API_URL` | `mcp.inventario.estate/sse`, `api.inventario.estate/v1`, `INVENTARIO_API_URL` |
+
+Obe výnimky z `markdown-link-check.json` teda išli von — nemali čo
+obchádzať. `app.inventario.estate` aj `api.inventario.estate/health`
+vracajú 200 (overené curlom). `mcp.inventario.estate` je v backtickoch,
+takže ho link checker nekontroluje; MCP server neexistuje a doména sa
+dorieši, keď sa bude stavať.
+
+Pozn.: `api.assets.futbalsfz.sk/api/v1` malo aj nesprávnu cestu — API má
+`/v1`, nie `/api/v1`.
+
+### Junk súbory z 29. 5.
+
+V roote repa boli dva **prázdne súbory z tej istej minúty** (29. 5. 13:18),
+zjavne z mistypnutého príkazu: `inventario@0.1.0` a `turbo`. Namiesto
+zmazania ich niekto pridal do `.gitignore` (riadky 77–78). Súbory aj tie
+dva riadky sú von, plus 30 `.DS_Store` po repe.
+
+**Docker Desktop na tomto Macu nie je nainštalovaný** —
+`/usr/local/bin/docker` je visiaci symlink na `/Applications/Docker.app`,
+ktorá tam nie je. Staré volumes `sfz-mongodb-data` a spol., pred ktorými
+som v prvom kole varoval, teda neexistujú a niet čo mazať. To varovanie
+bolo zbytočné.
+
+### Predvolený e-mail v seed skripte
+
+`seed-demo-tenant.ts` má `--admin-email` default `office@ltk.solutions` —
+demo tenant patrí prevádzkovateľovi, nie konkrétnej osobe.

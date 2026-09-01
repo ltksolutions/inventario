@@ -76,15 +76,19 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 - **`storageKey` nesie celú URL, nie kľúč** — pozostatok po S3, ktorý
   zjednotí ADR-0037. (`Attachment.bucket` už von je, migrácia
   `2026-09-01-drop-sfz-naming`.)
-- **`seed-demo-tenant.ts` má nový predvolený `--admin-email`** —
-  `jan.letko@firma.sk` namiesto pôvodného `@futbalsfz.sk` (čistenie
-  „sfz"). Bez explicitného parametra skript teraz hľadá neexistujúceho
-  používateľa. Rozhodnúť: vrátiť skutočný e-mail, alebo z parametra
-  urobiť povinný.
-- **Staré docker volumes zostali na disku** — po premenovaní projektu
-  v compose sa lokálne dáta z `sfz-mongodb-data` a `sfz-mongodb-config`
-  už nepoužívajú. Zmazať ručne (`docker volume rm`), zámerne som ich
-  nemazal.
+- **`docs/user-guide/` je napísaný pre SFZ, nie pre white-label produkt** —
+  „Som zamestnanec SFZ", `support@futbalsfz.sk` _(TODO: overiť)_,
+  `noreply@futbalsfz.sk`, doména `@futbalsfz.sk` ako príklad. Nový tenant
+  si to prečítať nemôže. Je to väčšia práca než premenovanie — chce
+  rozhodnutie, či bude user-guide generický s príkladmi, alebo per-tenant.
+  Zistené 2026-09-01.
+- **Docker Desktop na tomto Macu nie je** — `/usr/local/bin/docker` je
+  visiaci symlink na neexistujúcu `/Applications/Docker.app`. Lokálny
+  compose stack sa odtiaľ spustiť nedá; ak ho chceš, treba Docker
+  doinštalovať.
+- **`mcp.inventario.estate` treba doriešiť** pri stavbe MCP servera —
+  `docs/architecture/mcp-server.md` už na ňu odkazuje, DNS a Vercel
+  projekt neexistujú.
 - **`docs/sessions/README.md` má zastaralý index** — indexovaný zoznam
   končí pri 2026-05, session logy od júna do septembra v ňom nie sú.
   Buď doplniť, alebo index zrušiť a nechať len konvencie (adresár je
