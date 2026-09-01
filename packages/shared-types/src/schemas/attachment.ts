@@ -11,7 +11,7 @@ import {
 } from './common.js';
 
 /**
- * Attachment = nahraný súbor v object storage (MinIO/Azure Blob).
+ * Attachment = nahraný súbor v object storage (dnes Vercel Blob, ADR-0037).
  *
  * Typické použitia:
  * - Fotografie majetku (state pri prevzatí, pri vrátení)
@@ -27,11 +27,14 @@ export const AttachmentSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     /** Pôvodný názov súboru pri uploade. */
     originalFilename: z.string().min(1).max(500),
 
-    /** Kľúč v object storage (napr. "assets/2024/01/abc123-photo.jpg"). */
+    /**
+     * Odkaz na súbor v object storage. Dnes je to celá URL do Vercel Blob,
+     * nie kľúč — historický názov poľa zostal. Zjednotenie rieši ADR-0037.
+     *
+     * Pole `bucket` tu bolo do 2026-09-01. Vercel Blob buckety nemá,
+     * hodnota sa zapisovala natvrdo a nikto ju nečítal.
+     */
     storageKey: z.string().min(1).max(500),
-
-    /** Bucket v object storage. */
-    bucket: z.enum(['sfz-asset-attachments', 'sfz-asset-protocols']),
 
     /** MIME type (validovaný pri uploade). */
     mimeType: z

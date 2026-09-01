@@ -36,7 +36,7 @@ import {
 
 import type { FastifyInstance } from 'fastify';
 
-const DOMAIN = 'futbalsfz.sk';
+const DOMAIN = 'firma.sk';
 
 // ---------------------------------------------------------------------------
 // Helpers

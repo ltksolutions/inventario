@@ -369,7 +369,7 @@ function OrganisationSettingsPanel(): JSX.Element {
       return;
     }
     if (invPrefix.trim() && !/^[A-Z]{1,5}$/.test(invPrefix.trim())) {
-      setFormError('Prefix inventárneho čísla musí byť 1–5 veľkých ASCII písmen (napr. "SFZ").');
+      setFormError('Prefix inventárneho čísla musí byť 1–5 veľkých ASCII písmen (napr. "INV").');
       return;
     }
     if (protPrefix.trim() && !/^[A-Z]{1,5}$/.test(protPrefix.trim())) {
@@ -666,18 +666,18 @@ function OrganisationSettingsPanel(): JSX.Element {
           <Section title="Inventárne číslovanie">
             <p className="-mt-1 text-xs text-text-secondary">
               Formát inventárneho čísla sa generuje automaticky pri pridaní majetku. Príklad: prefix
-              „SFZ“, padding 4, rok zapnutý → „SFZ-2026-0001“.
+              „INV“, padding 4, rok zapnutý → „INV-2026-0001“.
             </p>
             <Field
               label="Prefix"
               required
-              hint='1–5 veľkých ASCII písmen. Napr. "SFZ", "INV", "MOB".'
+              hint='1–5 veľkých ASCII písmen. Napr. "INV", "MOB", "AUTO".'
             >
               <input
                 type="text"
                 value={invPrefix}
                 onChange={(e) => setInvPrefix(e.target.value.toUpperCase())}
-                placeholder="SFZ"
+                placeholder="INV"
                 maxLength={5}
                 className={inputCls()}
               />
@@ -706,7 +706,7 @@ function OrganisationSettingsPanel(): JSX.Element {
                   onChange={(e) => setInvIncludeYear(e.target.checked)}
                   className="h-4 w-4 rounded border-border-default text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
-                <span>Rok zaradenia súčasťou čísla (napr. SFZ-2026-0001)</span>
+                <span>Rok zaradenia súčasťou čísla (napr. INV-2026-0001)</span>
               </label>
             </Field>
             {invIncludeYear && (
@@ -740,7 +740,7 @@ function OrganisationSettingsPanel(): JSX.Element {
               Formát čísla preberacieho protokolu. Systémový default: prefix „PROT", 6 cifier, od 1.
               Príklad: „PROT-2026-000001". Nechajte prázdne pre ponechanie systémového defaultu.
             </p>
-            <Field label="Prefix" hint='1–5 veľkých ASCII písmen. Napr. "PROT", "SFZ", "PREV".'>
+            <Field label="Prefix" hint='1–5 veľkých ASCII písmen. Napr. "PROT", "INV", "PREV".'>
               <input
                 type="text"
                 value={protPrefix}

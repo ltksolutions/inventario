@@ -17,7 +17,7 @@
  *
  * Test isolation:
  *   Integration tests run against a SEPARATE database
- *   `sfz_asset_management_test` (set via TEST_MONGO_DB_NAME env var or
+ *   `inventario_test` (set via TEST_MONGO_DB_NAME env var or
  *   via the test-app helper's override). Each test suite drops the
  *   database in `beforeAll` for a tabula-rasa starting state.
  *

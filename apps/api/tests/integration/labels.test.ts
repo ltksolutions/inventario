@@ -122,9 +122,9 @@ describe('renderLabelZpl — unit', () => {
   });
 
   it('ZPL obsahuje inventoryNumber', () => {
-    const asset = makeAsset({ inventoryNumber: 'SFZ-2026-0042' });
+    const asset = makeAsset({ inventoryNumber: 'INV-2026-0042' });
     const zpl = renderLabelZpl(asset, makeOrg());
-    expect(zpl).toContain('SFZ-2026-0042');
+    expect(zpl).toContain('INV-2026-0042');
   });
 
   it('ZPL obsahuje SK diakritiku v názve (^FD kodovanie)', () => {
@@ -181,9 +181,9 @@ describe('renderLabelZpl — unit', () => {
   });
 
   it('fork doména — QR URL obsahuje appBaseUrl tenanta, nie inventario.estate', () => {
-    const org = makeOrg({ appBaseUrl: 'https://majetok.sfz.sk' });
+    const org = makeOrg({ appBaseUrl: 'https://majetok.firma.sk' });
     const zpl = renderLabelZpl(makeAsset(), org);
-    expect(zpl).toContain('majetok.sfz.sk');
+    expect(zpl).toContain('majetok.firma.sk');
     expect(zpl).not.toContain('inventario.estate');
   });
 });
@@ -399,7 +399,7 @@ describe('Labels routes — integration', () => {
       // Nastav vlastnú doménu pre test tenant
       await app.mongo.db
         .collection('organisations')
-        .updateMany({ slug: '0'.repeat(32) }, { $set: { appBaseUrl: 'https://majetok.sfz.sk' } });
+        .updateMany({ slug: '0'.repeat(32) }, { $set: { appBaseUrl: 'https://majetok.firma.sk' } });
 
       const res = await app.inject({
         method: 'GET',

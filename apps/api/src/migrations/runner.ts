@@ -34,6 +34,7 @@ import { migrate_2026_06_08b_merge_asset_types_into_categories } from './2026-06
 import { migrate_2026_06_09_flatten_categories_to_two_levels } from './2026-06-09-flatten-categories-to-two-levels.js';
 import { migrate_2026_07_06_backfill_null_user_roles } from './2026-07-06-backfill-null-user-roles.js';
 import { migrate_2026_07_06b_normalize_free_text_fields } from './2026-07-06b-normalize-free-text-fields.js';
+import { migrate_2026_09_01_drop_sfz_naming } from './2026-09-01-drop-sfz-naming.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -109,7 +110,7 @@ export const MIGRATIONS: MigrationDefinition[] = [
   {
     key: '2026-06-05-seed-missing-defaults',
     description:
-      'Backfill default číselníky (asset_types, asset_conditions, categories) pre tenantov bez nich (napr. SFZ org vytvorená manuálne).',
+      'Backfill default číselníky (asset_types, asset_conditions, categories) pre tenantov bez nich (napr. org vytvorená manuálne).',
     run: migrate_2026_06_05_seed_missing_defaults,
   },
   {
@@ -153,6 +154,12 @@ export const MIGRATIONS: MigrationDefinition[] = [
     description:
       'Normalizácia voľného textu (Popis/Účel/Poznámka/Dôvod zamietnutia...) v existujúcich dátach — rovnaké pravidlá ako freeText() pri novom zápise.',
     run: migrate_2026_07_06b_normalize_free_text_fields,
+  },
+  {
+    key: '2026-09-01-drop-sfz-naming',
+    description:
+      'Odstránenie „sfz" z hodnôt v DB: attachments.bucket ide von (Vercel Blob buckety nemá), affiliation.type SFZ_DEPARTMENT -> ORG_DEPARTMENT.',
+    run: migrate_2026_09_01_drop_sfz_naming,
   },
 ];
 

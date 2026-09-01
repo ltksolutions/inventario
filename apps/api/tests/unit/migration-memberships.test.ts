@@ -29,7 +29,7 @@ import { migrate_2026_05_23_memberships } from '../../src/migrations/2026-05-23-
 let client: MongoClient;
 let db: ReturnType<MongoClient['db']>;
 
-const TEST_DB = process.env['MONGO_URI'] ? `sfz_migration_test_${Date.now()}` : null;
+const TEST_DB = process.env['MONGO_URI'] ? `inventario_migration_test_${Date.now()}` : null;
 
 const noop = () => {};
 // Minimal logger stub

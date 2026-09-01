@@ -106,7 +106,7 @@ describe('contrastRatio', () => {
     expect(decimals).toBeLessThanOrEqual(2);
   });
 
-  it('SFZ farby: #003d7a na bielej spĺňa AA', () => {
+  it('Firemné farby: #003d7a na bielej spĺňa AA', () => {
     const ratio = contrastRatio('#003d7a', '#ffffff');
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });

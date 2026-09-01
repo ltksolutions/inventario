@@ -599,8 +599,7 @@ Metadata pre prílohy. Binárne dáta v object storage (S3/Azure Blob).
   contentHash: string,               // SHA-256
 
   // Storage
-  storageKey: string,                // S3 key
-  storageProvider: "azure_blob" | "s3" | "minio",
+  storageKey: string,                // dnes celá URL do Vercel Blob (ADR-0037)
 
   // Kontext
   attachedTo: {

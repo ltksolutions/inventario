@@ -316,7 +316,7 @@ function InvitationsPanel({ isAdmin }: { isAdmin: boolean }): JSX.Element {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="jano@futbalsfz.sk"
+              placeholder="jano@firma.sk"
               className="mt-1 block w-full max-w-sm rounded-lg border border-border-default bg-surface-page px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
             />
           </div>

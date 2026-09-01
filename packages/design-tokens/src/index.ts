@@ -226,7 +226,7 @@ export type InventarioBrand = typeof brand;
 export type InventarioWordmark = typeof wordmark;
 export type InventarioTokens = typeof tokens;
 
-/** AssetStatus enum mirror — keep in sync with backend `@sfz/shared-types`. */
+/** AssetStatus enum mirror — keep in sync with backend `@inventario/shared-types`. */
 export type AssetStatus = keyof typeof semantic.assetStatus;
 
 export default tokens;

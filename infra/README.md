@@ -32,7 +32,7 @@ Prílohy a logá tenantov idú do **Vercel Blob** (`@vercel/blob`, token
 Lokálny vývoj proti nemu potrebuje ten token, nie kontejner.
 
 MinIO tu bežal do 2026-09-01 ako S3-kompatibilná náhrada, ale žiadny kód
-ho nepoužíval — buckety `sfz-asset-attachments` a `sfz-asset-protocols`
+ho nepoužíval — buckety `inventario-attachments` a `inventario-protocols`
 sa vytvárali naprázdno. Ak by sa object storage niekedy vracal k S3,
 konfigurácia je v git histórii.
 
@@ -49,7 +49,7 @@ docker compose -f infra/docker-compose.yml down -v
 docker compose -f infra/docker-compose.yml logs -f mongodb
 
 # Pripojenie k Mongo cez shell
-docker exec -it sfz-mongodb mongosh -u admin -p changeme-local-only
+docker exec -it inventario-mongodb mongosh -u admin -p changeme-local-only
 
 # Reštart jednej služby
 docker compose -f infra/docker-compose.yml restart mongodb
@@ -60,7 +60,7 @@ docker compose -f infra/docker-compose.yml restart mongodb
 Adresár `mongo-init/` (TODO: vytvoriť) obsahuje JavaScript súbory, ktoré sa spustia
 pri prvom štarte MongoDB containera. Sem patria:
 
-- Vytvorenie databázy `sfz_asset_management`
+- Vytvorenie databázy `inventario`
 - Vytvorenie indexov (textový search, unique constraints)
 - Vytvorenie `$jsonSchema` validátorov (generovaných z `packages/shared-types/`)
 - Seed dát pre dev/test prostredie

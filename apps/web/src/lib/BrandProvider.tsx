@@ -41,7 +41,7 @@ import type { JSX, ReactNode } from 'react';
  * Zostaví CSS text pre `<style id="inv-tenant-brand">`.
  *
  * Príklad výstupu:
- *   :root[data-tenant='sfz'] {
+ *   :root[data-tenant='firma'] {
  *     --inv-brand-primary: #003d7a;
  *     --inv-brand-primary-fg: #ffffff;
  *     --inv-brand-accent: #ffd700;

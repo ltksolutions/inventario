@@ -280,7 +280,7 @@ const UpdateOrganisationBodySchema = z
 //
 // ADR-0035 F5: `customDomain` presunuté SEM z platform-operator-only zoznamu
 // — tenant ADMIN si môže nastaviť vlastnú doménu pre prihlásenie (napr.
-// majetok.futbalsfz.sk). Kolidujúci zápis (iná org má rovnakú doménu) sa
+// majetok.firma.sk). Kolidujúci zápis (iná org má rovnakú doménu) sa
 // kontroluje v `updateCurrent()` rovnako ako v platform-operator `update()`.
 //
 // ADR-0031 E5: rozšírené o oauthCredentials — tenant ADMIN môže nahradiť
@@ -329,7 +329,7 @@ const UpdateOwnOrganisationBodySchema = z
       .object({
         prefix: z
           .string()
-          .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "SFZ").'),
+          .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "INV").'),
         padding: z.number().int().min(1).max(8).default(4),
         includeYear: z.boolean().default(true),
         resetYearly: z.boolean().default(true),
@@ -362,13 +362,13 @@ const UpdateOwnOrganisationBodySchema = z
         .string()
         .regex(
           /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/,
-          'Doména musí byť platné FQDN (napr. sfz.sk).',
+          'Doména musí byť platné FQDN (napr. firma.sk).',
         )
         .toLowerCase(),
     ),
     entraTenantId: z.string().uuid('entraTenantId musí byť platný UUID.').nullable(),
     // ADR-0035 F5: vlastná doména organizácie pre prihlásenie (napr.
-    // majetok.futbalsfz.sk). Rovnaký FQDN regex + lowercase ako v
+    // majetok.firma.sk). Rovnaký FQDN regex + lowercase ako v
     // `CreateOrganisationBodySchema`/`UpdateOrganisationBodySchema` (platform-
     // operator varianty) — žiadny protokol/cesta/port, len samotný hostname.
     // Kolidujúci zápis rieši `updateCurrent()` (rovnaká kontrola ako F1
@@ -379,7 +379,7 @@ const UpdateOwnOrganisationBodySchema = z
       .toLowerCase()
       .regex(
         /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/,
-        'Custom doména musí byť platné FQDN, lowercase, bez protokolu a cesty (napr. majetok.sfz.sk).',
+        'Custom doména musí byť platné FQDN, lowercase, bez protokolu a cesty (napr. majetok.firma.sk).',
       )
       .nullable(),
     // ADR-0031 E5: per-tenant Microsoft OAuth credentials (write path)

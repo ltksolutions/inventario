@@ -14,7 +14,7 @@
  * scenario of the same email existing in two different organisations
  * (e.g. admin@company.sk in org A and org B) — it would raise E11000 on
  * the second tenant's JIT provisioning. This must be cleared BEFORE
- * onboarding a second tenant (SFZ pilot).
+ * onboarding a second tenant (pilot).
  *
  * This migration drops ANY single-field unique index on `email` regardless
  * of its name, by inspecting the live index list rather than guessing

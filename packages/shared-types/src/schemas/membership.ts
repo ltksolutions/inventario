@@ -43,7 +43,7 @@ export const MembershipSchema = BaseDocumentSchema.merge(SoftDeleteSchema).exten
     .object({
       id: ObjectIdSchema,
       name: z.string().min(1).max(200),
-      type: z.enum(['SFZ_DEPARTMENT', 'NATIONAL_TEAM', 'CLUB', 'EXTERNAL_ORG']),
+      type: z.enum(['ORG_DEPARTMENT', 'NATIONAL_TEAM', 'CLUB', 'EXTERNAL_ORG']),
     })
     .nullable()
     .default(null),

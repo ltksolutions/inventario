@@ -76,11 +76,11 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028 v2)', () => {
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { brandKit: { logoUrl: 'https://sfz.sk/logo.png' } },
+        payload: { brandKit: { logoUrl: 'https://firma.sk/logo.png' } },
       });
       expect(res.statusCode, res.body).toBe(200);
       expect(res.json<{ brandKit: { logoUrl: string } }>().brandKit?.logoUrl).toBe(
-        'https://sfz.sk/logo.png',
+        'https://firma.sk/logo.png',
       );
     });
 
@@ -230,7 +230,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028 v2)', () => {
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { brandKit: { logoUrl: 'https://sfz.sk/logo.svg' } },
+        payload: { brandKit: { logoUrl: 'https://firma.sk/logo.svg' } },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toContain('SVG');
@@ -251,7 +251,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028 v2)', () => {
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { brandKit: { logoUrl: 'https://sfz.sk/logo.png' } },
+        payload: { brandKit: { logoUrl: 'https://firma.sk/logo.png' } },
       });
       expect(res.statusCode, res.body).toBe(200);
     });
@@ -319,7 +319,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028 v2)', () => {
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { brandKit: { logoUrl: 'https://sfz.sk/logo.png' } },
+        payload: { brandKit: { logoUrl: 'https://firma.sk/logo.png' } },
       });
 
       const auditEntry = await app.mongo.db
@@ -337,7 +337,7 @@ describe('PATCH /v1/organisations/current — branding (ADR-0028 v2)', () => {
         headers: { cookie: `inv_access=${adminToken}` },
         payload: {
           displayName: 'Nový názov',
-          brandKit: { logoUrl: 'https://sfz.sk/logo.png' },
+          brandKit: { logoUrl: 'https://firma.sk/logo.png' },
         },
       });
 

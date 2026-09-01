@@ -5,7 +5,7 @@
  * Dynamic CORS origin resolver — ADR-0035 Fáza 2 (F4).
  *
  * Umožňuje `credentials: 'include'` fetch (napr. email/heslo login) z
- * vlastnej domény organizácie (napr. `majetok.futbalsfz.sk`), popri
+ * vlastnej domény organizácie (napr. `majetok.firma.sk`), popri
  * statickom zozname `CORS_ORIGINS` (lokálny dev, staging, `app.inventario.*`).
  *
  * BEZPEČNOSTNÉ PRAVIDLÁ (nemeniť bez rozmyslenia — ADR-0021 precedens

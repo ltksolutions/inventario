@@ -40,7 +40,7 @@ const envSchema = z.object({
   // CORS
   // Accepts either:
   //   - '*' (wildcard, allow all origins) — for early dev only, NEVER in real prod
-  //   - comma-separated list of origins: 'https://app.sfz.sk,https://staging.sfz.sk'
+  //   - comma-separated list of origins: 'https://app.firma.sk,https://staging.firma.sk'
   CORS_ORIGINS: z
     .string()
     .default('http://localhost:3001')

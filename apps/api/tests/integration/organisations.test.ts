@@ -290,7 +290,7 @@ describe('/v1/organisations', () => {
           displayName: 'Slovenský futbalový zväz',
           slug: 'slovensky-futbalovy-zvaz',
           plan: 'PRO',
-          primaryContactEmail: 'admin@sfz.sk',
+          primaryContactEmail: 'admin@firma.sk',
         }),
       });
       expect(res.statusCode).toBe(201);
@@ -307,7 +307,7 @@ describe('/v1/organisations', () => {
       expect(body.slug).toBe('slovensky-futbalovy-zvaz');
       expect(body.plan).toBe('PRO');
       expect(body.status).toBe('ACTIVE');
-      expect(body.primaryContactEmail).toBe('admin@sfz.sk');
+      expect(body.primaryContactEmail).toBe('admin@firma.sk');
     });
 
     it('rejects duplicate slug with 400', async () => {

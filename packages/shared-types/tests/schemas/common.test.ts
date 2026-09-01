@@ -62,15 +62,15 @@ describe('TimestampSchema', () => {
 
 describe('EmailSchema', () => {
   it('akceptuje validný e-mail', () => {
-    const result = EmailSchema.safeParse('peter.novak@futbalsfz.sk');
+    const result = EmailSchema.safeParse('peter.novak@firma.sk');
     expect(result.success).toBe(true);
   });
 
   it('normalizuje na lowercase', () => {
-    const result = EmailSchema.safeParse('Peter.Novak@FUTBALSFZ.SK');
+    const result = EmailSchema.safeParse('Peter.Novak@FIRMA.SK');
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data).toBe('peter.novak@futbalsfz.sk');
+      expect(result.data).toBe('peter.novak@firma.sk');
     }
   });
 

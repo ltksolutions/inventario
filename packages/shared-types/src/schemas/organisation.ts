@@ -139,8 +139,8 @@ export type OrganisationBilling = z.infer<typeof OrganisationBillingSchema>;
  * Konfigurácia formátu inventárneho čísla — per tenant (ADR-0021 rozhodnutie 7).
  *
  * Server generátor (`assets.service.ts`) z tohto zloží `inventoryNumber`:
- *   includeYear=true:  `{prefix}-{YYYY}-{seq.padStart(padding)}`  napr. "SFZ-2026-0042"
- *   includeYear=false: `{prefix}-{seq.padStart(padding)}`         napr. "SFZ-0042"
+ *   includeYear=true:  `{prefix}-{YYYY}-{seq.padStart(padding)}`  napr. "INV-2026-0042"
+ *   includeYear=false: `{prefix}-{seq.padStart(padding)}`         napr. "INV-0042"
  *
  * `prefix` je **jediný zdroj prefixu** — nie je per-request override (rozhodnuté
  * 2026-06-01: solo nasadenie per tenant, jeden kód stačí). `resetYearly` určuje,
@@ -151,10 +151,10 @@ export type OrganisationBilling = z.infer<typeof OrganisationBillingSchema>;
  */
 export const InventoryNumberFormatSchema = z
   .object({
-    /** Prefix čísla — 1–5 veľkých ASCII písmen (napr. "SFZ", "LT", "MOB"). */
+    /** Prefix čísla — 1–5 veľkých ASCII písmen (napr. "INV", "LT", "MOB"). */
     prefix: z
       .string()
-      .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "SFZ").'),
+      .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "INV").'),
 
     /** Počet cifier poradia (zero-padded). 3–8 — strop viazaný na regex `inventoryNumber`. */
     padding: z.number().int().min(1).max(8).default(4),
@@ -206,7 +206,7 @@ export type FoundContactInfo = z.infer<typeof FoundContactInfoSchema>;
  */
 export const ProtocolNumberFormatSchema = z
   .object({
-    /** Prefix čísla protokolu — 1–5 veľkých ASCII písmen (napr. "PROT", "SFZ"). */
+    /** Prefix čísla protokolu — 1–5 veľkých ASCII písmen (napr. "PROT", "INV"). */
     prefix: z
       .string()
       .regex(/^[A-Z]{1,5}$/, 'Prefix musí byť 1–5 veľkých ASCII písmen (napr. "PROT").'),
@@ -367,7 +367,7 @@ export type OrgOAuthProviderCredentials = z.infer<typeof OrgOAuthProviderCredent
  * Apple zámerne chýba — Apple používa team/key/p8 model, iný tvar; mimo rozsahu.
  *
  * Null = tenant nemá vlastnú app → backend použije platformovú app z env premenných
- * (bezšvový fallback, SFZ pilot nerekvijuje ziadnu zmenu).
+ * (bezšvový fallback, existujúci tenant nepotrebuje žiadnu zmenu).
  */
 export const OrgOAuthCredentialsSchema = z
   .object({
@@ -461,7 +461,7 @@ export const OrganisationSchema = BaseDocumentSchema.merge(SoftDeleteSchema).ext
    */
   appBaseUrl: z
     .string()
-    .url('appBaseUrl musí byť platná URL (napr. https://inventario.sfz.sk).')
+    .url('appBaseUrl musí byť platná URL (napr. https://majetok.firma.sk).')
     .nullable()
     .default(null),
 

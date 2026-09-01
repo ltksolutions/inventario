@@ -5,7 +5,7 @@
  * Migration 2026-06-05-seed-missing-defaults
  *
  * Backfill: seed default číselníky (asset_types, asset_conditions, categories)
- * pre tenantov, ktorým chýbajú — napr. SFZ org vytvorená manuálne cez Atlas
+ * pre tenantov, ktorým chýbajú — napr. org vytvorená manuálne cez Atlas
  * alebo cez SSO self-serve registráciu pred opravou (seedTenantDefaults
  * chýbalo v oauth.routes.ts).
  *

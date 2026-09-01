@@ -15,7 +15,7 @@ const validUserInput = {
   updatedBy: 'SYSTEM' as const,
   deletedAt: null,
   deletedBy: null,
-  email: 'peter.novak@futbalsfz.sk',
+  email: 'peter.novak@firma.sk',
   firstName: 'Peter',
   lastName: 'Novák',
   displayName: 'Peter Novák',
@@ -91,7 +91,7 @@ describe('UserSchema', () => {
 describe('CreateUserSchema', () => {
   it('akceptuje minimálny vstup pre nového používateľa', () => {
     const result = CreateUserSchema.safeParse({
-      email: 'novak@futbalsfz.sk',
+      email: 'novak@firma.sk',
       firstName: 'Pavol',
       lastName: 'Novák',
       displayName: 'Pavol Novák',
@@ -105,7 +105,7 @@ describe('CreateUserSchema', () => {
   it('odmieta vytvorenie s _id (audit fields generuje server)', () => {
     const result = CreateUserSchema.safeParse({
       _id: '507f1f77bcf86cd799439011',
-      email: 'novak@futbalsfz.sk',
+      email: 'novak@firma.sk',
       firstName: 'Pavol',
       lastName: 'Novák',
       displayName: 'Pavol Novák',
@@ -135,7 +135,7 @@ describe('UpdateUserSchema', () => {
 
   it('nedovolí zmenu e-mailu cez bežný update', () => {
     const result = UpdateUserSchema.safeParse({
-      email: 'new@futbalsfz.sk',
+      email: 'new@firma.sk',
     });
     // E-mail je v `.omit({ email: true })`, takže by bol odignorovaný
     expect(result.success).toBe(true);

@@ -42,7 +42,7 @@ import { cn } from '@/lib/cn';
  * (RETURNED/DAMAGED/LOST) below — one row per loan item, since a
  * single loan can cover several assets and each needs its own link.
  * `limit: 200` mirrors the cap used everywhere else this list is
- * fetched (list page, previous edit-dialog section) — the SFZ pilot's
+ * fetched (list page, previous edit-dialog section) — the pilot tenant's
  * loan volumes are nowhere near that per person; a proper paginated
  * view is a later improvement if that changes.
  */

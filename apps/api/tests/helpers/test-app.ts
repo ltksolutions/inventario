@@ -7,7 +7,7 @@
  * Wraps `buildServer()` with three integration-test conveniences:
  *
  *   1. Forces `MONGO_DB_NAME` to the test database
- *      (`sfz_asset_management_test`), so production data is never touched.
+ *      (`inventario_test`), so production data is never touched.
  *
  *   2. Drops the test database in `beforeAll`-style cleanup (called via
  *      `cleanTestDatabase()`) for a tabula-rasa starting state.
@@ -49,10 +49,10 @@ import type { FastifyInstance } from 'fastify';
 
 /**
  * The database name used by all integration tests. Distinct from
- * `sfz_asset_management` (dev) and any prod name. Located in the
+ * `inventario` (dev) and any prod name. Located in the
  * same Atlas Flex cluster as dev — see MONGO_URI in .env.local.
  */
-export const TEST_DB_NAME = 'sfz_asset_management_test';
+export const TEST_DB_NAME = 'inventario_test';
 
 // ---------------------------------------------------------------------------
 // buildTestApp
@@ -108,7 +108,7 @@ export async function buildTestApp(): Promise<FastifyInstance> {
  *   `dropDatabase` requires the `dropDatabase` action privilege, which
  *   the typical `readWrite@<db>` Atlas role does NOT grant for databases
  *   outside the role's scope. Our Atlas user has `readWrite` on
- *   `sfz_asset_management` only; calling `dropDatabase()` on the test
+ *   `inventario` only; calling `dropDatabase()` on the test
  *   DB fails with "user is not allowed to do action [dropDatabase]".
  *
  *   Per-collection `deleteMany({})` requires only the `remove` action

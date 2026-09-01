@@ -70,14 +70,14 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
 
   describe('org with entraTenantId — Microsoft tid must match', () => {
     it('org document can store entraTenantId', async () => {
-      const sfzTid = 'a1b2c3d4-5e6f-7890-abcd-ef1234567890';
+      const entraTid = 'a1b2c3d4-5e6f-7890-abcd-ef1234567890';
       await provisionUser(app, { role: UserRole.ADMIN });
       const updateResult = await app.mongo.db
         .collection('organisations')
-        .updateOne({ deletedAt: null }, { $set: { entraTenantId: sfzTid } });
+        .updateOne({ deletedAt: null }, { $set: { entraTenantId: entraTid } });
       expect(updateResult.modifiedCount).toBe(1);
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
-      expect(org?.['entraTenantId']).toBe(sfzTid);
+      expect(org?.['entraTenantId']).toBe(entraTid);
     });
 
     it('entra_tenant_mismatch error code is correct string', () => {
@@ -111,13 +111,13 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
         {
           $set: {
             memberJoinPolicy: 'DOMAIN_RESTRICTED',
-            autoJoinDomains: ['sfz.sk', 'futbalsfz.sk'],
+            autoJoinDomains: ['firma.sk', 'firma.sk'],
           },
         },
       );
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
       expect(org?.['memberJoinPolicy']).toBe('DOMAIN_RESTRICTED');
-      expect(org?.['autoJoinDomains']).toEqual(['sfz.sk', 'futbalsfz.sk']);
+      expect(org?.['autoJoinDomains']).toEqual(['firma.sk', 'firma.sk']);
     });
 
     it('INVITE_ONLY is the default memberJoinPolicy', async () => {
@@ -215,26 +215,26 @@ describe('ADR-0030 D2 — entraTenantId restriction', () => {
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { memberJoinPolicy: 'DOMAIN_RESTRICTED', autoJoinDomains: ['sfz.sk'] },
+        payload: { memberJoinPolicy: 'DOMAIN_RESTRICTED', autoJoinDomains: ['firma.sk'] },
       });
       expect(res.statusCode).toBe(200);
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
       expect(org?.['memberJoinPolicy']).toBe('DOMAIN_RESTRICTED');
-      expect(org?.['autoJoinDomains']).toContain('sfz.sk');
+      expect(org?.['autoJoinDomains']).toContain('firma.sk');
     });
 
-    it('ADMIN can set entraTenantId (SFZ migrácia model)', async () => {
+    it('ADMIN can set entraTenantId (Entra migrácia model)', async () => {
       const { token: adminToken } = await provisionUser(app, { role: UserRole.ADMIN });
-      const sfzTid = 'bcd6945a-5a57-4c2b-9ebb-d62712ad4b55';
+      const entraTid = 'bcd6945a-5a57-4c2b-9ebb-d62712ad4b55';
       const res = await app.inject({
         method: 'PATCH',
         url: '/v1/organisations/current',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: { entraTenantId: sfzTid },
+        payload: { entraTenantId: entraTid },
       });
       expect(res.statusCode).toBe(200);
       const org = await app.mongo.db.collection('organisations').findOne({ deletedAt: null });
-      expect(org?.['entraTenantId']).toBe(sfzTid);
+      expect(org?.['entraTenantId']).toBe(entraTid);
     });
 
     it('ADMIN can clear entraTenantId', async () => {

@@ -254,7 +254,7 @@ describe('POST /v1/invitations', () => {
         { _id: new ObjectId(orgId) },
         {
           $set: {
-            autoJoinDomains: ['futbalsfz.sk'],
+            autoJoinDomains: ['firma.sk'],
             settings: { invitations: { enforceAllowedDomains: true } },
           },
         },
@@ -267,7 +267,7 @@ describe('POST /v1/invitations', () => {
       });
       expect(res.statusCode).toBe(400);
       expect(res.json<{ message: string }>().message).toMatch(/@gmail\.com/);
-      expect(res.json<{ message: string }>().message).toMatch(/futbalsfz\.sk/);
+      expect(res.json<{ message: string }>().message).toMatch(/firma\.sk/);
     });
 
     it('allows email matching the whitelist when enforceAllowedDomains is true', async () => {
@@ -277,7 +277,7 @@ describe('POST /v1/invitations', () => {
         { _id: new ObjectId(orgId) },
         {
           $set: {
-            autoJoinDomains: ['futbalsfz.sk'],
+            autoJoinDomains: ['firma.sk'],
             settings: { invitations: { enforceAllowedDomains: true } },
           },
         },
@@ -286,7 +286,7 @@ describe('POST /v1/invitations', () => {
         method: 'POST',
         url: '/v1/invitations',
         headers: { cookie: `inv_access=${adminToken}` },
-        payload: validInviteBody({ email: 'jano@futbalsfz.sk' }),
+        payload: validInviteBody({ email: 'jano@firma.sk' }),
       });
       expect(res.statusCode).toBe(201);
     });

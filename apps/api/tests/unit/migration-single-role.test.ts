@@ -37,7 +37,7 @@ beforeAll(async () => {
   if (!uri) throw new Error('MONGO_URI not set');
   client = new MongoClient(uri, { writeConcern: { w: 'majority' } });
   await client.connect();
-  db = client.db(`sfz_migration_single_role_test_${Date.now()}`);
+  db = client.db(`inventario_migration_single_role_test_${Date.now()}`);
 });
 
 afterAll(async () => {

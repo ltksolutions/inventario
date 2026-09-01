@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 /**
- * @sfz/shared-types — Single source of truth pre dátový model Inventario.
+ * @inventario/shared-types — Single source of truth pre dátový model Inventario.
  *
  * Tento balíček obsahuje:
  * - **Zod schémy** — runtime validácia + TypeScript typová inferencia v jednom
@@ -17,7 +17,7 @@
  *
  * Príklad použitia:
  * ```ts
- * import { AssetSchema, type Asset } from '@sfz/shared-types';
+ * import { AssetSchema, type Asset } from '@inventario/shared-types';
  *
  * const result = AssetSchema.safeParse(input);
  * if (!result.success) {

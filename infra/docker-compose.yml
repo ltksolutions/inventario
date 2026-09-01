@@ -9,7 +9,7 @@
 # Reset dát (vymaže všetky lokálne dáta):
 #   docker compose -f infra/docker-compose.yml down -v
 
-name: sfz-asset-management
+name: inventario
 
 services:
   # ─────────────────────────────────────────────────────────────────
@@ -17,14 +17,14 @@ services:
   # ─────────────────────────────────────────────────────────────────
   mongodb:
     image: mongo:7
-    container_name: sfz-mongodb
+    container_name: inventario-mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme-local-only}
-      MONGO_INITDB_DATABASE: sfz_asset_management
+      MONGO_INITDB_DATABASE: inventario
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
@@ -43,7 +43,7 @@ services:
   # ─────────────────────────────────────────────────────────────────
   mongo-express:
     image: mongo-express:1
-    container_name: sfz-mongo-express
+    container_name: inventario-mongo-express
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -62,7 +62,7 @@ services:
   # ─────────────────────────────────────────────────────────────────
   mailhog:
     image: mailhog/mailhog:latest
-    container_name: sfz-mailhog
+    container_name: inventario-mailhog
     restart: unless-stopped
     ports:
       - "1025:1025" # SMTP
@@ -70,6 +70,6 @@ services:
 
 volumes:
   mongodb_data:
-    name: sfz-mongodb-data
+    name: inventario-mongodb-data
   mongodb_config:
-    name: sfz-mongodb-config
+    name: inventario-mongodb-config

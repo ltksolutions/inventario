@@ -6,7 +6,7 @@
  *
  * Appka beží kanonicky na `app.inventario.estate` (a jeho Vercel preview
  * doménach). Organizácia si ale môže nastaviť vlastnú doménu pre
- * prihlásenie (napr. `majetok.futbalsfz.sk`, `/settings/auth`, F5) —
+ * prihlásenie (napr. `majetok.firma.sk`, `/settings/auth`, F5) —
  * DNS CNAME smeruje na tento istý Vercel projekt (`inventario-app`), takže
  * requesty s neznámym `Host` header-om sem tiež dorazia.
  *
@@ -14,7 +14,7 @@
  * DB overenia): neznámy `Host` sa VŽDY overí proti `Organisation.customDomain`
  * v DB cez verejný `login-context` endpoint (rovnaký, čo používa F2 pre
  * `?org=` hint), nikdy sa neuveria slepo. Bez zhody → 404. So zhodou →
- * rewrite (URL v prehliadači ostáva `majetok.futbalsfz.sk`) LEN na koreňovú
+ * rewrite (URL v prehliadači ostáva `majetok.firma.sk`) LEN na koreňovú
  * cestu, ktorá vykreslí `/tenant-login` (F6). Akákoľvek iná cesta pod
  * vlastnou doménou sa presmeruje na `app.inventario.estate` — appka sa pod
  * cudzou doménou nikdy priamo nevykresľuje (cookie je scoped na

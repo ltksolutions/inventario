@@ -180,7 +180,7 @@ export function AuthSettingsContent(): JSX.Element {
     if (
       !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)
     ) {
-      setError(`Neplatná doména: ${domain}. Príklad: sfz.sk`);
+      setError(`Neplatná doména: ${domain}. Príklad: firma.sk`);
       return;
     }
     if (settings.autoJoinDomains.includes(domain)) return;
@@ -234,7 +234,7 @@ export function AuthSettingsContent(): JSX.Element {
       // toto je len rýchla UX skratka.
       if (settings.customDomain && !CUSTOM_DOMAIN_REGEX.test(settings.customDomain)) {
         setError(
-          `Neplatná doména: ${settings.customDomain}. Očakávaný tvar: majetok.sfz.sk (bez https://, bez cesty).`,
+          `Neplatná doména: ${settings.customDomain}. Očakávaný tvar: majetok.firma.sk (bez https://, bez cesty).`,
         );
         setSaving(false);
         return;
@@ -435,7 +435,7 @@ export function AuthSettingsContent(): JSX.Element {
             </h2>
             <p className="mb-4 text-xs text-text-secondary">
               Používatelia s e-mailom v týchto doménach sa môžu pripojiť aj bez individuálnej
-              pozvánky. Príklad: <code className="font-mono">sfz.sk</code>
+              pozvánky. Príklad: <code className="font-mono">firma.sk</code>
             </p>
             <div className="flex gap-2">
               <input
@@ -545,7 +545,7 @@ export function AuthSettingsContent(): JSX.Element {
               </div>
               <p className="mt-0.5 text-xs text-text-secondary">
                 Voliteľné: prihlásenie na vlastnej doméne vašej organizácie (napr.{' '}
-                <code className="font-mono">majetok.sfz.sk</code>) namiesto{' '}
+                <code className="font-mono">majetok.firma.sk</code>) namiesto{' '}
                 <code className="font-mono">app.inventario.estate</code>. Zobrazí vaše logo, farby a
                 len povolené spôsoby prihlásenia z tejto stránky.
               </p>
@@ -559,7 +559,7 @@ export function AuthSettingsContent(): JSX.Element {
                   });
                   setError('');
                 }}
-                placeholder="majetok.sfz.sk"
+                placeholder="majetok.firma.sk"
                 className="mt-3 w-full rounded-lg border border-border-default bg-surface-page px-3 py-2 font-mono text-sm text-text-primary placeholder-text-muted focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
               />
               <p className="mt-2 text-xs text-text-muted">

@@ -76,7 +76,7 @@ function makeOrganisation(overrides: Partial<Organisation> = {}): Organisation {
   return {
     _id: 'org000000000000000000001',
     displayName: 'Slovenský futbalový zväz',
-    slug: 'sfz',
+    slug: 'firma',
     entraTenantId: null,
     customDomain: null,
     status: 'ACTIVE' as const,
@@ -104,7 +104,7 @@ function makeOrganisation(overrides: Partial<Organisation> = {}): Organisation {
       mailingAddress: null,
     },
     settings: {},
-    appBaseUrl: 'https://inventario.sfz.sk',
+    appBaseUrl: 'https://inventario.firma.sk',
     publicAssetLookup: false,
     foundContactInfo: null,
     inventoryNumberFormat: null,
@@ -133,7 +133,7 @@ function makeItem(index: number, nameSuffix = ''): LoanProtocol['items'][number]
     assetId: `asset${String(index).padStart(19, '0')}`,
     loanId: 'loan0000000000000000001',
     snapshot: {
-      inventoryNumber: `SFZ-2026-${String(index).padStart(4, '0')}`,
+      inventoryNumber: `INV-2026-${String(index).padStart(4, '0')}`,
       name: `Notebook Lenovo ThinkPad ${nameSuffix || String(index)}`,
       serialNumber: `SN-${index}-ABCDEF`,
       category: 'Výpočtová technika',
@@ -160,7 +160,7 @@ function makeProtocol(overrides: Partial<LoanProtocol> = {}): LoanProtocol {
         userId: 'user0000000000000000001',
         snapshot: {
           displayName: 'Ján Letko',
-          email: 'jan.letko@sfz.sk',
+          email: 'jan.letko@firma.sk',
           organizationalUnit: 'IT oddelenie',
         },
       },
@@ -168,7 +168,7 @@ function makeProtocol(overrides: Partial<LoanProtocol> = {}): LoanProtocol {
         userId: 'user0000000000000000002',
         snapshot: {
           displayName: 'Mária Šimková',
-          email: 'maria.simkova@sfz.sk',
+          email: 'maria.simkova@firma.sk',
           organizationalUnit: null,
         },
       },
@@ -256,7 +256,7 @@ describe('renderProtocolPdf', () => {
             userId: 'user0000000000000000001',
             snapshot: {
               displayName: 'Ľuboš Šimčák',
-              email: 'lubos@sfz.sk',
+              email: 'lubos@firma.sk',
               organizationalUnit: 'Správa majetku — ČR / SK',
             },
           },
@@ -264,7 +264,7 @@ describe('renderProtocolPdf', () => {
             userId: 'user0000000000000000002',
             snapshot: {
               displayName: 'Žaneta Ďuríčková',
-              email: 'zaneta@sfz.sk',
+              email: 'zaneta@firma.sk',
               organizationalUnit: null,
             },
           },

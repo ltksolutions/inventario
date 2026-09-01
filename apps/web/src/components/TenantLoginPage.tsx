@@ -19,7 +19,7 @@ const CANONICAL_APP_URL =
  * /tenant-login page — ADR-0035 Fáza 2 (F6).
  *
  * Vykresľuje sa len na vlastnej doméne organizácie (napr.
- * majetok.futbalsfz.sk) po rewrite z `apps/web/middleware.ts` (F4). Zdieľa
+ * majetok.firma.sk) po rewrite z `apps/web/middleware.ts` (F4). Zdieľa
  * branding/filtrovanie/auth logiku s globálnou `/login` cez
  * `useOrgAwareLogin` + `OrgAwareLoginForm` (F6), parametrizovanú `domain`
  * namiesto `slug`.
@@ -34,7 +34,7 @@ const CANONICAL_APP_URL =
  * spoliehania na query param čítame priamo `window.location.hostname`
  * (vždy zodpovedá skutočnej doméne v adresnom riadku, rewrite ju nemení).
  * `?domain=` query param necháme ako fallback pre manuálne lokálne
- * testovanie (napr. `localhost:3001/tenant-login?domain=majetok.sfz.sk`
+ * testovanie (napr. `localhost:3001/tenant-login?domain=majetok.firma.sk`
  * bez potreby úpravy `/etc/hosts`).
  *
  * Appka sa pod vlastnou doménou nikdy nevykresľuje priamo (cookie je

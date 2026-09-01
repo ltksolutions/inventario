@@ -25,7 +25,7 @@ import { insertTestUser } from '../helpers/test-fixtures.js';
 import type { FastifyInstance } from 'fastify';
 
 const ENTRA_TENANT = 'bcd6945a-5a57-4c2b-9ebb-d62712ad4b55';
-const DOMAIN = 'futbalsfz.sk';
+const DOMAIN = 'firma.sk';
 
 describe('attemptDomainAutoJoin (firemná doména → auto-join)', () => {
   let app: FastifyInstance;

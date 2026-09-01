@@ -13,7 +13,7 @@
  * protocols.routes.ts robil `actor.roles.includes(...)` bez null-guardu →
  * TypeError, rozbité GET /v1/protocols, /v1/dashboard/summary a
  * /v1/loans/:id/protocols pre postihnutých userov (napr. ASSET_MANAGER v
- * SFZ organizácii). Tá logická chyba je opravená samostatne — `actor.role`
+ * druhej organizácii). Tá logická chyba je opravená samostatne — `actor.role`
  * (autoritatívne z Membership) cez `roleSatisfies`. Táto migrácia je už len
  * dátové upratanie na zosúladenie so schémou; nič v aplikácii nezávisí na
  * reálnej hodnote `User.roles`.

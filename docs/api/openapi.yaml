@@ -3610,7 +3610,7 @@ paths:
       summary: Nahrať prílohu majetku (ASSET_MANAGER/ADMIN)
       tags:
         - Attachments
-      description: Multipart upload jedného súboru (PNG/JPEG/WEBP → foto, PDF → doklad). Max 20 MB. Súbor sa uloží do Vercel Blob, metadata do DB.
+      description: Multipart upload jedného súboru (PNG/JPEG/WEBP → foto, PDF → doklad). Max 4 MB (strop platformy). Súbor sa uloží do Vercel Blob, metadata do DB.
       security:
         - bearerAuth: []
       parameters:

@@ -188,7 +188,7 @@ describe('GET /v1/users', () => {
 
   describe('q (free-text search)', () => {
     it('matches partial email (case-insensitive)', async () => {
-      await insertTestUser(app, { email: 'jano.letko@sfz.sk' });
+      await insertTestUser(app, { email: 'jano.letko@firma.sk' });
       await insertTestUser(app, { email: 'someone@example.com' });
       const res = await app.inject({
         method: 'GET',
@@ -196,7 +196,7 @@ describe('GET /v1/users', () => {
         headers: { cookie: `inv_access=${adminToken}` },
       });
       const emails = res.json<{ data: Array<{ email: string }> }>().data.map((u) => u.email);
-      expect(emails).toContain('jano.letko@sfz.sk');
+      expect(emails).toContain('jano.letko@firma.sk');
       expect(emails).not.toContain('someone@example.com');
     });
 

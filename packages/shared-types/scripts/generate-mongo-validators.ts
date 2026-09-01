@@ -5,7 +5,7 @@
  * Generuje Mongo `collMod` commandy pre nastavenie `$jsonSchema` validátorov.
  *
  * Spustenie:
- *   pnpm --filter @sfz/shared-types run generate:mongo-validators
+ *   pnpm --filter @inventario/shared-types run generate:mongo-validators
  *
  * Výstup:
  *   packages/shared-types/generated/mongo-validators.js
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     raw = await readFile(INPUT_PATH, 'utf-8');
   } catch {
     console.error(`❌ Súbor ${INPUT_PATH} neexistuje. Spusti najprv:`);
-    console.error('   pnpm --filter @sfz/shared-types run generate:json-schema');
+    console.error('   pnpm --filter @inventario/shared-types run generate:json-schema');
     process.exit(1);
   }
 

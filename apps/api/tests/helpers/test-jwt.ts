@@ -38,7 +38,7 @@ import type { KeyLike } from 'jose';
  * Chosen to look obviously synthetic — no chance of colliding with a
  * real Microsoft issuer URL.
  */
-export const TEST_JWT_ISSUER = 'urn:sfz-test:dev';
+export const TEST_JWT_ISSUER = 'urn:inventario-test:dev';
 
 /**
  * Test tenant ID — a fixed GUID used as the `tid` claim. The auth plugin
@@ -51,7 +51,7 @@ export const TEST_TENANT_ID = '00000000-0000-0000-0000-000000000000';
  * The `kid` (key ID) we embed in test JWT headers. Helps anyone debugging
  * a failed test identify the token as test-issued rather than Entra-issued.
  */
-export const TEST_JWT_KID = 'sfz-test-key';
+export const TEST_JWT_KID = 'inventario-test-key';
 
 // ---------------------------------------------------------------------------
 // Keypair generation
@@ -107,7 +107,7 @@ export interface SignTestTokenInput {
 
   /** Display name; defaults to "Test User". */
   name?: string;
-  /** Email; defaults to "<oid>@test.sfz.sk". */
+  /** Email; defaults to "<oid>@test.firma.sk". */
   email?: string;
   /** First name; defaults to "Test". */
   given_name?: string;
@@ -158,7 +158,7 @@ export async function signTestToken(
   const now = Math.floor(Date.now() / 1000);
 
   const name = input.name ?? 'Test User';
-  const email = input.email ?? `${input.oid}@test.sfz.sk`;
+  const email = input.email ?? `${input.oid}@test.firma.sk`;
 
   const claims: Record<string, unknown> = {
     oid: input.oid,

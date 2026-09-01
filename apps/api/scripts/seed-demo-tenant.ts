@@ -7,14 +7,14 @@
  * Seed DEMO tenant — naplní samostatnú demo organizáciu reprezentatívnymi
  * (fiktívnymi) dátami pre marketingové screenshoty. ŽIADNE reálne PII.
  *
- * Prečo: produkčný SFZ tenant obsahuje reálne mená a len pár položiek —
+ * Prečo: produkčný tenant obsahuje reálne mená a len pár položiek —
  * nevhodné pre verejné screenshoty. Tento skript vytvorí izolovaný demo
  * tenant (slug `demo`) s peknými dátami pre všetkých 6 P0 obrazoviek.
  *
  * BEZPEČNOSŤ (píše do DB, ktorú zvolíš cez env):
  *   - DRY-RUN je default — bez `--confirm` len vypíše plán a NIČ nezapíše.
  *   - Všetky zápisy sú scoped VÝHRADNE na demo organizáciu (jej organisationId).
- *     Skript NIKDY nesiahne na iné tenanty (napr. SFZ).
+ *     Skript NIKDY nesiahne na iné tenanty (napr. produkčný).
  *   - Idempotentný: ak demo org so slug-om už existuje, skript skončí
  *     (alebo s `--reset` najprv zmaže LEN dáta demo orgu a vytvorí nanovo).
  *   - `--reset` NEMAŽE tvoj admin user — len jeho membership v demo orgu.
@@ -32,7 +32,7 @@
  *   ... seed:demo -- --confirm --reset
  *
  *   # iný admin / slug:
- *   ... seed:demo -- --confirm --admin-email=jan.letko@futbalsfz.sk --slug=demo
+ *   ... seed:demo -- --confirm --admin-email=jan.letko@firma.sk --slug=demo
  *
  * Po seede: v appke (app.inventario.estate) prepni organizáciu na „Demo"
  * a sprav screenshoty. Preberacie protokoly (obrazovka /protocols) vyrob
@@ -52,7 +52,7 @@ const CONFIRM = args.includes('--confirm');
 const RESET = args.includes('--reset');
 const SLUG = (args.find((a) => a.startsWith('--slug='))?.split('=')[1] ?? 'demo').toLowerCase();
 const ADMIN_EMAIL =
-  args.find((a) => a.startsWith('--admin-email='))?.split('=')[1] ?? 'jan.letko@futbalsfz.sk';
+  args.find((a) => a.startsWith('--admin-email='))?.split('=')[1] ?? 'jan.letko@firma.sk';
 
 const MONGO_URI = process.env['MONGO_URI'];
 const DB_NAME = process.env['MONGO_DB_NAME'];
