@@ -8,6 +8,7 @@ import {
   ObjectIdSchema,
   OrganisationScopedSchema,
   SoftDeleteSchema,
+  StoredImageSchema,
 } from './common.js';
 
 /**
@@ -35,6 +36,34 @@ export const AttachmentSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
      * hodnota sa zapisovala natvrdo a nikto ju nečítal.
      */
     storageKey: z.string().min(1).max(500),
+
+    /**
+     * Pathname objektu v PRIVATE store (ADR-0037), napr.
+     * `org/<orgId>/attachments/<id>/original.jpg`.
+     *
+     * `storageKey` nesie celú public URL a zostáva kvôli starým prílohám;
+     * nový kód píše sem. `null` znamená, že príloha ešte nebola prenesená.
+     */
+    storagePathname: z.string().min(1).max(500).nullable().default(null),
+
+    /**
+     * Kde objekt reálne leží. Počas prechodu existujú obe možnosti naraz
+     * a download route sa podľa toho rozhoduje, či vydá podpísanú URL
+     * (`PRIVATE`), alebo pošle na starú verejnú URL (`PUBLIC_LEGACY`).
+     *
+     * Default je `PUBLIC_LEGACY`, aby staré dokumenty bez tohto poľa
+     * neskončili omylom v privátnej vetve.
+     */
+    storageAccess: z.enum(['PUBLIC_LEGACY', 'PRIVATE']).default('PUBLIC_LEGACY'),
+
+    /**
+     * Náhľad v BinData — dlhšia strana 800 px, JPEG, cieľ ~300 KB.
+     *
+     * Servíruje ho `GET /v1/attachments/:id/thumbnail` za autentifikáciou.
+     * NIKDY sa nesmie dostať do výpisov: každý dotaz nad `attachments`
+     * musí `thumbnail` vylúčiť projekciou. Stráži to samostatný test.
+     */
+    thumbnail: StoredImageSchema.nullable().default(null),
 
     /** MIME type (validovaný pri uploade). */
     mimeType: z

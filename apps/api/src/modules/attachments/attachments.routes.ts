@@ -29,6 +29,7 @@ import { AssetsRepository } from '../assets/assets.repository.js';
 
 import { AttachmentsRepository } from './attachments.repository.js';
 
+import type { AttachmentWithoutThumbnail } from './attachments.repository.js';
 import type { Attachment } from '@inventario/shared-types';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -80,7 +81,11 @@ function detectFileType(
 }
 
 /** API tvar prílohy (bez interných polí). */
-function toApiShape(a: Attachment & { _id: unknown }): Record<string, unknown> {
+// Berie prílohu BEZ náhľadu — a je to zámer, nie zjednodušenie. Náhľad je
+// BinData a do JSON odpovede nepatrí; klient si ho vypýta cez
+// GET /v1/attachments/:id/thumbnail. Ak by sem niekto chcel `thumbnail`
+// pridať, TypeScript ho zastaví už tu.
+function toApiShape(a: AttachmentWithoutThumbnail & { _id: unknown }): Record<string, unknown> {
   return {
     id: String(a._id),
     originalFilename: a.originalFilename,
@@ -213,6 +218,12 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         organisationId: tenantId,
         originalFilename: data.filename || `${Date.now()}.${detected.ext}`,
         storageKey: url,
+        // Táto routa stále píše do STARÉHO public storu (ADR-0028), preto
+        // PUBLIC_LEGACY a žiadny pathname. Nová cesta cez private store
+        // (upload-url + confirm) tieto polia naplní.
+        storagePathname: null,
+        storageAccess: 'PUBLIC_LEGACY',
+        thumbnail: null,
         mimeType: detected.contentType,
         sizeBytes: storedBuffer.byteLength,
         sha256,

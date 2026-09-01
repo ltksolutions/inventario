@@ -19,6 +19,7 @@ import {
   ObjectIdSchema,
   PhoneSchema,
   SoftDeleteSchema,
+  StoredImageSchema,
 } from './common.js';
 
 /**
@@ -59,6 +60,15 @@ export const OrganisationBrandKitSchema = z
      * neboli nastavené cez preset (alebo legacy custom hodnoty).
      */
     presetId: z.string().max(64).nullable().default(null),
+    /**
+     * Logo uložené priamo v dokumente ako BinData (ADR-0037), ≤512 KB.
+     *
+     * Servíruje ho `GET /v1/public/organisations/:slug/logo` — bez
+     * autentifikácie a CDN-cachované, lebo logo je verejná vec (je na
+     * prihlasovacej stránke tenanta). `logoUrl` zostáva pre externé URL
+     * a pre staré tenanty, ktoré ešte majú logo v public Blobe.
+     */
+    logo: StoredImageSchema.nullable().default(null),
     logoUrl: z.string().url().nullable().default(null),
     faviconUrl: z.string().url().nullable().default(null),
     primary: HexColorSchema.nullable().default(null),

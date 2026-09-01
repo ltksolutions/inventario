@@ -286,3 +286,35 @@ export function freeText(
         .max(max, opts.maxMessage ?? `Text môže mať najviac ${max} znakov.`),
     );
 }
+
+/**
+ * Binárny obsah uložený priamo v Mongu ako BinData (ADR-0037).
+ *
+ * `z.custom` a nie `z.instanceof(Buffer)`: tento balík importuje aj web,
+ * kde globálny `Buffer` neexistuje. `Buffer` rozširuje `Uint8Array`, takže
+ * ten istý test platí na oboch stranách.
+ */
+export const BinaryDataSchema = z.custom<Uint8Array>((value) => value instanceof Uint8Array, {
+  message: 'Očakáva sa binárny obsah (Buffer/Uint8Array).',
+});
+
+export type BinaryData = z.infer<typeof BinaryDataSchema>;
+
+/**
+ * Malý rasterový obrázok uložený v dokumente — náhľad prílohy alebo logo
+ * organizácie (ADR-0037).
+ *
+ * Do dokumentu patria len MALÉ obrázky: náhľad ~300 KB, logo ≤512 KB. Idú
+ * tak do zálohy spolu s dátami, ktoré popisujú, a nepotrebujú podpísanú URL.
+ * Originály sem NEPATRIA — strop dokumentu je 16 MB a binárka v doméne vlečie
+ * megabajty v každom výpise, ktorý zabudne `projection`.
+ */
+export const StoredImageSchema = z.object({
+  data: BinaryDataSchema,
+  mimeType: z.string().regex(/^image\/(jpeg|png|webp|svg\+xml)$/, 'Nepodporovaný formát obrázka.'),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  sizeBytes: z.number().int().positive(),
+});
+
+export type StoredImage = z.infer<typeof StoredImageSchema>;

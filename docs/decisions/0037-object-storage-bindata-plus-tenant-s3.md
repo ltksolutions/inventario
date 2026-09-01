@@ -53,6 +53,24 @@ riešenie je upload, ktorý funkciu obchádza.
 
 Migrácia dát je teda triviálna. Rozhodnutie je o architektúre.
 
+### Regióny (overené 2026-09-01)
+
+`x-vercel-id` na `api.inventario.estate` vracia `fra1::iad1` — edge je
+Frankfurt, ale **funkcia beží v `iad1` (Washington)**. Z toho vyplýva:
+
+| store                                 | región | poznámka                                         |
+| ------------------------------------- | ------ | ------------------------------------------------ |
+| `inventario-api-blob` (public, starý) | `fra1` | transatlantický skok pri každom čítaní z funkcie |
+| `inventario-private` (nový)           | `iad1` | kolokovaný s funkciou                            |
+
+Nový store je teda **lepšie umiestnený** než ten, ktorý nahrádza — a to je
+podstatné práve pre krok „confirm", ktorý originál stiahne do funkcie,
+odstráni EXIF a prepíše ho.
+
+GDPR: compute už dnes beží v USA, takže originály v `iad1` nezavádzajú nový
+transfer — ale ten transfer treba mať zdokumentovaný v záznamoch o
+spracúvaní, nie len tu.
+
 ### Čo platforma naozaj umožňuje (overené v dokumentácii)
 
 - **Private Blob stores** sú GA. Vyžadujú autentifikáciu na každé čítanie
