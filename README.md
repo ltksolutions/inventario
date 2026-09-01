@@ -160,17 +160,20 @@ Detaily v [`docs/milestones/`](docs/milestones/) a [`docs/sessions/NEXT.md`](doc
 
 ### Pre vývojárov a integrátorov
 
-| Dokument                                                 | Popis                                       |
-| -------------------------------------------------------- | ------------------------------------------- |
-| [Funkčná špecifikácia](docs/functional-spec.md)          | Čo systém robí (moduly, roly, user stories) |
-| [Architektúra](docs/architecture/README.md)              | Architektonický prehľad, C4 diagramy        |
-| [Dátový model](docs/architecture/data-model.md)          | MongoDB kolekcie a vzťahy                   |
-| [API špecifikácia](docs/api/openapi.yaml)                | OpenAPI 3.1                                 |
-| [MCP server](docs/architecture/mcp-server.md)            | Špecifikácia MCP integrácie                 |
-| [ADR](docs/decisions/README.md)                          | Architecture Decision Records (13×)         |
-| [Milestones](docs/milestones/)                           | Slice-by-slice progress documentation       |
-| [shared-types README](packages/shared-types/README.md)   | Single source of truth pre dátový model     |
-| [design-tokens README](packages/design-tokens/README.md) | Multi-vrstvový token systém                 |
+| Dokument                                                 | Popis                                            |
+| -------------------------------------------------------- | ------------------------------------------------ |
+| [Funkčná špecifikácia](docs/functional-spec.md)          | Čo systém robí (moduly, roly, user stories)      |
+| [CLAUDE.md](CLAUDE.md)                                   | Konvencie repa (aj pre ľudí, nielen pre Claude)  |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                       | Mapa kódu — moduly, dátové toky, hranice balíkov |
+| [RUNBOOK.md](RUNBOOK.md)                                 | Deploy, rollback, cron joby, incidenty           |
+| [Architektúra](docs/architecture/README.md)              | Architektonický prehľad, C4 diagramy             |
+| [Dátový model](docs/architecture/data-model.md)          | MongoDB kolekcie a vzťahy                        |
+| [API špecifikácia](docs/api/openapi.yaml)                | OpenAPI 3.1                                      |
+| [MCP server](docs/architecture/mcp-server.md)            | Špecifikácia MCP integrácie                      |
+| [ADR](docs/decisions/README.md)                          | Architecture Decision Records (37×)              |
+| [Milestones](docs/milestones/)                           | Slice-by-slice progress documentation            |
+| [shared-types README](packages/shared-types/README.md)   | Single source of truth pre dátový model          |
+| [design-tokens README](packages/design-tokens/README.md) | Multi-vrstvový token systém                      |
 
 ---
 
