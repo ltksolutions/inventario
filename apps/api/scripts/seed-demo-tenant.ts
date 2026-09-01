@@ -32,7 +32,7 @@
  *   ... seed:demo -- --confirm --reset
  *
  *   # iný admin / slug:
- *   ... seed:demo -- --confirm --admin-email=jan.letko@firma.sk --slug=demo
+ *   ... seed:demo -- --confirm --admin-email=office@ltk.solutions --slug=demo
  *
  * Po seede: v appke (app.inventario.estate) prepni organizáciu na „Demo"
  * a sprav screenshoty. Preberacie protokoly (obrazovka /protocols) vyrob
@@ -52,7 +52,7 @@ const CONFIRM = args.includes('--confirm');
 const RESET = args.includes('--reset');
 const SLUG = (args.find((a) => a.startsWith('--slug='))?.split('=')[1] ?? 'demo').toLowerCase();
 const ADMIN_EMAIL =
-  args.find((a) => a.startsWith('--admin-email='))?.split('=')[1] ?? 'jan.letko@firma.sk';
+  args.find((a) => a.startsWith('--admin-email='))?.split('=')[1] ?? 'office@ltk.solutions';
 
 const MONGO_URI = process.env['MONGO_URI'];
 const DB_NAME = process.env['MONGO_DB_NAME'];
