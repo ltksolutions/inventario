@@ -130,7 +130,7 @@ Inventario/
 │   ├── compliance/           # ✅ GDPR, DPA, ROPA, DPIA, retencia, sub-processors
 │   └── marketing-site/       # ✅ inventario.estate (static HTML) + /screenshots
 ├── infra/
-│   ├── docker-compose.yml    # ✅ Lokálna Mongo + MailHog + MinIO
+│   ├── docker-compose.yml    # ✅ Lokálna Mongo + Mongo Express + MailHog
 │   └── vercel/               # ✅ Deployment docs pre Vercel
 ├── LICENSES/                 # ✅ Plné texty licencií (EUPL-1.2, CC-BY-4.0)
 ├── REUSE.toml                # ✅ Centrálne licenčné mapovanie
@@ -183,7 +183,7 @@ Detaily v [`docs/milestones/`](docs/milestones/) a [`docs/sessions/NEXT.md`](doc
 
 - **Node.js** `20.11.0` (riadi `.nvmrc`)
 - **pnpm** `9.12.0+`
-- **Docker + Docker Compose** (pre lokálnu Mongo, MinIO, MailHog)
+- **Docker + Docker Compose** (pre lokálnu Mongo a MailHog)
 - **VS Code** (odporúčané — automaticky ti ponúkne potrebné rozšírenia)
 
 ### Spustenie
@@ -203,7 +203,6 @@ docker compose -f infra/docker-compose.yml up -d
 #   → MongoDB na :27017
 #   → Mongo Express UI na http://localhost:8081
 #   → MailHog UI na http://localhost:8025
-#   → MinIO Console na http://localhost:9001
 
 # 4. Build packages
 pnpm build

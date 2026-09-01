@@ -25,7 +25,7 @@ Lokálny beh (detaily v `README.md` a `infra/README.md`):
 
 ```bash
 pnpm install
-docker compose -f infra/docker-compose.yml up -d   # Mongo, MailHog, MinIO
+docker compose -f infra/docker-compose.yml up -d   # Mongo, Mongo Express, MailHog
 pnpm --filter @inventario/api dev                  # API + /docs (Swagger)
 pnpm --filter @inventario/web dev                  # web
 pnpm test                                          # celé monorepo cez turbo

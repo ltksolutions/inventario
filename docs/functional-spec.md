@@ -720,8 +720,11 @@ sequenceDiagram
 
 ### 9.3 Object storage (povinné, fáza 1)
 
-- **Typ:** S3-kompatibilné (Azure Blob, AWS S3, MinIO pre on-prem)
-- **Účel:** fotografie majetku, PDF protokoly
+- **Typ:** Vercel Blob (`@vercel/blob`) — implementované. Pôvodne bolo
+  v pláne S3-kompatibilné úložisko (Azure Blob, AWS S3, MinIO pre
+  on-prem); pre self-hosting to zostáva otvorená možnosť, ale platforma
+  ho dnes nepoužíva.
+- **Účel:** fotografie majetku, prílohy, logá tenantov, PDF protokoly
 
 ### 9.4 MCP server (povinné, fáza 1)
 

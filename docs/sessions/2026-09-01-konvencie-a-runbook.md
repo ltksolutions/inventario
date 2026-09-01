@@ -133,10 +133,32 @@ dnes ráno.
 Do `CLAUDE.md` šlo pravidlo, že sa i18n knižnica nezavádza a texty sa
 nerozbíjajú do kľúčov, kým nevznikne ADR.
 
-## Nový nález, ktorý čaká na rozhodnutie
+## Dva nálezy dorazené po schválení
 
-`NEXT_PUBLIC_*` premenné nie sú v `turbo.json` — ani v `globalEnv`, ani
-v `tasks.build.env` (tam je len `NODE_ENV`). Next.js ich zapeká do buildu,
-takže po zmene `NEXT_PUBLIC_API_BASE_URL` môže Turborepo vrátiť cache hit
-so starou hodnotou. Oprava je jednoriadková, ale je to zásah do build
-konfigurácie — čaká na súhlas.
+### `NEXT_PUBLIC_*` chýbali v `turbo.json`
+
+Neboli ani v `globalEnv`, ani v `tasks.build.env` (tam je len `NODE_ENV`).
+Next.js ich zapeká do buildu, takže po zmene `NEXT_PUBLIC_API_BASE_URL`
+mohlo Turborepo vrátiť cache hit so **starou** hodnotou — a nikto by si
+nevšimol, prečo appka volá iné API. Doplnené do `globalEnv`:
+`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_CANONICAL_APP_URL`,
+`NEXT_PUBLIC_APPLE_ENABLED` (43 premenných celkom).
+
+### MinIO vyhodený z lokálnej infraštruktúry
+
+`infra/docker-compose.yml` spúšťal `minio` + `minio-setup` (porty 9000
+a 9001, volume `sfz-minio-data`) a `minio-setup` pri každom štarte
+vytváral buckety `sfz-asset-attachments` a `sfz-asset-protocols` — ktoré
+zostávali prázdne, lebo žiadny kód MinIO nepoužíva. Object storage ide
+cez Vercel Blob (ADR-0028).
+
+Von šli: obe služby, volume, `MINIO_ROOT_*` z `.env.example`, zmienky
+v `README.md` a `infra/README.md`. Lokálne prostredie je o dva kontejnery
+menšie. YAML overený `yaml.safe_load` — zostali `mongodb`,
+`mongo-express`, `mailhog` a dva mongo volumes.
+
+Pozostatok, ktorý som **nechal**: `Attachment.bucket` je stále enum
+`'sfz-asset-attachments' | 'sfz-asset-protocols'` (hodnota sa zapisuje
+natvrdo) a `storageKey` nesie celú URL, nie kľúč. Zjednotenie je zmena
+schémy v `shared-types` plus migrácia existujúcich dokumentov — otvorený
+bod v `NEXT.md`.

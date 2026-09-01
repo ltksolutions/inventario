@@ -133,9 +133,11 @@ Postupy k všetkým trom sú v [`RUNBOOK.md`](RUNBOOK.md).
   [`docs/architecture/mcp-server.md`](docs/architecture/mcp-server.md),
   implementácia je plánovaná (Slice #10).
 - **Mobilná appka** (Flutter) — fáza 3.
-- **MinIO v `infra/docker-compose.yml`** sa lokálne spúšťa (konzola na
-  `:9001`), ale žiadny kód ho nepoužíva. Prílohy a logá tenantov idú do
-  **Vercel Blob** (`@vercel/blob`, token `BLOB_READ_WRITE_TOKEN`,
-  ADR-0028) — viď `modules/attachments/attachments.routes.ts`. MinIO
-  a `STORAGE_*` premenné boli pôvodný plán; premenné z `.env.example`
-  vypadli 2026-09-01, kontejner v compose zostal.
+- **Object storage cez S3/MinIO** — pôvodný plán, zrušený. Prílohy a logá
+  tenantov idú do **Vercel Blob** (`@vercel/blob`, token
+  `BLOB_READ_WRITE_TOKEN`, ADR-0028) — viď
+  `modules/attachments/attachments.routes.ts`. `STORAGE_*` premenné aj
+  MinIO kontejner z `infra/docker-compose.yml` vypadli 2026-09-01.
+  Pozostatok v schéme: `Attachment.bucket` je stále enum
+  `'sfz-asset-attachments' | 'sfz-asset-protocols'` a `storageKey` nesie
+  celú URL, nie kľúč. Zjednotenie by bola zmena schémy, teda migrácia.

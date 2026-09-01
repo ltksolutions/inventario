@@ -62,17 +62,12 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
   je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
   restoru.
-- **`NEXT_PUBLIC_*` nie sú v `turbo.json`** — ani v `globalEnv`, ani
-  v `tasks.build.env` (tam je len `NODE_ENV`). Next.js ich zapeká do
-  buildu, takže po zmene `NEXT_PUBLIC_API_BASE_URL` môže Turborepo vrátiť
-  cache hit so **starou** hodnotou. Opraviť = doplniť
-  `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_CANONICAL_APP_URL`,
-  `NEXT_PUBLIC_APPLE_ENABLED` do `globalEnv`. Zistené 2026-09-01;
-  je to zásah do build konfigurácie, preto čaká na súhlas.
-- **MinIO v compose je mŕtvy** — `infra/docker-compose.yml` spúšťa MinIO
-  a `minio-setup`, ale žiadny kód ho nepoužíva (object storage ide cez
-  Vercel Blob). Buď z compose vyhodiť, alebo nechať a zdokumentovať
-  ako rezervu. `STORAGE_*` premenné z `.env.example` vypadli 2026-09-01.
+- **`Attachment.bucket` a `storageKey` sú pozostatok po S3** — `bucket` je
+  enum `'sfz-asset-attachments' | 'sfz-asset-protocols'`, ktorý pri Vercel
+  Blobe nič neznamená (hodnota sa zapisuje natvrdo), a `storageKey` nesie
+  celú URL, nie kľúč. Zjednotenie = zmena schémy v `shared-types`
+  - migrácia existujúcich dokumentov, teda samostatná úloha s tvojím
+    súhlasom. Zistené 2026-09-01.
 - **`docs/sessions/README.md` má zastaralý index** — indexovaný zoznam
   končí pri 2026-05, session logy od júna do septembra v ňom nie sú.
   Buď doplniť, alebo index zrušiť a nechať len konvencie (adresár je

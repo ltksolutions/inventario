@@ -26,6 +26,15 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
   `BLOB_READ_WRITE_TOKEN` ani `NEXT_PUBLIC_*`. Podľa starej verzie sa
   projekt nedal rozbehať. Každý kľúč má teraz označené, či je povinný,
   alebo či bez neho endpoint vracia 503.
+- **`NEXT_PUBLIC_*` doplnené do `turbo.json` → `globalEnv` (2026-09-01)** —
+  neboli tam ani v `tasks.build.env`, takže po zmene
+  `NEXT_PUBLIC_API_BASE_URL` mohlo Turborepo vrátiť cache hit so starou
+  hodnotou zapečenou do buildu.
+- **MinIO odstránený z lokálnej infraštruktúry (2026-09-01)** — služby
+  `minio` a `minio-setup`, volume `sfz-minio-data` a `MINIO_ROOT_*` von.
+  Žiadny kód ho nepoužíval, object storage ide cez Vercel Blob (ADR-0028);
+  `minio-setup` len pri každom štarte vytváral prázdne buckety. Lokálne
+  prostredie je o dva kontejnery menšie.
 - **OpenAPI dokument ukazuje na produkčné domény** — `plugins/swagger.ts`
   malo v `servers`, `externalDocs` a `contact` ešte
   `*.inventario.sportup.sk` a popis „Production (planned Q3 2026)".

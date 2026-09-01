@@ -11,28 +11,30 @@ docker compose -f infra/docker-compose.yml up -d
 
 ## Čo sa spustí
 
-| Služba            | Port              | Web UI                | Účel                           |
-| ----------------- | ----------------- | --------------------- | ------------------------------ |
-| **MongoDB**       | 27017             | –                     | Hlavná databáza                |
-| **Mongo Express** | 8081              | http://localhost:8081 | Web UI pre prehliadanie DB     |
-| **MailHog**       | 1025 (SMTP), 8025 | http://localhost:8025 | Fake SMTP server pre e-maily   |
-| **MinIO**         | 9000 (API), 9001  | http://localhost:9001 | S3-kompatibilný object storage |
+| Služba            | Port              | Web UI                | Účel                         |
+| ----------------- | ----------------- | --------------------- | ---------------------------- |
+| **MongoDB**       | 27017             | –                     | Hlavná databáza              |
+| **Mongo Express** | 8081              | http://localhost:8081 | Web UI pre prehliadanie DB   |
+| **MailHog**       | 1025 (SMTP), 8025 | http://localhost:8025 | Fake SMTP server pre e-maily |
 
 ## Predvolené prihlasovacie údaje
 
 > ⚠️ **Tieto údaje sú LEN pre lokálny vývoj!** Nikdy ich nepoužívaj v produkcii.
 
 - **MongoDB**: `admin` / `changeme-local-only`
-- **MinIO**: `minioadmin` / `changeme-local-only`
 
 Údaje môžeš prepísať cez environment premenné v `.env` súbore v koreni repa.
 
-## Predvolené MinIO buckety
+## Object storage tu nie je
 
-Pri prvom štarte sa automaticky vytvoria:
+Prílohy a logá tenantov idú do **Vercel Blob** (`@vercel/blob`, token
+`BLOB_READ_WRITE_TOKEN`) — viď `apps/api/src/modules/attachments/`.
+Lokálny vývoj proti nemu potrebuje ten token, nie kontejner.
 
-- `sfz-asset-attachments` – nahrané prílohy (fotky, dokumenty)
-- `sfz-asset-protocols` – generované PDF protokoly o odovzdaní/vrátení
+MinIO tu bežal do 2026-09-01 ako S3-kompatibilná náhrada, ale žiadny kód
+ho nepoužíval — buckety `sfz-asset-attachments` a `sfz-asset-protocols`
+sa vytvárali naprázdno. Ak by sa object storage niekedy vracal k S3,
+konfigurácia je v git histórii.
 
 ## Bežné príkazy
 
