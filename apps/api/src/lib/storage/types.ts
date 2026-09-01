@@ -85,6 +85,6 @@ export interface ObjectStorage {
 
 export interface StorageContext {
   logger: FastifyBaseLogger;
-  /** Token pre prístup k store. Mimo Vercelu povinný. */
+  /** `BLOB_PRIVATE_READ_WRITE_TOKEN`. Pre Vercel Blob provider povinný. */
   token?: string | undefined;
 }

@@ -17,9 +17,10 @@
  * Delegáciu preto zúžujeme na JEDEN pathname a JEDNU operáciu. Kto URL do
  * expirácie získa, vie s ňou urobiť presne to jedno — nie čítať celý store.
  *
- * Autentifikácia: na Verceli OIDC (`VERCEL_OIDC_TOKEN` + `BLOB_STORE_ID`),
- * ktoré si SDK berie samo. Mimo Vercelu (lokálne, CI) treba
- * `BLOB_READ_WRITE_TOKEN`.
+ * Autentifikácia: VŽDY explicitný `BLOB_PRIVATE_READ_WRITE_TOKEN`. Keby
+ * sme ho nepredali, SDK si vezme `process.env.BLOB_READ_WRITE_TOKEN` —
+ * čo je token STARÉHO PUBLIC storu — a originály príloh by skončili
+ * verejne. Preto `createVercelBlobStorage` bez tokenu padne.
  *
  * POZOR: podpísané URL sa nikdy nelogujú celé. Do logu ide iba pathname.
  */
@@ -49,14 +50,18 @@ async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffe
 export function createVercelBlobStorage(ctx: StorageContext): ObjectStorage {
   const { logger, token } = ctx;
 
-  /** Spoločné options pre control-plane volania. */
-  const commonOptions = token === undefined ? {} : { token };
+  if (token === undefined) {
+    throw new Error(
+      'createVercelBlobStorage: chýba token. Bez explicitného tokenu by ' +
+        '@vercel/blob použil BLOB_READ_WRITE_TOKEN starého public storu.',
+    );
+  }
+
+  /** Spoločné options pre control-plane volania. Token je vždy explicitný. */
+  const commonOptions = { token };
 
   return {
     name: 'vercel-blob',
-    // Na Verceli stačí OIDC, token je voliteľný. Mimo Vercelu bez tokenu
-    // control-plane volania zlyhajú — to necháme padnúť nahlas pri prvom
-    // použití, nie tichým `isConfigured: false`.
     isConfigured: true,
 
     async presignUpload(input): Promise<PresignedUpload> {

@@ -4,10 +4,13 @@
 /**
  * Výber úložiska originálov príloh (ADR-0037).
  *
- * Reálny Vercel Blob private store sa použije vtedy, keď je k dispozícii
- * autentifikácia — teda `BLOB_READ_WRITE_TOKEN` (lokálne a v CI) alebo
- * OIDC na Verceli (`VERCEL_OIDC_TOKEN` + `BLOB_STORE_ID`, ktoré SDK berie
- * samo). Inak sa použije in-memory stub.
+ * Reálny Vercel Blob private store sa použije vtedy a len vtedy, keď je
+ * nastavený `BLOB_PRIVATE_READ_WRITE_TOKEN`. Inak in-memory stub.
+ *
+ * POZOR — prečo nie OIDC: projekt má pripojené DVA story a v env aj
+ * `BLOB_READ_WRITE_TOKEN` starého PUBLIC storu. Keby sme token nepredali
+ * explicitne, `@vercel/blob` by si ho vzal z prostredia a originály
+ * príloh by skončili vo verejnom store. Token je preto povinný.
  *
  * Rovnaký vzor ako `plugins/email.ts` s `EMAIL_PROVIDER=stub`: bez
  * konfigurácie appka nabootuje a funguje, len prílohy nikam neodletia.
@@ -26,9 +29,9 @@ export type { StubStorage } from './stub.storage.js';
 
 export interface SelectStorageInput {
   logger: FastifyBaseLogger;
-  /** `BLOB_READ_WRITE_TOKEN`, ak je nastavený. */
+  /** `BLOB_PRIVATE_READ_WRITE_TOKEN`. Bez neho sa použije stub. */
   token?: string | undefined;
-  /** `BLOB_STORE_ID`, ak je nastavený (na Verceli ho dopĺňa platforma). */
+  /** `BLOB_PRIVATE_STORE_ID` — len na logovanie. */
   storeId?: string | undefined;
   /** `NODE_ENV` — kvôli hlasitému varovaniu v produkcii. */
   nodeEnv: 'development' | 'test' | 'production';
@@ -43,26 +46,22 @@ export function selectObjectStorage(input: SelectStorageInput): ObjectStorage {
     return createStubStorage({ logger, token: undefined });
   }
 
-  const hasAuth = Boolean(token) || Boolean(storeId) || Boolean(process.env['VERCEL_OIDC_TOKEN']);
-
-  if (!hasAuth) {
+  if (token === undefined) {
     if (nodeEnv === 'production') {
       logger.error(
-        'BLOB_READ_WRITE_TOKEN ani BLOB_STORE_ID nie sú nastavené — prílohy sa NEBUDÚ ukladať. ' +
-          'Pripoj private Blob store k projektu (ADR-0037).',
+        'BLOB_PRIVATE_READ_WRITE_TOKEN nie je nastavený — prílohy sa NEBUDÚ ukladať. ' +
+          'Pripoj private Blob store k projektu s prefixom BLOB_PRIVATE (ADR-0037).',
       );
     } else {
       logger.warn(
-        'Object storage beží v stub režime (bez BLOB_READ_WRITE_TOKEN) — prílohy zostanú len v pamäti.',
+        'Object storage beží v stub režime (bez BLOB_PRIVATE_READ_WRITE_TOKEN) — ' +
+          'prílohy zostanú len v pamäti.',
       );
     }
     return createStubStorage({ logger, token: undefined });
   }
 
-  logger.info(
-    { hasToken: Boolean(token), hasStoreId: Boolean(storeId) },
-    'Object storage: Vercel Blob (private)',
-  );
+  logger.info({ hasStoreId: Boolean(storeId) }, 'Object storage: Vercel Blob (private)');
 
   const ctx: StorageContext = { logger, token };
   return createVercelBlobStorage(ctx);

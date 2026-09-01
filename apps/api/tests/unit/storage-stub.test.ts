@@ -19,6 +19,7 @@ import {
   selectObjectStorage,
   UPLOAD_URL_TTL_SECONDS,
 } from '../../src/lib/storage/index.js';
+import { createVercelBlobStorage } from '../../src/lib/storage/vercel-blob.storage.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 
@@ -154,5 +155,25 @@ describe('selectObjectStorage', () => {
     });
 
     expect(storage.name).toBe('vercel-blob');
+  });
+
+  // Samotný storeId nestačí. Bez explicitného tokenu by @vercel/blob siahol
+  // na process.env.BLOB_READ_WRITE_TOKEN — token STARÉHO PUBLIC storu — a
+  // originály príloh by skončili verejne. Radšej stub než tichý únik.
+  it('so storeId ale bez tokenu zostane na stube', () => {
+    const storage = selectObjectStorage({
+      logger: fakeLogger(),
+      token: undefined,
+      storeId: 'store_fake',
+      nodeEnv: 'development',
+    });
+
+    expect(storage.name).toBe('stub');
+  });
+
+  it('createVercelBlobStorage bez tokenu padne', () => {
+    expect(() => createVercelBlobStorage({ logger: fakeLogger() })).toThrow(
+      /BLOB_READ_WRITE_TOKEN star/,
+    );
   });
 });

@@ -236,13 +236,20 @@ const envSchema = z.object({
   // Originály príloh ležia v PRIVATE Blob store, teda každé čítanie aj
   // zápis vyžaduje autentifikáciu.
   //
-  // Na Verceli si SDK berie OIDC token samo, keď je store pripojený
-  // k projektu (platforma doplní VERCEL_OIDC_TOKEN a BLOB_STORE_ID).
-  // Mimo Vercelu — lokálne a v CI — treba BLOB_READ_WRITE_TOKEN daného
-  // storu. Bez oboch beží úložisko v stub režime a prílohy sa nikam
-  // neukladajú; v produkcii to `lib/storage` zaloguje ako error.
-  BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
-  BLOB_STORE_ID: z.string().min(1).optional(),
+  // Prefix je zámerne BLOB_PRIVATE_, nie BLOB_: projekt už má
+  // BLOB_READ_WRITE_TOKEN patriaci STARÉMU public storu
+  // (inventario-api-blob), ktorý stále obsluhuje pôvodný upload príloh
+  // a loga. Kolízia názvov by ten upload rozbila.
+  //
+  // Token je pre privátny store POVINNÝ — nie voliteľný. @vercel/blob
+  // pri chýbajúcom `token` sáha na process.env.BLOB_READ_WRITE_TOKEN,
+  // teda na public store, a zapísal by tam originály príloh. Preto sa
+  // OIDC cesta nepoužíva: s dvoma pripojenými storami by ju ani nebolo
+  // ako rozlíšiť. Bez tokenu beží úložisko v stub režime a v produkcii
+  // to `lib/storage` zaloguje ako error.
+  BLOB_PRIVATE_READ_WRITE_TOKEN: z.string().min(1).optional(),
+  // Len na diagnostiku (logovanie, ktorý store je nakonfigurovaný).
+  BLOB_PRIVATE_STORE_ID: z.string().min(1).optional(),
 
   // ---------------------------------------------------------------------
   // Migrations — deploy-time trigger (POST /v1/system/migrations/run)

@@ -4,7 +4,7 @@
 /**
  * In-memory stub úložiska (ADR-0037).
  *
- * Používa sa v testoch a v lokálnom vývoji bez `BLOB_READ_WRITE_TOKEN`.
+ * Používa sa v testoch a v lokálnom vývoji bez `BLOB_PRIVATE_READ_WRITE_TOKEN`.
  * Drží objekty v `Map` v pamäti procesu — po restarte je prázdny, čo je
  * pre testy správne chovanie.
  *
