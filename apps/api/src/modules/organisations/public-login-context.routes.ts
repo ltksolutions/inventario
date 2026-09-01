@@ -34,6 +34,9 @@ import { HexColorSchema } from '@inventario/shared-types';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { ErrorResponseSchema } from '../../lib/error-response.js';
+import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
+
 import { OrganisationsRepository } from './organisations.repository.js';
 
 import type { AuthProvider } from '@inventario/shared-types';
@@ -69,8 +72,6 @@ const PublicLoginContextResponseSchema = z
     hasEntraRestriction: z.boolean(),
   })
   .strict();
-
-const NotFoundSchema = z.object({ message: z.string() });
 
 const QuerySchema = z
   .object({
@@ -116,8 +117,8 @@ const publicLoginContextRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         querystring: QuerySchema,
         response: {
           200: PublicLoginContextResponseSchema,
-          400: NotFoundSchema,
-          404: NotFoundSchema,
+          400: ErrorResponseSchema,
+          404: ErrorResponseSchema,
         },
       },
     },
@@ -125,9 +126,7 @@ const publicLoginContextRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       const { slug, domain } = request.query;
 
       if ((slug && domain) || (!slug && !domain)) {
-        return reply
-          .status(400)
-          .send({ message: 'Zadajte presne jeden z parametrov slug/domain.' });
+        throw new BadRequestError('Zadajte presne jeden z parametrov slug/domain.');
       }
 
       const org = slug
@@ -137,7 +136,7 @@ const publicLoginContextRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       if (!org) {
         // findBySlug/findByCustomDomain už filtrujú deletedAt: null, takže
         // táto 404 pokrýva aj zmazanú org bez extra kontroly (no-oracle).
-        return reply.status(404).send({ message: 'Not found.' });
+        throw new NotFoundError('Organisation');
       }
 
       const view = {

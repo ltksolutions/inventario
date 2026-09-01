@@ -88,6 +88,28 @@ function toError(err: unknown): Error {
   return new Error(typeof err === 'string' ? err : 'Unknown error');
 }
 
+/**
+ * Štandardný text k HTTP status kódu — pre chyby, ktoré nepochádzajú
+ * z našich `HttpError` tried a nesú neinformatívne `name`.
+ */
+function reasonPhrase(statusCode: number): string | undefined {
+  const phrases: Record<number, string> = {
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    405: 'Method Not Allowed',
+    409: 'Conflict',
+    413: 'Payload Too Large',
+    414: 'URI Too Long',
+    415: 'Unsupported Media Type',
+    422: 'Unprocessable Entity',
+    429: 'Too Many Requests',
+  };
+
+  return phrases[statusCode];
+}
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -126,7 +148,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // ----- Fastify built-in errors (e.g. payload too large) -----
+    // ----- Fastify built-in errors (e.g. validation, payload too large) -----
     if (hasStatusCode(error) && error.statusCode && error.statusCode < 500) {
       request.log.warn(
         { statusCode: error.statusCode, message: error.message, path: request.url },
@@ -134,7 +156,10 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       );
       return reply.status(error.statusCode).send({
         statusCode: error.statusCode,
-        error: error.name || 'Error',
+        // Fastify validačným chybám nesie `name` hodnotu 'Error', čo
+        // klientovi nič nepovie. Preto sa `error` odvodí zo status kódu
+        // a `name` sa použije len vtedy, keď nesie niečo konkrétnejšie.
+        error: reasonPhrase(error.statusCode) ?? error.name ?? 'Error',
         message: error.message,
       });
     }

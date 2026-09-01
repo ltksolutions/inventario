@@ -19,6 +19,8 @@
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
+import { ErrorResponseSchema } from '../../lib/error-response.js';
+import { NotFoundError } from '../../plugins/error-handler.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 import { OrganisationsRepository } from '../organisations/organisations.repository.js';
 
@@ -46,8 +48,6 @@ const PublicAssetResponseSchema = z
       .nullable(),
   })
   .strict();
-
-const NotFoundSchema = z.object({ message: z.string() });
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -81,7 +81,7 @@ const publicAssetsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         }),
         response: {
           200: PublicAssetResponseSchema,
-          404: NotFoundSchema,
+          404: ErrorResponseSchema,
         },
       },
     },
@@ -91,14 +91,18 @@ const publicAssetsRoutesPlugin: FastifyPluginAsync = async (fastify) => {
       // Krok 1: najdi asset podla tokenu (cross-tenant, deletedAt=null)
       const asset = await assetsRepo.findByPublicToken(publicToken);
       if (!asset) {
-        return reply.status(404).send({ message: 'Not found.' });
+        // Rovnaká chyba pre neexistujúci token aj pre vypnutý lookup —
+        // no-oracle (ADR-0021). Prechádza centrálnym error handlerom,
+        // takže telo má jednotný tvar ako zvyšok API.
+        throw new NotFoundError('Asset');
       }
 
       // Krok 2: nacitaj org — skontroluj publicAssetLookup
       const org = await orgsRepo.findById(String(asset.organisationId));
       if (!org || !org.publicAssetLookup) {
-        // 404 aj pre disabled — nerevealujeme existenciu tokenu
-        return reply.status(404).send({ message: 'Not found.' });
+        // 404 aj pre disabled — nerevealujeme existenciu tokenu.
+        // Identická chyba ako vyššie (rovnaký text aj tvar).
+        throw new NotFoundError('Asset');
       }
 
       // Krok 3: zostav PublicAssetView — POLE PO POLI, NIE spread (ADR-0021).

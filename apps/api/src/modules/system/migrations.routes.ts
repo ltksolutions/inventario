@@ -62,6 +62,7 @@ const migrationsRoutes: FastifyPluginAsync = async (fastify) => {
       if (!migrationsSecret) {
         fastify.log.warn('[migrations] MIGRATIONS_SECRET not configured — endpoint disabled');
         return reply.code(503).send({
+          statusCode: 503,
           error: 'MIGRATIONS_DISABLED',
           message: 'Migration endpoint is not configured. Set MIGRATIONS_SECRET env var.',
         });
@@ -77,6 +78,7 @@ const migrationsRoutes: FastifyPluginAsync = async (fastify) => {
           '[migrations] Unauthorized trigger attempt',
         );
         return reply.code(401).send({
+          statusCode: 401,
           error: 'UNAUTHORIZED',
           message: 'Invalid or missing Authorization header.',
         });
@@ -92,6 +94,7 @@ const migrationsRoutes: FastifyPluginAsync = async (fastify) => {
         const msg = err instanceof Error ? err.message : String(err);
         fastify.log.error({ error: msg }, '[migrations] Migration run failed');
         return reply.code(500).send({
+          statusCode: 500,
           error: 'MIGRATIONS_FAILED',
           message: msg,
         });

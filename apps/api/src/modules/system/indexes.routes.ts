@@ -43,6 +43,7 @@ const indexesRoutes: FastifyPluginAsync = async (fastify) => {
       if (!secret) {
         fastify.log.warn('[indexes] MIGRATIONS_SECRET not configured — endpoint disabled');
         return reply.code(503).send({
+          statusCode: 503,
           error: 'INDEXES_DISABLED',
           message: 'Index endpoint is not configured. Set MIGRATIONS_SECRET env var.',
         });
@@ -57,6 +58,7 @@ const indexesRoutes: FastifyPluginAsync = async (fastify) => {
           '[indexes] Unauthorized trigger attempt',
         );
         return reply.code(401).send({
+          statusCode: 401,
           error: 'UNAUTHORIZED',
           message: 'Invalid or missing Authorization header.',
         });
@@ -85,6 +87,7 @@ const indexesRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (failed.length > 0) {
         return reply.code(500).send({
+          statusCode: 500,
           error: 'INDEXES_PARTIALLY_FAILED',
           message: `${String(failed.length)} of ${String(ensurers.length)} index sets failed.`,
           failed,

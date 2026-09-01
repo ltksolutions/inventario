@@ -60,6 +60,7 @@ const retentionRoutes: FastifyPluginAsync = async (fastify) => {
       if (!cronSecret) {
         fastify.log.warn('[retention] CRON_SECRET not configured — endpoint disabled');
         return reply.code(503).send({
+          statusCode: 503,
           error: 'RETENTION_DISABLED',
           message: 'Retention job is not configured. Set CRON_SECRET env var.',
         });
@@ -76,6 +77,7 @@ const retentionRoutes: FastifyPluginAsync = async (fastify) => {
           '[retention] Unauthorized cron attempt',
         );
         return reply.code(401).send({
+          statusCode: 401,
           error: 'UNAUTHORIZED',
           message: 'Invalid or missing Authorization header.',
         });
@@ -91,6 +93,7 @@ const retentionRoutes: FastifyPluginAsync = async (fastify) => {
         const msg = err instanceof Error ? err.message : String(err);
         fastify.log.error({ error: msg }, '[retention] Retention job failed');
         return reply.code(500).send({
+          statusCode: 500,
           error: 'RETENTION_FAILED',
           message: msg,
         });
