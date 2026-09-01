@@ -39,6 +39,40 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   `ERR_PNPM_UNSUPPORTED_ENGINE`. Zatiaľ sa obchádza spúšťaním binárok
   priamo z `node_modules/.bin`. Rozhodnúť: doinštalovať node 24, alebo
   uvoľniť `engines`. Kontext: `2026-09-01-openapi-chybove-odpovede.md`.
+- **i18n (SK / CS / EN)** — dnes žiadne i18n nie je, texty sú
+  v komponentoch natvrdo po slovensky. Platforma je ale white-label
+  a multi-tenant, takže prvý český alebo anglický tenant to otvorí.
+  Rozsah, ktorý treba rozhodnúť **pred** prvým riadkom kódu:
+  - knižnica (`next-intl` vs. `react-i18next` vs. vlastné) a či routing
+    nesie locale v ceste (`/sk/...`) alebo nie
+  - kde sa locale berie: preferencia používateľa v DB, nastavenie
+    organizácie, `Accept-Language`, alebo kombinácia s prioritou
+  - fallback: chýbajúci preklad má padnúť na slovenčinu, **nikdy** na kľúč
+  - texty z API — chybové `message` z `error-handler.ts` a e-mailové
+    šablóny sú tiež používateľské texty. Prekladať na serveri podľa
+    locale používateľa, alebo posielať kód a prekladať na klientovi?
+    (Odpoveď má dopad na tvar chybovej odpovede — `error` je dnes voľný
+    text, nie enum.)
+  - dátumy, čísla a meny — dnes formátované slovensky
+    Toto je rozhodnutie na **ADR**, nie na commit. Kým nevznikne, nezavádzať
+    i18n knižnicu ani nerozbíjať texty do kľúčov (pravidlo je v `CLAUDE.md`).
+- **Ďalší štvrťročný DR test je po termíne** — posledný záznam v
+  `docs/compliance/dr-test-log.md` je #1 z 2026-05-23 (PASS), kadencia
+  podľa `disaster-recovery-plan.md` je štvrťročná. Flex tier neumožňuje
+  restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
+  je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
+  restoru.
+- **`NEXT_PUBLIC_*` nie sú v `turbo.json`** — ani v `globalEnv`, ani
+  v `tasks.build.env` (tam je len `NODE_ENV`). Next.js ich zapeká do
+  buildu, takže po zmene `NEXT_PUBLIC_API_BASE_URL` môže Turborepo vrátiť
+  cache hit so **starou** hodnotou. Opraviť = doplniť
+  `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_CANONICAL_APP_URL`,
+  `NEXT_PUBLIC_APPLE_ENABLED` do `globalEnv`. Zistené 2026-09-01;
+  je to zásah do build konfigurácie, preto čaká na súhlas.
+- **MinIO v compose je mŕtvy** — `infra/docker-compose.yml` spúšťa MinIO
+  a `minio-setup`, ale žiadny kód ho nepoužíva (object storage ide cez
+  Vercel Blob). Buď z compose vyhodiť, alebo nechať a zdokumentovať
+  ako rezervu. `STORAGE_*` premenné z `.env.example` vypadli 2026-09-01.
 - **`docs/sessions/README.md` má zastaralý index** — indexovaný zoznam
   končí pri 2026-05, session logy od júna do septembra v ňom nie sú.
   Buď doplniť, alebo index zrušiť a nechať len konvencie (adresár je

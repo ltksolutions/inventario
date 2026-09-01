@@ -13,6 +13,27 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
+- **Konvencie repa a prevádzkové dokumenty (2026-09-01)** — pridané
+  `CLAUDE.md` (konvencie repa), `ARCHITECTURE.md` (mapa kódu — hranice
+  balíkov, vrstvy API, tok requestu, multi-tenancy) a `RUNBOOK.md` (deploy,
+  rollback, cron joby, incidenty). Odkazy doplnené do `README.md`,
+  licenčná metadata do `REUSE.toml` (root dokumenty ju majú tam, nie
+  inline). Session log: `docs/sessions/2026-09-01-konvencie-a-runbook.md`.
+- **`.env.example` zosynchronizovaný s `plugins/config.ts`** — mal
+  `API_PORT`, `JWT_SECRET` a `STORAGE_*` (MinIO/Azure/S3), ktoré Zod schéma
+  nepozná, a nemal `PORT`, `MIGRATIONS_SECRET`, `CRON_SECRET`,
+  `WEBAUTHN_*`, `MFA_*`, `OAUTH_*`, `ENABLE_SWAGGER`, `FRONTEND_BASE_URL`,
+  `BLOB_READ_WRITE_TOKEN` ani `NEXT_PUBLIC_*`. Podľa starej verzie sa
+  projekt nedal rozbehať. Každý kľúč má teraz označené, či je povinný,
+  alebo či bez neho endpoint vracia 503.
+- **OpenAPI dokument ukazuje na produkčné domény** — `plugins/swagger.ts`
+  malo v `servers`, `externalDocs` a `contact` ešte
+  `*.inventario.sportup.sk` a popis „Production (planned Q3 2026)".
+  Teraz `api.inventario.estate` / `docs.inventario.estate`. Poradie
+  serverov je podmienené prostredím: lokálne je prvý `localhost`, aby
+  „Try it out" v Swagger UI nemieril na produkciu, v exportovanom
+  dokumente je prvá produkcia.
+
 - **Chybové odpovede v OpenAPI a jednotný tvar chybového tela (2026-09-01)** —
   Redocly warningy **103 → 5**, `operation-4xx-response` **95 → 0**,
   operácie bez akejkoľvek 4xx odpovede **97 → 0**. Session log:
