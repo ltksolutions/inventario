@@ -13,6 +13,35 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
+- **Chybové odpovede v OpenAPI a jednotný tvar chybového tela (2026-09-01)** —
+  Redocly warningy **103 → 5**, `operation-4xx-response` **95 → 0**,
+  operácie bez akejkoľvek 4xx odpovede **97 → 0**. Session log:
+  `docs/sessions/2026-09-01-openapi-chybove-odpovede.md`.
+  - **Opravené orezané chybové telo na `GET /v1/public/organisations/login-context`.**
+    Lokálna schéma `400: z.object({ message })` spôsobovala, že serializér
+    (`fastify-type-provider-zod`) z odpovede zahodil `statusCode` aj `error` —
+    klient dostal len `{ message }`. Response schéma nie je len dokumentácia,
+    Fastify podľa nej odpoveď serializuje.
+  - **Jedna zdieľaná schéma chybovej odpovede** (`lib/error-response.ts`,
+    OpenAPI komponent `#/components/schemas/ErrorResponse`) nahradila lokálne
+    `NotFoundSchema` v `public-assets.routes.ts` a
+    `public-login-context.routes.ts`. Obidva endpointy teraz vyhadzujú
+    `NotFoundError` / `BadRequestError` a telo skladá centrálny error handler.
+    No-oracle chovanie (ADR-0021, ADR-0035) zostáva — obe 404 vetvy vracajú
+    identické telo, pokryté testom.
+  - **Jednotný tvar aj na `/v1/system`** (`migrations`, `indexes`,
+    `retention`) — chybové telá tam nemali `statusCode`.
+  - **`error` pri Fastify validačnej chybe** už nie je neinformatívne
+    `"Error"`, ale text odvodený zo status kódu (`Bad Request` a spol.).
+  - **Spoločné 400/401/403/404/429 sa dopĺňajú pri generovaní dokumentu**
+    (`plugins/swagger.ts`, `transform`/`transformObject`) podľa toho, čo
+    route naozaj vracia: značky na `preHandler` hookoch (`requireAuth`,
+    `loadCurrentUser`, `requireRole`), deklarované `security`, prítomnosť
+    vstupnej schémy a parametra v ceste. Nulový vplyv na runtime
+    serializáciu a žiadny zásah do 97 rout.
+  - **Nový test** `tests/integration/error-shape-consistency.test.ts` overuje
+    tvar chybového tela na skutočných odpovediach (1052 → 1059 testov).
+
 - **Rýchlosť prvého načítania dashboardu (2026-08-31)** — cesta k dátam na
   teplej inštancii **4 023 → 1 840 ms** (−54 %), z toho
   `GET /v1/dashboard/summary` **2 872 → 1 122 ms** (−60 %). Merané na

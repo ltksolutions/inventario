@@ -25,13 +25,18 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 - **Dependabot PR #19** (`actions/setup-node` 6 → 7) — Markdown job je po
   oprave odkazov zelený, Unit Tests tiež. Červený zostáva len OpenAPI
   job, ktorý má `continue-on-error`. PR je pripravený na merge.
-- **Chybové odpovede v OpenAPI schémach** — Redocly hlási 95 warningov
-  `operation-4xx-response`: 97 zo 100 operácií popisuje len 2xx, takže
-  z dokumentácie sa nedá vyčítať, čo endpoint vráti pri chybe.
-  Pripravený prompt: **`docs/sessions/PROMPT-openapi-4xx.md`** — obsahuje
-  zmerané čísla, tvar chybovej odpovede z `error-handler.ts` aj pascu so
-  serializáciou (response schéma nie je len dokumentácia, Fastify podľa
-  nej odpoveď oreže).
+- **Slovník `error` na `/v1/system`** — `migrations`, `indexes` a
+  `retention` majú v poli `error` skratky v SCREAMING_SNAKE
+  (`INDEXES_DISABLED`, `UNAUTHORIZED`) namiesto konvencie zvyšku API
+  (`NotFound`, `BadRequest`). Tvar tela je od 2026-09-01 jednotný,
+  slovník nie. Sú to zdokumentované kódy pre deploy workflow, takže zmena
+  chce rozhodnutie, nie mechanickú opravu.
+- **`issues` v chybovej odpovedi je v praxi zriedkavé** — validácia vstupu
+  cez Fastify vracia jednu chybu v `message`, `issues` sa naplní len keď
+  sa `ZodError` dostane k error handleru priamo. Ak má integrátor dostávať
+  field-level chyby vždy, treba prepojiť `setErrorHandler` s Fastify
+  `schemaErrorFormatter`. Kontext:
+  `2026-09-01-openapi-chybove-odpovede.md`.
 - **GitHub Discussions** — v repozitári nie sú zapnuté (Settings →
   Features), ale `docs/user-guide/support.md` na ne odkazuje. Odkaz je
   zatiaľ v `ignorePatterns` link checkera; po zapnutí ten pattern
@@ -94,12 +99,16 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 Veci, ktoré vyzerajú ako nedorobok, ale sú tak zvolené — aby sa
 neotvárali dokola.
 
-- **`/v1/assets/tags/*` koliduje tvarom s `/v1/assets/{id}/*`.** Redocly
-  to hlási ako `no-ambiguous-paths` (4 warningy) — request na
-  `/v1/assets/tags/audit` by teoreticky mohol matchovať `{id} = "tags"`.
-  V praxi ku kolízii nedochádza, lebo druhé segmenty sa nezhodujú. Oprava
-  by znamenala premenovať endpointy, teda breaking change API — nestojí
-  to za to.
+- **`/v1/assets/by-token/{publicToken}` koliduje tvarom s
+  `/v1/assets/{id}/…`.** Redocly to hlási ako `no-ambiguous-paths` (4
+  warningy: `{id}/audit`, `{id}/qr`, `{id}/attachments`, `{id}/label`) —
+  request na `/v1/assets/by-token/x` by teoreticky mohol matchovať
+  `{id} = "by-token"`. V praxi ku kolízii nedochádza: `by-token` má za
+  segmentom parameter, ostatné majú literál. Oprava by znamenala
+  premenovať endpointy, teda breaking change API aj zásah do
+  `apps/web/src/components/ScanPage.tsx` — nestojí to za to.
+  Pozn.: starší záznam tu uvádzal `/v1/assets/tags/*`; to bolo nesprávne,
+  tie cesty sú jednosegmentové a Redocly ich nehlási (overené 2026-09-01).
 - **Swagger v produkcii ostáva zapnutý.** Vercel projekt
   `inventario-api` má `ENABLE_SWAGGER` nastavenú explicitne (Production
   - Preview) a prebíja default odvodený od `NODE_ENV` v `config.ts`,
