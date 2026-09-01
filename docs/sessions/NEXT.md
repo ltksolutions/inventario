@@ -26,10 +26,12 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   oprave odkazov zelený, Unit Tests tiež. Červený zostáva len OpenAPI
   job, ktorý má `continue-on-error`. PR je pripravený na merge.
 - **Chybové odpovede v OpenAPI schémach** — Redocly hlási 95 warningov
-  `operation-4xx-response`: schémy popisujú len 2xx, takže z dokumentácie
-  sa nedá vyčítať, čo endpoint vráti pri chybe. Nie je to blocker (job je
-  zelený), ale pre integrátorov je to podstatné. Vecná práca na samostatný
-  krok.
+  `operation-4xx-response`: 97 zo 100 operácií popisuje len 2xx, takže
+  z dokumentácie sa nedá vyčítať, čo endpoint vráti pri chybe.
+  Pripravený prompt: **`docs/sessions/PROMPT-openapi-4xx.md`** — obsahuje
+  zmerané čísla, tvar chybovej odpovede z `error-handler.ts` aj pascu so
+  serializáciou (response schéma nie je len dokumentácia, Fastify podľa
+  nej odpoveď oreže).
 - **GitHub Discussions** — v repozitári nie sú zapnuté (Settings →
   Features), ale `docs/user-guide/support.md` na ne odkazuje. Odkaz je
   zatiaľ v `ignorePatterns` link checkera; po zapnutí ten pattern
