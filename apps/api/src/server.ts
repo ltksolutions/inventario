@@ -159,10 +159,19 @@ export async function buildServer(
   // Multipart parser — registrovaný RAZ globálne. @fastify/multipart sa
   // pripája na koreňový scope, takže viacnásobná registrácia v rôznych
   // route plugin-och padá na FST_ERR_CTP_ALREADY_PRESENT. fileSize je
-  // tvrdý strop parsera (20 MB = max pre prílohy); jednotlivé handlery
-  // (napr. logo 512 KB) si menšie limity vynucujú kontrolou bufferu.
+  // tvrdý strop parsera; jednotlivé handlery (napr. logo 512 KB) si
+  // menšie limity vynucujú kontrolou bufferu.
+  //
+  // 4 MB, nie 20: Vercel má strop 4,5 MB na telo requestu AJ odpovede
+  // a request nad limit zahodí s 413 FUNCTION_PAYLOAD_TOO_LARGE ešte
+  // predtým, než sa dostane k funkcii. Overené na produkcii 2026-09-01:
+  // 6 MB → 413, 1 KB → 401 (teda náš auth). Kým bol strop 20 MB, súbory
+  // nad 4,5 MB padali na platforme a používateľ nedostal našu hlášku,
+  // ale hrubú 413. Zvyšok do 4,5 MB je rezerva na multipart obálku
+  // a hlavičky. Cesta k väčším súborom je priamy upload do úložiska
+  // tenanta mimo funkcie — ADR-0037.
   await app.register(import('@fastify/multipart'), {
-    limits: { fileSize: 20 * 1024 * 1024, files: 1 },
+    limits: { fileSize: 4 * 1024 * 1024, files: 1 },
   });
 
   await app.register(fastifyRateLimit, {
@@ -264,7 +273,7 @@ export async function buildServer(
       if (app.config.ENABLE_SWAGGER) {
         return reply.redirect('/docs');
       }
-      return { name: '@sfz/api', version: '0.1.0', status: 'ok' };
+      return { name: '@inventario/api', version: '0.1.0', status: 'ok' };
     },
   );
 

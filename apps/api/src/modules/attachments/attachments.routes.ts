@@ -14,7 +14,7 @@
  *   - DELETE /v1/attachments/:id          ASSET_MANAGER + ADMIN
  *
  * Povolené typy (magic bytes): PNG, JPEG, WEBP (→ ASSET_PHOTO) a PDF
- * (→ ASSET_DOCUMENT). Max veľkosť 20 MB. Verejná Blob URL je neuhádnuteľná.
+ * (→ ASSET_DOCUMENT). Max veľkosť 4 MB (strop Vercelu, viď server.ts).
  */
 
 import { createHash } from 'node:crypto';
@@ -33,7 +33,10 @@ import type { Attachment } from '@inventario/shared-types';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
-const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024; // 20 MB
+// 4 MB, nie 20: Vercel zahodí request nad 4,5 MB s 413 ešte pred našou
+// funkciou (overené na produkcii 2026-09-01). Musí zostať v zhode
+// s `limits.fileSize` v server.ts. Väčšie súbory rieši ADR-0037.
+const ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024;
 
 const AssetIdParamsSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát ID (očakáva sa 24 hex znakov).'),
@@ -141,7 +144,7 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         summary: 'Nahrať prílohu majetku (ASSET_MANAGER/ADMIN)',
         description:
           'Multipart upload jedného súboru (PNG/JPEG/WEBP → foto, PDF → doklad). ' +
-          'Max 20 MB. Súbor sa uloží do Vercel Blob, metadata do DB.',
+          'Max 4 MB (strop platformy). Súbor sa uloží do Vercel Blob, metadata do DB.',
         security: [{ bearerAuth: [] }],
         consumes: ['multipart/form-data'],
       },
@@ -210,7 +213,6 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         organisationId: tenantId,
         originalFilename: data.filename || `${Date.now()}.${detected.ext}`,
         storageKey: url,
-        bucket: 'sfz-asset-attachments',
         mimeType: detected.contentType,
         sizeBytes: storedBuffer.byteLength,
         sha256,

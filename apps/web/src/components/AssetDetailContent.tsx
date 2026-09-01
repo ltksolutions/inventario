@@ -981,7 +981,7 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
               }}
             />
           </label>
-          <span className="text-xs text-text-muted">PNG, JPEG, WEBP alebo PDF — max 20 MB</span>
+          <span className="text-xs text-text-muted">PNG, JPEG, WEBP alebo PDF — max 4 MB</span>
         </div>
       )}
 
