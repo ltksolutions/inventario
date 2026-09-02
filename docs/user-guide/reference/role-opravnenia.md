@@ -17,12 +17,12 @@ definuje [ADR-0029](../../decisions/0029-single-hierarchical-role.md).
 
 ## Štyri role
 
-| Rola            | Úroveň | Pre koho                    | Stručne                                                                  |
-| --------------- | :----: | --------------------------- | ------------------------------------------------------------------------ |
-| `EMPLOYEE`      |   1    | Interný zamestnanec         | Požičiava si (pre seba aj v mene inej osoby), vidí vlastné výpožičky     |
-| `EXTERNAL`      |   1    | Klubový tréner, dobrovoľník | Rovnaká úroveň ako EMPLOYEE, len iný **typ** vzťahu k organizácii        |
-| `ASSET_MANAGER` |   2    | Správca majetku             | Eviduje majetok, schvaľuje a vydáva výpožičky, tlačí QR, rieši protokoly |
-| `ADMIN`         |   3    | Administrátor               | Plný prístup — používatelia, role, nastavenia, mazanie                   |
+| Rola            | Úroveň | Pre koho                            | Stručne                                                                  |
+| --------------- | :----: | ----------------------------------- | ------------------------------------------------------------------------ |
+| `EMPLOYEE`      |   1    | Interný zamestnanec                 | Požičiava si (pre seba aj v mene inej osoby), vidí vlastné výpožičky     |
+| `EXTERNAL`      |   1    | Externý spolupracovník, dobrovoľník | Rovnaká úroveň ako EMPLOYEE, len iný **typ** vzťahu k organizácii        |
+| `ASSET_MANAGER` |   2    | Správca majetku                     | Eviduje majetok, schvaľuje a vydáva výpožičky, tlačí QR, rieši protokoly |
+| `ADMIN`         |   3    | Administrátor                       | Plný prístup — používatelia, role, nastavenia, mazanie                   |
 
 > 💡 Rola je **per-membership jedna hodnota** (nie pole). Ten istý človek môže mať
 > v rôznych organizáciách rôzne role.
@@ -101,7 +101,7 @@ vstupné body zo zoznamu:
 
 Žiadosť o výpožičku má **žiadateľa** (kto ju podal) a **beneficiára** (pre koho je).
 Ak beneficiár nie je sám žiadateľ, musí to byť **aktívny člen** organizácie — systém
-to overí. Vďaka tomu môže napr. asistent požiadať o výpožičku pre trénera.
+to overí. Vďaka tomu môže napr. asistent požiadať o výpožičku pre svojho vedúceho.
 
 ### Životný cyklus akcií
 

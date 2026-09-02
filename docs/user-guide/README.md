@@ -16,7 +16,7 @@ Krátke onboarding tutoriály. Hodia sa, keď systém vidíš prvýkrát. Vedú 
 
 - ✅ [Tvoje prvé prihlásenie](./getting-started/prve-prihlasenie.md) — univerzálny štart pre všetkých
 - 📅 Onboarding pre zamestnanca _(TODO)_
-- 📅 Onboarding pre trénera / manažéra tímu _(TODO)_
+- 📅 Onboarding pre vedúceho tímu _(TODO)_
 - 📅 Onboarding pre správcu majetku _(TODO)_
 - 📅 Onboarding pre administrátora _(TODO)_
 
@@ -33,9 +33,9 @@ Návody na konkrétne úlohy. Predpokladajú, že už systém vieš používať.
 
 ### 📖 [Use Cases](./use-cases/) – Pochopím, ako to funguje v praxi
 
-Reálne scenáre zo SFZ. Hodia sa, keď chceš vidieť, ako sa veci dejú „od začiatku do konca".
+Reálne scenáre z praxe. Hodia sa, keď chceš vidieť, ako sa veci dejú „od začiatku do konca".
 
-- ✅ [Reprezentačný výjazd: tréner si berie kompletný set výstroja](./use-cases/reprezentacny-vyjazd.md)
+- ✅ [Viacdňová akcia: vedúci tímu si berie kompletný set vybavenia](./use-cases/reprezentacny-vyjazd.md)
 - ✅ [Nový zamestnanec dostáva pracovné vybavenie](./use-cases/novy-zamestnanec.md)
 - 📅 Mládežnícky kemp: výstroj pre 60 detí _(TODO)_
 - 📅 Poškodené zariadenie: postup pri reklamácii a servise _(TODO)_
@@ -63,13 +63,12 @@ Slovník pojmov, prehľad rolí a oprávnení, stavy majetku, atď.
 
 V Inventario rozlišujeme niekoľko **rolí používateľov**. Každá rola má iné oprávnenia a iné typické úlohy:
 
-| Rola                      | Typický používateľ                | Hlavné úlohy                                        |
-| ------------------------- | --------------------------------- | --------------------------------------------------- |
-| **Zamestnanec**           | Sekretariát, ekonóm, marketér     | Požičia si notebook, mobil, kanceláriu              |
-| **Tréner / Team Manager** | Tréner reprezentácie, vedúci tímu | Vybavuje výstroj pre celý tím                       |
-| **Správca majetku**       | IT správca, skladník              | Eviduje majetok, schvaľuje zápožičky, tlačí QR kódy |
-| **Administrátor**         | Šéf IT, prevádzkový riaditeľ      | Nastavuje systém, spravuje používateľov             |
-| **Externý používateľ**    | Klubový tréner, dobrovoľník       | Obmedzený prístup, len vlastné zápožičky            |
+| Rola                   | Typický používateľ                  | Hlavné úlohy                                        |
+| ---------------------- | ----------------------------------- | --------------------------------------------------- |
+| **Zamestnanec**        | Sekretariát, ekonóm, marketér       | Požičia si notebook, mobil, vybavenie               |
+| **Správca majetku**    | IT správca, skladník                | Eviduje majetok, schvaľuje zápožičky, tlačí QR kódy |
+| **Administrátor**      | Šéf IT, prevádzkový riaditeľ        | Nastavuje systém, spravuje používateľov             |
+| **Externý používateľ** | Externý spolupracovník, dobrovoľník | Obmedzený prístup, len vlastné zápožičky            |
 
 Detailný rozpis (po doplnení) nájdeš v [Role a oprávnenia](./reference/role-opravnenia.md).
 

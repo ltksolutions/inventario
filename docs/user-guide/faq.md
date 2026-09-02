@@ -10,7 +10,7 @@ Najčastejšie otázky, ktoré sme dostali počas pilotnej fázy.
 
 ### Ako sa prihlásim?
 
-Ako interný zamestnanec SFZ použiješ tlačidlo **Prihlásiť cez SFZ účet** (Microsoft Entra ID — rovnaké heslo ako Outlook). Ako externý používateľ použiješ **Prihlásiť pomocou e-mailu** s údajmi, ktoré ti poslal správca. Detaily v [Tvoje prvé prihlásenie](./getting-started/prve-prihlasenie.md).
+Ako interný zamestnanec použiješ tlačidlo **Prihlásiť cez firemný účet** (Microsoft Entra ID — rovnaké heslo ako Outlook). Ako externý používateľ použiješ **Prihlásiť pomocou e-mailu** s údajmi, ktoré ti poslal správca. Detaily v [Tvoje prvé prihlásenie](./getting-started/prve-prihlasenie.md).
 
 ### Zabudol som heslo
 
@@ -52,7 +52,7 @@ Ak žiadosť čaká **viac ako 24 hodín**, použi tlačidlo **Pripomenúť schv
 
 ### Čo ak vec po termíne nevrátim?
 
-Status sa zmení na **🔴 Po termíne**. Dostaneš pripomienky, po 48 hodinách aj tvoj manažér. Pri opakovanom omeškaní môžu byť dôsledky podľa interných pravidiel SFZ.
+Status sa zmení na **🔴 Po termíne**. Dostaneš pripomienky, po 48 hodinách aj tvoj manažér. Pri opakovanom omeškaní môžu byť dôsledky podľa interných pravidiel tvojej organizácie — Inventario ich nevymáha, len eviduje.
 
 ### Vec sa rozbila počas zápožičky — čo robiť?
 
@@ -76,7 +76,7 @@ Akýkoľvek moderný — Chrome, Edge, Firefox, Safari. Najlepšiu skúsenosť m
 
 ### Mám problém — kde nahlásiť?
 
-Pre **akúkoľvek chybu, ťažkosť alebo nejasnosť** napíš na `support@futbalsfz.sk` _(TODO: overiť e-mail)_ alebo otvor [GitHub Issue](https://github.com/ltksolutions/inventario/issues).
+Pre **akúkoľvek chybu, ťažkosť alebo nejasnosť** napíš na `support@inventario.estate` alebo otvor [GitHub Issue](https://github.com/ltksolutions/inventario/issues).
 
 ---
 

@@ -31,7 +31,7 @@ Tu nájdeš návody na **konkrétne úlohy**. Sú písané pre niekoho, kto syst
 - 👤 **Ako pridať nového používateľa** _(TODO)_
 - 🕓 [**Ako pridať budúceho zamestnanca ešte pred jeho nástupom**](./pridat-buduceho-pouzivatela.md) — predpríprava účtu pre organizácie s firemnou doménou (auto-join)
 - 🔑 **Ako spravovať roly a oprávnenia** _(TODO)_
-- 🌐 [**Ako nastaviť vlastnú doménu pre prihlásenie**](./vlastna-domena-prihlasenie.md) — vlastný hostname (napr. majetok.sfz.sk) namiesto app.inventario.estate
+- 🌐 [**Ako nastaviť vlastnú doménu pre prihlásenie**](./vlastna-domena-prihlasenie.md) — vlastný hostname (napr. majetok.firma.sk) namiesto app.inventario.estate
 - 🏢 **Ako vytvoriť novú lokalitu / sklad** _(TODO)_
 - 📈 **Ako exportovať reporty** _(TODO)_
 

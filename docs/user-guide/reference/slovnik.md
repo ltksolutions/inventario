@@ -10,7 +10,7 @@ Vysvetlenie pojmov, ktoré používame v Inventario. Pojmy sú zoradené **abece
 
 ### Asset (majetok)
 
-Jednotlivá fyzická položka v evidencii — notebook, mobil, dres, lopta, kamera. Každý kus má **vlastný záznam** so svojím inventárnym číslom, históriou a stavom — aj keď máme v sklade 15 rovnakých dresov, sú to 15 nezávislých záznamov.
+Jednotlivá fyzická položka v evidencii — notebook, mobil, projektor, kamera, náradie. Každý kus má **vlastný záznam** so svojím inventárnym číslom, históriou a stavom — aj keď je v sklade 15 rovnakých notebookov, je to 15 nezávislých záznamov.
 
 ### Asset Manager (správca majetku)
 
@@ -26,11 +26,11 @@ Nemenný (append-only) záznam všetkých významných akcií v systéme. Hovor�
 
 ### Entra ID (Microsoft Entra)
 
-Microsoft Entra ID je cloudová identitná služba (predtým **Azure Active Directory**). Interní zamestnanci SFZ sa cez ňu prihlasujú do Asset Managementu jediným kliknutím (SSO). Externí používatelia majú lokálne účty s e-mailom a heslom.
+Microsoft Entra ID je cloudová identitná služba (predtým **Azure Active Directory**). Interní zamestnanci sa cez ňu prihlasujú do Inventaria jediným kliknutím (SSO). Externí používatelia majú lokálne účty s e-mailom a heslom.
 
 ### Externý používateľ
 
-Používateľ, ktorý **nie je zamestnancom SFZ** — klubový tréner, dobrovoľník, hosť. Má lokálny účet (nie Entra ID) a obmedzený rozsah oprávnení.
+Používateľ, ktorý **nie je zamestnancom organizácie** — externý spolupracovník, dobrovoľník, hosť. Má lokálny účet (nie Entra ID) a obmedzený rozsah oprávnení.
 
 ---
 
@@ -38,7 +38,7 @@ Používateľ, ktorý **nie je zamestnancom SFZ** — klubový tréner, dobrovo�
 
 ### Hromadná zápožička
 
-Žiadosť o zápožičku, ktorá obsahuje **viacero položiek naraz**, často z rôznych kategórií (napr. 15 dresov + 3 notebooky + 5 rádiových staníc). Typický scenár pri reprezentačných výjazdoch.
+Žiadosť o zápožičku, ktorá obsahuje **viacero položiek naraz**, často z rôznych kategórií (napr. prezentačný stánok + 3 notebooky + 5 rádiových staníc). Typický scenár pri viacdňových akciách mimo sídla.
 
 ---
 
@@ -82,7 +82,7 @@ Fyzické miesto, kde sa majetok nachádza — sklad, kancelária, štadión. Mô
 
 ### Protokol o odovzdaní / vrátení
 
-PDF dokument s logom SFZ generovaný pri prevzatí alebo vrátení zápožičky. Obsahuje zoznam položiek, ich stav a digitálne podpisy oboch strán. **Právne relevantný** — nemení sa po podpise.
+PDF dokument s logom organizácie generovaný pri prevzatí alebo vrátení zápožičky. Obsahuje zoznam položiek, ich stav a digitálne podpisy oboch strán. **Právne relevantný** — nemení sa po podpise.
 
 ---
 
@@ -114,15 +114,20 @@ Pojem z databázového sveta. Keď „vymažeme" záznam (napr. používateľa),
 
 ### SSO (Single Sign-On)
 
-Spôsob prihlásenia, kde použijete **rovnaké meno a heslo ako pre Outlook, Teams a iné SFZ aplikácie** (cez Microsoft Entra ID). Nemusíš si pamätať ďalšie heslo.
+Spôsob prihlásenia, kde použijete **rovnaké meno a heslo ako pre Outlook, Teams a ostatné firemné aplikácie** (cez Microsoft Entra ID). Nemusíš si pamätať ďalšie heslo.
 
 ---
 
 ## T
 
-### Team Manager (tréner / manažér tímu)
+### Team Manager
 
-Rola používateľa, ktorý môže zariaďovať zápožičky **pre celý tím**, nielen pre seba. Typicky tréner reprezentácie alebo vedúci akadémie.
+> ⚠️ **Táto rola už neexistuje.** Zrušená v [ADR-0024](../../decisions/0024-remove-team-manager-role.md)
+> (migrácia `2026-05-31-remove-team-manager-role`). Zápožičku pre inú
+> osobu dnes vie vytvoriť ktokoľvek s oprávnením na daný majetok — rieši
+> to **žiadosť v mene inej osoby** ([ADR-0023](../../decisions/0023-loan-beneficiary-and-direct-loan.md)),
+> nie samostatná rola. Heslo je tu len preto, že sa ten pojem ešte
+> vyskytuje v starších zápisoch.
 
 ---
 
@@ -144,7 +149,7 @@ Pozri [Loan](#l).
 
 ## Pre vývojárov
 
-Technické definície entít sú v balíčku [`@sfz/shared-types`](../../../packages/shared-types/) — Zod schémy + TypeScript typy. Dátový model je dokumentovaný v [`docs/architecture/data-model.md`](../../architecture/data-model.md).
+Technické definície entít sú v balíčku [`@inventario/shared-types`](../../../packages/shared-types/) — Zod schémy + TypeScript typy. Dátový model je dokumentovaný v [`docs/architecture/data-model.md`](../../architecture/data-model.md).
 
 ---
 

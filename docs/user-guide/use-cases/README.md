@@ -1,10 +1,10 @@
-# Use Cases – Reálne scenáre zo SFZ
+# Use Cases – Reálne scenáre z praxe
 
 Use cases sú **rozprávaním**, nie návodom. Ukazujú, ako sa Inventario používa v reálnych situáciách – od začiatku až do konca, s konkrétnymi ľuďmi v konkrétnych roliach.
 
 ## Pre koho je táto sekcia
 
-- 🆕 Si nový v SFZ a chceš pochopiť, **ako veci fungujú v praxi**
+- 🆕 Si v organizácii nový a chceš pochopiť, **ako veci fungujú v praxi**
 - 💼 Si v rozhodovacej pozícii a chceš vidieť, **kde systém prináša hodnotu**
 - 🎓 Učíš sa systém a tutoriály alebo how-to ti nestačia – chceš **kontext**
 
@@ -12,7 +12,7 @@ Use cases sú **rozprávaním**, nie návodom. Ukazujú, ako sa Inventario použ
 
 ### Reprezentácia a národné tímy
 
-- 🏆 [**Reprezentačný výjazd: tréner si berie kompletný set výstroja**](./reprezentacny-vyjazd.md) – hromadná zápožička naprieč kategóriami, dvaja schvaľovatelia, prevzatie + vrátenie + servis poškodených položiek
+- 🏆 [**Viacdňová akcia: vedúci tímu si berie kompletný set vybavenia**](./reprezentacny-vyjazd.md) – hromadná zápožička naprieč kategóriami, dvaja schvaľovatelia, prevzatie + vrátenie + servis poškodených položiek
 
 ### Mládež a regióny
 
@@ -39,7 +39,7 @@ Use cases sú **rozprávaním**, nie návodom. Ukazujú, ako sa Inventario použ
 
 ## Pridať nový scenár?
 
-Ak v SFZ existuje typický scenár, ktorý tu chýba, použi [`_templates/use-case.template.md`](../_templates/use-case.template.md) a pošli pull request. Najviac sú vítané:
+Ak u vás existuje typický scenár, ktorý tu chýba, použi [`_templates/use-case.template.md`](../_templates/use-case.template.md) a pošli pull request. Najviac sú vítané:
 
 - Scenáre, ktoré sa **opakujú** (sezónne, štandardné procesy)
 - Scenáre, ktoré sú **logisticky náročné** (veľa ľudí, kategórií, krokov)

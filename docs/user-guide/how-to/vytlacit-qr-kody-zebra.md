@@ -15,7 +15,7 @@ Technický test ADR-0027 (Zebra ZPL vetva) na reálnom hardvéri — pre teba, n
 
 - PC (Windows alebo Mac) v **rovnakej sieti** ako Zebra ZD420, alebo tlačiareň pripojená priamo cez USB k tomuto PC.
 - Admin práva na PC — treba nainštalovať Browser Print agenta.
-- Prihlásenie do Inventario appky ako **ADMIN** v tenante SFZ (na prepnutie `labelPrinting.mode` a na testovaciu tlač).
+- Prihlásenie do Inventario appky ako **ADMIN** vo svojom tenante (na prepnutie `labelPrinting.mode` a na testovaciu tlač).
 - Chrome alebo Edge (odporúčané prehliadače pre Browser Print — Firefox mal historicky problémy).
 
 ---
@@ -67,7 +67,7 @@ Toto je jadro testu — presne tie riziká, ktoré ADR-0027 označil ako neovere
 - [ ] **QR kód sa dá naskenovať mobilom** (skús Google Lens aj natívny fotoaparát) — z normálnej vzdialenosti aj z bližšie. Ak sa nezosníma, modul je pri 203 dpi príliš malý — treba zväčšiť šírku/výšku štítka v Nastaveniach (krok 3).
 - [ ] **Slovenská diakritika** (ľ, š, č, ť, ž, á, ý) v inventárnom čísle/názve majetku je čitateľná, nie skomolená alebo prázdna. Toto testuje `^CI28` (UTF-8) v ZPL builderi.
 - [ ] **Text sa nezrezáva** ani nepretiahne mimo štítka pri dlhších názvoch majetku.
-- [ ] Ak má SFZ nastavené logo v brandingu — je viditeľné v strede QR a QR sa **aj tak** dá skenovať (logo max. 22 % plochy).
+- [ ] Ak má organizácia nastavené logo v brandingu — je viditeľné v strede QR a QR sa **aj tak** dá skenovať (logo max. 22 % plochy).
 - [ ] Sýtosť tlače je vyhovujúca — ani príliš svetlá (nezosnímateľná), ani rozmazaná od príliš tmavej.
 
 ## 6. Po teste

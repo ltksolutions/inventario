@@ -1,12 +1,12 @@
 # Nový zamestnanec dostáva pracovné vybavenie
 
-> 🎬 **Scenár:** Marián nastúpil ako nový analytik do oddelenia rozvoja mládeže. V deň nástupu treba zabezpečiť kompletné IT vybavenie a prístupy.
+> 🎬 **Scenár:** Marián nastúpil ako nový analytik. V deň nástupu treba zabezpečiť kompletné IT vybavenie a prístupy.
 > 👥 **Zúčastnení:** HR oddelenie, IT správca, manažér nového zamestnanca, Marián (nový zamestnanec)
 > 📅 **Časový rámec:** Týždeň pred nástupom až 2 týždne po nástupe
 
 ## Kontext
 
-Onboarding nového zamestnanca SFZ je rutinný proces, ktorý sa opakuje 20–30× ročne. Pred Asset Managementom išlo o reťazec e-mailov medzi HR, IT a manažérom, pričom sa často stávalo, že zamestnanec mal v deň nástupu **„len kávu a heslo k Wi-Fi"**, kým notebook prišiel až o tri dni neskôr.
+Onboarding nového zamestnanca je rutinný proces — v organizácii veľkosti stovky ľudí sa opakuje 20–30× ročne. Pred Inventariom išlo o reťazec e-mailov medzi HR, IT a manažérom, pričom sa často stávalo, že zamestnanec mal v deň nástupu **„len kávu a heslo k Wi-Fi"**, kým notebook prišiel až o tri dni neskôr.
 
 Tento scenár ukazuje, ako predstihnúť problémy vďaka:
 
@@ -33,7 +33,7 @@ Lucia z HR dostane od Igora potvrdenie, že Marián nastúpi 1. apríla na pozí
 - Klávesnica + myš
 - Sluchátka pre online stretnutia
 
-> 📸 **TODO: insert screenshot** — Galéria šablón zápožičiek so šablónami pre rôzne pozície (Analytik, Tréner, Asistent, Office manažér)
+> 📸 **TODO: insert screenshot** — Galéria šablón zápožičiek so šablónami pre rôzne pozície (Analytik, Technik, Asistent, Office manažér)
 
 Lucia upraví termín — od `2025-04-01 08:00` (deň nástupu, ráno) — a **odošle žiadosť** s poznámkou „Onboarding M. Polák". V tomto bode Marián ešte **nemá účet** v Asset Managemente (lebo nie je v Active Directory).
 
@@ -45,7 +45,7 @@ Tomáš dostane notifikáciu o novej žiadosti od HR. Otvorí ju a vidí presný
 
 1. **Schváli žiadosť** (s drobnou zmenou — namiesto „MacBook Air M3" priradí konkrétny kus zo skladu, sériové číslo `MB-2024-014`)
 2. **Pripraví notebook**:
-   - Inštalácia macOS + StandardBuilt SFZ image
+   - Inštalácia macOS + firemný image
    - Pripojenie k MDM (Mobile Device Management)
    - Pred-konfigurácia Outlook, Teams, Slack
 3. **Pripraví mobil**:
@@ -57,7 +57,7 @@ Tomáš dostane notifikáciu o novej žiadosti od HR. Otvorí ju a vidí presný
 
 ### 📅 1 deň pred nástupom: Aktivácia účtov
 
-Vďaka integrácii s Microsoft Entra ID sa **Mariánov účet** automaticky vytvorí, keď ho IT pridá do AD skupiny „SFZ Employees". Marián dostane:
+Vďaka integrácii s Microsoft Entra ID sa **Mariánov účet** automaticky vytvorí, keď ho IT pridá do AD skupiny, ktorú má organizácia pre Inventario určenú (napr. `Inventario Users`). Marián dostane:
 
 - **Welcome e-mail** od Inventario s linkom na aktiváciu
 - Inštrukcie pre prvé prihlásenie (rovnaké ako pri každom novom zamestnancovi)
@@ -100,7 +100,7 @@ Detaily nájdeš v [Ako si požičať majetok](../how-to/poziciat-majetok.md).
 - ✅ **Placeholder identifikátory** — zápožička vznikne aj pred vytvorením účtu, prepojí sa automaticky
 - ✅ **Entra ID integrácia** — žiadne ručné vytváranie účtov, žiadne zabudnuté práva
 - ✅ **Plánovaný termín v budúcnosti** — IT vie pripraviť veci vopred, nie len v deň nástupu
-- ✅ **Predvyplnené protokoly v SFZ vizuále** — žiadne ručné dokumenty
+- ✅ **Predvyplnené protokoly v brandingu organizácie** — žiadne ručné dokumenty
 - ✅ **Self-service pre ďalšie veci** — zamestnanec si vie pridať vybavenie sám, bez HR
 
 ## Čo sa stane, keď niečo zlyhá
@@ -139,9 +139,9 @@ Sluchátka sa medzitým rozbili a sú v servise. Tomáš v žiadosti **navrhne n
 
 - 🚀 [Tvoje prvé prihlásenie](../getting-started/prve-prihlasenie.md)
 - 🛠️ [Ako si požičať majetok](../how-to/poziciat-majetok.md)
-- 📖 [Reprezentačný výjazd: hromadná zápožička pre tím](./reprezentacny-vyjazd.md)
+- 📖 [Viacdňová akcia: hromadná zápožička pre tím](./reprezentacny-vyjazd.md)
 - 📚 [Stavy majetku a zápožičiek](../reference/stavy.md)
 
 ---
 
-<sub>Posledná aktualizácia: 2025-01 · Cieľová rola: HR, IT správca, nový zamestnanec</sub>
+<sub>Posledná aktualizácia: 2026-09 · Cieľová rola: HR, IT správca, nový zamestnanec</sub>

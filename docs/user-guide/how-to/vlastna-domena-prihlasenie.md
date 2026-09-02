@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Ako nastaviť vlastnú doménu pre prihlásenie
 
 Pre ADMIN organizácie, ktorá chce, aby sa jej členovia prihlasovali cez
-vlastnú doménu (napr. `majetok.sfz.sk`) namiesto `app.inventario.estate`.
+vlastnú doménu (napr. `majetok.firma.sk`) namiesto `app.inventario.estate`.
 Vlastná doména zobrazí vaše logo, farby a **len tie spôsoby prihlásenia**,
 ktoré máte povolené v sekcii „Spôsoby prihlásenia" na tej istej stránke —
 appka samotná sa pod vlastnou doménou nikdy nevykreslí, len prihlasovacia
@@ -30,7 +30,7 @@ obrazovka (po prihlásení vás appka presmeruje na `app.inventario.estate`).
 1. Prihlás sa ako ADMIN a otvor **Nastavenia → Prihlasovanie a domény**
    (`/settings/auth`).
 2. V sekcii **„Vlastná doména pre prihlásenie"** zadaj hostname bez
-   `https://` a bez cesty — napr. `majetok.sfz.sk`.
+   `https://` a bez cesty — napr. `majetok.firma.sk`.
 3. Klikni **„Uložiť zmeny"**. Indikátor pri nadpise sekcie sa zmení z
    „Nenastavená" na „Nastavená" — to len potvrdzuje uloženie v appke,
    doména ešte nemusí byť reálne funkčná (pozri kroky 2–3 nižšie).

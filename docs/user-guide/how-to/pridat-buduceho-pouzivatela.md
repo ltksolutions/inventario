@@ -7,7 +7,7 @@
 ## Predpoklady
 
 - Vaša organizácia má v **Nastavenia organizácie → Prihlasovanie a domény** zvolenú politiku **„Firemná doména (auto-join)"** (`DOMAIN_RESTRICTED`)
-- V zozname povolených domén je pridaná firemná doména budúceho zamestnanca (napr. `futbalsfz.sk`)
+- V zozname povolených domén je pridaná firemná doména budúceho zamestnanca (napr. `firma.sk`)
 - Poznáte budúcu firemnú e-mailovú adresu zamestnanca (aspoň jej tvar `meno.priezvisko@doména`)
 
 > ⚠️ **Bez týchto dvoch podmienok táto funkcia nie je dostupná.** Ak vaša organizácia používa len pozvánky e-mailom (`INVITE_ONLY`), sekcia na stránke Pozvánky zobrazí len vysvetlenie a odkaz do Nastavení — pridajte tam doménu, alebo použite bežnú pozvánku (pozri [Súvisiace návody](#súvisiace-návody) nižšie).
@@ -20,7 +20,7 @@ Ak si nie ste istí, či je funkcia u vás zapnutá:
 
 1. V ľavom menu klikni na **Nastavenia** → **Prihlasovanie a domény**
 2. V sekcii politiky prihlasovania vyber **„Firemná doména (auto-join)"**
-3. Pridaj firemnú doménu (napr. `futbalsfz.sk`) do zoznamu povolených domén a ulož
+3. Pridaj firemnú doménu (napr. `firma.sk`) do zoznamu povolených domén a ulož
 
 > 📸 **TODO: insert screenshot** — Nastavenia organizácie, záložka Prihlasovanie a domény, s vybranou politikou „Firemná doména (auto-join)" a zoznamom povolených domén
 

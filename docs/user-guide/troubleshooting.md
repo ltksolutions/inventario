@@ -6,22 +6,22 @@ Ak niečo nefunguje, najprv skontroluj túto stránku. Riešenia sú zoradené *
 
 ## Problémy s prihlásením
 
-### „Prístup zamietnutý" pri prihlasovaní cez SFZ účet
+### „Prístup zamietnutý" pri prihlasovaní cez firemný účet
 
 Tvoj účet ešte pravdepodobne **nie je aktivovaný** v Asset Managemente. Riešenie:
 
 1. Kontaktuj svojho **IT správcu** alebo HR
-2. Over si, či si v Active Directory v správnej skupine (`SFZ Employees`)
+2. Over si, či si v Active Directory v skupine, ktorú pre Inventario určil správca (napr. `Inventario Users`)
 3. Synchronizácia z Entra ID prebieha **každú hodinu** — počkaj a skús znova
 
 ### „Tvoj účet bol deaktivovaný"
 
 Buď si:
 
-- Odišiel zo SFZ a tvoj účet bol automaticky deaktivovaný
+- Odišiel z organizácie a tvoj účet bol automaticky deaktivovaný
 - Bol zamknutý kvôli bezpečnostnému incidentu (napr. opakované zlé prihlásenie)
 
-Kontaktuj `support@futbalsfz.sk` _(TODO: overiť)_ alebo svojho manažéra.
+Kontaktuj `support@inventario.estate` alebo svojho manažéra.
 
 ### Stránka sa po prihlásení nenačíta
 
@@ -95,7 +95,7 @@ Skontroluj v **Moje zápožičky → Aktívne**, čo presne máš v evidencii.
 
 1. **Skontroluj nastavenia** — `Profil → Preferencie → E-mail notifikácie` musí byť `ON`
 2. **Pozri si spam** — Outlook často filtruje automatické e-maily
-3. **Pridaj `noreply@futbalsfz.sk` _(TODO: overiť)_** do dôveryhodných odosielateľov
+3. **Pridaj `noreply@inventario.estate`** do dôveryhodných odosielateľov
 4. Skontroluj, či **tvoj e-mail v profile** je správny
 
 ### Notifikácie chodia príliš často
@@ -130,7 +130,7 @@ Použi **filtre** — kategória, lokalita, stav. Nevyhľadávaj v 5000 položk�
 1. **Skús to znova** o pár minút (môže to byť dočasná chyba)
 2. **Skontroluj status stránku** _(TODO: zaviesť — doména zatiaľ nebeží)_
 3. **Otvor [GitHub Issue](https://github.com/ltksolutions/inventario/issues)** s popisom problému
-4. **Napíš na `support@futbalsfz.sk`** _(TODO: overiť)_ — pripoj screenshot
+4. **Napíš na `support@inventario.estate`** — pripoj screenshot
 
 > 💡 **Dôležité pri hlásení:** Pripoj **dátum/čas**, **akcia, ktorú si robil**, **chybové hlásenie** a najlepšie aj **screenshot**.
 

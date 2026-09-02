@@ -36,7 +36,7 @@ Pre každú položku v zápožičke:
 
 > 📸 **TODO: insert screenshot** — Mobilný pohľad na položku počas vrátenia: foto, kondícia (dropdown), poznámka, checkbox „Vyžaduje servis"
 
-> ⚠️ **Pozor:** Ak je položka **stratená alebo veľmi poškodená**, vyber **„Nahlásiť ako stratenú/zničenú"**. Systém vytvorí samostatný **incident** a postupuje sa podľa interného procesu SFZ (reklamácia/vyúčtovanie).
+> ⚠️ **Pozor:** Ak je položka **stratená alebo veľmi poškodená**, vyber **„Nahlásiť ako stratenú/zničenú"**. Systém vytvorí samostatný **incident** a ďalej sa postupuje podľa interného procesu vašej organizácie (reklamácia, vyúčtovanie). Inventario incident eviduje, nerieši ho.
 
 ### 4. Pridaj záverečnú poznámku
 
@@ -46,7 +46,7 @@ Voliteľná **poznámka k celej zápožičke** — napríklad celkový dojem, ne
 
 Obaja (ty + správca) **kliknete na podpis**. Systém:
 
-- Vygeneruje **PDF protokol o vrátení** s logom SFZ
+- Vygeneruje **PDF protokol o vrátení** s logom vašej organizácie
 - Uzavrie zápožičku (stav `RETURNED` alebo `DAMAGED`)
 - Pošle obom e-mailom kópiu protokolu
 

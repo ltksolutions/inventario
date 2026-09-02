@@ -2,18 +2,18 @@
 TEMPLATE: Use Case
 ===================
 Use case je reálny scenár "od začiatku do konca". Pomáha čitateľovi
-**pochopiť kontext** – ako sa veci dejú v praxi v SFZ.
+**pochopiť kontext** – ako sa veci dejú v praxi.
 
 NIE JE: tutoriál (učenie), how-to (recept), reference (slovník).
-JE: rozprávanie príbehu cez konkrétnu situáciu, ktorá sa v SFZ deje.
+JE: rozprávanie príbehu cez konkrétnu situáciu, ktorá sa reálne deje.
 
 Premenné na vyplnenie sú v {{ dvojitých zložených zátvorkách }}.
 -->
 
-# {{ Názov scenára – napr. "Reprezentačný výjazd: tréner si berie kompletný set výstroja" }}
+# {{ Názov scenára – napr. "Viacdňová akcia: vedúci tímu si berie kompletný set vybavenia" }}
 
 > 🎬 **Scenár:** {{ Jedna-dve vety o situácii. }}
-> 👥 **Zúčastnení:** {{ napr. "Tréner reprezentácie U21, správca skladu, asistent trénera" }}
+> 👥 **Zúčastnení:** {{ napr. "Vedúci akcie, správca skladu, IT správca" }}
 > 📅 **Časový rámec:** {{ napr. "2 týždne pred výjazdom až 1 týždeň po návrate" }}
 
 ## Kontext
@@ -21,24 +21,23 @@ Premenné na vyplnenie sú v {{ dvojitých zložených zátvorkách }}.
 {{ Krátky úvod do situácie – kto, čo, prečo. 2-3 odseky.
 
 Napríklad:
-„Slovensko U21 cestuje na kvalifikačný zápas do Maďarska. Tréner Peter Novák
-potrebuje pre celý realizačný tím (15 ľudí) zabezpečiť kompletnú výstroj –
-oficiálne dresy, tréningové vybavenie, taktickú tabuľu, kamery, prenosné PC
-a komunikačné rádiové stanice."
+„Pätnásťčlenný tím vyráža na štvordňovú akciu mimo sídla. Vedúci Peter Novák
+potrebuje pre celý tím zabezpečiť kompletné vybavenie – prezentačný stánok,
+roll-upy, projektor, kamery, prenosné PC a komunikačné rádiové stanice."
 
 Vysvetli aj prečo je tento scenár dôležitý / čo z neho vychádza za špecifiká.
 Napr. „Tento scenár ukazuje hromadnú zápožičku rôznorodých kategórií majetku
-naraz, čo je v SFZ veľmi časté pri reprezentačných akciách." }}
+naraz, čo je časté pri viacdňových akciách mimo sídla." }}
 
 ## Aktéri
 
-- **{{ Aktér 1 – napr. Peter Novák, hlavný tréner U21 }}** – {{ jeho úloha v scenári }}
+- **{{ Aktér 1 – napr. Peter Novák, vedúci akcie }}** – {{ jeho úloha v scenári }}
 - **{{ Aktér 2 – napr. Anna Horváthová, správca skladu }}** – {{ jej úloha }}
 - **{{ Aktér 3 }}** – {{ ... }}
 
 ## Priebeh
 
-### Týždeň pred výjazdom: {{ Fáza 1 – napr. "Plánovanie zápožičky" }}
+### Týždeň pred akciou: {{ Fáza 1 – napr. "Plánovanie zápožičky" }}
 
 {{ Rozprávanie – čo robí kto, krok za krokom. Možeš odkazovať na how-to návody.
 
@@ -46,8 +45,8 @@ Napríklad:
 „Peter sa prihlási do systému a v sekcii **Tímové žiadosti** vytvorí novú
 hromadnú žiadosť. Pridá k nej zoznam položiek, ktoré tím potrebuje:
 
-- 15× sada oficiálnych dresov U21 (rôzne veľkosti)
-- 2× taktická tabuľa
+- 1× prezentačný stánok
+- 4× roll-up
 - 1× kamera pre analytiku
 - 3× prenosný počítač
 - 5× rádiové stanice
@@ -78,7 +77,7 @@ hromadnú žiadosť. Pridá k nej zoznam položiek, ktoré tím potrebuje:
 
 ## Čo sa stane, keď niečo zlyhá
 
-### {{ Edge case 1 – napr. "Jeden dres sa stratí počas zápasu" }}
+### {{ Edge case 1 – napr. "Jedna položka sa stratí počas akcie" }}
 
 {{ Ako sa to rieši v systéme. }}
 
@@ -91,14 +90,14 @@ hromadnú žiadosť. Pridá k nej zoznam položiek, ktoré tím potrebuje:
 {{ Krátky reflektívny odsek – aký nehmatateľný benefit má používateľ z toho,
 že tento workflow je zdigitalizovaný. Napr. "Pred Asset Managementom sa
 táto evidencia robila v Exceli a často zostávali nezrovnalosti – stratený
-dres sa vyúčtoval až o pol roka neskôr. Teraz má Peter aj Anna prehľad
-v reálnom čase a SFZ nestráca peniaze na nezvestnom majetku." }}
+položka sa vyúčtovala až o pol roka neskôr. Teraz má Peter aj Anna prehľad
+v reálnom čase a organizácia nestráca peniaze na nezvestnom majetku." }}
 
 ## Súvisiace návody a tutoriály
 
 - {{ `[Hromadná zápožička pre tím](../how-to/hromadna-zapozicka.md)` }}
-- {{ `[Onboarding pre trénera](../getting-started/onboarding-team-manager.md)` }}
+- {{ `[Onboarding pre vedúceho tímu](../getting-started/onboarding-veduci-timu.md)` }}
 
 ---
 
-<sub>Posledná aktualizácia: {{ YYYY-MM-DD }} · Cieľová rola: {{ napr. tréner reprezentácie, správca skladu }}</sub>
+<sub>Posledná aktualizácia: {{ YYYY-MM-DD }} · Cieľová rola: {{ napr. vedúci akcie, správca skladu }}</sub>

@@ -13,7 +13,7 @@ Premenné na vyplnenie sú v {{ dvojitých zložených zátvorkách }}.
 # Ako {{ akcia – napr. "si požičať notebook" }}
 
 > 🎯 **Cieľ:** {{ Jedna veta. Napr. "Vytvoriť žiadosť o zápožičku notebooku a prevziať si ho zo skladu." }}
-> 👤 **Pre koho:** {{ Komu je určené, napr. "Zamestnanec SFZ alebo externý spolupracovník s aktívnym účtom" }}
+> 👤 **Pre koho:** {{ Komu je určené, napr. "Zamestnanec alebo externý spolupracovník s aktívnym účtom" }}
 > ⏱️ **Trvanie:** {{ napr. 2 minúty na žiadosť + čas na prevzatie }}
 
 ## Predpoklady

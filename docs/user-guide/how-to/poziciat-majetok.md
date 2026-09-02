@@ -1,7 +1,7 @@
 # Ako si požičať majetok
 
 > 🎯 **Cieľ:** Vytvoriť žiadosť o zápožičku majetku (notebook, mobil, výstroj...) a prevziať si ju z príslušného skladu.
-> 👤 **Pre koho:** Zamestnanec SFZ, tréner, externý spolupracovník s aktívnym účtom
+> 👤 **Pre koho:** Zamestnanec alebo externý spolupracovník s aktívnym účtom
 > ⏱️ **Trvanie:** 2–3 minúty na žiadosť, plus čas potrebný na schválenie a prevzatie
 
 ## Predpoklady
@@ -50,7 +50,7 @@ Vyplň minimálne tieto polia:
 
 | Pole                           | Čo do neho                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| **Účel**                       | Krátky popis, prečo si zápožičku berieš (napr. „Domáca práca", „Reprezentačný výjazd U21") |
+| **Účel**                       | Krátky popis, prečo si zápožičku berieš (napr. „Domáca práca", „Výjazd tímu do Budapešti") |
 | **Termín od**                  | Kedy chceš majetok prevziať                                                                |
 | **Termín do**                  | Kedy ho plánuješ vrátiť                                                                    |
 | **Miesto prevzatia**           | Sklad, odkiaľ si ho preberieš (väčšinou predvyplnené podľa lokality majetku)               |

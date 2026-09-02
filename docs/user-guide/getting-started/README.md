@@ -19,7 +19,7 @@ Bez ohľadu na to, akú máš rolu, začni tu:
 Po prvom prihlásení si vyber tutoriál podľa toho, čo budeš v systéme robiť:
 
 - 👤 **Onboarding pre zamestnanca** _(TODO)_ – ak budeš systém používať na požičiavanie pre seba _(TODO)_
-- 👥 **Onboarding pre trénera / manažéra tímu** _(TODO)_ – ak budeš zabezpečovať výstroj pre celý tím _(TODO)_
+- 👥 **Onboarding pre vedúceho tímu** _(TODO)_ – ak budeš zabezpečovať vybavenie pre celý tím
 - 📦 **Onboarding pre správcu majetku** _(TODO)_ – ak budeš evidovať majetok a schvaľovať zápožičky _(TODO)_
 - ⚙️ **Onboarding pre administrátora** _(TODO)_ – ak budeš spravovať celý systém _(TODO)_
 

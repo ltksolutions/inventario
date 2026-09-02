@@ -19,7 +19,7 @@ V tomto poradí:
 
 ### Pre používateľov
 
-- **E-mail:** `support@futbalsfz.sk` _(TODO: overiť so SFZ)_
+- **E-mail:** `support@inventario.estate`
 - **Reakčný čas:** typicky 1 pracovný deň, urgentné do 4 hodín v pracovných hodinách
 - **Pracovné hodiny:** Pondelok – Piatok, 8:00 – 17:00
 
@@ -69,7 +69,7 @@ Viac v [CONTRIBUTING.md](../../CONTRIBUTING.md).
 - **Licencia:** [MIT](../../LICENSE) — projekt je open source
 - **Code of Conduct:** [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md) — pravidlá komunity
 - **Bezpečnostná politika:** [SECURITY.md](../../SECURITY.md) — ako hlásiť zraniteľnosti
-- **Brand SFZ:** Logá a brand prvky SFZ nie sú súčasťou MIT licencie. Pozri [docs/assets/brand/README.md](../assets/brand/README.md).
+- **Brand tenantov:** Logá a brand prvky organizácií, ktoré Inventario používajú (vrátane SFZ ako prvého tenanta), nie sú súčasťou licencie kódu. Pozri [docs/assets/brand/README.md](../assets/brand/README.md).
 
 ---
 

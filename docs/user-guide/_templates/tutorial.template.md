@@ -21,7 +21,7 @@ Komentáre v <!-- ... --> odstráň po vyplnení.
 
 ## Čo budeš potrebovať
 
-- {{ napr. SFZ e-mailovú adresu (`@futbalsfz.sk`) }}
+- {{ napr. firemnú e-mailovú adresu (`@firma.sk`) }}
 - {{ napr. Notebook alebo mobil pripojený na internet }}
 - {{ napr. ~5 minút času }}
 
@@ -32,7 +32,7 @@ Komentáre v <!-- ... --> odstráň po vyplnení.
 1. {{ Konkrétna akcia. Napr. "Otvor svoj prehliadač a zadaj adresu **app.inventario.estate**." }}
 2. {{ Ďalšia akcia. }}
 
-> 📸 **TODO: insert screenshot** – {{ popis screenshotu, napr. "Prihlasovacia stránka s tlačidlom 'Prihlásiť cez SFZ účet'" }}
+> 📸 **TODO: insert screenshot** – {{ popis screenshotu, napr. "Prihlasovacia stránka s tlačidlom 'Prihlásiť cez firemný účet'" }}
 
 3. {{ Ďalšia akcia. }}
 

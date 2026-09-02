@@ -13,7 +13,7 @@ Tento dokument obsahuje **úplný zoznam stavov**, v ktorých sa môže majetok 
 | `DISPOSED`   | Vyradené    | ⚪ Sivá     | Trvalo vyradené z evidencie (zastarané, predané) |
 | `LOST`       | Stratené    | 🔴 Červená  | Nahlásené ako stratené počas zápožičky           |
 
-> 💡 **Tip:** Farby zodpovedajú SFZ design tokens. Vidíš ich konzistentne v celom UI — v zozname majetku, v detaile, vo filteroch aj v reportoch.
+> 💡 **Tip:** Farby stavov sú súčasťou design tokens Inventaria a **nemenia sa** per tenant — branding mení logo a značkové farby, nie semantiku stavov. Vidíš ich konzistentne v celom UI: v zozname majetku, v detaile, vo filteroch aj v reportoch.
 
 ### Životný cyklus majetku
 
@@ -159,19 +159,19 @@ Po dokončení servisu sa položka vráti na `AVAILABLE`, ale `LoanStatus = DAMA
 
 ## Pre vývojárov
 
-Definície stavov sú v balíčku `@sfz/shared-types`:
+Definície stavov sú v balíčku `@inventario/shared-types`:
 
 - `packages/shared-types/src/enums/asset-status.ts`
 - `packages/shared-types/src/enums/loan-status.ts`
 - `packages/shared-types/src/enums/asset-type.ts`
 
-Farby pre UI sú v `@sfz/design-tokens` (`tokens.json` → `color.asset-status.*`).
+Farby pre UI sú v `@inventario/design-tokens` (`tokens.css` → `--inv-*`).
 
 ## Súvisiace
 
 - 🛠️ [Ako si požičať majetok](../how-to/poziciat-majetok.md)
 - 🛠️ [Ako vrátiť majetok](../how-to/vratit-majetok.md)
-- 📖 [Reálny scenár: Reprezentačný výjazd](../use-cases/reprezentacny-vyjazd.md)
+- 📖 [Reálny scenár: Viacdňová akcia](../use-cases/reprezentacny-vyjazd.md)
 - 📚 [Slovník pojmov](./slovnik.md) _(TODO)_
 - 🏗️ [Dátový model — Asset & Loan](../../architecture/data-model.md)
 

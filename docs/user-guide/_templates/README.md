@@ -55,7 +55,7 @@ Všetky dokumenty v user-guide dodržujú tieto pravidlá:
   ```
 - Skutočné screenshoty pridáme po dokončení UI a budeme ich ukladať do `docs/user-guide/_assets/screenshots/`.
 - Každý screenshot má **anotácie šípkami a popisom** (napr. „1. Klikni sem, 2. Vyber túto možnosť").
-- Pre konzistenciu používame SFZ Blue (`#1450df`) pre anotácie.
+- Pre konzistenciu používame Inventario Blue (`#388fc3`) pre anotácie — viď [`BRAND.md`](../../../BRAND.md). Zámerne farbu produktu, nie tenanta: screenshoty v guide sú spoločné pre všetkých.
 
 ### Code bloky a klávesy
 
