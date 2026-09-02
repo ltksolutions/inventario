@@ -63,6 +63,7 @@ import type { AuditLogService } from '../audit/audit.service.js';
 import type {
   CreateOrganisationInput,
   Organisation,
+  StoredImage,
   UpdateOrganisationInput,
   User,
 } from '@inventario/shared-types';
@@ -585,9 +586,23 @@ export class OrganisationsService {
    * ADR-0028 v2. Logo je dostupné všetkým plánom. Audit:
    * ORGANISATION_BRANDING_UPDATED.
    */
-  async updateLogoUrl(
+  /**
+   * Uloží logo do dokumentu ako BinData a `logoUrl` nastaví na verejný
+   * endpoint (ADR-0037).
+   *
+   * `logoUrl` sa neruší, hoci obrázok je už v DB: číta ho sedem miest —
+   * web (login, AppShell, nastavenia), verejný login-context, scan stránka
+   * a generátor PDF protokolov. Zostáva teda tým, čím bolo, len ukazuje na
+   * náš endpoint namiesto Blobu.
+   *
+   * Query parameter `v` je cache-buster. Endpoint posiela
+   * `s-maxage=86400`, takže bez neho by CDN držala staré logo až deň po
+   * jeho zmene. Pri stabilnej URL by to inak nešlo obísť.
+   */
+  async updateLogo(
     organisationId: string,
-    logoUrl: string,
+    logo: StoredImage,
+    publicApiBaseUrl: string,
     actor: WithId<User>,
     request: FastifyRequest,
   ): Promise<{ organisation: Record<string, unknown>; previousLogoUrl: string | null }> {
@@ -608,8 +623,13 @@ export class OrganisationsService {
 
       // Zachováme ostatné brandKit polia, prepíšeme len logoUrl. Ak brandKit
       // ešte neexistuje, vytvoríme ho s default null hodnotami + nové logo.
+      const now = new Date().toISOString();
+      const base = publicApiBaseUrl.replace(/\/+$/, '');
+      const logoUrl = `${base}/v1/public/organisations/${before.slug}/logo?v=${encodeURIComponent(now)}`;
+
       const mergedBrandKit = {
         presetId: before.brandKit?.presetId ?? null,
+        logo,
         logoUrl,
         faviconUrl: before.brandKit?.faviconUrl ?? null,
         primary: before.brandKit?.primary ?? null,
@@ -620,7 +640,6 @@ export class OrganisationsService {
         fontFamilySans: before.brandKit?.fontFamilySans ?? null,
       };
 
-      const now = new Date().toISOString();
       const after = await this.repo.update(
         organisationId,
         {

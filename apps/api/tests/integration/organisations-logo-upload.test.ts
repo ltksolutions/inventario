@@ -17,6 +17,7 @@
  * skipnutý bez tokenu, aby CI ostalo zelené.
  */
 
+import { createCanvas } from '@napi-rs/canvas';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, cleanTestDatabase } from '../helpers/test-app.js';
@@ -66,10 +67,22 @@ function makePngBuffer(): Buffer {
   );
 }
 
-/** Minimálny platný JPEG buffer (FF D8 FF header + minimal body). */
+/**
+ * Skutočný JPEG, nie len hlavička.
+ *
+ * Predtým tu bol `ffd8ffe0…ffdb0043 00` — teda SOI + APP0 a nič ďalšie.
+ * Prešiel kontrolou magic bytes, ale žiadne obrazové dáta neobsahoval.
+ * Odkedy endpoint logo naozaj dekóduje (potrebuje rozmery do BinData,
+ * ADR-0037), taký súbor správne končí 400-kou. Fixture teda musí byť
+ * obrázok, ktorý sa dá otvoriť — inak by test tvrdil, že endpoint
+ * odmieta platné JPEG-y.
+ */
 function makeJpegBuffer(): Buffer {
-  // SOI + APP0 + minimal EOF
-  return Buffer.from('ffd8ffe000104a46494600010100000100010000ffdb004300', 'hex');
+  const canvas = createCanvas(8, 8);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#123456';
+  ctx.fillRect(0, 0, 8, 8);
+  return canvas.toBuffer('image/jpeg');
 }
 
 /** Buffer s neplatným typom (HTML). */
@@ -200,7 +213,7 @@ describe('POST /v1/organisations/current/logo — logo upload (ADR-0028 v2)', ()
 
   describe('Happy path (vyžaduje BLOB_READ_WRITE_TOKEN)', () => {
     it.skipIf(!process.env['BLOB_READ_WRITE_TOKEN'])(
-      'ADMIN nahrá PNG logo → 200, brandKit.logoUrl je blob URL',
+      'ADMIN nahrá PNG logo → 200, logo v BinData a logoUrl na verejnom endpointe',
       async () => {
         const png = makePngBuffer();
         const { body, contentType } = buildMultipartBody('file', 'logo.png', 'image/png', png);
@@ -212,8 +225,24 @@ describe('POST /v1/organisations/current/logo — logo upload (ADR-0028 v2)', ()
         });
         expect(res.statusCode, res.body).toBe(200);
         const org = res.json<{ brandKit: { logoUrl: string } }>();
-        expect(org.brandKit?.logoUrl).toBeTruthy();
-        expect(org.brandKit?.logoUrl).toContain('blob.vercel-storage.com');
+
+        // Logo uz nie je v Blobe, ale v dokumente ako BinData (ADR-0037).
+        // `logoUrl` zostava — cita ho sedem miest vratane generatora PDF
+        // protokolov — len ukazuje na nas verejny endpoint.
+        expect(org.brandKit?.logoUrl).toContain('/v1/public/organisations/');
+        expect(org.brandKit?.logoUrl).not.toContain('blob.vercel-storage.com');
+
+        // Cache-buster: endpoint posiela s-maxage=86400, takze bez neho by
+        // CDN drzala stare logo az den po jeho zmene.
+        expect(org.brandKit?.logoUrl).toMatch(/[?&]v=/);
+
+        // Dokaz, ze logo naozaj lezi v dokumente: verejny endpoint ho
+        // servíruje z BinData, bez Blobu a bez autentifikacie.
+        const logoPath = new URL(String(org.brandKit?.logoUrl)).pathname;
+        const served = await app.inject({ method: 'GET', url: logoPath });
+        expect(served.statusCode).toBe(200);
+        expect(served.headers['content-type']).toContain('image/png');
+        expect(served.rawPayload).toEqual(png);
       },
     );
 

@@ -100,6 +100,14 @@ const envSchema = z.object({
   // Frontend base URL — used for post-OAuth redirects
   FRONTEND_BASE_URL: z.string().url().default('http://localhost:3001'),
 
+  // Verejná base URL tohto API. Zapisuje sa do `brandKit.logoUrl`, aby
+  // odkaz na logo prežil aj mimo requestu, ktorý ho vytvoril — číta ho
+  // generátor PDF protokolov, scan stránka aj web.
+  //
+  // Nedá sa odvodiť z requestu: protokoly sa generujú aj z cronu, kde
+  // žiadny request nie je, a `Host` hlavička je pod kontrolou klienta.
+  PUBLIC_API_BASE_URL: z.string().url().default('http://localhost:3000'),
+
   // ---------------------------------------------------------------------
   // Email — provider-agnostic (Slice #6c K17.5)
   // ---------------------------------------------------------------------

@@ -38,13 +38,15 @@ import {
   OrganisationLabelSettingsSchema,
   ORGANISATION_PLAN_VALUES,
   ORGANISATION_STATUS_VALUES,
+  type StoredImage,
 } from '@inventario/shared-types';
-import { put, del } from '@vercel/blob';
+import { del } from '@vercel/blob';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
 import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
 import { stripImageMetadata } from '../../lib/strip-image-metadata.js';
+import { createThumbnail } from '../../lib/thumbnail.js';
 import { BadRequestError, HttpError } from '../../plugins/error-handler.js';
 
 import { OrganisationsRepository } from './organisations.repository.js';
@@ -624,34 +626,42 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
         throw new BadRequestError('Nepodporovaný typ súboru. Povolené sú len PNG, JPEG a WEBP.');
       }
 
-      // Vstup je platný — až teraz kontrolujeme Blob token (konfigurácia prostredia).
-      const blobToken = process.env['BLOB_READ_WRITE_TOKEN'];
-      if (!blobToken) {
-        // Konfiguračná chyba — Blob token chýba v prostredí.
-        throw new HttpError(
-          500,
-          'Logo upload nie je nakonfigurovaný (chýba BLOB_READ_WRITE_TOKEN).',
-        );
-      }
-
       const organisationId = String(request.currentUser.organisationId);
 
-      // Nahraj do Blobu. Cesta: logos/{organisationId}/{timestamp}.{ext}
-      // — timestamp zaručí unikátnosť a obchádza CDN cache starého loga.
       // Privacy: odstráň EXIF/XMP metadata z loga pred uložením.
       const storedBuffer = stripImageMetadata(buffer, detected.ext);
 
-      const blobPath = `logos/${organisationId}/${Date.now()}.${detected.ext}`;
-      const { url } = await put(blobPath, storedBuffer, {
-        access: 'public',
-        contentType: detected.contentType,
-        token: blobToken,
-      });
+      // Logo ide do dokumentu ako BinData (ADR-0037), nie do Blobu. Je
+      // ≤512 KB, takže sa vojde a ide do zálohy spolu s tenantom — na
+      // rozdiel od Blobu, ktorý zálohu nemá.
+      //
+      // Rozmery čítame cez `createThumbnail`: logo je malé, takže sa
+      // nezmenšuje (viď THUMBNAIL_MAX_EDGE) a dostaneme len jeho rozmery
+      // a normalizovaný JPEG. Pri zlyhaní dekódovania radšej 400 než uložiť
+      // niečo, čo sa nikde nezobrazí.
+      let logo: StoredImage;
+      try {
+        const rendered = await createThumbnail({
+          data: storedBuffer,
+          mimeType: detected.contentType,
+        });
+        logo = {
+          data: storedBuffer,
+          mimeType: detected.contentType,
+          width: rendered.width,
+          height: rendered.height,
+          sizeBytes: storedBuffer.byteLength,
+        };
+      } catch (err) {
+        request.log.warn({ err }, 'Logo sa nepodarilo dekódovať');
+        throw new BadRequestError('Súbor sa nepodarilo načítať ako obrázok.');
+      }
 
-      // Zapíš URL do brandKit.logoUrl, získaj starú URL na zmazanie.
-      const { organisation, previousLogoUrl } = await service.updateLogoUrl(
+      // Zapíš BinData + logoUrl na verejný endpoint, získaj starú URL.
+      const { organisation, previousLogoUrl } = await service.updateLogo(
         organisationId,
-        url,
+        logo,
+        fastify.config.PUBLIC_API_BASE_URL,
         request.currentUser,
         request,
       );
@@ -659,9 +669,15 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
       // Zmaž staré logo z Blobu (best-effort — zlyhanie nesmie rozbiť odpoveď).
       // Mazíme len blob z nášho store (vercel-storage.com URL), nie externé
       // logoUrl ktoré mohlo byť nastavené ešte z v1 (externá URL).
-      if (previousLogoUrl && previousLogoUrl.includes('.public.blob.vercel-storage.com')) {
+      // Staré logo v Blobe upraceme; nové už tam nikdy nevznikne.
+      const legacyToken = process.env['BLOB_READ_WRITE_TOKEN'];
+      if (
+        legacyToken &&
+        previousLogoUrl &&
+        previousLogoUrl.includes('.public.blob.vercel-storage.com')
+      ) {
         try {
-          await del(previousLogoUrl, { token: blobToken });
+          await del(previousLogoUrl, { token: legacyToken });
         } catch (err) {
           request.log.warn({ err, previousLogoUrl }, 'Staré logo sa nepodarilo zmazať z Blobu');
         }
