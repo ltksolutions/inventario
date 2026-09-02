@@ -62,14 +62,6 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
   je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
   restoru.
-- **Vyhodiť mŕtvy Blob token z lokálnych súborov** — starý store je
-  zmazaný, takže token v `apps/api/.env.local` a `.env.local.bak` už nič
-  neotvára. Do gitu nikdy nešiel (`.gitignore` ho kryje), ale nech tam
-  neleží. Prípadne overiť aj `.env.local.bak` — či ho ešte treba vôbec.
-- **Privátny store nie je pripojený k Development prostrediu** —
-  `inventario-private` má vo Verceli `Preview, Production`. Lokálne to
-  nevadí (token je v `.env.local`), ale `vercel env pull` pre development
-  ho nedoplní.
 - **Čítacia vetva `PUBLIC_LEGACY` v `/download`** — v produkcii ju už
   nepoužíva ani jedna príloha, v dev a demo databázach môže. Odstrániť
   je samostatné rozhodnutie; s ňou by šlo von aj pole `storageAccess`.

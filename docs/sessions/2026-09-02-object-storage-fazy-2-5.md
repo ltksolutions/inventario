@@ -236,7 +236,9 @@ tom, čo bol z kódu odstránený každý jeho používateľ. Pred zmazaním sa
 overilo, že store nie je pripojený k žiadnemu inému projektu (raz sa to
 už stalo — `inventario-private` omylom aj na `contineo-app`).
 
-Projekt má odvtedy **jeden Blob store**: `inventario-private`.
+Projekt má odvtedy **jeden Blob store**: `inventario-private`. Mŕtvy token
+starého storu je z lokálnych `.env` súborov vyhodený a privátny store je
+pripojený aj k Development prostrediu.
 
 ## Overené v prevádzke (2026-09-02)
 
