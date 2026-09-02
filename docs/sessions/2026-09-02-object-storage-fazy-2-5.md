@@ -81,6 +81,30 @@ Testy s `Authorization: Bearer` dostávali 401. Auth je v cookie
 `yaml.stringify` píše `"…user's…"`, Prettier to prepíše na `'…user''s…'`.
 Skript `openapi-to-yaml.ts` si teraz výstup formátuje Prettierom sám.
 
+### PUT bez hlavičiek uložil 200 a nič neuložil
+
+Prvý reálny upload skončil na `confirm` s hláškou „Objekt v úložisku
+neexistuje" — pritom PUT vrátil 200.
+
+Podpísaná URL nejde na `*.blob.vercel-storage.com`, ako by sa čakalo, ale
+na `https://vercel.com/api/blob/?pathname=…`. To je control-plane
+rozhranie SDK a parametre uploadu čaká v HLAVIČKÁCH, nie v URL:
+`x-vercel-blob-access`, `x-content-type`, `x-api-version`,
+`x-vercel-blob-store-id`. Bez nich odpovie 200, ale objekt neuloží tam,
+kde ho `confirm` hľadá.
+
+Hlavičky preto diktuje server a vracia ich v odpovedi `upload-url`:
+`access` musí byť `private` bez ohľadu na to, čo si myslí klient, a verzia
+control-plane API patrí k SDK, ktoré má v rukách API. Klient dopĺňa len
+`Content-Type` a `x-content-length`, ktoré vie zo `File`.
+
+Čistá SDK cesta `uploadPresigned` z `@vercel/blob/client` sa použiť nedá:
+jej fetch na `handleUploadUrl` nemá `credentials: 'include'`, takže by
+naša auth cookie neprešla a endpoint by vrátil 401.
+
+CORS pritom v poriadku bol — preflight z `app.inventario.estate` vracia
+`allow-origin: *`, `PUT` aj `content-type`.
+
 ### CORP zabila logo (nájdené až po deployi)
 
 Helmet dáva globálne `Cross-Origin-Resource-Policy: same-origin`. Logo sa
@@ -153,12 +177,8 @@ multipart cestu.
 ## Čo zostáva otvorené
 
 - Staré objekty v public Blobe — zmazať až po overení v prevádzke.
-- **Priamy PUT z prehliadača nie je vyskúšaný reálnym súborom.** CORS
-  overený: podpísaná PUT URL nejde na `*.blob.vercel-storage.com`, ale na
-  `https://vercel.com/api/blob/`, a preflight odtiaľ vracia
-  `allow-origin: *`, `PUT` aj `content-type`. Otvorené zostáva, či podpis
-  s `allowedContentTypes` uzná hlavičku `Content-Type` z prehliadača —
-  SDK si posiela vlastnú `x-content-type`.
+- **Priamy upload potreboval druhú opravu** (viď nižšie „PUT bez
+  hlavičiek"). Po nej ho treba znova vyskúšať reálnym súborom.
 - `brandKit.logo.width/height` sú rozmery **náhľadu**, nie originálu, ak
   je logo väčšie než 800 px. Zdedené z upload routy, len kozmetika.
 - ETag verejného loga stojí na `organisation.updatedAt`, ktorý migrácia

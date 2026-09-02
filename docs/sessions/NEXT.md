@@ -67,15 +67,16 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   nedá vrátiť. Po overení novej cesty v prevádzke ich zmazať a odpojiť
   starý store `inventario-api-blob`. Do tej doby zostáva
   `BLOB_READ_WRITE_TOKEN` v env.
-- **Priamy upload z webu nie je vyskúšaný reálnym súborom** — web už
-  nahráva cez `upload-url` + PUT + `confirm` (25 MB). CORS je overený:
-  podpísaná PUT URL ide na `https://vercel.com/api/blob/` (nie na
-  `*.blob.vercel-storage.com`, ako by sa čakalo) a preflight z
-  `app.inventario.estate` vracia `allow-origin: *`, `PUT` a `content-type`.
-  Neoverené zostáva, či podpis vydaný s `allowedContentTypes` uzná
-  hlavičku `Content-Type` z prehliadača — SDK si posiela vlastnú
-  `x-content-type`. Rozhodne to jeden upload v appke; pri chybe je vidieť
-  4xx z PUT kroku, nie CORS.
+- **Priamy upload z webu čaká na druhé vyskúšanie** — prvý pokus padol
+  na `confirm` („Objekt v úložisku neexistuje"), lebo PUT bez hlavičiek
+  `x-vercel-blob-access` a `x-content-type` vráti 200 a nič neuloží.
+  Opravené, hlavičky diktuje server. Skúsiť znova jedným uploadom.
+- **`BLOB_API_VERSION = '12'` je v `attachments.routes.ts` natvrdo** —
+  `@vercel/blob` ju neexportuje. Pri bumpe SDK overiť, či sa nezmenila;
+  test kontroluje len to, že hlavička je neprázdna.
+- **Osirelý objekt v private store** z prvého neúspešného uploadu
+  (2026-09-02). Upratovanie osirelých objektov nikto nerobí — je to vec
+  retenčného jobu, ktorý sa ich zatiaľ netýka.
 - **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
   nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
   store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.
