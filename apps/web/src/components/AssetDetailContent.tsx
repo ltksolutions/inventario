@@ -52,6 +52,7 @@ import { auditActionLabel } from '@/lib/audit-labels';
 import { cn } from '@/lib/cn';
 import { useConditionLabel } from '@/lib/conditions';
 import { useCurrentOrganisation } from '@/lib/organisations-hooks';
+import { useAuthedBlobUrl } from '@/lib/useAuthedBlobUrl';
 
 // ---------------------------------------------------------------------------
 // Label maps
@@ -110,6 +111,12 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
   const orgQuery = useCurrentOrganisation();
   const attachmentsQuery = useAssetAttachments(assetId);
   const heroPhoto = pickHeroPhoto(attachmentsQuery.data);
+  // Hero berie náhľad, nie originál — dôvod je rovnaký ako v galérii.
+  // Pri starej prílohe bez náhľadu padneme späť na jej verejnú URL.
+  const heroThumb = useAuthedBlobUrl(heroPhoto ? thumbnailUrl(heroPhoto.id) : null);
+  const heroPhotoUrl =
+    heroThumb.objectUrl ??
+    (heroThumb.failed && heroPhoto && heroPhoto.storageAccess !== 'PRIVATE' ? heroPhoto.url : null);
 
   const isBulk = assetQuery.data?.trackingMode === 'BULK';
   // Audit log je len pre správcov/adminov (endpoint je ASSET_MANAGER/ADMIN).
@@ -175,7 +182,7 @@ export function AssetDetailContent({ assetId }: { assetId: string }): JSX.Elemen
                   canEdit={canEdit}
                   onEdit={() => setMode('edit')}
                   labelPrintingMode={orgQuery.data?.labelPrinting?.mode ?? null}
-                  photoUrl={heroPhoto?.url ?? null}
+                  photoUrl={heroPhotoUrl}
                 />
                 {/* QR card */}
                 <QrCard assetId={assetId} inventoryNumber={assetQuery.data.inventoryNumber} />
@@ -846,7 +853,13 @@ function formatChangeValue(v: unknown): string {
 interface Attachment {
   id: string;
   originalFilename: string;
+  /**
+   * Pri `PUBLIC_LEGACY` verejná URL do starého Blobu, pri `PRIVATE` cesta
+   * v úložisku — tá sa v prehliadači otvoriť nedá. Preto sa nikde nepoužíva
+   * priamo; obsah ide cez `/thumbnail` a `/download`.
+   */
   url: string;
+  storageAccess: 'PUBLIC_LEGACY' | 'PRIVATE';
   mimeType: string;
   sizeBytes: number;
   attachmentType: string;
@@ -883,6 +896,78 @@ function useAssetAttachments(assetId: string): ReturnType<typeof useQuery<Attach
 function pickHeroPhoto(items: Attachment[] | undefined): Attachment | null {
   const photos = (items ?? []).filter((a) => a.attachmentType === 'ASSET_PHOTO');
   return photos.find((a) => a.isPrimary) ?? photos[0] ?? null;
+}
+
+/** Adresa náhľadu prílohy (BinData v Mongu, za autentifikáciou). */
+function thumbnailUrl(id: string): string {
+  return `${API_BASE}/v1/attachments/${id}/thumbnail`;
+}
+
+/**
+ * Otvorí originál prílohy v novej karte.
+ *
+ * Pri `PRIVATE` prílohe verejná adresa neexistuje — musí sa vypýtať
+ * podpísaná URL z `/download`. Okno sa otvára PRED `await`: prehliadač
+ * povolí `window.open` len ako priamy dôsledok kliknutia, po asynchrónnom
+ * kroku by ho blokovač zahodil. Ak sa podpis nepodarí, okno sa zavrie.
+ */
+async function openAttachment(a: Attachment): Promise<void> {
+  if (a.storageAccess !== 'PRIVATE') {
+    window.open(a.url, '_blank', 'noopener');
+    return;
+  }
+
+  const win = window.open('', '_blank', 'noopener');
+  try {
+    const res = await fetch(`${API_BASE}/v1/attachments/${a.id}/download`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const body = (await res.json()) as { url: string };
+    if (win) {
+      win.location.href = body.url;
+    } else {
+      // Blokovač okno nepustil — aspoň otvoríme v aktuálnej karte.
+      window.location.href = body.url;
+    }
+  } catch {
+    win?.close();
+    throw new Error('Súbor sa nepodarilo otvoriť.');
+  }
+}
+
+/**
+ * Náhľad prílohy. Načítava sa cez `/thumbnail` (BinData, nie originál) —
+ * originál leží v privátnom úložisku a jeho zobrazenie by znamenalo
+ * podpísanú URL a plný prenos pri každej fotke vo výpise.
+ *
+ * Staré prílohy náhľad nemajú (`404`). Vtedy sa vykreslí ich pôvodná
+ * verejná URL, kým ich migrácia nepreberie.
+ */
+function AttachmentThumb({ attachment }: { attachment: Attachment }): JSX.Element {
+  const { objectUrl, failed } = useAuthedBlobUrl(thumbnailUrl(attachment.id));
+  const legacySrc = attachment.storageAccess === 'PRIVATE' ? null : attachment.url;
+  const src = objectUrl ?? (failed ? legacySrc : null);
+
+  if (!src) {
+    return (
+      <div className="flex aspect-square w-full items-center justify-center bg-surface-subtle">
+        {failed ? (
+          <Paperclip className="h-6 w-6 text-text-muted" aria-hidden="true" />
+        ) : (
+          <Loader2 className="h-5 w-5 animate-spin text-text-muted" aria-hidden="true" />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={attachment.originalFilename}
+      className="aspect-square w-full object-cover"
+    />
+  );
 }
 
 function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolean }): JSX.Element {
@@ -929,6 +1014,15 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
       setError(err instanceof Error ? err.message : 'Nahrávanie zlyhalo.');
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleOpen(a: Attachment): Promise<void> {
+    setError(null);
+    try {
+      await openAttachment(a);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Súbor sa nepodarilo otvoriť.');
     }
   }
 
@@ -1026,13 +1120,14 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
                         : 'border-border-subtle',
                     )}
                   >
-                    <a href={a.url} target="_blank" rel="noopener noreferrer">
-                      <img
-                        src={a.url}
-                        alt={a.originalFilename}
-                        className="aspect-square w-full object-cover"
-                      />
-                    </a>
+                    <button
+                      type="button"
+                      onClick={() => void handleOpen(a)}
+                      title="Otvoriť originál"
+                      className="block w-full"
+                    >
+                      <AttachmentThumb attachment={a} />
+                    </button>
                     {a.isPrimary && (
                       <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-md bg-brand-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow">
                         <Star className="h-3 w-3 fill-current" />
@@ -1083,15 +1178,14 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
                       </p>
                       <p className="text-xs text-text-muted">{formatBytes(a.sizeBytes)}</p>
                     </div>
-                    <a
-                      href={a.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => void handleOpen(a)}
                       title="Stiahnuť"
                       className="rounded-md p-1.5 text-text-secondary transition hover:bg-surface-subtle hover:text-text-primary"
                     >
                       <Download className="h-4 w-4" />
-                    </a>
+                    </button>
                     {canEdit && (
                       <button
                         type="button"
