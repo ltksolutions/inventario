@@ -136,12 +136,26 @@ Logá zmenu vo webe **nepotrebovali**: `brandKit.logoUrl` po migrácii
 ukazuje na náš verejný endpoint, takže prihlasovacia stránka, ScanPage aj
 PDF loader fungujú bez zásahu.
 
+### Upload: priama cesta
+
+`uploadAttachment` robí tri kroky — `upload-url` (server vydá podpis a
+určí cestu), PUT priamo do storu, `confirm` (server objekt stiahne, overí
+magic bytes, odstráni EXIF, vyrobí náhľad a až tu vzniká záznam). Strop je
+tým 25 MB namiesto 4 MB, lebo PUT ide mimo našej funkcie.
+
+Chyba z `confirm` sa hlási inak než chyba z uploadu: bez tretieho kroku
+príloha nevznikne a objekt v store zostane osirelý.
+
+Lokálne bez `BLOB_PRIVATE_READ_WRITE_TOKEN` vracia stub adresu `stub://`,
+na ktorú prehliadač nahrať nevie — vtedy web padá späť na pôvodnú
+multipart cestu.
+
 ## Čo zostáva otvorené
 
 - Staré objekty v public Blobe — zmazať až po overení v prevádzke.
-- Upload z webu ide stále cez multipart (strop 4 MB kvôli Vercelu).
-  Priama cesta `upload-url` + `confirm` (25 MB) je na API hotová, web ju
-  zatiaľ nepoužíva.
+- **Priamy PUT na podpísanú URL nie je overený z prehliadača.** Ak by
+  Blob store neposielal CORS hlavičky, padne to na preflighte. Chce jeden
+  reálny upload v appke.
 - `brandKit.logo.width/height` sú rozmery **náhľadu**, nie originálu, ak
   je logo väčšie než 800 px. Zdedené z upload routy, len kozmetika.
 - ETag verejného loga stojí na `organisation.updatedAt`, ktorý migrácia

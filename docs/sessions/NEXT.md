@@ -67,10 +67,11 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   nedá vrátiť. Po overení novej cesty v prevádzke ich zmazať a odpojiť
   starý store `inventario-api-blob`. Do tej doby zostáva
   `BLOB_READ_WRITE_TOKEN` v env.
-- **Web stále nahráva cez multipart (strop 4 MB)** — priama cesta
-  `upload-url` + `confirm` (25 MB) je na API hotová a otestovaná, web ju
-  nepoužíva. Je to zvyšok Fázy 2a: kým sa neprepne, používateľ nemôže
-  nahrať väčší súbor.
+- **Priamy upload z webu nie je overený v prehliadači** — web už nahráva
+  cez `upload-url` + PUT + `confirm` (25 MB), ale samotný PUT na podpísanú
+  URL Vercel Blobu z prehliadača nikto neskúšal. Ak by store neposielal
+  CORS hlavičky, PUT padne na preflighte. Overiť jedným uploadom v appke;
+  chyba by bola v konzole ako CORS, nie ako naša hláška.
 - **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
   nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
   store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.

@@ -936,6 +936,134 @@ async function openAttachment(a: Attachment): Promise<void> {
   }
 }
 
+/** MIME typy, ktoré API prijme pri žiadosti o podpísaný upload. */
+const ALLOWED_UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'] as const;
+
+type AllowedUploadType = (typeof ALLOWED_UPLOAD_TYPES)[number];
+
+/**
+ * Zistí povolený MIME typ súboru.
+ *
+ * `file.type` určuje prehliadač a niekedy je prázdny alebo neštandardný
+ * (`image/jpg`), preto sa pri neznámej hodnote skúša ešte prípona. Server
+ * si obsah aj tak overí z magic bytes v kroku `confirm` — toto je len
+ * hodnota, na ktorú sa vydá podpis.
+ */
+function uploadContentType(file: File): AllowedUploadType | null {
+  const declared = file.type.toLowerCase();
+  if ((ALLOWED_UPLOAD_TYPES as readonly string[]).includes(declared)) {
+    return declared as AllowedUploadType;
+  }
+
+  const ext = file.name.toLowerCase().split('.').pop() ?? '';
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'pdf':
+      return 'application/pdf';
+    default:
+      return null;
+  }
+}
+
+function formatMaxBytes(bytes: number): string {
+  return `${Math.floor(bytes / (1024 * 1024))} MB`;
+}
+
+/**
+ * Nahrá prílohu PRIAMO do úložiska (ADR-0037, dve volania):
+ *
+ *   1. `upload-url` — server vydá podpísanú PUT URL a určí cestu. Cestu
+ *      NIKDY neposiela klient; inak by si vedel vypýtať podpis na cestu
+ *      iného tenanta.
+ *   2. PUT do úložiska — ide mimo našej funkcie, takže sa naň nevzťahuje
+ *      strop Vercelu 4,5 MB na telo requestu. Odtiaľ tých 25 MB namiesto 4.
+ *   3. `confirm` — až tu vzniká záznam v evidencii. Server si objekt
+ *      stiahne, overí magic bytes, odstráni EXIF a vyrobí náhľad.
+ *
+ * Bez kroku 3 príloha nevznikne a objekt v úložisku zostane osirelý —
+ * preto sa chyba z `confirm` hlási inak než chyba z uploadu.
+ *
+ * Lokálne bez `BLOB_PRIVATE_READ_WRITE_TOKEN` beží úložisko v stub režime
+ * a vracia `stub://` adresu, na ktorú prehliadač nahrať nevie. Vtedy sa
+ * použije pôvodná multipart cesta (strop 4 MB).
+ */
+async function uploadAttachment(assetId: string, file: File): Promise<void> {
+  const contentType = uploadContentType(file);
+  if (!contentType) {
+    throw new Error('Nepodporovaný typ súboru. Povolené sú PNG, JPEG, WEBP a PDF.');
+  }
+
+  const ticketRes = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments/upload-url`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contentType }),
+  });
+  if (!ticketRes.ok) {
+    const body = (await ticketRes.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `Nahrávanie zlyhalo (${ticketRes.status}).`);
+  }
+  const ticket = (await ticketRes.json()) as {
+    uploadUrl: string;
+    pathname: string;
+    maxBytes: number;
+  };
+
+  if (!ticket.uploadUrl.startsWith('http')) {
+    await uploadAttachmentViaFunction(assetId, file);
+    return;
+  }
+
+  if (file.size > ticket.maxBytes) {
+    throw new Error(`Súbor je príliš veľký. Maximum je ${formatMaxBytes(ticket.maxBytes)}.`);
+  }
+
+  // Bez `credentials` — je to cudzia doména a podpis je v samotnej URL.
+  // `Content-Type` musí sedieť s tým, na čo bol podpis vydaný.
+  const putRes = await fetch(ticket.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: file,
+  });
+  if (!putRes.ok) {
+    throw new Error(`Súbor sa nepodarilo nahrať do úložiska (${putRes.status}).`);
+  }
+
+  const confirmRes = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments/confirm`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pathname: ticket.pathname, originalFilename: file.name }),
+  });
+  if (!confirmRes.ok) {
+    const body = (await confirmRes.json().catch(() => ({}))) as { message?: string };
+    throw new Error(
+      body.message ?? `Súbor sa nahral, ale nepodarilo sa ho zaevidovať (${confirmRes.status}).`,
+    );
+  }
+}
+
+/** Pôvodná cesta cez našu funkciu. Strop 4 MB (Vercel). */
+async function uploadAttachmentViaFunction(assetId: string, file: File): Promise<void> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `Nahrávanie zlyhalo (${res.status}).`);
+  }
+}
+
 /**
  * Náhľad prílohy. Načítava sa cez `/thumbnail` (BinData, nie originál) —
  * originál leží v privátnom úložisku a jeho zobrazenie by znamenalo
@@ -998,17 +1126,7 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
     setError(null);
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments`, {
-        method: 'POST',
-        credentials: 'include',
-        body: form,
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { message?: string };
-        throw new Error(body.message ?? `Nahrávanie zlyhalo (${res.status}).`);
-      }
+      await uploadAttachment(assetId, file);
       await queryClient.invalidateQueries({ queryKey: ['asset-attachments', assetId] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nahrávanie zlyhalo.');
@@ -1075,7 +1193,7 @@ function AttachmentsTab({ assetId, canEdit }: { assetId: string; canEdit: boolea
               }}
             />
           </label>
-          <span className="text-xs text-text-muted">PNG, JPEG, WEBP alebo PDF — max 4 MB</span>
+          <span className="text-xs text-text-muted">PNG, JPEG, WEBP alebo PDF — max 25 MB</span>
         </div>
       )}
 

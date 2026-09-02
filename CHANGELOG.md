@@ -26,7 +26,9 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
     servírujú pôvodnou verejnou URL, obe cesty bežia súbežne.
   - **`POST /v1/assets/:id/attachments/upload-url` + `confirm`** — priamy
     upload do storu mimo funkcie, strop 25 MB namiesto 4 MB. Server pri
-    `confirm` overí obsah z magic bytes; web túto cestu zatiaľ nepoužíva.
+    `confirm` overí obsah z magic bytes, odstráni EXIF a vyrobí náhľad.
+    Web nahráva touto cestou; keď úložisko beží v stub režime (lokálne bez
+    tokenu), padá späť na pôvodnú multipart cestu so stropom 4 MB.
   - **`GET /v1/public/organisations/:slug/logo`** — verejný, CDN-cachovaný
     endpoint. Logo tenanta je teraz BinData v `brandKit.logo`, teda ide do
     zálohy spolu s tenantom; `brandKit.logoUrl` ukazuje sem.
