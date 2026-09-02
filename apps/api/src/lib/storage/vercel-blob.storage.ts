@@ -133,10 +133,16 @@ export function createVercelBlobStorage(ctx: StorageContext): ObjectStorage {
     },
 
     async get(pathname): Promise<Buffer> {
-      const result = await get(pathname, { ...commonOptions, access: ACCESS });
+      // `useCache: false` obchádza CDN. Objekt vieme čítať hneď po zápise
+      // (krok `confirm`, migrácie) a cache by mohla vrátiť starý stav alebo
+      // ešte nič — čítame ho práve preto, že sa zmenil.
+      const result = await get(pathname, { ...commonOptions, access: ACCESS, useCache: false });
 
       if (result === null || result.statusCode !== 200) {
-        throw new Error(`[STORAGE] Objekt sa nedá prečítať: ${pathname}`);
+        // Status patrí do hlášky. Bez neho sa nedá odlíšiť „objekt tam nie je"
+        // od „nemáme naň právo" a pri zlyhaní migrácie sa dá len hádať.
+        const status = result === null ? 'null' : String(result.statusCode);
+        throw new Error(`[STORAGE] Objekt sa nedá prečítať (status ${status}): ${pathname}`);
       }
 
       return streamToBuffer(result.stream);
