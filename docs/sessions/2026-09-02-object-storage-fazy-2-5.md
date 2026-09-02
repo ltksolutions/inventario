@@ -81,6 +81,30 @@ Testy s `Authorization: Bearer` dostávali 401. Auth je v cookie
 `yaml.stringify` píše `"…user's…"`, Prettier to prepíše na `'…user''s…'`.
 Skript `openapi-to-yaml.ts` si teraz výstup formátuje Prettierom sám.
 
+### Cesta, na ktorú `put` uložil, nie je tá, ktorú sme žiadali
+
+Prvý priamy upload prešiel — a jeho originál sa napriek tomu nedá
+prečítať. Postup dôkazov:
+
+1. Migrácia `2026-09-02b` spadla na tej prílohe s „Objekt sa nedá
+   prečítať". Hláška neniesla status, takže sa nedalo odlíšiť „nie je tam"
+   od „nemáme naň právo" — doplnené.
+2. So statusom: `get` vracia `null` **práve pri HTTP 404**.
+3. Aj `head` na tej ceste vracia `null`. Pritom pri `confirm` `head` objekt
+   NAŠIEL a `get` ho prečítal (inak by príloha nevznikla).
+
+Medzi tými dvoma stavmi je jediná operácia: `put` v kroku `confirm`, ktorý
+prepisuje originál po odstránení EXIF. Po ňom na žiadanej ceste nič nie je.
+
+`confirm` preto berie `pathname` z ODPOVEDE `put`, nie svoju vyžiadanú
+hodnotu — jedine tá je cesta, na ktorej objekt naozaj leží. Ak sa líšia,
+`storage.put` to zaloguje ako `warn` s oboma hodnotami; to pri ďalšom
+uploade konečne pomenuje príčinu.
+
+Migrácia si zároveň najprv overí `head`. Nečitateľný originál ju
+NEZASTAVÍ — prerobenie náhľadu ho späť nedostane, takže opakovaný beh by
+len večne červenal deploy. Počíta sa ako `unreadable`.
+
 ### JPEG kvalita je 0–100, nie 0–1
 
 Náhľady boli nepoužiteľné — plochy rozpadnuté na bloky. `toBuffer` v
