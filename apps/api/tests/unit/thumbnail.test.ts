@@ -27,6 +27,32 @@ function makePng(width: number, height: number): Buffer {
   return canvas.toBuffer('image/png');
 }
 
+/**
+ * PNG s detailom v každom pixeli — plochá farba na kontrolu kvality nestačí,
+ * tá sa zakóduje do pár kilobajtov aj pri najhoršom nastavení.
+ *
+ * Generátor je zámerne deterministický (LCG s pevným seedom), aby test
+ * nekmital medzi behmi.
+ */
+function makeDetailedPng(width: number, height: number): Buffer {
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(width, height);
+  let seed = 1;
+
+  for (let i = 0; i < width * height; i += 1) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    const value = seed % 256;
+    image.data[i * 4] = value;
+    image.data[i * 4 + 1] = (value * 7) % 256;
+    image.data[i * 4 + 2] = (value * 13) % 256;
+    image.data[i * 4 + 3] = 255;
+  }
+
+  ctx.putImageData(image, 0, 0);
+  return canvas.toBuffer('image/png');
+}
+
 describe('createThumbnail', () => {
   it('zmenší veľký obrázok na 800 px na dlhšej strane a zachová pomer strán', async () => {
     const thumb = await createThumbnail({ data: makePng(2400, 1200), mimeType: 'image/png' });
@@ -65,6 +91,19 @@ describe('createThumbnail', () => {
     const thumb = await createThumbnail({ data: makePng(4032, 3024), mimeType: 'image/png' });
 
     expect(thumb.sizeBytes).toBeLessThan(500 * 1024);
+  });
+
+  // Regresia z 2026-09-02: `toBuffer` berie kvalitu na škále 0–100, nie 0–1.
+  // Hodnota 0.8 sa neodmietla, len znamenala kvalitu ≈1 — náhľad z fotky mal
+  // 5,5 kB a plochy sa rozpadli na bloky. Test to chytá cez veľkosť: pri
+  // pokazenej kvalite je výsledok rádovo menší (17 kB proti 275 kB pri q=80).
+  it('kvalita je na škále 0–100 — náhľad detailnej fotky nie je rozpadnutý', async () => {
+    const thumb = await createThumbnail({
+      data: makeDetailedPng(1600, 1200),
+      mimeType: 'image/png',
+    });
+
+    expect(thumb.sizeBytes).toBeGreaterThan(80 * 1024);
   });
 
   it('PDF a iné dokumenty odmietne chybou, nie tichým null', async () => {

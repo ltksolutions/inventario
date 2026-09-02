@@ -14,7 +14,7 @@
  * (`modules/assets/qr-image-renderer.ts`), takže žiadna nová závislosť.
  * `loadImage()` rozpozná PNG aj JPEG podľa magic bytes sám.
  *
- * ROZMER 800 px na dlhšej strane a JPEG q≈0,8 dávajú ~200–300 KB. To je
+ * ROZMER 800 px na dlhšej strane a JPEG q=80 dávajú ~100–300 KB. To je
  * vedomý kompromis: dosť na fotku cez celú šírku mobilu pri 2× DPR, a
  * dosť málo, aby dvadsať náhľadov v jednom dokumente nepribližovalo
  * 16 MB strop Monga ani 4,5 MB strop odpovede funkcie.
@@ -31,8 +31,18 @@ import type { StoredImage } from '@inventario/shared-types';
 /** Dlhšia strana náhľadu v pixeloch. */
 export const THUMBNAIL_MAX_EDGE = 800;
 
-/** JPEG kvalita. 0,8 je hranica, za ktorou rastie veľkosť rýchlejšie než kvalita. */
-const THUMBNAIL_JPEG_QUALITY = 0.8;
+/**
+ * JPEG kvalita pre `toBuffer`. Škála je 0–100, NIE 0–1.
+ *
+ * Toto nie je detail: `0.8` sa neodmietne, len sa berie ako kvalita ≈1.
+ * Náhľad z fotky 600×800 mal potom 5,5 kB a bol nepoužiteľný — plochy
+ * rozpadnuté na bloky. Nájdené až na produkcii 2026-09-02, keď si to
+ * používateľ pozrel; overené priamo proti `@napi-rs/canvas@1.0.2`
+ * (rovnaký obrázok: q=0.8 → 3,7 kB, q=80 → 6,7 kB, q=100 → 59,7 kB).
+ *
+ * 80 je hranica, za ktorou rastie veľkosť rýchlejšie než kvalita.
+ */
+const THUMBNAIL_JPEG_QUALITY = 80;
 
 /** MIME typy, z ktorých vieme náhľad urobiť. */
 const RASTER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);

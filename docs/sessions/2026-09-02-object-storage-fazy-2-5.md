@@ -81,6 +81,32 @@ Testy s `Authorization: Bearer` dostávali 401. Auth je v cookie
 `yaml.stringify` píše `"…user's…"`, Prettier to prepíše na `'…user''s…'`.
 Skript `openapi-to-yaml.ts` si teraz výstup formátuje Prettierom sám.
 
+### JPEG kvalita je 0–100, nie 0–1
+
+Náhľady boli nepoužiteľné — plochy rozpadnuté na bloky. `toBuffer` v
+`@napi-rs/canvas` berie kvalitu na **škále 0–100**. Naša hodnota `0.8` sa
+neodmietla, len znamenala kvalitu ≈1.
+
+Ukazovateľ bol v dátach a nikto si ho nevšimol: náhľad z fotky 2,23 MB mal
+**5,5 kB**. To je na 600×800 JPEG absurdne málo — presne to malo padnúť do
+oka pri kontrole migrácie.
+
+Overené proti `@napi-rs/canvas@1.0.2`, ten istý obrázok:
+
+| kvalita | veľkosť |
+| ------- | ------- |
+| 0.8     | 3,7 kB  |
+| 80      | 6,7 kB  |
+| 100     | 59,7 kB |
+
+Na šumovom obrázku 800×600 je rozdiel 17 kB proti 275 kB. Test to preto
+chytá cez veľkosť náhľadu detailnej fotky (dolná hranica 80 kB); plochá
+farba by na to nestačila, tá sa zakóduje do pár kilobajtov aj pri
+najhoršom nastavení.
+
+Existujúce náhľady prerába migrácia `2026-09-02b-regenerate-thumbnails` —
+originál sa musí stiahnuť, z náhľadu sa náhľad prerobiť nedá.
+
 ### PUT bez hlavičiek uložil 200 a nič neuložil
 
 Prvý reálny upload skončil na `confirm` s hláškou „Objekt v úložisku
@@ -177,8 +203,8 @@ multipart cestu.
 ## Čo zostáva otvorené
 
 - Staré objekty v public Blobe — zmazať až po overení v prevádzke.
-- **Priamy upload potreboval druhú opravu** (viď nižšie „PUT bez
-  hlavičiek"). Po nej ho treba znova vyskúšať reálnym súborom.
+- Priamy upload z prehliadača **funguje** (overené 2026-09-02 reálnym
+  súborom) — po dvoch opravách, viď „PUT bez hlavičiek" a „JPEG kvalita".
 - `brandKit.logo.width/height` sú rozmery **náhľadu**, nie originálu, ak
   je logo väčšie než 800 px. Zdedené z upload routy, len kozmetika.
 - ETag verejného loga stojí na `organisation.updatedAt`, ktorý migrácia

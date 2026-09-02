@@ -57,7 +57,7 @@ export const AttachmentSchema = BaseDocumentSchema.merge(SoftDeleteSchema)
     storageAccess: z.enum(['PUBLIC_LEGACY', 'PRIVATE']).default('PUBLIC_LEGACY'),
 
     /**
-     * Náhľad v BinData — dlhšia strana 800 px, JPEG, cieľ ~300 KB.
+     * Náhľad v BinData — dlhšia strana 800 px, JPEG q=80, cieľ ~300 KB.
      *
      * Servíruje ho `GET /v1/attachments/:id/thumbnail` za autentifikáciou.
      * NIKDY sa nesmie dostať do výpisov: každý dotaz nad `attachments`

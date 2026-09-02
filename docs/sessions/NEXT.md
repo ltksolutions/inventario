@@ -67,10 +67,6 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   nedá vrátiť. Po overení novej cesty v prevádzke ich zmazať a odpojiť
   starý store `inventario-api-blob`. Do tej doby zostáva
   `BLOB_READ_WRITE_TOKEN` v env.
-- **Priamy upload z webu čaká na druhé vyskúšanie** — prvý pokus padol
-  na `confirm` („Objekt v úložisku neexistuje"), lebo PUT bez hlavičiek
-  `x-vercel-blob-access` a `x-content-type` vráti 200 a nič neuloží.
-  Opravené, hlavičky diktuje server. Skúsiť znova jedným uploadom.
 - **`BLOB_API_VERSION = '12'` je v `attachments.routes.ts` natvrdo** —
   `@vercel/blob` ju neexportuje. Pri bumpe SDK overiť, či sa nezmenila;
   test kontroluje len to, že hlavička je neprázdna.

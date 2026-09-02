@@ -36,6 +36,7 @@ import { migrate_2026_07_06_backfill_null_user_roles } from './2026-07-06-backfi
 import { migrate_2026_07_06b_normalize_free_text_fields } from './2026-07-06b-normalize-free-text-fields.js';
 import { migrate_2026_09_01_drop_sfz_naming } from './2026-09-01-drop-sfz-naming.js';
 import { migrate_2026_09_02_attachments_to_private_blob } from './2026-09-02-attachments-to-private-blob.js';
+import { migrate_2026_09_02b_regenerate_thumbnails } from './2026-09-02b-regenerate-thumbnails.js';
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from 'mongodb';
@@ -167,6 +168,12 @@ export const MIGRATIONS: MigrationDefinition[] = [
     description:
       'ADR-0037: Prenos príloh zo starého public Blobu do private storu (+ náhľady do BinData) a lôg tenantov do brandKit.logo. Staré objekty v Blobe zostávajú.',
     run: migrate_2026_09_02_attachments_to_private_blob,
+  },
+  {
+    key: '2026-09-02b-regenerate-thumbnails',
+    description:
+      'Prerobenie nahladov po oprave JPEG kvality (toBuffer berie 0-100, nie 0-1) — kazdy nahlad vyrobeny do 2026-09-02 je rozpadnuty.',
+    run: migrate_2026_09_02b_regenerate_thumbnails,
   },
 ];
 

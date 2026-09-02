@@ -41,6 +41,16 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Fixed
 
+- **Náhľady príloh boli rozpadnuté na bloky (2026-09-02)** — `toBuffer`
+  v `@napi-rs/canvas` berie JPEG kvalitu na škále 0–100, nie 0–1. Hodnota
+  `0.8` sa neodmietla, len znamenala kvalitu ≈1: náhľad z fotky 2,23 MB
+  mal 5,5 kB. Kvalita je teraz 80; existujúce náhľady prerába migrácia
+  `2026-09-02b-regenerate-thumbnails`.
+- **Priamy upload do úložiska ukladal „nikam" (2026-09-02)** — podpísaná
+  URL vedie na control-plane rozhranie SDK, ktoré parametre uploadu čaká
+  v hlavičkách. Bez `x-vercel-blob-access` a `x-content-type` odpovedalo
+  200, ale objekt neuložilo tam, kde ho `confirm` hľadá. Hlavičky teraz
+  diktuje server a posiela ich v odpovedi `upload-url`.
 - **Logo sa nezobrazovalo cez `<img>` z inej domény (2026-09-02)** — helmet
   dáva globálne `Cross-Origin-Resource-Policy: same-origin`, takže verejný
   logo endpoint na `api.*` by appka na `app.*` nenačítala. Routa teraz
