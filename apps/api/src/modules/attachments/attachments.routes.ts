@@ -4,9 +4,14 @@
 /**
  * Attachments routes — nahrávanie a správa príloh majetku (foto, doklady).
  *
- * Úložisko: Vercel Blob (rovnako ako tenant logo, ADR-0028 v2). Server-side
- * upload — súbor tečie cez API, zvaliduje sa (magic bytes + veľkosť), nahrá
- * do Blobu a metadata sa zapíšu do kolekcie `attachments`.
+ * Úložisko: PRIVATE Vercel Blob store (ADR-0037). Dve cesty nahrávania:
+ *
+ *   - multipart cez API (táto routa) — do 4 MB, strop platformy
+ *   - podpísaný PUT priamo do storu (`upload-url` + `confirm`) — do 25 MB
+ *
+ * Obe končia rovnako: objekt v privátnom store, metadata v `attachments`,
+ * náhľad v BinData. Staré prílohy vo verejnom store zostávajú čitateľné —
+ * rozlišuje ich `storageAccess`.
  *
  * RBAC:
  *   - GET    /v1/assets/:id/attachments   EMPLOYEE+   (zobrazenie)
@@ -19,7 +24,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 
-import { del, put } from '@vercel/blob';
+import { del } from '@vercel/blob';
 import { z } from 'zod';
 
 import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
@@ -37,8 +42,8 @@ import { AssetsRepository } from '../assets/assets.repository.js';
 import { AttachmentsRepository } from './attachments.repository.js';
 
 import type { AttachmentWithoutThumbnail } from './attachments.repository.js';
-import type { Attachment } from '@inventario/shared-types';
-import type { FastifyPluginAsync } from 'fastify';
+import type { Attachment, StoredImage } from '@inventario/shared-types';
+import type { FastifyBaseLogger, FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 // 4 MB, nie 20: Vercel zahodí request nad 4,5 MB s 413 ešte pred našou
@@ -63,6 +68,27 @@ const AttachmentIdParamsSchema = z.object({
  * nemôže byť neobmedzené. 25 MB pokryje fotku z mobilu aj skenovaný doklad.
  */
 const ORIGINAL_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Náhľad je pohodlie, nie podmienka. Keby jeho výroba mohla zhodiť upload,
+ * stačil by neobvykle zakódovaný alebo mierne poškodený obrázok a používateľ
+ * by prílohu neuložil vôbec — hoci samotný súbor je v poriadku a uložiť sa dá.
+ *
+ * Odhalil to test s umelo zostaveným JPEG-om: Skia ho odmietla dekódovať
+ * a celý POST skončil 500-kou.
+ */
+async function tryCreateThumbnail(
+  input: { data: Buffer; mimeType: string },
+  logger: FastifyBaseLogger,
+): Promise<StoredImage | null> {
+  if (!canRenderThumbnail(input.mimeType)) return null;
+  try {
+    return await createThumbnail(input);
+  } catch (err) {
+    logger.warn({ err, mimeType: input.mimeType }, 'Náhľad sa nepodarilo vyrobiť');
+    return null;
+  }
+}
 
 /** Prefix cesty pre prílohy jedného majetku. Určuje ho server, nikdy klient. */
 function attachmentPathnamePrefix(tenantId: string, assetId: string): string {
@@ -120,7 +146,11 @@ function toApiShape(a: AttachmentWithoutThumbnail & { _id: unknown }): Record<st
   return {
     id: String(a._id),
     originalFilename: a.originalFilename,
-    url: a.storageKey, // verejná Blob URL
+    // Pri PRIVATE prílohách je to CESTA v store, nie verejná URL — tá pri
+    // privátnom objekte existovať nemôže. Klient musí podľa storageAccess
+    // rozhodnúť, či si vypýta podpísanú URL cez /download.
+    url: a.storageKey,
+    storageAccess: a.storageAccess,
     mimeType: a.mimeType,
     sizeBytes: a.sizeBytes,
     attachmentType: a.attachmentType,
@@ -225,9 +255,8 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         );
       }
 
-      const blobToken = process.env['BLOB_READ_WRITE_TOKEN'];
-      if (!blobToken) {
-        throw new HttpError(500, 'Upload nie je nakonfigurovaný (chýba BLOB_READ_WRITE_TOKEN).');
+      if (!fastify.objectStorage.isConfigured) {
+        throw new HttpError(503, 'Úložisko príloh nie je nakonfigurované.');
       }
 
       // Privacy: pri fotkách odstráň EXIF/XMP metadata (GPS, zariadenie, čas)
@@ -237,32 +266,40 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         detected.kind === 'image' ? stripImageMetadata(buffer, detected.ext) : buffer;
 
       const sha256 = createHash('sha256').update(storedBuffer).digest('hex');
-      const blobPath = `attachments/${tenantId}/${id}/${Date.now()}.${detected.ext}`;
-      const { url } = await put(blobPath, storedBuffer, {
-        access: 'public',
+      const pathname = `${attachmentPathnamePrefix(tenantId, id)}${randomUUID()}.${detected.ext}`;
+      await fastify.objectStorage.put({
+        pathname,
+        body: storedBuffer,
         contentType: detected.contentType,
-        token: blobToken,
       });
+
+      // Náhľad robíme aj tu, nielen v `confirm`: bez neho by výpis majetku
+      // musel pre každú fotku pýtať podpísanú URL na originál.
+      const thumbnail = await tryCreateThumbnail(
+        { data: storedBuffer, mimeType: detected.contentType },
+        request.log,
+      );
 
       const now = new Date().toISOString();
       const doc: Omit<Attachment, '_id'> = {
         organisationId: tenantId,
         originalFilename: data.filename || `${Date.now()}.${detected.ext}`,
-        storageKey: url,
-        // Táto routa stále píše do STARÉHO public storu (ADR-0028), preto
-        // PUBLIC_LEGACY a žiadny pathname. Nová cesta cez private store
-        // (upload-url + confirm) tieto polia naplní.
-        storagePathname: null,
-        storageAccess: 'PUBLIC_LEGACY',
-        thumbnail: null,
+        // Pri privátnych objektoch žiadna trvalá URL neexistuje (podpis
+        // expiruje), tak `storageKey` nesie rovnakú cestu ako
+        // `storagePathname`. Historický názov poľa zostal.
+        storageKey: pathname,
+        storagePathname: pathname,
+        storageAccess: 'PRIVATE',
+        thumbnail,
         mimeType: detected.contentType,
         sizeBytes: storedBuffer.byteLength,
         sha256,
         attachmentType: detected.kind === 'image' ? 'ASSET_PHOTO' : 'ASSET_DOCUMENT',
         linkedTo: { entityType: 'Asset', entityId: id },
         caption: null,
-        imageDimensions: null,
-        isPublic: true,
+        imageDimensions: thumbnail ? { width: thumbnail.width, height: thumbnail.height } : null,
+        // Objekt leží v privátnom store — verejne čitateľný nie je.
+        isPublic: false,
         isPrimary: false,
         createdAt: now,
         updatedAt: now,
@@ -389,14 +426,22 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
             : 'Zmazaný doklad majetku.',
       });
 
-      // Best-effort zmazanie blobu — zlyhanie nesmie rozbiť odpoveď.
-      const blobToken = process.env['BLOB_READ_WRITE_TOKEN'];
-      if (blobToken && existing.storageKey.includes('.public.blob.vercel-storage.com')) {
-        try {
-          await del(existing.storageKey, { token: blobToken });
-        } catch (err) {
-          request.log.warn({ err, key: existing.storageKey }, 'Blob sa nepodarilo zmazať');
+      // Best-effort zmazanie objektu — zlyhanie nesmie rozbiť odpoveď.
+      //
+      // Dve úložiská naraz: nové prílohy sú v privátnom store, staré vo
+      // verejnom Blobe. Rozlišuje sa podľa `storageAccess`, nie podľa tvaru
+      // `storageKey` — ten je pri privátnych objektoch cesta, nie URL.
+      try {
+        if (existing.storageAccess === 'PRIVATE' && existing.storagePathname) {
+          await fastify.objectStorage.remove(existing.storagePathname);
+        } else {
+          const legacyToken = process.env['BLOB_READ_WRITE_TOKEN'];
+          if (legacyToken && existing.storageKey.includes('.public.blob.vercel-storage.com')) {
+            await del(existing.storageKey, { token: legacyToken });
+          }
         }
+      } catch (err) {
+        request.log.warn({ err, key: existing.storageKey }, 'Objekt sa nepodarilo zmazať');
       }
 
       return reply.status(204).send(null);
@@ -573,9 +618,10 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         contentType: detected.contentType,
       });
 
-      const thumbnail = canRenderThumbnail(detected.contentType)
-        ? await createThumbnail({ data: cleaned, mimeType: detected.contentType })
-        : null;
+      const thumbnail = await tryCreateThumbnail(
+        { data: cleaned, mimeType: detected.contentType },
+        request.log,
+      );
 
       const sha256 = createHash('sha256').update(cleaned).digest('hex');
       const now = new Date().toISOString();

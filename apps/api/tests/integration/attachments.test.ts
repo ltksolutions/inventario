@@ -213,10 +213,19 @@ describe('Attachments — prílohy majetku', () => {
     it('ADMIN nahrá PNG → 201, attachmentType ASSET_PHOTO', async () => {
       const res = await uploadFile(adminToken, 'foto.png', 'image/png', makePngBuffer());
       expect(res.statusCode, res.body).toBe(201);
-      const att = res.json<{ attachmentType: string; isPrimary: boolean; url: string }>();
+      const att = res.json<{
+        attachmentType: string;
+        isPrimary: boolean;
+        url: string;
+        storageAccess: string;
+      }>();
       expect(att.attachmentType).toBe('ASSET_PHOTO');
       expect(att.isPrimary).toBe(false);
-      expect(att.url).toContain('blob.vercel-storage.com');
+      // Originály idú do PRIVATE storu (ADR-0037), takže `url` už nie je
+      // verejná Blob URL, ale cesta v store. Verejná URL pri privátnom
+      // objekte ani existovať nemôže — podpis expiruje.
+      expect(att.url).toMatch(/^attachments\/[a-f0-9]{24}\/[a-f0-9]{24}\/[0-9a-f-]+\.png$/);
+      expect(att.storageAccess).toBe('PRIVATE');
     });
 
     it('ADMIN nahrá PDF → 201, attachmentType ASSET_DOCUMENT', async () => {
