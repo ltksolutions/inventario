@@ -62,11 +62,14 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
   je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
   restoru.
-- **Staré objekty v public Blobe zmazať** — migrácia
-  `2026-09-02-attachments-to-private-blob` ich nechala na mieste, lebo sa
-  nedá vrátiť. Po overení novej cesty v prevádzke ich zmazať a odpojiť
-  starý store `inventario-api-blob`. Do tej doby zostáva
-  `BLOB_READ_WRITE_TOKEN` v env.
+- **Staré objekty v public Blobe zmazať — čaká len na rozhodnutie.**
+  Migrácia `2026-09-02-attachments-to-private-blob` ich nechala na mieste,
+  lebo sa nedá vrátiť. Nová cesta je 2026-09-02 overená v prevádzke celá:
+  upload (priamy PUT do storu + `confirm`), náhľad, otvorenie originálu
+  podpísanou URL aj logo na prihlasovacej stránke. Potom sa dá odpojiť
+  starý store `inventario-api-blob` a zahodiť `BLOB_READ_WRITE_TOKEN`
+  — okrem mazania starého loga v `organisations.routes.ts`, ktoré ho
+  ešte používa a s odpojením musí ísť von.
 - **`BLOB_API_VERSION = '12'` je v `attachments.routes.ts` natvrdo** —
   `@vercel/blob` ju neexportuje. Pri bumpe SDK overiť, či sa nezmenila;
   test kontroluje len to, že hlavička je neprázdna.

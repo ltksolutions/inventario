@@ -229,6 +229,16 @@ Lokálne bez `BLOB_PRIVATE_READ_WRITE_TOKEN` vracia stub adresu `stub://`,
 na ktorú prehliadač nahrať nevie — vtedy web padá späť na pôvodnú
 multipart cestu.
 
+## Overené v prevádzke (2026-09-02)
+
+Celá nová cesta, nie po častiach:
+
+- upload z prehliadača priamo do storu (`upload-url` → PUT → `confirm`)
+- náhľad vo výpise aj na hero karte
+- otvorenie originálu podpísanou URL
+- logo tenanta z verejného endpointu
+- migrácie `2026-09-02` a `2026-09-02b` obe dokončené
+
 ## Čo zostáva otvorené
 
 - Staré objekty v public Blobe — zmazať až po overení v prevádzke.
