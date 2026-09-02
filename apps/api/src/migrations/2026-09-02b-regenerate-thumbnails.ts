@@ -21,6 +21,11 @@
  * Chyba jednej položky sa zaloguje a beh pokračuje; na konci migrácia hodí
  * výnimku, takže sa neoznačí ako dokončená a pri ďalšom deployi sa dobehne
  * zvyšok. Rovnaký vzor ako `2026-09-02-attachments-to-private-blob`.
+ *
+ * VÝNIMKA: nečitateľný originál (404 v store) migráciu NEZASTAVÍ. Prerobenie
+ * náhľadu ho späť nedostane, takže opakovaný beh by len večne červenal deploy.
+ * Loguje sa ako `warn` a počíta samostatne, aby sa nestratil — je to vec
+ * na vyšetrenie, nie na retry.
  */
 
 import { selectObjectStorage } from '../lib/storage/index.js';
@@ -54,6 +59,7 @@ export async function migrate_2026_09_02b_regenerate_thumbnails(
 
   let done = 0;
   let skipped = 0;
+  let unreadable = 0;
   let failed = 0;
 
   for (const doc of attachments) {
@@ -67,6 +73,17 @@ export async function migrate_2026_09_02b_regenerate_thumbnails(
       }
 
       const pathname = String(doc['storagePathname']);
+
+      const stored = await storage.head(pathname);
+      if (!stored) {
+        unreadable += 1;
+        logger.warn(
+          { id, pathname },
+          'Originál v úložisku na uloženej ceste nie je — náhľad zostáva pôvodný',
+        );
+        continue;
+      }
+
       const bytes = await storage.get(pathname);
       const thumbnail = await createThumbnail({ data: bytes, mimeType });
 
@@ -79,7 +96,7 @@ export async function migrate_2026_09_02b_regenerate_thumbnails(
     }
   }
 
-  logger.info({ done, skipped, failed }, 'Náhľady prerobené po oprave JPEG kvality');
+  logger.info({ done, skipped, unreadable, failed }, 'Náhľady prerobené po oprave JPEG kvality');
 
   if (failed > 0) {
     throw new Error(

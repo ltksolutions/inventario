@@ -159,6 +159,17 @@ export function createVercelBlobStorage(ctx: StorageContext): ObjectStorage {
         addRandomSuffix: false,
       });
 
+      // Cesta z odpovede, nie tá naša. Keby ju store zmenil (napr. doplnil
+      // príponu), zapísali by sme si do DB odkaz, za ktorým nič nie je —
+      // presne to sa stalo pri prvom priamom uploade 2026-09-02: `head`
+      // objekt našiel, ale čítanie na uloženej ceste vracalo 404.
+      if (result.pathname !== input.pathname) {
+        logger.warn(
+          { requested: input.pathname, stored: result.pathname },
+          '[STORAGE] store uložil objekt na inú cestu, než sme žiadali',
+        );
+      }
+
       return {
         pathname: result.pathname,
         sizeBytes: input.body.byteLength,

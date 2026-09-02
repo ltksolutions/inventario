@@ -655,7 +655,9 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Prepíšeme aj vtedy, keď sa obsah nezmenil: `contentType` v store
       // pochádza z klientovho tvrdenia a tu ho opravujeme na zistený.
-      await fastify.objectStorage.put({
+      // Cesta, na ktorú objekt naozaj skončil. Prepis vracia `pathname` zo
+      // store a ten je jediný, za ktorým sa dá objekt neskôr prečítať.
+      const { pathname: storedPathname } = await fastify.objectStorage.put({
         pathname,
         body: cleaned,
         contentType: detected.contentType,
@@ -674,8 +676,8 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         originalFilename: originalFilename || `${Date.now()}.${detected.ext}`,
         // storageKey nesie historicky celú URL. Pri privátnych objektoch
         // žiadna trvalá URL neexistuje (podpis expiruje), tak sem ide cesta.
-        storageKey: pathname,
-        storagePathname: pathname,
+        storageKey: storedPathname,
+        storagePathname: storedPathname,
         storageAccess: 'PRIVATE',
         thumbnail,
         mimeType: detected.contentType,
