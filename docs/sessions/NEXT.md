@@ -70,17 +70,10 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 - **`BLOB_API_VERSION = '12'` je v `attachments.routes.ts` natvrdo** —
   `@vercel/blob` ju neexportuje. Pri bumpe SDK overiť, či sa nezmenila;
   test kontroluje len to, že hlavička je neprázdna.
-- **Príloha `6a9814c5e1f72d0bcc897366` ukazuje na neexistujúci objekt** —
-  z prvého priameho uploadu (2026-09-02). Náhľad má v BinData, takže
-  v zozname vyzerá v poriadku, ale kliknutie na originál skončí chybou.
-  Migrácia `2026-09-02b` ju preskočila ako `unreadable`. Buď záznam
-  zmazať, alebo prílohu nahrať znova — rozhodnúť.
-- **Prečo `put` uložil objekt inam, než sme žiadali, nevieme** — vieme
-  len, že po `put` v kroku `confirm` na žiadanej ceste nič nie je, hoci
-  pred ním tam objekt bol. `storage.put` teraz rozdiel loguje ako `warn`
-  s oboma cestami; ďalší upload to pomenuje.
-- **Osirelé objekty v private store** — z neúspešných uploadov ich už je
-  niekoľko. Upratovanie nikto nerobí; retenčný job sa ich netýka.
+- **Osirelé objekty v private store** — z neúspešných uploadov (PUT bez
+  hlavičiek, 2026-09-02) ich v store niekoľko zostalo: objekt vznikol, ale
+  `confirm` záznam nevytvoril. Upratovanie osirelých objektov nikto
+  nerobí; retenčný job sa ich netýka.
 - **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
   nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
   store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.

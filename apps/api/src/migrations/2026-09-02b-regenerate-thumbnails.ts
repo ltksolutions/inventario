@@ -26,6 +26,9 @@
  * náhľadu ho späť nedostane, takže opakovaný beh by len večne červenal deploy.
  * Loguje sa ako `warn` a počíta samostatne, aby sa nestratil — je to vec
  * na vyšetrenie, nie na retry.
+ *
+ * Berie len NEZMAZANÉ prílohy. Mazanie odstraňuje aj objekt z úložiska, takže
+ * u zmazanej prílohy originál chýbať MÁ.
  */
 
 import { selectObjectStorage } from '../lib/storage/index.js';
@@ -52,7 +55,12 @@ export async function migrate_2026_09_02b_regenerate_thumbnails(
   const attachments = await db
     .collection('attachments')
     .find(
-      { storageAccess: 'PRIVATE', storagePathname: { $ne: null } },
+      // `deletedAt: null` je podstatné, nie kozmetika: mazanie prílohy
+      // odstraňuje aj objekt z úložiska, takže u zmazanej prílohy originál
+      // legitímne neexistuje. Bez tohto filtra migrácia hlásila „originál
+      // v úložisku nie je" na dokumente, ktorý používateľ zmazal minútu po
+      // nahraní — a hodinu sme hľadali chybu v uploade, ktorá tam nebola.
+      { deletedAt: null, storageAccess: 'PRIVATE', storagePathname: { $ne: null } },
       { projection: { storagePathname: 1, mimeType: 1 } },
     )
     .toArray();
