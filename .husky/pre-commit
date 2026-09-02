@@ -59,11 +59,16 @@ pnpm typecheck
 # ---------------------------------------------------------------------------
 # OpenAPI spec freshness (apps/api)
 # ---------------------------------------------------------------------------
-# CI runs `openapi:export --check` and fails the build if the committed
-# apps/api/openapi.json no longer matches the live routes. To make sure a
-# change to the API surface never lands without a refreshed spec, we
-# regenerate it here whenever any apps/api/src file is part of the commit
-# and stage the result.
+# CI runs `openapi:export --check` and `openapi:docs --check`, and fails the
+# build if either the committed apps/api/openapi.json or docs/api/openapi.yaml
+# no longer matches the live routes. To make sure a change to the API surface
+# never lands without a refreshed spec, we regenerate both here whenever any
+# apps/api/src file is part of the commit and stage the results.
+#
+# Both files, not just the JSON: docs/api/openapi.yaml is what Redocly lints
+# in CI. On 2026-09-02 the YAML lagged two endpoints behind and the lint stayed
+# green against the stale document, so a `security-defined` error went
+# unnoticed. Regenerating only the JSON leaves exactly that gap open.
 #
 # We use the OFFLINE export (in-process MongoMemoryServer) so the hook does
 # not depend on a running local MongoDB. The first run downloads the mongod
@@ -72,10 +77,10 @@ pnpm typecheck
 #
 # Escape hatch: `git commit --no-verify` skips this (and the checks above).
 if git diff --cached --name-only --diff-filter=ACMR | grep -q '^apps/api/src/'; then
-    echo "ℹ️  API source changed — regenerating apps/api/openapi.json…"
-    if pnpm --filter @inventario/api openapi:export:offline; then
-        git add apps/api/openapi.json
-        echo "✓ openapi.json refreshed and staged."
+    echo "ℹ️  API source changed — regenerating OpenAPI spec (JSON + YAML)…"
+    if pnpm --filter @inventario/api openapi:sync; then
+        git add apps/api/openapi.json docs/api/openapi.yaml
+        echo "✓ openapi.json + openapi.yaml refreshed and staged."
     else
         echo "❌ OpenAPI export failed — fix the error above, or use 'git commit --no-verify' to skip."
         exit 1

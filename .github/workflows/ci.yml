@@ -146,10 +146,14 @@ jobs:
           if-no-files-found: ignore
 
   # ──────────────────────────────────────────────────────────────
-  # Job 3: OpenAPI freshness check — the openapi.json committed to git
-  # must match what `pnpm openapi:export:offline` would produce from the
-  # current source. Uses MongoMemoryServer (no Atlas needed) so the check
-  # runs on all PRs including dependabot.
+  # Job 3: OpenAPI freshness check — the openapi.json committed to git must
+  # match what `pnpm openapi:export:offline` would produce from the current
+  # source, and docs/api/openapi.yaml must match that JSON. Uses
+  # MongoMemoryServer (no Atlas needed) so the check runs on all PRs
+  # including dependabot.
+  #
+  # The YAML half matters because Redocly (docs.yml) lints the YAML, and
+  # docs.yml only triggers on docs/** — an API change alone never runs it.
   # ──────────────────────────────────────────────────────────────
   openapi:
     name: OpenAPI Spec Freshness
@@ -180,6 +184,14 @@ jobs:
 
       - name: Check openapi.json is up to date
         run: pnpm --filter @inventario/api openapi:export:offline -- --check
+
+      # docs/api/openapi.yaml je to, co lintuje Redocly (docs.yml). Bez tejto
+      # kontroly moze byt zeleny lint uplne bezcenny: 2026-09-02 bol YAML
+      # o dva endpointy pozadu a chyba security-defined presla, lebo Redocly
+      # linol stary dokument. Navyse sa docs.yml spusta len na zmenach v
+      # docs/**, takze zmena v apps/api/src ho nemusi vobec vyvolat.
+      - name: Check docs/api/openapi.yaml is up to date
+        run: pnpm --filter @inventario/api openapi:docs -- --check
 
   # ─────────────────────────────────────────────────────────────────
   # Job 4b: REUSE 3.3 compliance — každý tracked súbor musí mať licenciu
