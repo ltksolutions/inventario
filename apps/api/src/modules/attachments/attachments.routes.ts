@@ -17,13 +17,20 @@
  * (→ ASSET_DOCUMENT). Max veľkosť 4 MB (strop Vercelu, viď server.ts).
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { del, put } from '@vercel/blob';
 import { z } from 'zod';
 
 import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
+import {
+  ALLOWED_UPLOAD_CONTENT_TYPES,
+  detectFileType,
+  extensionForContentType,
+  type AllowedUploadContentType,
+} from '../../lib/file-type.js';
 import { stripImageMetadata } from '../../lib/strip-image-metadata.js';
+import { canRenderThumbnail, createThumbnail } from '../../lib/thumbnail.js';
 import { BadRequestError, HttpError, NotFoundError } from '../../plugins/error-handler.js';
 import { AssetsRepository } from '../assets/assets.repository.js';
 
@@ -47,38 +54,62 @@ const AttachmentIdParamsSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, 'Neplatný formát ID (očakáva sa 24 hex znakov).'),
 });
 
+/**
+ * Strop pre originál pri PRIAMOM uploade do storu.
+ *
+ * Vyšší než 4 MB pri multipart ceste: priamy PUT ide mimo funkcie, takže
+ * platformový strop 4,5 MB na telo requestu sa naň nevzťahuje. Krok `confirm`
+ * si ale objekt sťahuje do funkcie (pamäť 1024 MB, maxDuration 30 s), tak to
+ * nemôže byť neobmedzené. 25 MB pokryje fotku z mobilu aj skenovaný doklad.
+ */
+const ORIGINAL_MAX_BYTES = 25 * 1024 * 1024;
+
+/** Prefix cesty pre prílohy jedného majetku. Určuje ho server, nikdy klient. */
+function attachmentPathnamePrefix(tenantId: string, assetId: string): string {
+  return `attachments/${tenantId}/${assetId}/`;
+}
+
+function buildAttachmentPathname(
+  tenantId: string,
+  assetId: string,
+  contentType: AllowedUploadContentType,
+): string {
+  const ext = extensionForContentType(contentType);
+  return `${attachmentPathnamePrefix(tenantId, assetId)}${randomUUID()}.${ext}`;
+}
+
+const UploadUrlBodySchema = z
+  .object({
+    contentType: z.enum(ALLOWED_UPLOAD_CONTENT_TYPES),
+  })
+  .strict();
+
+const UploadUrlResponseSchema = z.object({
+  uploadUrl: z.string().url(),
+  pathname: z.string(),
+  expiresAt: z.string(),
+  maxBytes: z.number().int().positive(),
+});
+
+const ConfirmUploadBodySchema = z
+  .object({
+    pathname: z.string().min(1).max(500),
+    originalFilename: z.string().min(1).max(500),
+    caption: z.string().max(500).nullable().optional(),
+  })
+  .strict();
+
+const DownloadResponseSchema = z.object({
+  url: z.string(),
+  /** `null` pri starých verejných prílohách — tie neexpirujú. */
+  expiresAt: z.string().nullable(),
+});
+
 const AttachmentListResponseSchema = z.object({
   data: z.array(z.record(z.string(), z.unknown())),
 });
 
 /** Detekcia typu z magic bytes — nie z deklarovaného Content-Type. */
-function detectFileType(
-  buf: Buffer,
-): { ext: string; contentType: string; kind: 'image' | 'pdf' } | null {
-  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
-    return { ext: 'png', contentType: 'image/png', kind: 'image' };
-  }
-  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
-    return { ext: 'jpg', contentType: 'image/jpeg', kind: 'image' };
-  }
-  if (
-    buf.length >= 12 &&
-    buf[0] === 0x52 &&
-    buf[1] === 0x49 &&
-    buf[2] === 0x46 &&
-    buf[3] === 0x46 &&
-    buf[8] === 0x57 &&
-    buf[9] === 0x45 &&
-    buf[10] === 0x42 &&
-    buf[11] === 0x50
-  ) {
-    return { ext: 'webp', contentType: 'image/webp', kind: 'image' };
-  }
-  if (buf.length >= 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) {
-    return { ext: 'pdf', contentType: 'application/pdf', kind: 'pdf' };
-  }
-  return null;
-}
 
 /** API tvar prílohy (bez interných polí). */
 // Berie prílohu BEZ náhľadu — a je to zámer, nie zjednodušenie. Náhľad je
@@ -414,6 +445,228 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
       reply.header('Content-Type', found.thumbnail.mimeType);
       // Repository už BinData normalizovalo na Buffer (`bsonBinaryToBuffer`).
       return reply.send(found.thumbnail.data);
+    },
+  );
+
+  // --- POST /v1/assets/:id/attachments/upload-url --------------------------
+  //
+  // Krok 1 z dvoch. Vráti podpísanú PUT URL; prehliadač nahrá originál PRIAMO
+  // do private storu, takže sa obchádza 4,5 MB strop Vercelu na telo requestu.
+  //
+  // `pathname` si určuje SERVER, nie klient. Keby ho posielal klient, mohol by
+  // si vypýtať podpis na cestu iného tenanta. Tenant a asset sú preto v ceste
+  // zapečené tu a `confirm` si ich znova overí.
+  app.post(
+    '/v1/assets/:id/attachments/upload-url',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Attachments'],
+        summary: 'Podpísaná URL na priamy upload originálu do private storu',
+        description:
+          'Krok 1/2. Klient dostane PUT URL a nahrá na ňu súbor priamo. ' +
+          'Potom musí zavolať /confirm, inak príloha nevznikne.',
+        security: [{ bearerAuth: [] }],
+        params: AssetIdParamsSchema,
+        body: UploadUrlBodySchema,
+        response: { 200: UploadUrlResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const { id } = request.params;
+      const { contentType } = request.body;
+
+      const asset = await assetsRepo.findById(tenantId, id);
+      if (!asset) throw new NotFoundError('Asset', id);
+
+      if (!fastify.objectStorage.isConfigured) {
+        throw new HttpError(503, 'Úložisko príloh nie je nakonfigurované.');
+      }
+
+      const pathname = buildAttachmentPathname(tenantId, id, contentType);
+      const presigned = await fastify.objectStorage.presignUpload({ pathname, contentType });
+
+      return reply.send({
+        uploadUrl: presigned.url,
+        pathname: presigned.pathname,
+        expiresAt: presigned.expiresAt,
+        maxBytes: ORIGINAL_MAX_BYTES,
+      });
+    },
+  );
+
+  // --- POST /v1/assets/:id/attachments/confirm -----------------------------
+  //
+  // Krok 2 z dvoch. Až tu vzniká záznam v DB.
+  //
+  // Server si objekt STIAHNE a prezrie, hoci ho práve nahral klient. Dôvody:
+  //
+  //   1. EXIF. Priamy upload obchádza `stripImageMetadata`, takže GPS súradnice
+  //      a sériové číslo telefónu by sa dostali do storu nedotknuté. To je
+  //      vecná regresia v ochrane osobných údajov, nie detail — fotky majetku
+  //      sa robia mobilom. Preto stiahnuť, odstrániť, prepísať.
+  //   2. Magic bytes. `contentType` v kroku 1 tvrdí klient. Čo v store naozaj
+  //      leží, vie server až keď sa na to pozrie.
+  //   3. Náhľad. Vyrobiť sa dá len z obsahu, a keď už je stiahnutý, je zadarmo.
+  //
+  // 4,5 MB strop Vercelu sa na tento fetch NEVZŤAHUJE — je to limit tela
+  // requestu a odpovede _funkcie voči klientovi_, nie odchádzajúcich volaní.
+  app.post(
+    '/v1/assets/:id/attachments/confirm',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canWrite],
+      schema: {
+        tags: ['Attachments'],
+        summary: 'Potvrdenie uploadu — overí obsah, odstráni EXIF, vyrobí náhľad',
+        description:
+          'Krok 2/2. Bez tohto volania príloha v evidencii nevznikne a objekt ' +
+          'v store zostane osirelý.',
+        security: [{ bearerAuth: [] }],
+        params: AssetIdParamsSchema,
+        body: ConfirmUploadBodySchema,
+      },
+    },
+    async (request, reply) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const actorId = String(request.currentUser._id);
+      const { id } = request.params;
+      const { pathname, originalFilename, caption } = request.body;
+
+      const asset = await assetsRepo.findById(tenantId, id);
+      if (!asset) throw new NotFoundError('Asset', id);
+
+      // Cesta musí patriť TOMUTO tenantovi a TOMUTO majetku. Bez tejto
+      // kontroly by stačilo poslať cudziu cestu a príloha by sa naviazala
+      // na vlastný majetok — obsah by pritom patril niekomu inému.
+      const expectedPrefix = attachmentPathnamePrefix(tenantId, id);
+      if (!pathname.startsWith(expectedPrefix)) {
+        throw new BadRequestError('Cesta k objektu nepatrí tomuto majetku.');
+      }
+
+      const stored = await fastify.objectStorage.head(pathname);
+      if (!stored) {
+        throw new BadRequestError(
+          'Objekt v úložisku neexistuje. Nahral sa súbor na podpísanú URL?',
+        );
+      }
+      if (stored.sizeBytes > ORIGINAL_MAX_BYTES) {
+        // Objekt necháme tak, nech sa dá zistiť, čo sa stalo; upratovanie
+        // osirelých objektov je vec retenčného jobu, nie tejto cesty.
+        throw new HttpError(413, `Súbor je príliš veľký (max ${ORIGINAL_MAX_BYTES} B).`);
+      }
+
+      const raw = await fastify.objectStorage.get(pathname);
+
+      const detected = detectFileType(raw);
+      if (!detected) {
+        throw new BadRequestError('Nepodporovaný typ súboru (povolené: PNG, JPEG, WEBP, PDF).');
+      }
+
+      const cleaned = detected.kind === 'image' ? stripImageMetadata(raw, detected.ext) : raw;
+
+      // Prepíšeme aj vtedy, keď sa obsah nezmenil: `contentType` v store
+      // pochádza z klientovho tvrdenia a tu ho opravujeme na zistený.
+      await fastify.objectStorage.put({
+        pathname,
+        body: cleaned,
+        contentType: detected.contentType,
+      });
+
+      const thumbnail = canRenderThumbnail(detected.contentType)
+        ? await createThumbnail({ data: cleaned, mimeType: detected.contentType })
+        : null;
+
+      const sha256 = createHash('sha256').update(cleaned).digest('hex');
+      const now = new Date().toISOString();
+
+      const doc: Omit<Attachment, '_id'> = {
+        organisationId: tenantId,
+        originalFilename: originalFilename || `${Date.now()}.${detected.ext}`,
+        // storageKey nesie historicky celú URL. Pri privátnych objektoch
+        // žiadna trvalá URL neexistuje (podpis expiruje), tak sem ide cesta.
+        storageKey: pathname,
+        storagePathname: pathname,
+        storageAccess: 'PRIVATE',
+        thumbnail,
+        mimeType: detected.contentType,
+        sizeBytes: cleaned.byteLength,
+        sha256,
+        attachmentType: detected.kind === 'image' ? 'ASSET_PHOTO' : 'ASSET_DOCUMENT',
+        linkedTo: { entityType: 'Asset', entityId: id },
+        caption: caption ?? null,
+        imageDimensions: thumbnail ? { width: thumbnail.width, height: thumbnail.height } : null,
+        isPublic: false,
+        isPrimary: false,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: actorId,
+        updatedBy: actorId,
+        deletedAt: null,
+        deletedBy: null,
+      };
+
+      const inserted = await attachmentsRepo.insert(doc);
+
+      await fastify.auditLog.record(request.currentUser, request, {
+        action: 'ASSET_ATTACHMENT_ADDED',
+        target: {
+          entityType: 'Asset',
+          entityId: id,
+          snapshot: {
+            attachmentId: String(inserted._id),
+            originalFilename: doc.originalFilename,
+            attachmentType: doc.attachmentType,
+            mimeType: doc.mimeType,
+            sizeBytes: doc.sizeBytes,
+            storageAccess: doc.storageAccess,
+          },
+        },
+        description:
+          doc.attachmentType === 'ASSET_PHOTO'
+            ? 'Pridaná fotografia k majetku.'
+            : 'Pridaný doklad k majetku.',
+      });
+
+      return reply.status(201).send(toApiShape(inserted));
+    },
+  );
+
+  // --- GET /v1/attachments/:id/download ------------------------------------
+  //
+  // Vráti podpísanú GET URL, nie samotný súbor. Originál tak nikdy neprechádza
+  // funkciou a 4,5 MB strop odpovede nehrá rolu.
+  //
+  // Podpísaná URL je do expirácie PRENOSNÁ — kto ju získa, súbor si stiahne.
+  // Preto krátke TTL a preto sa NIKDY neloguje celá (`lib/storage`).
+  app.get(
+    '/v1/attachments/:id/download',
+    {
+      preHandler: [fastify.requireAuth, fastify.loadCurrentUser, canRead],
+      schema: {
+        tags: ['Attachments'],
+        summary: 'Podpísaná URL na stiahnutie originálu',
+        security: [{ bearerAuth: [] }],
+        params: AttachmentIdParamsSchema,
+        response: { 200: DownloadResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      const tenantId = String(request.currentUser.organisationId);
+      const { id } = request.params;
+
+      const attachment = await attachmentsRepo.findById(tenantId, id);
+      if (!attachment) throw new NotFoundError('Attachment', id);
+
+      // Staré prílohy ležia vo verejnom store a podpisovať sa nedajú —
+      // `storageKey` je pri nich rovno verejná URL. Rozlíšenie drží
+      // `storageAccess`, aby sa staré a nové dali servírovať súbežne.
+      if (attachment.storageAccess !== 'PRIVATE' || !attachment.storagePathname) {
+        return reply.send({ url: attachment.storageKey, expiresAt: null });
+      }
+
+      const signed = await fastify.objectStorage.presignDownload(attachment.storagePathname);
+      return reply.send({ url: signed.url, expiresAt: signed.expiresAt });
     },
   );
 };

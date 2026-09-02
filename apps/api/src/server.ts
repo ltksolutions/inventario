@@ -72,6 +72,7 @@ import emailPlugin from './plugins/email.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
 import inventarioJwtPlugin from './plugins/inventario-jwt.js';
 import mongoPlugin from './plugins/mongo.js';
+import storagePlugin from './plugins/storage.js';
 import swaggerPlugin from './plugins/swagger.js';
 
 // Suppress unused import warning — jsonSchemaTransform is re-exported
@@ -210,6 +211,7 @@ export async function buildServer(
   bootTimer.mark('migrationsCheck');
   await app.register(auditPlugin);
   await app.register(emailPlugin);
+  await app.register(storagePlugin);
   await app.register(inventarioJwtPlugin);
   await app.register(authPlugin);
   await app.register(oauthRoutes);

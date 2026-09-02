@@ -5782,6 +5782,360 @@
         }
       }
     },
+    "/v1/assets/{id}/attachments/upload-url": {
+      "post": {
+        "operationId": "postV1AssetsByIdAttachmentsUploadUrl",
+        "summary": "Podpísaná URL na priamy upload originálu do private storu",
+        "tags": [
+          "Attachments"
+        ],
+        "description": "Krok 1/2. Klient dostane PUT URL a nahrá na ňu súbor priamo. Potom musí zavolať /confirm, inak príloha nevznikne.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "contentType": {
+                    "type": "string",
+                    "enum": [
+                      "image/png",
+                      "image/jpeg",
+                      "image/webp",
+                      "application/pdf"
+                    ]
+                  }
+                },
+                "required": [
+                  "contentType"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploadUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "pathname": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    },
+                    "maxBytes": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "uploadUrl",
+                    "pathname",
+                    "expiresAt",
+                    "maxBytes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{id}/attachments/confirm": {
+      "post": {
+        "operationId": "postV1AssetsByIdAttachmentsConfirm",
+        "summary": "Potvrdenie uploadu — overí obsah, odstráni EXIF, vyrobí náhľad",
+        "tags": [
+          "Attachments"
+        ],
+        "description": "Krok 2/2. Bez tohto volania príloha v evidencii nevznikne a objekt v store zostane osirelý.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pathname": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "originalFilename": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "caption": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "pathname",
+                  "originalFilename"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attachments/{id}/download": {
+      "get": {
+        "operationId": "getV1AttachmentsByIdDownload",
+        "summary": "Podpísaná URL na stiahnutie originálu",
+        "tags": [
+          "Attachments"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{24}$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "url",
+                    "expiresAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Zdroj s daným identifikátorom neexistuje alebo nepatrí do tejto organizácie.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/public/scan/{publicToken}": {
       "get": {
         "operationId": "getV1PublicScanByPublicToken",
