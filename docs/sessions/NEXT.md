@@ -67,11 +67,15 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   nedá vrátiť. Po overení novej cesty v prevádzke ich zmazať a odpojiť
   starý store `inventario-api-blob`. Do tej doby zostáva
   `BLOB_READ_WRITE_TOKEN` v env.
-- **Priamy upload z webu nie je overený v prehliadači** — web už nahráva
-  cez `upload-url` + PUT + `confirm` (25 MB), ale samotný PUT na podpísanú
-  URL Vercel Blobu z prehliadača nikto neskúšal. Ak by store neposielal
-  CORS hlavičky, PUT padne na preflighte. Overiť jedným uploadom v appke;
-  chyba by bola v konzole ako CORS, nie ako naša hláška.
+- **Priamy upload z webu nie je vyskúšaný reálnym súborom** — web už
+  nahráva cez `upload-url` + PUT + `confirm` (25 MB). CORS je overený:
+  podpísaná PUT URL ide na `https://vercel.com/api/blob/` (nie na
+  `*.blob.vercel-storage.com`, ako by sa čakalo) a preflight z
+  `app.inventario.estate` vracia `allow-origin: *`, `PUT` a `content-type`.
+  Neoverené zostáva, či podpis vydaný s `allowedContentTypes` uzná
+  hlavičku `Content-Type` z prehliadača — SDK si posiela vlastnú
+  `x-content-type`. Rozhodne to jeden upload v appke; pri chybe je vidieť
+  4xx z PUT kroku, nie CORS.
 - **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
   nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
   store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.

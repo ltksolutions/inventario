@@ -153,9 +153,12 @@ multipart cestu.
 ## Čo zostáva otvorené
 
 - Staré objekty v public Blobe — zmazať až po overení v prevádzke.
-- **Priamy PUT na podpísanú URL nie je overený z prehliadača.** Ak by
-  Blob store neposielal CORS hlavičky, padne to na preflighte. Chce jeden
-  reálny upload v appke.
+- **Priamy PUT z prehliadača nie je vyskúšaný reálnym súborom.** CORS
+  overený: podpísaná PUT URL nejde na `*.blob.vercel-storage.com`, ale na
+  `https://vercel.com/api/blob/`, a preflight odtiaľ vracia
+  `allow-origin: *`, `PUT` aj `content-type`. Otvorené zostáva, či podpis
+  s `allowedContentTypes` uzná hlavičku `Content-Type` z prehliadača —
+  SDK si posiela vlastnú `x-content-type`.
 - `brandKit.logo.width/height` sú rozmery **náhľadu**, nie originálu, ak
   je logo väčšie než 800 px. Zdedené z upload routy, len kozmetika.
 - ETag verejného loga stojí na `organisation.updatedAt`, ktorý migrácia
