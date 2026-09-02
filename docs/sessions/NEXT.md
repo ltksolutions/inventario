@@ -75,12 +75,11 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   loga nemení (kryje to cache-buster `?v=`); PDF `logo-loader` fetchuje
   `logoUrl`, teda API volá samo seba cez sieť, namiesto priameho čítania
   `brandKit.logo`.
-- **`docs/user-guide/` je napísaný pre SFZ, nie pre white-label produkt** —
-  „Som zamestnanec SFZ", `support@futbalsfz.sk` _(TODO: overiť)_,
-  `noreply@futbalsfz.sk`, doména `@futbalsfz.sk` ako príklad. Nový tenant
-  si to prečítať nemôže. Je to väčšia práca než premenovanie — chce
-  rozhodnutie, či bude user-guide generický s príkladmi, alebo per-tenant.
-  Zistené 2026-09-01.
+- **Premenovať `use-cases/reprezentacny-vyjazd.md`** — obsah je od
+  2026-09-02 generický („Viacdňová akcia"), názov súboru futbalový.
+  Premenovanie znamená upraviť štyri odkazy (`README.md`,
+  `use-cases/README.md`, `reference/stavy.md`, `use-cases/novy-zamestnanec.md`).
+  Kozmetika, ale mýli.
 - **Docker Desktop na tomto Macu nie je** — `/usr/local/bin/docker` je
   visiaci symlink na neexistujúcu `/Applications/Docker.app`. Lokálny
   compose stack sa odtiaľ spustiť nedá; ak ho chceš, treba Docker

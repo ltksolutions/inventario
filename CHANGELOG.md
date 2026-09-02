@@ -41,6 +41,15 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
+- **`docs/user-guide/` prepísaný na white-label produkt (2026-09-02)** —
+  bol napísaný pre SFZ: prihlasovanie „cez SFZ účet", logo SFZ
+  v protokoloch, `support@futbalsfz.sk` s otvoreným TODO a futbalová
+  terminológia vrátane use-casu o reprezentačnom výjazde. Nový tenant si
+  to prečítať nemohol. Use-cases sú generalizované obsahovo, nie len
+  slovníkom; podpora je `support@inventario.estate`. Pri tom opravené tri
+  vecné chyby: slovník dokumentoval rolu Team Manager zrušenú ADR-0024,
+  balíčky boli uvedené ako `@sfz/*` namiesto `@inventario/*`, a farba pre
+  anotácie screenshotov ukazovala na SFZ Blue namiesto Inventario Blue.
 - **`error` na `/v1/system` nesie HTTP reason phrase (2026-09-02)** —
   `migrations`, `indexes` a `retention` vracali v tom poli skratky
   v SCREAMING_SNAKE (`INDEXES_DISABLED`, `MIGRATIONS_FAILED`, …) namiesto
