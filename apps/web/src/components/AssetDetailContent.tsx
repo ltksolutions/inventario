@@ -1013,6 +1013,7 @@ async function uploadAttachment(assetId: string, file: File): Promise<void> {
     uploadUrl: string;
     pathname: string;
     maxBytes: number;
+    headers: Record<string, string>;
   };
 
   if (!ticket.uploadUrl.startsWith('http')) {
@@ -1025,14 +1026,25 @@ async function uploadAttachment(assetId: string, file: File): Promise<void> {
   }
 
   // Bez `credentials` — je to cudzia doména a podpis je v samotnej URL.
-  // `Content-Type` musí sedieť s tým, na čo bol podpis vydaný.
+  //
+  // Hlavičky diktuje server (`ticket.headers`): endpoint úložiska čaká
+  // parametre uploadu v hlavičkách, nie v URL, a bez nich odpovie 200, ale
+  // objekt neuloží tam, kde ho `confirm` hľadá. Klient dopĺňa len to, čo
+  // vie zo `File`.
   const putRes = await fetch(ticket.uploadUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': contentType },
+    headers: {
+      ...ticket.headers,
+      'Content-Type': contentType,
+      'x-content-length': String(file.size),
+    },
     body: file,
   });
   if (!putRes.ok) {
-    throw new Error(`Súbor sa nepodarilo nahrať do úložiska (${putRes.status}).`);
+    const detail = (await putRes.text().catch(() => '')).slice(0, 200);
+    throw new Error(
+      `Súbor sa nepodarilo nahrať do úložiska (${putRes.status})${detail ? `: ${detail}` : ''}.`,
+    );
   }
 
   const confirmRes = await fetch(`${API_BASE}/v1/assets/${assetId}/attachments/confirm`, {

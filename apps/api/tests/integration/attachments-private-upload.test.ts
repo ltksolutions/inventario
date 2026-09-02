@@ -56,7 +56,10 @@ const PDF_BYTES = Buffer.from('%PDF-1.4\nfake', 'utf8');
 async function requestUploadUrl(
   token: string,
   contentType: string,
-): Promise<{ statusCode: number; body: { uploadUrl?: string; pathname?: string } }> {
+): Promise<{
+  statusCode: number;
+  body: { uploadUrl?: string; pathname?: string; headers?: Record<string, string> };
+}> {
   const res = await app.inject({
     method: 'POST',
     url: `/v1/assets/${assetId}/attachments/upload-url`,
@@ -105,6 +108,19 @@ describe('priamy upload do private storu', () => {
       new RegExp(`^attachments/${tenantId}/${assetId}/[0-9a-f-]+\\.png$`),
     );
     expect(res.body.uploadUrl).toBeTruthy();
+  });
+
+  // Regresia z 2026-09-02: podpísaná URL sama nestačí. Bez týchto hlavičiek
+  // endpoint úložiska odpovie 200, ale objekt neuloží tam, kde ho `confirm`
+  // hľadá — používateľ dostal „Objekt v úložisku neexistuje".
+  it('vráti hlavičky, ktoré musí klient poslať s PUT', async () => {
+    const res = await requestUploadUrl(managerToken, 'image/png');
+
+    expect(res.statusCode).toBe(200);
+    // `access` diktuje server: klient nesmie prepnúť upload na public.
+    expect(res.body.headers?.['x-vercel-blob-access']).toBe('private');
+    expect(res.body.headers?.['x-content-type']).toBe('image/png');
+    expect(res.body.headers?.['x-api-version']).toBeTruthy();
   });
 
   it('neznámy content type odmietne (400), nepodpíše ho', async () => {

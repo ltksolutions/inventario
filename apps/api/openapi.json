@@ -5852,13 +5852,20 @@
                     "maxBytes": {
                       "type": "integer",
                       "exclusiveMinimum": 0
+                    },
+                    "headers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "uploadUrl",
                     "pathname",
                     "expiresAt",
-                    "maxBytes"
+                    "maxBytes",
+                    "headers"
                   ],
                   "additionalProperties": false
                 }

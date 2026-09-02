@@ -3887,11 +3887,16 @@ paths:
                   maxBytes:
                     type: integer
                     exclusiveMinimum: 0
+                  headers:
+                    type: object
+                    additionalProperties:
+                      type: string
                 required:
                   - uploadUrl
                   - pathname
                   - expiresAt
                   - maxBytes
+                  - headers
                 additionalProperties: false
         "400":
           description: Vstup nesplnil schému (`params`, `querystring` alebo `body`). Telo obsahuje `issues` s konkrétnymi poľami.

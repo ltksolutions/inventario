@@ -115,7 +115,49 @@ const UploadUrlResponseSchema = z.object({
   pathname: z.string(),
   expiresAt: z.string(),
   maxBytes: z.number().int().positive(),
+  /**
+   * Hlavičky, ktoré MUSÍ klient poslať s PUT požiadavkou. Diktuje ich
+   * server, nie klient — dôvod je v `uploadRequestHeaders`.
+   */
+  headers: z.record(z.string(), z.string()),
 });
+
+/**
+ * Verzia control-plane API Vercel Blobu, ktorú posiela `@vercel/blob@2.8.0`
+ * (`BLOB_API_VERSION` v jeho builde). Nie je z balíka exportovaná, takže je
+ * tu ako konštanta a stráži ju test — pri bumpe SDK treba overiť, či sa
+ * nezmenila.
+ */
+const BLOB_API_VERSION = '12';
+
+/**
+ * Hlavičky pre PUT na podpísanú URL.
+ *
+ * Podpísaná URL sama nestačí. Endpoint `https://vercel.com/api/blob/` je
+ * control-plane rozhranie SDK a parametre uploadu čaká v hlavičkách, nie
+ * v URL: bez `x-vercel-blob-access` a `x-content-type` odpovie 200, ale
+ * objekt neuloží tam, kde ho `confirm` potom hľadá — a užívateľ vidí
+ * „Objekt v úložisku neexistuje". Overené na produkcii 2026-09-02.
+ *
+ * Prečo ich diktuje server: `access` musí byť `private` bez ohľadu na to,
+ * čo si myslí klient, a verzia API patrí k SDK, ktoré má v rukách API.
+ * Klient dopĺňa len `Content-Type` a `x-content-length`, ktoré vie z File.
+ *
+ * SDK-cesta `uploadPresigned` z `@vercel/blob/client` sa použiť nedá: jej
+ * fetch na `handleUploadUrl` nemá `credentials: 'include'`, takže by naša
+ * cookie neprešla a endpoint by vrátil 401.
+ */
+function uploadRequestHeaders(
+  contentType: AllowedUploadContentType,
+  storeId: string | undefined,
+): Record<string, string> {
+  return {
+    'x-api-version': BLOB_API_VERSION,
+    'x-vercel-blob-access': 'private',
+    'x-content-type': contentType,
+    ...(storeId === undefined ? {} : { 'x-vercel-blob-store-id': storeId }),
+  };
+}
 
 const ConfirmUploadBodySchema = z
   .object({
@@ -537,6 +579,7 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
         pathname: presigned.pathname,
         expiresAt: presigned.expiresAt,
         maxBytes: ORIGINAL_MAX_BYTES,
+        headers: uploadRequestHeaders(contentType, fastify.config.BLOB_PRIVATE_STORE_ID),
       });
     },
   );
