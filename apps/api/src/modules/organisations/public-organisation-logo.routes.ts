@@ -70,6 +70,14 @@ const publicOrganisationLogoRoutes: FastifyPluginAsync = async (fastify) => {
       reply.header('Cache-Control', `public, s-maxage=${LOGO_CDN_MAX_AGE_SECONDS}`);
       reply.header('ETag', etag);
 
+      // Helmet dáva globálne `Cross-Origin-Resource-Policy: same-origin`.
+      // Tu to musí ísť preč: logo sa načítava cez `<img src>` z appky na
+      // inej doméne (app.inventario.estate vs. api.inventario.estate) a taká
+      // požiadavka je `no-cors` — CORP by ju zablokovala a na prihlasovacej
+      // stránke by logo nebolo. Pri Blob URL to nevadilo, tie CORP nemali.
+      // Obsah je verejný, takže uvoľnenie nič neodkrýva.
+      reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
+
       if (request.headers['if-none-match'] === etag) {
         return reply.status(304).send();
       }

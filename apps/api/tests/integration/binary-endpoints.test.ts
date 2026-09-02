@@ -240,6 +240,18 @@ describe('binárne endpointy — náhľad prílohy a logo organizácie', () => {
       expect(res.headers['cache-control']).toContain('s-maxage=86400');
     });
 
+    // Regresia z 2026-09-02: helmet dáva globálne CORP `same-origin`, takže
+    // logo servírované z api.* by sa v `<img>` na app.* nezobrazilo. Pri
+    // starých Blob URL to nevadilo — tie CORP hlavičku nemali.
+    it('má CORP cross-origin, inak by ho appka na inej doméne nezobrazila', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/public/organisations/${tenantSlug}/logo`,
+      });
+
+      expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    });
+
     it('vracia LEN obrázok — žiadne dáta organizácie', async () => {
       const res = await app.inject({
         method: 'GET',
