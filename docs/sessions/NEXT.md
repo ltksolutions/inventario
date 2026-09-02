@@ -62,16 +62,14 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
   je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
   restoru.
-- **Dokončiť zrušenie starého public storu — ostávajú kroky v dashboarde.**
-  Kód už na `inventario-api-blob` nesiaha (2026-09-02). Zvyšok je ručný:
-  vo Verceli skontrolovať tab **Projects** toho storu (či nie je pripojený
-  aj inde), potom **Delete Store** — zmaže objekty aj store naraz — a
-  nakoniec odobrať premennú `BLOB_READ_WRITE_TOKEN` z projektu
-  `inventario-api`.
-- **Rotovať starý Blob token** — leží v `apps/api/.env.local` a
-  `.env.local.bak` (do gitu nikdy nešiel, `.gitignore` ho kryje) a
-  2026-09-02 sa omylom dostal do výstupu grepu v pracovnej session. Po
-  zmazaní storu je bezcenný, ale z oboch súborov ho vyhoď.
+- **Vyhodiť mŕtvy Blob token z lokálnych súborov** — starý store je
+  zmazaný, takže token v `apps/api/.env.local` a `.env.local.bak` už nič
+  neotvára. Do gitu nikdy nešiel (`.gitignore` ho kryje), ale nech tam
+  neleží. Prípadne overiť aj `.env.local.bak` — či ho ešte treba vôbec.
+- **Privátny store nie je pripojený k Development prostrediu** —
+  `inventario-private` má vo Verceli `Preview, Production`. Lokálne to
+  nevadí (token je v `.env.local`), ale `vercel env pull` pre development
+  ho nedoplní.
 - **Čítacia vetva `PUBLIC_LEGACY` v `/download`** — v produkcii ju už
   nepoužíva ani jedna príloha, v dev a demo databázach môže. Odstrániť
   je samostatné rozhodnutie; s ňou by šlo von aj pole `storageAccess`.

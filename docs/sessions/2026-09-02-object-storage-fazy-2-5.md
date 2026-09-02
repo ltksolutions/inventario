@@ -229,6 +229,15 @@ Lokálne bez `BLOB_PRIVATE_READ_WRITE_TOKEN` vracia stub adresu `stub://`,
 na ktorú prehliadač nahrať nevie — vtedy web padá späť na pôvodnú
 multipart cestu.
 
+## Starý store zrušený (2026-09-02)
+
+`inventario-api-blob` (fra1, ADR-0028) je zmazaný vrátane objektov, po
+tom, čo bol z kódu odstránený každý jeho používateľ. Pred zmazaním sa
+overilo, že store nie je pripojený k žiadnemu inému projektu (raz sa to
+už stalo — `inventario-private` omylom aj na `contineo-app`).
+
+Projekt má odvtedy **jeden Blob store**: `inventario-private`.
+
 ## Overené v prevádzke (2026-09-02)
 
 Celá nová cesta, nie po častiach:
