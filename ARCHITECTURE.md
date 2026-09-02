@@ -113,6 +113,35 @@ src/middleware.ts overenie vlastnej tenant domény
 Branding tenanta sa aplikuje cez CSS premenné z `design-tokens`
 (`:root[data-tenant=…]`, ADR-0028).
 
+## Prílohy a logá
+
+Od ADR-0037 nie sú na jednom mieste — každý druh obsahu leží tam, kde sa
+najlacnejšie servíruje:
+
+| Čo               | Kde                                              | Ako sa k tomu klient dostane                                             |
+| ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| originál prílohy | private Blob store `inventario-private` (iad1)   | `POST /v1/attachments/:id/download` → podpísaná URL s krátkou expiráciou |
+| náhľad prílohy   | BinData v `attachments.thumbnail` (800 px, JPEG) | `GET /v1/attachments/:id/thumbnail`, za autentifikáciou                  |
+| logo tenanta     | BinData v `organisations.brandKit.logo`          | `GET /v1/public/organisations/:slug/logo`, verejné a CDN-cachované       |
+
+Prečo takto:
+
+- **Originál je privátny**, lebo príloha majetku je dokument tenanta.
+  Verejná URL k nemu neexistuje; každé zobrazenie ide cez podpis.
+- **Náhľad je v Mongu**, lebo výpis majetku by inak pri každej fotke
+  znamenal podpis a plný prenos originálu. Náhľad sa preto **nikdy**
+  nesmie dostať do JSON odpovede — každý čítací dotaz nad `attachments`
+  ho vylučuje projekciou a stráži to test.
+- **Logo je verejné a v Mongu**, lebo je na prihlasovacej stránke ešte
+  pred autentifikáciou, je ≤512 KB a ide do zálohy spolu s tenantom.
+
+Starý public store `inventario-api-blob` (fra1, ADR-0028) je stále
+pripojený a drží objekty spred migrácie `2026-09-02-attachments-to-private-blob`.
+`storageAccess` na prílohe rozlišuje, ktorou cestou sa má servírovať.
+
+Dôvody a alternatívy sú v ADR-0037, prevádzkové postupy v
+[`RUNBOOK.md`](RUNBOOK.md).
+
 ## Dáta a stav
 
 - **MongoDB Atlas** — kolekcie a indexy sú zdokumentované v
@@ -133,10 +162,8 @@ Postupy k všetkým trom sú v [`RUNBOOK.md`](RUNBOOK.md).
   [`docs/architecture/mcp-server.md`](docs/architecture/mcp-server.md),
   implementácia je plánovaná (Slice #10).
 - **Mobilná appka** (Flutter) — fáza 3.
-- **Object storage cez S3/MinIO** — pôvodný plán, zrušený. Prílohy a logá
-  tenantov idú do **Vercel Blob** (`@vercel/blob`, token
-  `BLOB_READ_WRITE_TOKEN`, ADR-0028) — viď
-  `modules/attachments/attachments.routes.ts`. `STORAGE_*` premenné aj
+- **Object storage cez S3/MinIO** — pôvodný plán, zrušený. Kde čo leží
+  dnes, hovorí sekcia „Prílohy a logá" vyššie. `STORAGE_*` premenné aj
   MinIO kontejner z `infra/docker-compose.yml` vypadli 2026-09-01.
   Pozostatok v schéme: `Attachment.bucket` je stále enum
   `'sfz-asset-attachments' | 'sfz-asset-protocols'` a `storageKey` nesie

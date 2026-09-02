@@ -11,6 +11,45 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### Added
+
+- **Prílohy do privátneho úložiska, náhľady a podpísané odkazy (2026-09-02,
+  ADR-0037)** — originály príloh idú do private Blob storu
+  `inventario-private` (iad1), kde každé čítanie vyžaduje autentifikáciu.
+  Session log: `docs/sessions/2026-09-02-object-storage-fazy-2-5.md`.
+  - **`GET /v1/attachments/:id/thumbnail`** — náhľad (800 px, JPEG) uložený
+    ako BinData v dokumente. Výpis majetku tak nepotrebuje podpísanú URL
+    ani plný prenos originálu pri každej fotke. Náhľad sa nikdy nedostane
+    do JSON odpovede — vylučuje ho projekcia a stráži samostatný test.
+  - **`POST /v1/attachments/:id/download`** — podpísaná URL s krátkou
+    expiráciou. Staré prílohy (`storageAccess: PUBLIC_LEGACY`) sa naďalej
+    servírujú pôvodnou verejnou URL, obe cesty bežia súbežne.
+  - **`POST /v1/assets/:id/attachments/upload-url` + `confirm`** — priamy
+    upload do storu mimo funkcie, strop 25 MB namiesto 4 MB. Server pri
+    `confirm` overí obsah z magic bytes; web túto cestu zatiaľ nepoužíva.
+  - **`GET /v1/public/organisations/:slug/logo`** — verejný, CDN-cachovaný
+    endpoint. Logo tenanta je teraz BinData v `brandKit.logo`, teda ide do
+    zálohy spolu s tenantom; `brandKit.logoUrl` ukazuje sem.
+  - **Migrácia `2026-09-02-attachments-to-private-blob`** — prenos
+    existujúcich príloh a lôg. Staré objekty v Blobe zostávajú: migrácia
+    sa nedá vrátiť, po prepnutí ich starý kód neprečíta.
+  - **Nová premenná `PUBLIC_API_BASE_URL`** a druhý Blob token
+    `BLOB_PRIVATE_READ_WRITE_TOKEN` (prefix `BLOB_PRIVATE`, aby
+    nekolidoval s tokenom starého public storu).
+
+### Fixed
+
+- **Logo sa nezobrazovalo cez `<img>` z inej domény (2026-09-02)** — helmet
+  dáva globálne `Cross-Origin-Resource-Policy: same-origin`, takže verejný
+  logo endpoint na `api.*` by appka na `app.*` nenačítala. Routa teraz
+  posiela `cross-origin`. Pri starých Blob URL to nevadilo, tie CORP
+  hlavičku nemali.
+- **CI nekontrolovalo `docs/api/openapi.yaml` (2026-09-02)** — pre-commit
+  hook regeneroval len `openapi.json` a workflow `docs.yml` sa spúšťa iba
+  pri zmene v `docs/**`, takže zmena zdrojáku API nikdy nespustila
+  Redocly. Kontrola čerstvosti YAML je teraz v `ci.yml` a hook dopĺňa oba
+  súbory.
+
 ### Changed
 
 - **Odstránené „sfz" z kódu, schém, infra a testov (2026-09-01)** — „sfz"

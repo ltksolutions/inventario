@@ -62,21 +62,29 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
   je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
   restoru.
-- **ADR-0037 je schválený, implementácia čaká na private Blob store** —
-  plán je v `docs/sessions/2026-09-01-plan-object-storage.md`. Blokuje ho
-  jeden krok, ktorý sa nedá spraviť z kódu: **vytvoriť private Blob store
-  vo Verceli** (`vercel blob create-store inventario-private --access
-private`) a pripojiť ho k projektu `inventario-api`.
-- **Dve rozhodnutia pred kódom** (detaily v pláne): ako zachovať
-  odstraňovanie EXIF pri priamom uploade do storu (dnes to robí funkcia,
-  pri podpísanom PUT ju obchádzame — je to GDPR regresia, odporúčam
-  stiahnuť a prepísať v `confirm` kroku), a kto generuje náhľad.
+- **Staré objekty v public Blobe zmazať** — migrácia
+  `2026-09-02-attachments-to-private-blob` ich nechala na mieste, lebo sa
+  nedá vrátiť. Po overení novej cesty v prevádzke ich zmazať a odpojiť
+  starý store `inventario-api-blob`. Do tej doby zostáva
+  `BLOB_READ_WRITE_TOKEN` v env.
+- **Web stále nahráva cez multipart (strop 4 MB)** — priama cesta
+  `upload-url` + `confirm` (25 MB) je na API hotová a otestovaná, web ju
+  nepoužíva. Je to zvyšok Fázy 2a: kým sa neprepne, používateľ nemôže
+  nahrať väčší súbor.
 - **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
   nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
   store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.
-- **`storageKey` nesie celú URL, nie kľúč** — pozostatok po S3, ktorý
-  zjednotí ADR-0037. (`Attachment.bucket` už von je, migrácia
-  `2026-09-01-drop-sfz-naming`.)
+- **Validácia expirácie podpísaných URL** — dnes sa spoliehame na hodnotu
+  z `UPLOAD_URL_TTL_SECONDS` / `DOWNLOAD_URL_TTL_SECONDS` a nikde
+  neoverujeme, že store expiráciu naozaj vynucuje. Chce jeden test proti
+  reálnemu storu.
+- **Drobnosti po ADR-0037** (žiadna z nich nič nerozbíja, detaily
+  v `2026-09-02-object-storage-fazy-2-5.md`): `brandKit.logo.width/height`
+  sú rozmery náhľadu, nie originálu, ak je logo väčšie než 800 px; ETag
+  verejného loga stojí na `organisation.updatedAt`, ktorý sa pri zmene
+  loga nemení (kryje to cache-buster `?v=`); PDF `logo-loader` fetchuje
+  `logoUrl`, teda API volá samo seba cez sieť, namiesto priameho čítania
+  `brandKit.logo`.
 - **`docs/user-guide/` je napísaný pre SFZ, nie pre white-label produkt** —
   „Som zamestnanec SFZ", `support@futbalsfz.sk` _(TODO: overiť)_,
   `noreply@futbalsfz.sk`, doména `@futbalsfz.sk` ako príklad. Nový tenant

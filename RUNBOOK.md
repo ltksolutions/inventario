@@ -189,14 +189,61 @@ zámerne preskočí.
 - GitHub Actions secrets: `MIGRATIONS_SECRET` (používa
   `migrate-on-deploy.yml`).
 - `turbo.json` → `globalEnv` musí obsahovať každú premennú, ktorú build
-  potrebuje (napr. `BLOB_READ_WRITE_TOKEN`), inak ju Turborepo do buildu
-  nepustí.
+  potrebuje (napr. `BLOB_READ_WRITE_TOKEN`,
+  `BLOB_PRIVATE_READ_WRITE_TOKEN`, `PUBLIC_API_BASE_URL`), inak ju
+  Turborepo do buildu nepustí.
 
 > **TODO**: rotácia produkčného Mongo hesla a vyčistenie mŕtvych repo
 > secrets (`MONGO_URI_TEST`, `ENTRA_API_CLIENT_ID_TEST`,
 > `ENTRA_TENANT_ID_TEST`) — otvorené body v `docs/sessions/NEXT.md`.
 
-## 8. Čo tento runbook zatiaľ nepokrýva
+## 8. Úložisko príloh a lôg
+
+Projekt má **dva Vercel Blob story** a ich tokeny sa nesmú pomiešať:
+
+| Store                          | Región | Premenná                        | Na čo                                                   |
+| ------------------------------ | ------ | ------------------------------- | ------------------------------------------------------- |
+| `inventario-api-blob` (public) | fra1   | `BLOB_READ_WRITE_TOKEN`         | len staré objekty spred migrácie a mazanie starého loga |
+| `inventario-private` (private) | iad1   | `BLOB_PRIVATE_READ_WRITE_TOKEN` | originály príloh (ADR-0037)                             |
+
+**Prefix nového storu musí zostať `BLOB_PRIVATE`.** Pri pripájaní storu
+k projektu vo Verceli ponúka dialóg predvolený prefix `BLOB` — ten by
+prepísal token starého storu. Horšie: `@vercel/blob` pri chýbajúcom
+`token` siahne na `BLOB_READ_WRITE_TOKEN`, takže originály príloh by
+potichu skončili vo verejnom store. Kód preto token predáva vždy
+explicitne a bez neho odmietne štartovať Blob provider.
+
+Funkcia beží v **IAD1**, nie vo Frankfurte — `x-vercel-id` na
+`api.inventario.estate` je `fra1::iad1` (edge::funkcia). Preto je private
+store v `iad1`.
+
+### Keď upload prílohy zlyhá
+
+1. **413 ešte pred našou hláškou** — súbor je nad 4,5 MB, strop Vercelu
+   na telo requestu. Multipart cesta má vlastný limit 4 MB. Väčšie súbory
+   patria na priamu cestu `POST /v1/assets/:id/attachments/upload-url`
+   - `confirm` (25 MB), ktorá ide mimo funkcie.
+2. **Prílohy sa nikam neukladajú, v logu `stub`** — chýba
+   `BLOB_PRIVATE_READ_WRITE_TOKEN`. V produkcii to `lib/storage` loguje
+   ako `error` pri štarte. Doplň premennú vo Vercel dashboarde
+   (Storage → `inventario-private` → Connect Project, prefix
+   `BLOB_PRIVATE`, s read-write tokenom) a redeployni.
+3. **Upload prejde, ale obrázok sa vo výpise nezobrazí** — chýba náhľad.
+   Náhľad sa robí len z PNG/JPEG/WEBP a jeho zlyhanie upload **nezhodí**
+   (v logu je `warn`). Pri PDF je to správanie správne.
+4. **Logo sa nezobrazí na prihlasovacej stránke** — skontroluj hlavičku
+   `Cross-Origin-Resource-Policy` na
+   `GET /v1/public/organisations/:slug/logo`. Musí byť `cross-origin`;
+   helmet dáva globálne `same-origin` a `<img>` z inej domény by ju
+   zablokoval.
+
+### Staré objekty vo verejnom store
+
+Migrácia `2026-09-02-attachments-to-private-blob` staré objekty **nemaže**
+— sú to jediné kópie a migrácia sa nedá vrátiť. Zmazať sa dajú až po
+overení novej cesty v prevádzke, a až potom sa dá odpojiť starý store.
+
+## 9. Čo tento runbook zatiaľ nepokrýva
 
 - **Bezpečnostný incident a únik dát** — postup je v
   [`docs/compliance/breach-notification-plan.md`](docs/compliance/breach-notification-plan.md),
