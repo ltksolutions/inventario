@@ -61,9 +61,14 @@ const migrationsRoutes: FastifyPluginAsync = async (fastify) => {
       const migrationsSecret = fastify.config.MIGRATIONS_SECRET;
       if (!migrationsSecret) {
         fastify.log.warn('[migrations] MIGRATIONS_SECRET not configured — endpoint disabled');
+        // Pole `error` nesie HTTP reason phrase, rovnako ako zvyšok API
+        // (`plugins/error-handler.ts`). Do 2026-09-02 tu boli skratky
+        // v SCREAMING_SNAKE (`MIGRATIONS_DISABLED`…). Nečítal ich nikto — ani
+        // `migrate-on-deploy.yml` (používa len `curl --fail`), ani web — a
+        // konkrétnu príčinu aj tak nesie `message`.
         return reply.code(503).send({
           statusCode: 503,
-          error: 'MIGRATIONS_DISABLED',
+          error: 'Service Unavailable',
           message: 'Migration endpoint is not configured. Set MIGRATIONS_SECRET env var.',
         });
       }
@@ -79,7 +84,7 @@ const migrationsRoutes: FastifyPluginAsync = async (fastify) => {
         );
         return reply.code(401).send({
           statusCode: 401,
-          error: 'UNAUTHORIZED',
+          error: 'Unauthorized',
           message: 'Invalid or missing Authorization header.',
         });
       }
@@ -95,7 +100,7 @@ const migrationsRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error({ error: msg }, '[migrations] Migration run failed');
         return reply.code(500).send({
           statusCode: 500,
-          error: 'MIGRATIONS_FAILED',
+          error: 'Internal Server Error',
           message: msg,
         });
       }

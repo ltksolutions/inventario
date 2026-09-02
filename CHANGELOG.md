@@ -39,6 +39,16 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
     `BLOB_PRIVATE_READ_WRITE_TOKEN` (prefix `BLOB_PRIVATE`, aby
     nekolidoval s tokenom starého public storu).
 
+### Changed
+
+- **`error` na `/v1/system` nesie HTTP reason phrase (2026-09-02)** —
+  `migrations`, `indexes` a `retention` vracali v tom poli skratky
+  v SCREAMING_SNAKE (`INDEXES_DISABLED`, `MIGRATIONS_FAILED`, …) namiesto
+  konvencie zvyšku API. Teraz je to `Service Unavailable`, `Unauthorized`
+  a `Internal Server Error`; konkrétnu príčinu naďalej nesie `message`.
+  Overené, že tie kódy nečítal nikto — ani `migrate-on-deploy.yml`
+  (používa len `curl --fail`), ani web.
+
 ### Removed
 
 - **Starý public Blob store `inventario-api-blob` (2026-09-02)** — po

@@ -59,9 +59,14 @@ const retentionRoutes: FastifyPluginAsync = async (fastify) => {
       const cronSecret = fastify.config.CRON_SECRET;
       if (!cronSecret) {
         fastify.log.warn('[retention] CRON_SECRET not configured — endpoint disabled');
+        // Pole `error` nesie HTTP reason phrase, rovnako ako zvyšok API
+        // (`plugins/error-handler.ts`). Do 2026-09-02 tu boli skratky
+        // v SCREAMING_SNAKE (`RETENTION_DISABLED`…). Nečítal ich nikto — ani
+        // `migrate-on-deploy.yml` (používa len `curl --fail`), ani web — a
+        // konkrétnu príčinu aj tak nesie `message`.
         return reply.code(503).send({
           statusCode: 503,
-          error: 'RETENTION_DISABLED',
+          error: 'Service Unavailable',
           message: 'Retention job is not configured. Set CRON_SECRET env var.',
         });
       }
@@ -78,7 +83,7 @@ const retentionRoutes: FastifyPluginAsync = async (fastify) => {
         );
         return reply.code(401).send({
           statusCode: 401,
-          error: 'UNAUTHORIZED',
+          error: 'Unauthorized',
           message: 'Invalid or missing Authorization header.',
         });
       }
@@ -94,7 +99,7 @@ const retentionRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error({ error: msg }, '[retention] Retention job failed');
         return reply.code(500).send({
           statusCode: 500,
-          error: 'RETENTION_FAILED',
+          error: 'Internal Server Error',
           message: msg,
         });
       }

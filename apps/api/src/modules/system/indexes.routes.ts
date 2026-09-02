@@ -42,9 +42,14 @@ const indexesRoutes: FastifyPluginAsync = async (fastify) => {
       const secret = fastify.config.MIGRATIONS_SECRET;
       if (!secret) {
         fastify.log.warn('[indexes] MIGRATIONS_SECRET not configured — endpoint disabled');
+        // Pole `error` nesie HTTP reason phrase, rovnako ako zvyšok API
+        // (`plugins/error-handler.ts`). Do 2026-09-02 tu boli skratky
+        // v SCREAMING_SNAKE (`INDEXES_DISABLED`…). Nečítal ich nikto — ani
+        // `migrate-on-deploy.yml` (používa len `curl --fail`), ani web — a
+        // konkrétnu príčinu aj tak nesie `message`.
         return reply.code(503).send({
           statusCode: 503,
-          error: 'INDEXES_DISABLED',
+          error: 'Service Unavailable',
           message: 'Index endpoint is not configured. Set MIGRATIONS_SECRET env var.',
         });
       }
@@ -59,7 +64,7 @@ const indexesRoutes: FastifyPluginAsync = async (fastify) => {
         );
         return reply.code(401).send({
           statusCode: 401,
-          error: 'UNAUTHORIZED',
+          error: 'Unauthorized',
           message: 'Invalid or missing Authorization header.',
         });
       }
@@ -88,7 +93,7 @@ const indexesRoutes: FastifyPluginAsync = async (fastify) => {
       if (failed.length > 0) {
         return reply.code(500).send({
           statusCode: 500,
-          error: 'INDEXES_PARTIALLY_FAILED',
+          error: 'Internal Server Error',
           message: `${String(failed.length)} of ${String(ensurers.length)} index sets failed.`,
           failed,
         });
