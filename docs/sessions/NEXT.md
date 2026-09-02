@@ -57,10 +57,10 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 - **`BLOB_API_VERSION = '12'` je v `attachments.routes.ts` natvrdo** —
   `@vercel/blob` ju neexportuje. Pri bumpe SDK overiť, či sa nezmenila;
   test kontroluje len to, že hlavička je neprázdna.
-- **Osirelé objekty v private store** — z neúspešných uploadov (PUT bez
-  hlavičiek, 2026-09-02) ich v store niekoľko zostalo: objekt vznikol, ale
-  `confirm` záznam nevytvoril. Upratovanie osirelých objektov nikto
-  nerobí; retenčný job sa ich netýka.
+- **Spustiť prvý výpis osirelých objektov** — `GET /v1/system/storage/orphans`
+  s `CRON_SECRET`. Doteraz sa obsah storu nedal vymenovať, takže **nevieme,
+  či tam vôbec niečo je**. Denný cron to od 2026-09-02 rieši sám, ale prvý
+  pohľad sa oplatí urobiť ručne.
 - **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
   nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
   store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.

@@ -216,6 +216,36 @@ Funkcia beží v **IAD1**, nie vo Frankfurte — `x-vercel-id` na
 `api.inventario.estate` je `fra1::iad1` (edge::funkcia). Preto je private
 store v `iad1`.
 
+### Osirelé objekty (denný cron)
+
+Príloha vzniká v dvoch krokoch — podpísaný PUT z prehliadača, potom
+`confirm`. Keď druhý krok nedobehne, v store zostane objekt bez záznamu.
+Nie je to len miesto na disku: `confirm` strháva EXIF, takže osirelá fotka
+drží pôvodné GPS, a keďže je mimo evidencie, nenašla by sa pri žiadosti
+o výmaz. Podrobne v [ADR-0039](docs/decisions/0039-orphaned-storage-objects.md)
+a v retenčnom rozvrhu (2.4.1).
+
+```bash
+# len výpis, nemaže nič — bezpečné kedykoľvek
+curl https://api.inventario.estate/v1/system/storage/orphans \
+  -H "Authorization: Bearer $CRON_SECRET"
+
+# zmazanie (beží aj denný cron o 04:00 UTC)
+curl -X POST https://api.inventario.estate/v1/system/storage/orphans/purge \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Čo znamenajú odpovede:
+
+- `skipped: true` — výpis storu bol neúplný (vyčerpaný strop stránok), tak
+  sa **zámerne nemazalo nič**. Pozri log a rieš to, nespúšťaj opakovane.
+- `orphanCount: 0` — v poriadku, to je bežný stav.
+- Trvalo rastúci `orphanCount` znamená, že používateľom padá `confirm`.
+  Nehľadaj chybu v čističi, hľadaj ju v uploade.
+
+Objekt mladší než 24 hodín sa za osirelý nepovažuje ani keď záznam nemá —
+mohol práve prejsť PUT-om.
+
 ### Keď upload prílohy zlyhá
 
 1. **413 ešte pred našou hláškou** — súbor je nad 4,5 MB, strop Vercelu

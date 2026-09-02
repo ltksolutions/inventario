@@ -39,6 +39,32 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
     `BLOB_PRIVATE_READ_WRITE_TOKEN` (prefix `BLOB_PRIVATE`, aby
     nekolidoval s tokenom starého public storu).
 
+### Added
+
+- **Čistič osirelých objektov v úložisku (2026-09-02, ADR-0039)** —
+  príloha vzniká v dvoch krokoch a keď `confirm` nedobehne (zavretá karta,
+  stratené pripojenie), v store zostane objekt bez záznamu. Taký objekt je
+  mimo evidencie, nevzťahuje sa naň soft-delete ani `del()`, nenašiel by sa
+  pri žiadosti podľa čl. 15/17 — a keďže EXIF sa strháva až v `confirm`,
+  drží pôvodné GPS.
+  - **`GET /v1/system/storage/orphans`** vypíše, **nemaže**.
+  - **`POST /v1/system/storage/orphans/purge`** zmaže objekty starší než
+    24 hodín; beží aj denný cron o 04:00 UTC. Pri neúplnom výpise storu
+    nemaže nič.
+  - **`ObjectStorage.list`** — bez neho sa obsah storu nedal vymenovať ani
+    z aplikácie. Prefix `attachments/` má odteraz jednu definíciu.
+  - Čistič dobehne aj **zlyhané best-effort mazania** — objekt
+    soft-zmazanej prílohy sa za referencovaný nepovažuje.
+  - Zostatkové riziko: okno, v ktorom fotka drží GPS, sa dá len skrátiť
+    (na ~2 dni), nie zrušiť. Dôvod je v ADR.
+
+### Fixed
+
+- **Retenčný rozvrh sľuboval viac, než systém robil (2026-09-02)** —
+  tvrdil, že EXIF sa strháva „už pri uploade" a že objekt sa maže spolu
+  s metadátami. Pri osirelom objekte nebolo pravdivé ani jedno. Doplnená
+  sekcia 2.4.1 vrátane zostatkového rizika.
+
 ### Changed
 
 - **`docs/user-guide/` prepísaný na white-label produkt (2026-09-02)** —

@@ -63,13 +63,42 @@ Citlivé polia (`passwordHash`, `mfaSecret`, `mfaRecoveryCodes`) sú vždy vylú
 
 ### 2.4 Evidenčné dáta tenant-a
 
-| Kategória                                   | Aktívne           | Po soft-delete / ukončení | Mechanizmus                                                                                                                                          |
-| ------------------------------------------- | ----------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Organisations                               | trvanie zmluvy    | **60 mesiacov**           | Anonymizácia so zachovaním agregovaných štatistík                                                                                                    |
-| Assets (majetok)                            | životnosť záznamu | **60 mesiacov**           | Hard delete                                                                                                                                          |
-| Loans (výpožičky, ukončené)                 | —                 | **60 mesiacov**           | Hard delete                                                                                                                                          |
-| Loan protocols (HANDOVER/RETURN + PDF)      | —                 | **60 mesiacov**           | Hard delete vrátane vyrenderovaného PDF; PDF sa štandardne negeneruje a neukladá (on-demand render)                                                  |
-| Prílohy majetku (foto/doklady, Vercel Blob) | životnosť majetku | viazané na majetok        | Soft-delete metadát + best-effort `del()` blobu; audit cez `ASSET_ATTACHMENT_*` (CRUD 24 m). EXIF/XMP metadáta sa z fotiek odstraňujú už pri uploade |
+| Kategória                                          | Aktívne           | Po soft-delete / ukončení | Mechanizmus                                                                                                                                                        |
+| -------------------------------------------------- | ----------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Organisations                                      | trvanie zmluvy    | **60 mesiacov**           | Anonymizácia so zachovaním agregovaných štatistík                                                                                                                  |
+| Assets (majetok)                                   | životnosť záznamu | **60 mesiacov**           | Hard delete                                                                                                                                                        |
+| Loans (výpožičky, ukončené)                        | —                 | **60 mesiacov**           | Hard delete                                                                                                                                                        |
+| Loan protocols (HANDOVER/RETURN + PDF)             | —                 | **60 mesiacov**           | Hard delete vrátane vyrenderovaného PDF; PDF sa štandardne negeneruje a neukladá (on-demand render)                                                                |
+| Prílohy majetku (foto/doklady, private Blob store) | životnosť majetku | viazané na majetok        | Soft-delete metadát + best-effort `del()` objektu; audit cez `ASSET_ATTACHMENT_*` (CRUD 24 m). EXIF/XMP sa strháva pri spracovaní uploadu — viď obmedzenie v 2.4.1 |
+
+#### 2.4.1 Osirelé objekty v úložisku
+
+Príloha vzniká v dvoch krokoch: prehliadač nahrá súbor podpísaným PUT-om
+priamo do private storu, a až následné volanie `confirm` obsah overí,
+**strhne EXIF/XMP** a založí záznam v evidencii. Keď druhý krok nedobehne
+(zavretá karta, stratené pripojenie), v store zostane objekt, na ktorý
+neukazuje žiadny záznam — **osirelý objekt**.
+
+Taký objekt je mimo evidencie, takže sa naň nevzťahuje soft-delete ani
+`del()` z tabuľky vyššie, nefiguruje v žiadnom výpise a pri žiadosti podľa
+čl. 15 alebo 17 by ho nikto nenašiel. A keďže `confirm` nedobehol, **drží
+pôvodné EXIF vrátane GPS súradníc**.
+
+| Mechanizmus                                                     | Lehota                                  | Poznámka                                                                         |
+| --------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------- |
+| `POST /v1/system/storage/orphans/purge` (denný cron, 04:00 UTC) | objekty starší než **24 h** bez záznamu | Odklad 24 h je rezerva proti prebiehajúcemu `confirm`, ktorý reálne beží sekundy |
+| `GET /v1/system/storage/orphans`                                | —                                       | Iba výpis, nemaže. Na kontrolu pred zásahom                                      |
+
+**Zostatkové riziko, ktoré sa nedá odstrániť:** okno medzi PUT-om
+a zmazaním sa dá len skrátiť, nie zrušiť. Strhnutie EXIF na strane
+prehliadača by bolo nespoľahlivé a klientovi sa v tomto veriť nedá, takže
+prvý zápis do storu je vždy s pôvodnými metadátami. S 24-hodinovým
+odkladom a denným cronom je horná hranica existencie takého objektu
+**~2 dni**. Rozhodnutie a zvažované alternatívy sú v
+[ADR-0039](../decisions/0039-orphaned-storage-objects.md).
+
+Čistič zároveň dobehne **zlyhané best-effort mazania** — objekt
+soft-zmazanej prílohy sa za referencovaný nepovažuje.
 
 ### 2.5 Logy a zálohy infraštruktúry
 
