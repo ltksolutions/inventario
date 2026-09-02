@@ -59,3 +59,4 @@ ADR je krátky dokument, ktorý zachytáva jedno významné technické rozhodnut
 | 0028 | [Per-tenant branding — logo, farby a font (end-to-end)](0028-per-tenant-branding.md)                                | 📝 Proposed                                               | 2026-06-02 |
 | 0036 | [Vrátenie majetku od osoby — čiastočné a cross-loan vrátenie](0036-return-from-borrower-cross-loan.md)              | ✅ Accepted                                               | 2026-07-16 |
 | 0037 | [Object storage — náhľady v BinData, originály v private Blob storu](0037-object-storage-bindata-plus-tenant-s3.md) | ✅ Accepted                                               | 2026-09-01 |
+| 0038 | [Sériová auth reťaz na dashboarde zostáva](0038-dashboard-serial-auth-chain.md)                                     | ✅ Accepted                                               | 2026-09-02 |

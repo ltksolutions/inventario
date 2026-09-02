@@ -17,17 +17,6 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 
 ## Najbližšie kroky (kód)
 
-- **Sériová auth reťaz na dashboarde.** Dashboard query čaká na
-  `/v1/auth/me` (`enabled: isAuthenticated`), lebo potrebuje vedieť, že
-  je používateľ prihlásený. Zisk zo súbežného spustenia by bol ~0,6 s
-  (1,84 → ~1,2 s). Otázka je, či to stojí za komplikáciu s obnovou
-  vypršaného tokenu. Kontext: `2026-08-31-pomale-nacitanie-dashboardu.md`.
-- **Slovník `error` na `/v1/system`** — `migrations`, `indexes` a
-  `retention` majú v poli `error` skratky v SCREAMING_SNAKE
-  (`INDEXES_DISABLED`, `UNAUTHORIZED`) namiesto konvencie zvyšku API
-  (`NotFound`, `BadRequest`). Tvar tela je od 2026-09-01 jednotný,
-  slovník nie. Sú to zdokumentované kódy pre deploy workflow, takže zmena
-  chce rozhodnutie, nie mechanickú opravu.
 - **`issues` v chybovej odpovedi je v praxi zriedkavé** — validácia vstupu
   cez Fastify vracia jednu chybu v `message`, `issues` sa naplní len keď
   sa `ZodError` dostane k error handleru priamo. Ak má integrátor dostávať

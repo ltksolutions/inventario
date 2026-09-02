@@ -24,7 +24,12 @@ import { useAuth } from './auth-context';
  *      backend returned one, or the underlying Error otherwise.
  *   3. `enabled` defaults to whether the user is authenticated —
  *      pre-login components stay silent instead of hammering the API
- *      with 401s.
+ *      with 401s. Toto je ZÁMER, nie nedopatrenie: znamená to, že dátové
+ *      dotazy čakajú na `/v1/auth/me`, teda dashboard je o ~0,6 s
+ *      pomalší. Cena za odstránenie je druhý zdroj pravdy o prihlásení
+ *      a nová vetva v obnove tokenu — rozobrané a zamietnuté v
+ *      ADR-0038 (`docs/decisions/0038-dashboard-serial-auth-chain.md`).
+ *      Kto to ide „opraviť", nech si ho najprv prečíta.
  *
  * Why one tiny hook per endpoint instead of a fully generic helper:
  *   typed query keys (e.g. ['assets', { limit, skip, filters }]) are
