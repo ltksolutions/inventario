@@ -40,7 +40,6 @@ import {
   ORGANISATION_STATUS_VALUES,
   type StoredImage,
 } from '@inventario/shared-types';
-import { del } from '@vercel/blob';
 import fp from 'fastify-plugin';
 import { z } from 'zod';
 
@@ -657,8 +656,8 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
         throw new BadRequestError('Súbor sa nepodarilo načítať ako obrázok.');
       }
 
-      // Zapíš BinData + logoUrl na verejný endpoint, získaj starú URL.
-      const { organisation, previousLogoUrl } = await service.updateLogo(
+      // Zapíš BinData + logoUrl na verejný endpoint.
+      const { organisation } = await service.updateLogo(
         organisationId,
         logo,
         fastify.config.PUBLIC_API_BASE_URL,
@@ -666,23 +665,9 @@ const organisationsRoutes: FastifyPluginAsync = async (fastify) => {
         request,
       );
 
-      // Zmaž staré logo z Blobu (best-effort — zlyhanie nesmie rozbiť odpoveď).
-      // Mazíme len blob z nášho store (vercel-storage.com URL), nie externé
-      // logoUrl ktoré mohlo byť nastavené ešte z v1 (externá URL).
-      // Staré logo v Blobe upraceme; nové už tam nikdy nevznikne.
-      const legacyToken = process.env['BLOB_READ_WRITE_TOKEN'];
-      if (
-        legacyToken &&
-        previousLogoUrl &&
-        previousLogoUrl.includes('.public.blob.vercel-storage.com')
-      ) {
-        try {
-          await del(previousLogoUrl, { token: legacyToken });
-        } catch (err) {
-          request.log.warn({ err, previousLogoUrl }, 'Staré logo sa nepodarilo zmazať z Blobu');
-        }
-      }
-
+      // Mazanie starého loga z public Blobu tu bolo do 2026-09-02. Logo je
+      // od ADR-0037 BinData v dokumente, takže `updateLogo` ho prepíše a
+      // v Blobe už žiadne nevzniká; starý store je zrušený.
       return reply.status(200).send(organisation);
     },
   );

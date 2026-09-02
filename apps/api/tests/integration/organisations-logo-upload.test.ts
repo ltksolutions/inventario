@@ -10,11 +10,12 @@
  *   - Validácia: príliš veľký súbor → 413
  *   - RBAC: EMPLOYEE dostane 401 (neautorizovaný)
  *   - RBAC: ADMIN má prístup
- *   - Happy path (reálny Blob upload): skipnutý v CI ak BLOB_READ_WRITE_TOKEN chýba
+ *   - Happy path: logo v BinData a `logoUrl` na verejnom endpointe
  *
- * Poznámka: Testy validácie (400/413) nepotrebujú BLOB_READ_WRITE_TOKEN —
- * endpoint selektuje pred tým, než zavolá Blob API. Happy path test je
- * skipnutý bez tokenu, aby CI ostalo zelené.
+ * Happy path bol do 2026-09-02 gated cez `skipIf(!BLOB_READ_WRITE_TOKEN)`,
+ * teda v CI sa nikdy nespustil — vtedy upload loga naozaj potreboval Blob.
+ * Od ADR-0037 ide logo do dokumentu ako BinData, takže žiadny token netreba
+ * a testy bežia všade.
  */
 
 import { createCanvas } from '@napi-rs/canvas';
@@ -150,7 +151,7 @@ describe('POST /v1/organisations/current/logo — logo upload (ADR-0028 v2)', ()
   });
 
   // -------------------------------------------------------------------------
-  // Validácia vstupu (nepotrebuje BLOB_READ_WRITE_TOKEN)
+  // Validácia vstupu
   // -------------------------------------------------------------------------
 
   describe('Validácia vstupu', () => {
@@ -170,7 +171,7 @@ describe('POST /v1/organisations/current/logo — logo upload (ADR-0028 v2)', ()
     });
 
     it('neplatný typ súboru (HTML magic bytes) → 400', async () => {
-      // BLOB_READ_WRITE_TOKEN môže chýbať — validácia magic bytes prebehne pred Blob volaním
+      // Validácia magic bytes prebehne pred akýmkoľvek zápisom
       const html = makeHtmlBuffer();
       const { body, contentType } = buildMultipartBody('file', 'logo.html', 'text/html', html);
       const res = await app.inject({
@@ -208,45 +209,42 @@ describe('POST /v1/organisations/current/logo — logo upload (ADR-0028 v2)', ()
   });
 
   // -------------------------------------------------------------------------
-  // Happy path — skipnutý bez BLOB_READ_WRITE_TOKEN (napr. v CI)
+  // Happy path
   // -------------------------------------------------------------------------
 
-  describe('Happy path (vyžaduje BLOB_READ_WRITE_TOKEN)', () => {
-    it.skipIf(!process.env['BLOB_READ_WRITE_TOKEN'])(
-      'ADMIN nahrá PNG logo → 200, logo v BinData a logoUrl na verejnom endpointe',
-      async () => {
-        const png = makePngBuffer();
-        const { body, contentType } = buildMultipartBody('file', 'logo.png', 'image/png', png);
-        const res = await app.inject({
-          method: 'POST',
-          url: '/v1/organisations/current/logo',
-          headers: { cookie: `inv_access=${adminToken}`, 'content-type': contentType },
-          payload: body,
-        });
-        expect(res.statusCode, res.body).toBe(200);
-        const org = res.json<{ brandKit: { logoUrl: string } }>();
+  describe('Happy path', () => {
+    it('ADMIN nahrá PNG logo → 200, logo v BinData a logoUrl na verejnom endpointe', async () => {
+      const png = makePngBuffer();
+      const { body, contentType } = buildMultipartBody('file', 'logo.png', 'image/png', png);
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/organisations/current/logo',
+        headers: { cookie: `inv_access=${adminToken}`, 'content-type': contentType },
+        payload: body,
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      const org = res.json<{ brandKit: { logoUrl: string } }>();
 
-        // Logo uz nie je v Blobe, ale v dokumente ako BinData (ADR-0037).
-        // `logoUrl` zostava — cita ho sedem miest vratane generatora PDF
-        // protokolov — len ukazuje na nas verejny endpoint.
-        expect(org.brandKit?.logoUrl).toContain('/v1/public/organisations/');
-        expect(org.brandKit?.logoUrl).not.toContain('blob.vercel-storage.com');
+      // Logo uz nie je v Blobe, ale v dokumente ako BinData (ADR-0037).
+      // `logoUrl` zostava — cita ho sedem miest vratane generatora PDF
+      // protokolov — len ukazuje na nas verejny endpoint.
+      expect(org.brandKit?.logoUrl).toContain('/v1/public/organisations/');
+      expect(org.brandKit?.logoUrl).not.toContain('blob.vercel-storage.com');
 
-        // Cache-buster: endpoint posiela s-maxage=86400, takze bez neho by
-        // CDN drzala stare logo az den po jeho zmene.
-        expect(org.brandKit?.logoUrl).toMatch(/[?&]v=/);
+      // Cache-buster: endpoint posiela s-maxage=86400, takze bez neho by
+      // CDN drzala stare logo az den po jeho zmene.
+      expect(org.brandKit?.logoUrl).toMatch(/[?&]v=/);
 
-        // Dokaz, ze logo naozaj lezi v dokumente: verejny endpoint ho
-        // servíruje z BinData, bez Blobu a bez autentifikacie.
-        const logoPath = new URL(String(org.brandKit?.logoUrl)).pathname;
-        const served = await app.inject({ method: 'GET', url: logoPath });
-        expect(served.statusCode).toBe(200);
-        expect(served.headers['content-type']).toContain('image/png');
-        expect(served.rawPayload).toEqual(png);
-      },
-    );
+      // Dokaz, ze logo naozaj lezi v dokumente: verejny endpoint ho
+      // servíruje z BinData, bez Blobu a bez autentifikacie.
+      const logoPath = new URL(String(org.brandKit?.logoUrl)).pathname;
+      const served = await app.inject({ method: 'GET', url: logoPath });
+      expect(served.statusCode).toBe(200);
+      expect(served.headers['content-type']).toContain('image/png');
+      expect(served.rawPayload).toEqual(png);
+    });
 
-    it.skipIf(!process.env['BLOB_READ_WRITE_TOKEN'])('ADMIN nahrá JPEG logo → 200', async () => {
+    it('ADMIN nahrá JPEG logo → 200', async () => {
       const jpeg = makeJpegBuffer();
       const { body, contentType } = buildMultipartBody('file', 'logo.jpg', 'image/jpeg', jpeg);
       const res = await app.inject({
@@ -258,39 +256,36 @@ describe('POST /v1/organisations/current/logo — logo upload (ADR-0028 v2)', ()
       expect(res.statusCode, res.body).toBe(200);
     });
 
-    it.skipIf(!process.env['BLOB_READ_WRITE_TOKEN'])(
-      'druhý upload zmaže starý blob, logoUrl sa aktualizuje',
-      async () => {
-        const png = makePngBuffer();
-        const { body: body1, contentType } = buildMultipartBody(
-          'file',
-          'logo1.png',
-          'image/png',
-          png,
-        );
-        const res1 = await app.inject({
-          method: 'POST',
-          url: '/v1/organisations/current/logo',
-          headers: { cookie: `inv_access=${adminToken}`, 'content-type': contentType },
-          payload: body1,
-        });
-        expect(res1.statusCode, res1.body).toBe(200);
-        const url1 = res1.json<{ brandKit: { logoUrl: string } }>().brandKit?.logoUrl;
+    it('druhý upload prepíše logo v dokumente a aktualizuje logoUrl', async () => {
+      const png = makePngBuffer();
+      const { body: body1, contentType } = buildMultipartBody(
+        'file',
+        'logo1.png',
+        'image/png',
+        png,
+      );
+      const res1 = await app.inject({
+        method: 'POST',
+        url: '/v1/organisations/current/logo',
+        headers: { cookie: `inv_access=${adminToken}`, 'content-type': contentType },
+        payload: body1,
+      });
+      expect(res1.statusCode, res1.body).toBe(200);
+      const url1 = res1.json<{ brandKit: { logoUrl: string } }>().brandKit?.logoUrl;
 
-        const { body: body2 } = buildMultipartBody('file', 'logo2.png', 'image/png', png);
-        const res2 = await app.inject({
-          method: 'POST',
-          url: '/v1/organisations/current/logo',
-          headers: { cookie: `inv_access=${adminToken}`, 'content-type': contentType },
-          payload: body2,
-        });
-        expect(res2.statusCode, res2.body).toBe(200);
-        const url2 = res2.json<{ brandKit: { logoUrl: string } }>().brandKit?.logoUrl;
+      const { body: body2 } = buildMultipartBody('file', 'logo2.png', 'image/png', png);
+      const res2 = await app.inject({
+        method: 'POST',
+        url: '/v1/organisations/current/logo',
+        headers: { cookie: `inv_access=${adminToken}`, 'content-type': contentType },
+        payload: body2,
+      });
+      expect(res2.statusCode, res2.body).toBe(200);
+      const url2 = res2.json<{ brandKit: { logoUrl: string } }>().brandKit?.logoUrl;
 
-        // Nová URL sa líši od starej (nový timestamp v ceste)
-        expect(url2).toBeTruthy();
-        expect(url2).not.toBe(url1);
-      },
-    );
+      // Nová URL sa líši od starej (nový timestamp v ceste)
+      expect(url2).toBeTruthy();
+      expect(url2).not.toBe(url1);
+    });
   });
 });

@@ -244,17 +244,17 @@ const envSchema = z.object({
   // Originály príloh ležia v PRIVATE Blob store, teda každé čítanie aj
   // zápis vyžaduje autentifikáciu.
   //
-  // Prefix je zámerne BLOB_PRIVATE_, nie BLOB_: projekt už má
-  // BLOB_READ_WRITE_TOKEN patriaci STARÉMU public storu
-  // (inventario-api-blob), ktorý stále obsluhuje pôvodný upload príloh
-  // a loga. Kolízia názvov by ten upload rozbila.
+  // Prefix je BLOB_PRIVATE_, nie BLOB_. Projekt mal do 2026-09-02 aj
+  // BLOB_READ_WRITE_TOKEN starého public storu (inventario-api-blob) a
+  // kolízia názvov by rozbila upload; store je zrušený, ale prefix
+  // zostáva — premenovať ho by znamenalo zásah do produkčného
+  // prostredia bez akéhokoľvek zisku.
   //
-  // Token je pre privátny store POVINNÝ — nie voliteľný. @vercel/blob
-  // pri chýbajúcom `token` sáha na process.env.BLOB_READ_WRITE_TOKEN,
-  // teda na public store, a zapísal by tam originály príloh. Preto sa
-  // OIDC cesta nepoužíva: s dvoma pripojenými storami by ju ani nebolo
-  // ako rozlíšiť. Bez tokenu beží úložisko v stub režime a v produkcii
-  // to `lib/storage` zaloguje ako error.
+  // Token je POVINNÝ — nie voliteľný. @vercel/blob pri chýbajúcom
+  // `token` sáha na process.env.BLOB_READ_WRITE_TOKEN, takže sa vždy
+  // predáva explicitne; OIDC cesta sa preto nepoužíva. Bez tokenu beží
+  // úložisko v stub režime a v produkcii to `lib/storage` zaloguje ako
+  // error.
   BLOB_PRIVATE_READ_WRITE_TOKEN: z.string().min(1).optional(),
   // Len na diagnostiku (logovanie, ktorý store je nakonfigurovaný).
   BLOB_PRIVATE_STORE_ID: z.string().min(1).optional(),

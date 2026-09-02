@@ -578,15 +578,6 @@ export class OrganisationsService {
   }
 
   /**
-   * Zapíše novú logo URL (už nahranú do Blobu route handlerom) do
-   * brandKit.logoUrl tenanta. Vráti starú logo URL (ak bola), aby ju
-   * handler mohol zmazať z Blobu — service sama Blob nevolá (čistá
-   * deliacia čiara: HTTP/upload vrstva = routes, dáta = service).
-   *
-   * ADR-0028 v2. Logo je dostupné všetkým plánom. Audit:
-   * ORGANISATION_BRANDING_UPDATED.
-   */
-  /**
    * Uloží logo do dokumentu ako BinData a `logoUrl` nastaví na verejný
    * endpoint (ADR-0037).
    *
@@ -605,21 +596,18 @@ export class OrganisationsService {
     publicApiBaseUrl: string,
     actor: WithId<User>,
     request: FastifyRequest,
-  ): Promise<{ organisation: Record<string, unknown>; previousLogoUrl: string | null }> {
+  ): Promise<{ organisation: Record<string, unknown> }> {
     if (!this.auditLog || !this.mongoClient) {
       throw new Error('OrganisationsService.updateLogoUrl requires auditLog and mongoClient.');
     }
     const auditLog = this.auditLog;
     const actorId = String(actor._id);
 
-    let previousLogoUrl: string | null = null;
-
     const updated = await this.runInTransaction(async (session) => {
       const before = await this.repo.findById(organisationId, session);
       if (!before) {
         throw new NotFoundError('Organisation', organisationId);
       }
-      previousLogoUrl = before.brandKit?.logoUrl ?? null;
 
       // Zachováme ostatné brandKit polia, prepíšeme len logoUrl. Ak brandKit
       // ešte neexistuje, vytvoríme ho s default null hodnotami + nové logo.
@@ -676,7 +664,7 @@ export class OrganisationsService {
       return after;
     });
 
-    return { organisation: toApiShape(updated), previousLogoUrl };
+    return { organisation: toApiShape(updated) };
   }
 
   // -------------------------------------------------------------------------

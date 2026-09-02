@@ -135,9 +135,11 @@ Prečo takto:
 - **Logo je verejné a v Mongu**, lebo je na prihlasovacej stránke ešte
   pred autentifikáciou, je ≤512 KB a ide do zálohy spolu s tenantom.
 
-Starý public store `inventario-api-blob` (fra1, ADR-0028) je stále
-pripojený a drží objekty spred migrácie `2026-09-02-attachments-to-private-blob`.
-`storageAccess` na prílohe rozlišuje, ktorou cestou sa má servírovať.
+Starý public store `inventario-api-blob` (fra1, ADR-0028) bol
+2026-09-02 zrušený — dáta z neho preniesla migrácia
+`2026-09-02-attachments-to-private-blob`. `storageAccess` na prílohe
+zostáva: čítacia vetva pre `PUBLIC_LEGACY` je v `/download` naďalej,
+lebo dev a demo databázy také riadky ešte môžu mať.
 
 Dôvody a alternatívy sú v ADR-0037, prevádzkové postupy v
 [`RUNBOOK.md`](RUNBOOK.md).

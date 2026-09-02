@@ -13,9 +13,7 @@
  *   - EXIF strip — nahraný JPEG s EXIF blokom sa uloží menší (metadata preč)
  *   - Cross-tenant izolácia
  *
- * Vercel Blob (`put`/`del`) je mockovaný — testy nepotrebujú sieť ani reálny
- * token (nastavíme len dummy `BLOB_READ_WRITE_TOKEN`, ktorý route kontroluje
- * pred volaním Blob API).
+ * Vercel Blob je mockovaný — testy nepotrebujú sieť ani reálny token.
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -111,24 +109,12 @@ describe('Attachments — prílohy majetku', () => {
   let employeeToken: string;
   let assetId: string;
 
-  // Route kontroluje BLOB_READ_WRITE_TOKEN pred volaním (mockovaného) put().
-  // Nastavíme dummy token, ale MUSÍME ho po sebe vrátiť — process.env je
-  // zdieľaný medzi test súbormi v rámci vitest workera a iné testy (napr.
-  // organisations-logo-upload) majú happy-path gated cez skipIf(!token).
-  const originalBlobToken = process.env['BLOB_READ_WRITE_TOKEN'];
-
   beforeAll(async () => {
-    process.env['BLOB_READ_WRITE_TOKEN'] = 'test-blob-token';
     app = await buildTestApp();
   });
 
   afterAll(async () => {
     await app.close();
-    if (originalBlobToken === undefined) {
-      delete process.env['BLOB_READ_WRITE_TOKEN'];
-    } else {
-      process.env['BLOB_READ_WRITE_TOKEN'] = originalBlobToken;
-    }
   });
 
   beforeEach(async () => {

@@ -189,9 +189,8 @@ zámerne preskočí.
 - GitHub Actions secrets: `MIGRATIONS_SECRET` (používa
   `migrate-on-deploy.yml`).
 - `turbo.json` → `globalEnv` musí obsahovať každú premennú, ktorú build
-  potrebuje (napr. `BLOB_READ_WRITE_TOKEN`,
-  `BLOB_PRIVATE_READ_WRITE_TOKEN`, `PUBLIC_API_BASE_URL`), inak ju
-  Turborepo do buildu nepustí.
+  potrebuje (napr. `BLOB_PRIVATE_READ_WRITE_TOKEN`,
+  `PUBLIC_API_BASE_URL`), inak ju Turborepo do buildu nepustí.
 
 > **TODO**: rotácia produkčného Mongo hesla a vyčistenie mŕtvych repo
 > secrets (`MONGO_URI_TEST`, `ENTRA_API_CLIENT_ID_TEST`,
@@ -199,18 +198,18 @@ zámerne preskočí.
 
 ## 8. Úložisko príloh a lôg
 
-Projekt má **dva Vercel Blob story** a ich tokeny sa nesmú pomiešať:
+Projekt má **jeden Vercel Blob store**: `inventario-private` (iad1),
+premenná `BLOB_PRIVATE_READ_WRITE_TOKEN`. Ležia v ňom originály príloh.
+Náhľady a logá tenantov sú BinData v Mongu, nie tu.
 
-| Store                          | Región | Premenná                        | Na čo                                                   |
-| ------------------------------ | ------ | ------------------------------- | ------------------------------------------------------- |
-| `inventario-api-blob` (public) | fra1   | `BLOB_READ_WRITE_TOKEN`         | len staré objekty spred migrácie a mazanie starého loga |
-| `inventario-private` (private) | iad1   | `BLOB_PRIVATE_READ_WRITE_TOKEN` | originály príloh (ADR-0037)                             |
+Starý public store `inventario-api-blob` (fra1, ADR-0028) bol zrušený
+2026-09-02, po migrácii dát a overení novej cesty v prevádzke. Ak niekde
+narazíš na `BLOB_READ_WRITE_TOKEN`, je to pozostatok — kód ho nepoužíva.
 
-**Prefix nového storu musí zostať `BLOB_PRIVATE`.** Pri pripájaní storu
-k projektu vo Verceli ponúka dialóg predvolený prefix `BLOB` — ten by
-prepísal token starého storu. Horšie: `@vercel/blob` pri chýbajúcom
-`token` siahne na `BLOB_READ_WRITE_TOKEN`, takže originály príloh by
-potichu skončili vo verejnom store. Kód preto token predáva vždy
+**Prefix `BLOB_PRIVATE` musí zostať.** Pri pripájaní storu k projektu
+ponúka Vercel predvolený prefix `BLOB`, a `@vercel/blob` pri chýbajúcom
+`token` siahne na `BLOB_READ_WRITE_TOKEN` z prostredia — s takým názvom
+by sa dal token nechtiac podstrčiť. Kód preto token predáva vždy
 explicitne a bez neho odmietne štartovať Blob provider.
 
 Funkcia beží v **IAD1**, nie vo Frankfurte — `x-vercel-id` na
@@ -236,12 +235,6 @@ store v `iad1`.
    `GET /v1/public/organisations/:slug/logo`. Musí byť `cross-origin`;
    helmet dáva globálne `same-origin` a `<img>` z inej domény by ju
    zablokoval.
-
-### Staré objekty vo verejnom store
-
-Migrácia `2026-09-02-attachments-to-private-blob` staré objekty **nemaže**
-— sú to jediné kópie a migrácia sa nedá vrátiť. Zmazať sa dajú až po
-overení novej cesty v prevádzke, a až potom sa dá odpojiť starý store.
 
 ## 9. Čo tento runbook zatiaľ nepokrýva
 

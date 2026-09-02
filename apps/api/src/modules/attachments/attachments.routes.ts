@@ -24,7 +24,6 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 
-import { del } from '@vercel/blob';
 import { z } from 'zod';
 
 import { ensureIndexesOnBoot } from '../../lib/ensure-indexes.js';
@@ -470,17 +469,19 @@ const attachmentsRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Best-effort zmazanie objektu — zlyhanie nesmie rozbiť odpoveď.
       //
-      // Dve úložiská naraz: nové prílohy sú v privátnom store, staré vo
-      // verejnom Blobe. Rozlišuje sa podľa `storageAccess`, nie podľa tvaru
-      // `storageKey` — ten je pri privátnych objektoch cesta, nie URL.
+      // Len privátny store. Vetva pre starý public Blob tu bola do
+      // 2026-09-02, kým existovali prílohy so `storageAccess:
+      // 'PUBLIC_LEGACY'`; po migrácii ich nemá ani jedna a store je
+      // zrušený. Čítacia vetva v `/download` zostáva — nepotrebuje token
+      // a v dev či demo databázach také riadky ešte môžu byť.
       try {
         if (existing.storageAccess === 'PRIVATE' && existing.storagePathname) {
           await fastify.objectStorage.remove(existing.storagePathname);
         } else {
-          const legacyToken = process.env['BLOB_READ_WRITE_TOKEN'];
-          if (legacyToken && existing.storageKey.includes('.public.blob.vercel-storage.com')) {
-            await del(existing.storageKey, { token: legacyToken });
-          }
+          request.log.warn(
+            { id, storageAccess: existing.storageAccess },
+            'Príloha nie je v privátnom store — objekt sa nemazal, len záznam',
+          );
         }
       } catch (err) {
         request.log.warn({ err, key: existing.storageKey }, 'Objekt sa nepodarilo zmazať');

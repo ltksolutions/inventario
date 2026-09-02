@@ -39,6 +39,20 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
     `BLOB_PRIVATE_READ_WRITE_TOKEN` (prefix `BLOB_PRIVATE`, aby
     nekolidoval s tokenom starého public storu).
 
+### Removed
+
+- **Starý public Blob store `inventario-api-blob` (2026-09-02)** — po
+  migrácii dát a overení novej cesty v prevádzke. Z kódu ide von všetko,
+  čo naň siahalo: mazanie starého objektu pri `DELETE /v1/attachments/:id`
+  a mazanie starého loga pri uploade nového (logo je od ADR-0037 BinData
+  v dokumente, takže sa len prepíše), import `del` z `@vercel/blob`,
+  `BLOB_READ_WRITE_TOKEN` z `turbo.json` a `.env.example`.
+  - **Čítacia vetva `PUBLIC_LEGACY` v `/download` zostáva** — token
+    nepotrebuje a dev či demo databázy také riadky ešte môžu mať.
+  - Vedľajší efekt: tri happy-path testy uploadu loga boli gated cez
+    `skipIf(!BLOB_READ_WRITE_TOKEN)`, teda v CI sa nikdy nespustili.
+    Podmienka zrušená, bežia všade.
+
 ### Fixed
 
 - **Náhľady príloh boli rozpadnuté na bloky (2026-09-02)** — `toBuffer`
