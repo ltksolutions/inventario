@@ -75,11 +75,6 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   loga nemení (kryje to cache-buster `?v=`); PDF `logo-loader` fetchuje
   `logoUrl`, teda API volá samo seba cez sieť, namiesto priameho čítania
   `brandKit.logo`.
-- **Premenovať `use-cases/reprezentacny-vyjazd.md`** — obsah je od
-  2026-09-02 generický („Viacdňová akcia"), názov súboru futbalový.
-  Premenovanie znamená upraviť štyri odkazy (`README.md`,
-  `use-cases/README.md`, `reference/stavy.md`, `use-cases/novy-zamestnanec.md`).
-  Kozmetika, ale mýli.
 - **Docker Desktop na tomto Macu nie je** — `/usr/local/bin/docker` je
   visiaci symlink na neexistujúcu `/Applications/Docker.app`. Lokálny
   compose stack sa odtiaľ spustiť nedá; ak ho chceš, treba Docker
