@@ -20,6 +20,9 @@
  *   get            — stiahnutie do funkcie (odstránenie EXIF, náhľad)
  *   put            — zápis zo servera (prepis po odstránení EXIF, malé súbory)
  *   remove         — mazanie pri soft delete a pri výmaze podľa GDPR čl. 17
+ *   list           — vymenovanie objektov pod prefixom; potrebuje ho čistič
+ *                    osirelých objektov (`modules/system/storage.routes`),
+ *                    lebo bez neho sa obsah storu nedá ani zistiť
  *
  * POZOR na podpísané URL: do expirácie sú prenosné. Nikdy ich nelogovať
  * celé a držať expiráciu krátku (viď `DOWNLOAD_URL_TTL_SECONDS`).
@@ -40,6 +43,21 @@ export interface StoredObject {
   sizeBytes: number;
   /** MIME type, ako ho store eviduje. */
   contentType: string;
+}
+
+export interface ListedObject {
+  /** Cesta v store. */
+  pathname: string;
+  /** Veľkosť v bajtoch. */
+  sizeBytes: number;
+  /** Kedy objekt vznikol (ISO 8601). Podľa toho sa počíta jeho vek. */
+  uploadedAt: string;
+}
+
+export interface ListPage {
+  objects: ListedObject[];
+  /** Kurzor na ďalšiu stránku, alebo `null` keď už žiadna nie je. */
+  cursor: string | null;
 }
 
 export interface PresignedUpload {
@@ -81,6 +99,15 @@ export interface ObjectStorage {
 
   /** Zmaže objekt. Neexistujúci objekt NIE JE chyba (idempotentné). */
   remove(pathname: string): Promise<void>;
+
+  /**
+   * Vymenuje objekty pod prefixom, po stránkach.
+   *
+   * Volajúci MUSÍ dojsť cyklom po `cursor` až kým nie je `null` — jedna
+   * stránka nie je celý store. Kto to preskočí, dostane neúplný obraz,
+   * a pri mazaní je neúplný obraz nebezpečnejší než žiadny.
+   */
+  list(input: { prefix: string; cursor?: string | undefined }): Promise<ListPage>;
 }
 
 export interface StorageContext {

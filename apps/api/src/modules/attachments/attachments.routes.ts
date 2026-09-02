@@ -33,6 +33,7 @@ import {
   extensionForContentType,
   type AllowedUploadContentType,
 } from '../../lib/file-type.js';
+import { attachmentPathnamePrefix } from '../../lib/storage/pathnames.js';
 import { stripImageMetadata } from '../../lib/strip-image-metadata.js';
 import { canRenderThumbnail, createThumbnail } from '../../lib/thumbnail.js';
 import { BadRequestError, HttpError, NotFoundError } from '../../plugins/error-handler.js';
@@ -90,10 +91,6 @@ async function tryCreateThumbnail(
 }
 
 /** Prefix cesty pre prílohy jedného majetku. Určuje ho server, nikdy klient. */
-function attachmentPathnamePrefix(tenantId: string, assetId: string): string {
-  return `attachments/${tenantId}/${assetId}/`;
-}
-
 function buildAttachmentPathname(
   tenantId: string,
   assetId: string,

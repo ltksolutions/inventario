@@ -15,6 +15,10 @@
     {
       "path": "/v1/system/retention/run",
       "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/v1/system/storage/orphans/purge",
+      "schedule": "0 4 * * *"
     }
   ],
   "rewrites": [

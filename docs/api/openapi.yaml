@@ -8491,6 +8491,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/system/storage/orphans:
+    get:
+      operationId: getV1SystemStorageOrphans
+      summary: Výpis osirelých objektov v úložisku (nemaže)
+      tags:
+        - System
+      description: Objekty pod attachments/, na ktoré neukazuje žiadna nezmazaná príloha a sú starší než 24 hodín. Iba čítanie.
+      security:
+        - deploymentSecret: []
+      responses:
+        "200":
+          description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/system/storage/orphans/purge:
+    post:
+      operationId: postV1SystemStorageOrphansPurge
+      summary: Zmazanie osirelých objektov (denný cron)
+      tags:
+        - System
+      description: Volá Vercel Cron (denne). Maže objekty bez záznamu v evidencii starší než 24 hodín. Pri neúplnom výpise storu nemaže nič.
+      security:
+        - deploymentSecret: []
+      responses:
+        "200":
+          description: Default Response
+        "401":
+          description: Chýbajúca alebo neplatná autentifikácia — `inv_access` cookie nie je prítomná, expirovala, alebo tenant/používateľ nie je použiteľný.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Autentifikovaný, ale bez oprávnenia — nedostatočná rola v organizácii, pozastavené členstvo, alebo obmedzené spracovanie (GDPR čl. 18).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Prekročený rate limit (globálne 100 požiadaviek/min na IP, na niektorých endpointoch nižší).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /:
     get:
       operationId: get

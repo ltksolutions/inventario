@@ -65,6 +65,7 @@ import stockRoutes from './modules/stock/stock.routes.js';
 import indexesRoutes from './modules/system/indexes.routes.js';
 import migrationsRoutes from './modules/system/migrations.routes.js';
 import retentionRoutes from './modules/system/retention.routes.js';
+import storageSystemRoutes from './modules/system/storage.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import authPlugin from './plugins/auth.js';
 import configPlugin from './plugins/config.js';
@@ -256,6 +257,7 @@ export async function buildServer(
   await app.register(migrationsRoutes);
   await app.register(indexesRoutes);
   await app.register(retentionRoutes);
+  await app.register(storageSystemRoutes);
 
   bootTimer.mark('domainRoutes');
 

@@ -15,11 +15,19 @@
 
 import { DOWNLOAD_URL_TTL_SECONDS, UPLOAD_URL_TTL_SECONDS } from './types.js';
 
-import type { ObjectStorage, PresignedUpload, StorageContext, StoredObject } from './types.js';
+import type {
+  ListPage,
+  ObjectStorage,
+  PresignedUpload,
+  StorageContext,
+  StoredObject,
+} from './types.js';
 
 interface StubEntry {
   body: Buffer;
   contentType: string;
+  /** Kedy objekt „vznikol". Testy si to nastavujú, aby overili vek. */
+  uploadedAt: string;
 }
 
 function expiryIso(seconds: number): string {
@@ -30,7 +38,13 @@ export interface StubStorage extends ObjectStorage {
   /** Len pre testy: koľko objektov je v store. */
   readonly size: number;
   /** Len pre testy: vloží objekt bez podpisovania. */
-  seed(input: { pathname: string; body: Buffer; contentType: string }): void;
+  seed(input: {
+    pathname: string;
+    body: Buffer;
+    contentType: string;
+    /** Voliteľne posunutý čas vzniku — na testy vekového odkladu. */
+    uploadedAt?: string;
+  }): void;
   /** Len pre testy: vyprázdni store. */
   reset(): void;
 }
@@ -48,7 +62,11 @@ export function createStubStorage(ctx: StorageContext): StubStorage {
     },
 
     seed(input) {
-      objects.set(input.pathname, { body: input.body, contentType: input.contentType });
+      objects.set(input.pathname, {
+        body: input.body,
+        contentType: input.contentType,
+        uploadedAt: input.uploadedAt ?? new Date().toISOString(),
+      });
     },
 
     reset() {
@@ -91,7 +109,14 @@ export function createStubStorage(ctx: StorageContext): StubStorage {
     },
 
     put(input): Promise<StoredObject> {
-      objects.set(input.pathname, { body: input.body, contentType: input.contentType });
+      // Prepis zachová pôvodný čas vzniku — `confirm` prepisuje originál po
+      // odstránení EXIF a to z objektu nemá spraviť „novo nahraný".
+      const existing = objects.get(input.pathname);
+      objects.set(input.pathname, {
+        body: input.body,
+        contentType: input.contentType,
+        uploadedAt: existing?.uploadedAt ?? new Date().toISOString(),
+      });
       return Promise.resolve({
         pathname: input.pathname,
         sizeBytes: input.body.byteLength,
@@ -103,6 +128,20 @@ export function createStubStorage(ctx: StorageContext): StubStorage {
       // Idempotentné — mazanie neexistujúceho objektu nie je chyba.
       objects.delete(pathname);
       return Promise.resolve();
+    },
+
+    list(input): Promise<ListPage> {
+      // Stub nestránkuje — vráti všetko naraz a `cursor: null`. Volajúci má
+      // cyklus po kurzore aj tak, takže sa chová správne v oboch svetoch.
+      const objectsUnderPrefix = [...objects.entries()]
+        .filter(([pathname]) => pathname.startsWith(input.prefix))
+        .map(([pathname, entry]) => ({
+          pathname,
+          sizeBytes: entry.body.byteLength,
+          uploadedAt: entry.uploadedAt,
+        }));
+
+      return Promise.resolve({ objects: objectsUnderPrefix, cursor: null });
     },
   };
 }

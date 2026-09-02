@@ -25,11 +25,17 @@
  * POZOR: podpísané URL sa nikdy nelogujú celé. Do logu ide iba pathname.
  */
 
-import { del, get, head, issueSignedToken, presignUrl, put } from '@vercel/blob';
+import { del, get, head, issueSignedToken, list, presignUrl, put } from '@vercel/blob';
 
 import { DOWNLOAD_URL_TTL_SECONDS, UPLOAD_URL_TTL_SECONDS } from './types.js';
 
-import type { ObjectStorage, PresignedUpload, StorageContext, StoredObject } from './types.js';
+import type {
+  ListPage,
+  ObjectStorage,
+  PresignedUpload,
+  StorageContext,
+  StoredObject,
+} from './types.js';
 
 const ACCESS = 'private' as const;
 
@@ -174,6 +180,25 @@ export function createVercelBlobStorage(ctx: StorageContext): ObjectStorage {
         pathname: result.pathname,
         sizeBytes: input.body.byteLength,
         contentType: input.contentType,
+      };
+    },
+
+    async list(input): Promise<ListPage> {
+      const result = await list({
+        ...commonOptions,
+        prefix: input.prefix,
+        ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+      });
+
+      return {
+        objects: result.blobs.map((blob) => ({
+          pathname: blob.pathname,
+          sizeBytes: blob.size,
+          uploadedAt: blob.uploadedAt.toISOString(),
+        })),
+        // `hasMore` a `cursor` chodia spolu; bez `hasMore` by prázdny
+        // kurzor na poslednej stránke vyzeral ako ďalšia stránka.
+        cursor: result.hasMore ? (result.cursor ?? null) : null,
       };
     },
 
