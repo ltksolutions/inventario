@@ -80,3 +80,48 @@ odkazuje na nastavenie projektu a neuvádza číslo.
 `node_modules`, teda mimo gitu a mimo Vercelu; git status je čistý.
 Riešenie je čistá reinštalácia (`rm -rf` na `node_modules` + `pnpm
 install`), nič sa nemazalo bez rozhodnutia.
+
+## Bod „Node 24 na dev stroji" bol zle diagnostikovaný
+
+`NEXT.md` tvrdil: _Mac má len node 26, `pnpm` skripty padajú na
+`ERR_PNPM_UNSUPPORTED_ENGINE`, rozhodnúť či doinštalovať node 24 alebo
+uvoľniť `engines`._ Overené 2026-09-03 — nič z toho netreba.
+
+Na Macu je v login-shell PATH `/usr/local/bin` **pred** `/opt/homebrew/bin`:
+
+| Cesta               | node     | pnpm                            |
+| ------------------- | -------- | ------------------------------- |
+| `/usr/local/bin`    | v24.15.0 | corepack shim → `9.12.0` v repe |
+| `/opt/homebrew/bin` | v26.0.0  | —                               |
+
+Teda presne to, čo repo deklaruje: `engines.node: 24.x`,
+`packageManager: pnpm@9.12.0`, `.nvmrc: 24.15.0`. Kolízie medzi tými dvomi
+adresármi sú len tri (`node`, `npm`, `npx`), takže nič sa netieni omylom.
+`pnpm typecheck` na Macu prejde: 7/7 tasks, exit 0.
+
+`ERR_PNPM_UNSUPPORTED_ENGINE` prišiel z **linuxového VM Coworku**, nie
+z Macu — ten má node 22.23.2 a `engine-strict=true` v `.npmrc` ho správne
+odmietne. Poučenie do `NEXT.md`: `pnpm` skripty spúšťať na Macu
+(`osascript`), nie v `device_bash`.
+
+Nič sa neinštalovalo, `engines` ani `engine-strict` sa nemenili.
+
+## Zdvojené adresáre: príčinou je iCloud, nie pnpm
+
+Nie je to len `node_modules` — duplikáty boli aj v `apps/*/.next`. Príčina:
+repo leží v `~/Documents/GitHub/inventario`, a `~/Documents` je
+synchronizované iCloudom (`FXICloudDriveDesktop = 1`,
+`FXICloudDriveDocuments = 1`, repo má xattr
+`com.apple.fileprovider.pinned`). iCloud rieši konflikt tým, že vyrobí
+kópiu `name 2` / `name 3` — a pri tisícoch drobných súborov, ktoré pnpm
+prepisuje, konfliktov je dosť.
+
+Vyčistené: `rm -rf` na všetky `node_modules` a `.next`, potom
+`pnpm install --frozen-lockfile` (11,8 s, 1095 balíčkov zo store).
+**1042 → 0.** Zvyšok po `rm` na `mathjax-full@3.2.2` boli `.DS_Store`
+súbory, ktoré sa vyrobili počas mazania; pnpm balíček doinštaloval znova.
+
+**Príčina zostáva.** Bude sa to vracať, kým repo leží v iCloude. Trvalé
+riešenie (presun mimo `~/Documents`) je v `NEXT.md` ako samostatné
+rozhodnutie — znamená prepojiť GitHub Desktop, editor, Cowork connected
+folder a lokálne `.env` cesty.

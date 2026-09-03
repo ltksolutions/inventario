@@ -65,9 +65,11 @@ tvrdením „toto je ešte otvorené" over v `git log`.
 
 ## 3. Git
 
-- **Ja (maintainer) commitujem priamo do `main`**, push robím ručne cez
-  GitHub Desktop alebo si ho vyžiadam. Claude commituje do `main` len keď
-  to v danej úlohe výslovne dohodneme.
+- **Ja (maintainer) commitujem priamo do `main`.** Claude commituje do
+  `main` len keď to v danej úlohe výslovne dohodneme; **push smie urobiť
+  aj Claude** (zmenené 2026-09-03, predtým platilo „push robím ručne cez
+  GitHub Desktop"). Push do `main` spúšťa produkčný deploy, takže ho robíme
+  vtedy, keď je na to dôvod — nie po každom commite.
 - **`main` je vždy nasaditeľný** — každý push do `main` spúšťa produkčný
   deploy na Vercel.
 - **Externí prispievatelia idú cez vetvu + PR + squash merge** podľa

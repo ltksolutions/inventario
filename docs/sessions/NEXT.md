@@ -23,11 +23,6 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   field-level chyby vždy, treba prepojiť `setErrorHandler` s Fastify
   `schemaErrorFormatter`. Kontext:
   `2026-09-01-openapi-chybove-odpovede.md`.
-- **Node 24 na dev stroji** — Mac má len node 26, `package.json` vyžaduje
-  `engines.node: 24.x`, takže `pnpm` skripty padajú na
-  `ERR_PNPM_UNSUPPORTED_ENGINE`. Zatiaľ sa obchádza spúšťaním binárok
-  priamo z `node_modules/.bin`. Rozhodnúť: doinštalovať node 24, alebo
-  uvoľniť `engines`. Kontext: `2026-09-01-openapi-chybove-odpovede.md`.
 - **i18n (SK / CS / EN)** — dnes žiadne i18n nie je, texty sú
   v komponentoch natvrdo po slovensky. Platforma je ale white-label
   a multi-tenant, takže prvý český alebo anglický tenant to otvorí.
@@ -100,12 +95,15 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   `useReturnItemsFromBorrower`. Vzniklo, kým `api-types.ts` nepoznalo
   nové endpointy; po `generate:api-types` sa dá zrušiť. Čistý úklid,
   nie funkčná zmena.
-- **Zdvojené adresáre v `node_modules` na dev Macu** — 1042 ciest tvaru
-  `… 2` / `… 3` (napr. `apps/api/node_modules/fastify 2`, `tsx 2`,
-  `argon2 2`), podpis kolízie cloudovej synchronizácie. Mimo gitu aj mimo
-  Vercelu, zatiaľ nič nerozbilo. Rieši to čistá reinštalácia (`rm -rf`
-  na `node_modules` + `pnpm install`) — čaká na povolenie mazať.
-  Zistené 2026-09-03.
+- **Repo leží v iCloud Drive a ten mu duplikuje build artefakty** —
+  `~/Documents` je synchronizované (`FXICloudDriveDocuments = 1`), repo má
+  xattr `com.apple.fileprovider.pinned`, a iCloud rieši konflikty tak, že
+  vyrobí kópiu `name 2` / `name 3`. 2026-09-03 ich bolo 1042, v
+  `node_modules` aj v `.next`. Vyčistené reinštaláciou, ale **príčina
+  zostáva** — bude sa to vracať. Trvalé riešenie je presunúť repo mimo
+  iCloud (napr. `~/Develop/inventario`), čo znamená prepojiť GitHub
+  Desktop, editor, Cowork connected folder a lokálne `.env` cesty. Vyžaduje
+  samostatné rozhodnutie.
 - **`DateField`** — klávesnicová navigácia šípkami v mriežke, a11y
   audit, živé odskúšanie flip-up v prehliadači.
 - **Vercel function región** — zvážiť pinnutie bližšie k regiónu
@@ -200,5 +198,6 @@ neotvárali dokola.
 
 V Cowork beží terminál + filesystem priamo na disku — žiadny
 `copy_file_user_to_claude` workaround. `pnpm typecheck` / `pnpm test` /
-`pnpm build` možno spúšťať priamo. Git cez MCP alebo GitHub Desktop
-(GPG signing).
+`pnpm build` treba spúšťať **na Macu** (node 24.15.0, pnpm 9.12.0 cez
+corepack), nie v linuxovom VM Coworku — ten má node 22 a `engine-strict`
+ho odmietne. Git cez MCP (GPG signing), push smie robiť aj Claude.
