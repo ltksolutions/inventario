@@ -57,10 +57,12 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 - **`BLOB_API_VERSION = '12'` je v `attachments.routes.ts` natvrdo** —
   `@vercel/blob` ju neexportuje. Pri bumpe SDK overiť, či sa nezmenila;
   test kontroluje len to, že hlavička je neprázdna.
-- **Spustiť prvý výpis osirelých objektov** — `GET /v1/system/storage/orphans`
-  s `CRON_SECRET`. Doteraz sa obsah storu nedal vymenovať, takže **nevieme,
-  či tam vôbec niečo je**. Denný cron to od 2026-09-02 rieši sám, ale prvý
-  pohľad sa oplatí urobiť ručne.
+- **Výpis osirelých objektov: prvý pohľad hotový, výpis nehovorí čo tam je** —
+  ručné spustenie `GET /v1/system/storage/orphans` 2026-09-02 vrátilo
+  `scanned: 3, truncated: false, orphanCount: 0`. Store je teda malý a
+  osirelé nič. Report ale vypisuje len počet prehľadaných objektov, nie
+  ktoré to sú — na overenie, či sedí to, čo v store čakáme, by pomohol
+  parameter `?all=1`. Samostatné rozhodnutie, nič nerozbíja.
 - **Plná záloha originálov** — náhľad v BinData je degradovaná poistka,
   nie záloha. Blob nemá verzovanie. Možnosti: mesačný cron zrkadliaci
   store inam, alebo zmieriť sa s jednou kópiou. Rozhodnúť samostatne.
@@ -98,6 +100,12 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   `useReturnItemsFromBorrower`. Vzniklo, kým `api-types.ts` nepoznalo
   nové endpointy; po `generate:api-types` sa dá zrušiť. Čistý úklid,
   nie funkčná zmena.
+- **Zdvojené adresáre v `node_modules` na dev Macu** — 1042 ciest tvaru
+  `… 2` / `… 3` (napr. `apps/api/node_modules/fastify 2`, `tsx 2`,
+  `argon2 2`), podpis kolízie cloudovej synchronizácie. Mimo gitu aj mimo
+  Vercelu, zatiaľ nič nerozbilo. Rieši to čistá reinštalácia (`rm -rf`
+  na `node_modules` + `pnpm install`) — čaká na povolenie mazať.
+  Zistené 2026-09-03.
 - **`DateField`** — klávesnicová navigácia šípkami v mriežke, a11y
   audit, živé odskúšanie flip-up v prehliadači.
 - **Vercel function región** — zvážiť pinnutie bližšie k regiónu
@@ -165,6 +173,13 @@ neotvárali dokola.
     ~45 ms — vedľa 1,75 s ušetrených inde je to zanedbateľné — a nič
     neodhaľuje, keďže repo je verejné aj s OpenAPI schémou. Default v
     kóde slúži ako poistka, keby premennú niekto odstránil.
+- **Vercel build vypisuje ~40 `error TS…` a to je v poriadku.** Výpis
+  nerobí náš `buildCommand` (ten na `apps/api` `tsc` nespúšťa), ale
+  vercelovský Node builder s vlastnou konfiguráciou kompilátora. Rovnaké
+  hlásenia sú v builde z 2026-07-16 (`45c37ae`) a žiadny build na nich
+  nespadol; náš vlastný `pnpm typecheck` je zelený. Ktoré voľby builder
+  prepisuje, overené nie je. Rozhodnuté 2026-09-03: necháme tak.
+  Kontext: `2026-09-03-vercel-typecheck-vypis.md`.
 - **`inventario-prod` ostáva na Flex tieri** napriek limitom záloh
   (viď vyššie). M10 by stálo ~58 USD/mes. za funkcie, ktoré pri 4 MB
   dát nepotrebujeme.

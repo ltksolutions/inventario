@@ -86,6 +86,13 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Removed
 
+- **Voľba `memory` z `apps/api/vercel.json` (2026-09-03)** — pri Active CPU
+  billing (Fluid Compute) ju Vercel ignoruje a na builde na to upozorňuje
+  warningom. `RUNBOOK.md` aj komentár v `attachments.routes.ts` ju pritom
+  uvádzali ako platných 1024 MB, teda tvrdili o systéme viac, než bola
+  pravda; oba texty teraz odkazujú na nastavenie projektu vo Verceli.
+  Behaviorálna zmena žiadna — voľba nemala účinok už predtým.
+
 - **Starý public Blob store `inventario-api-blob` (2026-09-02)** — po
   migrácii dát a overení novej cesty v prevádzke. Z kódu ide von všetko,
   čo naň siahalo: mazanie starého objektu pri `DELETE /v1/attachments/:id`

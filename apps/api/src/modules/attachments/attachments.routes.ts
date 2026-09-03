@@ -64,7 +64,8 @@ const AttachmentIdParamsSchema = z.object({
  *
  * Vyšší než 4 MB pri multipart ceste: priamy PUT ide mimo funkcie, takže
  * platformový strop 4,5 MB na telo requestu sa naň nevzťahuje. Krok `confirm`
- * si ale objekt sťahuje do funkcie (pamäť 1024 MB, maxDuration 30 s), tak to
+ * si ale objekt sťahuje do funkcie (maxDuration 30 s, pamäť podľa nastavenia
+ * projektu vo Verceli), tak to
  * nemôže byť neobmedzené. 25 MB pokryje fotku z mobilu aj skenovaný doklad.
  */
 const ORIGINAL_MAX_BYTES = 25 * 1024 * 1024;

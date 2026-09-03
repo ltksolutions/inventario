@@ -108,7 +108,10 @@ curl --fail -X POST https://api.inventario.estate/v1/system/retention/run \
 - **Fluid Compute** zapnuté (`"fluid": true`) — jedna inštancia obsluhuje
   viac requestov súčasne. Preto má `plugins/mongo.ts` `maxPoolSize: 10`;
   pool veľkosti 1 serializoval aj `Promise.all` v rámci jedného requestu.
-- `api/index.ts`: `maxDuration` 30 s, `memory` 1024 MB
+- `api/index.ts`: `maxDuration` 30 s. **Pamäť sa v `vercel.json` neurčuje** —
+  pri Active CPU billing (Fluid Compute) Vercel voľbu `memory` ignoruje a
+  na builde na to upozorňuje warningom. Preto je z konfigurácie vyhodená
+  (2026-09-03); veľkosť inštancie určuje nastavenie projektu vo Verceli.
 - Globálny rate limit 100 req/min/IP (`server.ts`), na verejných
   endpointoch nižší (30/min).
 
