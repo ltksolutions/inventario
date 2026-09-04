@@ -251,11 +251,17 @@ konvencie so `Signed-off-by:`.
   `api.inventario.estate`, docs `docs.inventario.estate`. Tenanti môžu mať
   vlastné domény (ADR-0035). `apps/web/src/middleware.ts` drží vedome aj
   `app.inventario.sportup.sk` ako druhý kanonický host.
-- Lokálne repo na mojom Macu: `~/Documents/GitHub/inventario`.
-- **Mac má node 26, repo vyžaduje 24.x** → `pnpm` skripty padajú na
-  `ERR_PNPM_UNSUPPORTED_ENGINE`. Obchádzka: spúšťať binárky priamo
-  (`apps/api/node_modules/.bin/{vitest,tsc,tsx}`,
-  `node_modules/.bin/{prettier,eslint}`). Otvorený bod v `NEXT.md`.
+- Lokálne repo na mojom Macu: **`~/GitHub/inventario`**. Presunuté
+  2026-09-04 z `~/Documents/GitHub/inventario`, pretože `~/Documents` je
+  synchronizované iCloudom a ten pri každom `pnpm install` vyrábal
+  konfliktné kópie (`node_modules/… 2`). `~/GitHub` je bežný lokálny
+  adresár mimo iCloudu.
+- **`pnpm` skripty spúšťaj na Macu**, tam je `node` v24.15.0 a `pnpm`
+  9.12.0 cez corepack — presne to, čo repo deklaruje. V login-shell PATH
+  je `/usr/local/bin` pred `/opt/homebrew/bin` (Homebrew tam má node 26,
+  ktorý sa takto netieni). `ERR_PNPM_UNSUPPORTED_ENGINE` prichádza
+  z linuxového VM Coworku (node 22), nie z Macu — v ňom `pnpm` skripty
+  nespúšťaj.
 - `openapi:sync` používa `EXPORT_ONLY=true` s in-memory Mongom, takže
   nepotrebuje prístup k Atlasu.
 - Cowork/Linux VM nedokáže spustiť `node_modules` (sú buildnuté pre
