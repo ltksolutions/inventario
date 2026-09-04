@@ -43,9 +43,9 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 - **Ďalší štvrťročný DR test je po termíne** — posledný záznam v
   `docs/compliance/dr-test-log.md` je #1 z 2026-05-23 (PASS), kadencia
   podľa `disaster-recovery-plan.md` je štvrťročná. Flex tier neumožňuje
-  restore do nového clustera, takže test #1 išiel do dev clustera, ktorý
-  je medzitým určený na zmazanie — pred ďalším testom vyriešiť cieľ
-  restoru.
+  restore do nového clustera, takže test #1 išiel do dev clustera — ten je
+  od 2026-09-04 **zmazaný**, čiže cieľ restoru treba vyriešiť pred ďalším
+  testom a nie je kam ustúpiť.
 - **Čítacia vetva `PUBLIC_LEGACY` v `/download`** — v produkcii ju už
   nepoužíva ani jedna príloha, v dev a demo databázach môže. Odstrániť
   je samostatné rozhodnutie; s ňou by šlo von aj pole `storageAccess`.
@@ -110,11 +110,20 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 
 ## Ops mimo kódu (Janika)
 
-- **Atlas** — zmazať cluster `inventario-dev` (M10, prázdny, ~58 USD/mes.);
+- **Atlas** — cluster `inventario-dev` je **zmazaný** (2026-09-04). Zostáva:
   zmazať mŕtve repo secrets `MONGO_URI_TEST`, `ENTRA_API_CLIENT_ID_TEST`,
-  `ENTRA_TENANT_ID_TEST`; vyriešiť Preview `MONGO_URI` vo Verceli (ukazuje
-  na cluster, ktorý sa má zmazať); prekontrolovať projekt `contineo.app`
-  (rovnaký M10 podpis, 11,50 → 65,20 USD).
+  `ENTRA_TENANT_ID_TEST`; prekontrolovať projekt `contineo.app` (rovnaký
+  M10 podpis, 11,50 → 65,20 USD).
+- **Preview API nemá `MONGO_URI`** — overené 2026-09-04 cez `vercel env ls`
+  na projekte `inventario-api`: `MONGO_URI` existuje **len pre Production**,
+  `MONGO_DB_NAME` pre Production aj Preview. Starší zápis tu tvrdil, že
+  Preview `MONGO_URI` ukazuje na dev cluster — pre tento projekt to
+  neplatí, premenná tam nie je vôbec. Dôsledok: Preview deploy API by mal
+  padnúť na Zod validácii v `config.ts` ešte pred pripojením. Či Preview
+  niekto reálne používa, **nevieme** — treba to rozhodnúť: buď Preview
+  `MONGO_URI` doplniť (na nový cluster, nie na zmazaný dev), alebo priznať,
+  že Preview API nefunguje a nespoliehať sa naň. Ostatné tri Vercel
+  projekty som nekontroloval.
 - **Zálohovanie produkcie** — `inventario-prod` je Flex, teda 8 denných
   snapshotov, bez vlastnej politiky, bez on-demand snapshotov a **bez
   Point-in-Time restore**. Reálne RPO až 24 h, vedome prijaté (M10 by
@@ -122,6 +131,9 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
   snapshoty naozaj existujú; spraviť DR test (restore nanečisto — stály
   otvorený bod od júna); skontrolovať, či `docs/compliance/` netvrdí o
   zálohovaní viac, než Flex reálne poskytuje.
+  **Cieľ restoru je od 2026-09-04 otvorený naostro** — test #1 išiel do
+  `inventario-dev` a ten je zmazaný. Flex neumožňuje restore do nového
+  clustera, takže pred ďalším testom treba rozhodnúť kam.
 - **Apple Sign-In** — Apple Developer credentials + `APPLE_*` env
   premenné.
 - **Bezpečnosť** — rotácia produkčného Mongo hesla; voliteľné vyčistenie

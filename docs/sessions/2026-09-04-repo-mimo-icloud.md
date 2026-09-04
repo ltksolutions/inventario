@@ -85,3 +85,30 @@ nezapnú — to je otvorený bod v `NEXT.md`, nie nová vec.
 ## Overené po presune
 
 `pnpm typecheck`, `pnpm lint`, `pnpm test` — viď commit.
+
+## Úklid na konci dňa
+
+`NEXT.md` prečistený proti realite, nie proti dojmu:
+
+- **`inventario-dev` je zmazaný** (Janika, 2026-09-04). Bod ide z Ops
+  sekcie von. Vedľajší dôsledok: cieľ štvrťročného DR testu je tým otvorený
+  naostro — test #1 išiel presne do tohto clustera a Flex neumožňuje restore
+  do nového. Doplnené na oboch miestach, kde sa DR test spomína.
+- **Zápis o Preview `MONGO_URI` bol nesprávny.** Tvrdil, že Preview
+  premenná ukazuje na dev cluster. Overené cez `vercel env ls` na projekte
+  `inventario-api`: `MONGO_URI` je nastavená **len pre Production**,
+  `MONGO_DB_NAME` pre Production aj Preview. Premenná v Preview teda nie je
+  vôbec — Preview deploy API by mal padnúť na Zod validácii v `config.ts`.
+  Či Preview niekto reálne používa, **nevieme**; zapísané ako rozhodnutie,
+  nie ako oprava. Ostatné tri Vercel projekty nekontrolované.
+
+TODO/FIXME v kóde: **6**, žiadne nové a žiadne na akciu —
+`test-jwt-loader` (už je vlastným bodom v `NEXT.md`), poznámka K18
+v `memberships.routes.ts`, dva `TODO(future)` v `design-tokens` a dva
+odkazy na `docs/TODO.md`.
+
+`CHANGELOG.md` dostal zápis pod Fixed o tých 404 odkazoch — je to jediná
+dnešná zmena, ktorú vidí používateľ.
+
+Overené na záver: `format:check` čistý, typecheck 7/7, lint 7/7,
+test 84 súborov / 1252 passed, 2 skipped, `reuse lint` compliant.

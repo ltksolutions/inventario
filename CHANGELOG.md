@@ -11,6 +11,17 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### Fixed
+
+- **Odkazy na GitHub mierili na starý názov repa a vracali 404 (2026-09-04)** —
+  po premenovaní na `ltksolutions/inventario` zostali v repe odkazy na
+  `Slovensky-futbalovy-zvaz/Asset-Management` a `janletko/Asset-Management`.
+  Overené, že ani jeden nepresmerúva. Na docs.inventario.estate tým viedol
+  do prázdna odkaz „GitHub" v navbare aj každé „Edit this page"
+  (`apps/docs/app/layout.tsx`), a v issue chooseri odkaz na bezpečnostné
+  hlásenie aj na diskusiu (`.github/ISSUE_TEMPLATE/config.yml`). Odkaz na
+  Discussions zostáva 404, kým sa v repe nezapnú — samostatný otvorený bod.
+
 ### Added
 
 - **Prílohy do privátneho úložiska, náhľady a podpísané odkazy (2026-09-02,
