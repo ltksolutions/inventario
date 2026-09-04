@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: 🛡️ Bezpečnostné hlásenie
-    url: https://github.com/janletko/Asset-Management/security/advisories/new
+    url: https://github.com/ltksolutions/inventario/security/advisories/new
     about: Pre bezpečnostné zraniteľnosti použite súkromný kanál, NIE verejné issue.
   - name: 💬 Otázky a diskusia
-    url: https://github.com/janletko/Asset-Management/discussions
+    url: https://github.com/ltksolutions/inventario/discussions
     about: Máte otázku alebo nápad na diskusiu? Použite GitHub Discussions.

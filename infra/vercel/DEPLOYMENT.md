@@ -25,9 +25,9 @@ SPDX-License-Identifier: CC-BY-4.0
 **Dva oddelené Vercel projekty** v rovnakom repe:
 
 ```
-Slovensky-futbalovy-zvaz/Asset-Management
+ltksolutions/inventario
 │
-├── apps/api/                       → vercel project: asset-management-api
+├── apps/api/                       → vercel project: inventario-api
 │                                     URL: api.inventario.estate (budúce)
 │
 └── docs/marketing-site/            → vercel project: inventario-marketing
@@ -43,7 +43,7 @@ Slovensky-futbalovy-zvaz/Asset-Management
 ### Krok 1: Vytvor nový Vercel projekt
 
 1. Choď na https://vercel.com/new
-2. **Import Git Repository** → vyber `Slovensky-futbalovy-zvaz/Asset-Management`
+2. **Import Git Repository** → vyber `ltksolutions/inventario`
 3. **Configure Project**:
    - **Project Name**: `inventario-marketing`
    - **Framework Preset**: `Other` (žiadny framework)
@@ -137,7 +137,7 @@ vercel login
 ### Krok 3: Setup projekt
 
 ```bash
-cd /Users/janletko/Documents/GitHub/Asset-Management
+cd /Users/janletko/GitHub/inventario
 
 # Skopíruj vercel.json template
 cp infra/vercel/marketing-site.vercel.json docs/marketing-site/vercel.json
@@ -147,7 +147,7 @@ cd docs/marketing-site
 vercel link
 
 # Otázky:
-# ? Set up "~/Documents/GitHub/Asset-Management/docs/marketing-site"? Y
+# ? Set up "~/GitHub/inventario/docs/marketing-site"? Y
 # ? Which scope? (vyber svoj team)
 # ? Link to existing project? N
 # ? What's your project's name? inventario-marketing

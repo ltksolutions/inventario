@@ -8,15 +8,16 @@
 # Run from the repo root:
 #   bash scripts/commit-phase-c-blok-5.sh
 #
-# After this completes, review with `git log -3 --stat` and push manually
-# via GitHub Desktop.
+# After this completes, review with `git log -3 --stat` before pushing.
 #
 # Commit body lines are wrapped at ≤ 100 chars to satisfy the project's
 # commitlint body-max-line-length rule.
 
 set -euo pipefail
 
-REPO_ROOT="/Users/janletko/Documents/GitHub/Asset-Management"
+# Koren repa sa odvodzuje z umiestnenia skriptu — natvrdo zapisana cesta
+# prezila premenovanie repa aj jeho presun a ukazovala do prazdna.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 echo ""

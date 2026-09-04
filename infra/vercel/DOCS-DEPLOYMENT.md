@@ -13,7 +13,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 📋 Pred štartom
 
-- [x] Vercel account (`asset-management-api` a `inventario-marketing` už existujú v `ltksolutions-projects` team-e)
+- [x] Vercel account (`inventario-api` a `inventario-marketing` už existujú v `ltksolutions-projects` team-e)
 - [x] Prístup k Websupport DNS panelu pre `sportup.sk`
 - [x] `apps/docs/` committed na main branch (vrátane vercel.json, package.json, content/)
 - [x] Lokálne `pnpm build` v `apps/docs/` funguje
@@ -25,7 +25,7 @@ SPDX-License-Identifier: CC-BY-4.0
 ### Krok 1: Vytvor nový Vercel projekt
 
 1. Choď na https://vercel.com/new
-2. **Import Git Repository** → vyber `Slovensky-futbalovy-zvaz/Asset-Management`
+2. **Import Git Repository** → vyber `ltksolutions/inventario`
 3. **Configure Project**:
    - **Project Name**: `inventario-docs`
    - **Framework Preset**: `Next.js` (auto-detect)
@@ -128,7 +128,7 @@ Marketing site má momentálne `<span class="nav-link-disabled">Dokumentácia <s
 Najjednoduchšie: `git revert` commit ktorý pridal "Čoskoro" badge:
 
 ```bash
-cd /Users/janletko/Documents/GitHub/Asset-Management
+cd /Users/janletko/GitHub/inventario
 
 # Nájdi commit hash
 git log --oneline --grep="defer docs.inventario"
@@ -195,8 +195,8 @@ dig docs.inventario.estate CNAME +short
 ## 📊 Architektúra deployu (full picture)
 
 ```
-Asset-Management repo
-├── apps/api/                  → Vercel: asset-management-api
+ltksolutions/inventario (repo)
+├── apps/api/                  → Vercel: inventario-api
 │                                URL: api.inventario.estate (Q3)
 ├── apps/docs/                 → Vercel: inventario-docs
 │                                URL: docs.inventario.estate ← NEW

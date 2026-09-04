@@ -19,10 +19,7 @@ export const metadata: Metadata = {
 };
 
 const navbar = (
-  <Navbar
-    logo={<b>Inventario Docs</b>}
-    projectLink="https://github.com/Slovensky-futbalovy-zvaz/Asset-Management"
-  />
+  <Navbar logo={<b>Inventario Docs</b>} projectLink="https://github.com/ltksolutions/inventario" />
 );
 
 const footer = <Footer>v0.3 · EUPL-1.2 · © 2026 LTK Solutions</Footer>;
@@ -40,7 +37,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           navbar={navbar}
           footer={footer}
           pageMap={pageMap}
-          docsRepositoryBase="https://github.com/Slovensky-futbalovy-zvaz/Asset-Management/tree/main/apps/docs"
+          docsRepositoryBase="https://github.com/ltksolutions/inventario/tree/main/apps/docs"
         >
           {children}
         </Layout>

@@ -13,7 +13,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## 📦 Pred-deploy status (2026-05-18 night) — VŠETKO HOTOVÉ ✅
 
-✅ **Krok 1 KOMPLET**: `asset-management-api` Vercel projekt LIVE
+✅ **Krok 1 KOMPLET**: `inventario-api` Vercel projekt LIVE
 
 - Node 24 LTS runtime (Active LTS, supported do Apr 2028)
 - `CORS_ORIGINS` env var: `https://app.inventario.estate,http://localhost:3001`
@@ -80,7 +80,7 @@ CORS_ORIGINS: z.string().default('http://localhost:3001').transform((val) => {
 }),
 ```
 
-**Akcia**: V Vercel dashboard → projekt **`asset-management-api`** → **Settings** → **Environment Variables**:
+**Akcia**: V Vercel dashboard → projekt **`inventario-api`** → **Settings** → **Environment Variables**:
 
 Update (alebo pridať ak neexistuje) `CORS_ORIGINS` pre **Production** environment:
 
@@ -88,7 +88,7 @@ Update (alebo pridať ak neexistuje) `CORS_ORIGINS` pre **Production** environme
 CORS_ORIGINS=https://app.inventario.estate,http://localhost:3001
 ```
 
-Po Save → Vercel `asset-management-api` redeployne automaticky (~2 min).
+Po Save → Vercel `inventario-api` redeployne automaticky (~2 min).
 
 > ⚠️ **Otestuj backend pred ďalšími krokmi.**
 >
@@ -103,7 +103,7 @@ Po Save → Vercel `asset-management-api` redeployne automaticky (~2 min).
 ### Krok 2: Vytvor nový Vercel projekt
 
 1. Choď na https://vercel.com/new
-2. **Import Git Repository** → vyber `Slovensky-futbalovy-zvaz/Asset-Management`
+2. **Import Git Repository** → vyber `ltksolutions/inventario`
 3. **Configure Project**:
    - **Project Name**: `inventario-app`
    - **Framework Preset**: `Next.js` (auto-detect)
@@ -119,12 +119,12 @@ Po Save → Vercel `asset-management-api` redeployne automaticky (~2 min).
 
 Pred kliknutím **Deploy** vyplň environment variables. Tieto sa **embed-ujú do client bundle** (`NEXT_PUBLIC_*` prefix), takže každý kto si stiahne `.js` ich uvidí — to je **OK pre Entra public client IDs** (sú navrhnuté pre verejnú expozíciu), ale **žiadne secrets sem nikdy**.
 
-| Variable                          | Value                                                                                       | Pôvod                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_BASE_URL`        | `https://<asset-management-api>.vercel.app` alebo cez `api.inventario.estate` keď bude live | Vercel deployment URL existing `asset-management-api` projektu |
-| `NEXT_PUBLIC_ENTRA_CLIENT_ID`     | `<frontend SPA client ID>`                                                                  | Azure Portal → Entra ID → App registrations → frontend SPA app |
-| `NEXT_PUBLIC_ENTRA_TENANT_ID`     | `<tenant UUID>` alebo `organizations`                                                       | Azure Portal → Entra ID → Overview → Tenant ID                 |
-| `NEXT_PUBLIC_ENTRA_API_CLIENT_ID` | `<backend API client ID>`                                                                   | Azure Portal → Entra ID → App registrations → backend API app  |
+| Variable                          | Value                                                                                 | Pôvod                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL`        | `https://<inventario-api>.vercel.app` alebo cez `api.inventario.estate` keď bude live | Vercel deployment URL existing `inventario-api` projektu       |
+| `NEXT_PUBLIC_ENTRA_CLIENT_ID`     | `<frontend SPA client ID>`                                                            | Azure Portal → Entra ID → App registrations → frontend SPA app |
+| `NEXT_PUBLIC_ENTRA_TENANT_ID`     | `<tenant UUID>` alebo `organizations`                                                 | Azure Portal → Entra ID → Overview → Tenant ID                 |
+| `NEXT_PUBLIC_ENTRA_API_CLIENT_ID` | `<backend API client ID>`                                                             | Azure Portal → Entra ID → App registrations → backend API app  |
 
 > ⚠️ **Najčastejšia chyba:** zmiešať frontend SPA client ID s backend API client ID. Sú to **dve rôzne app registrations**.
 >
@@ -298,7 +298,7 @@ Každý úspešný krok = ✅ commit pre `docs/sessions/2026-05-19-deploy-day-su
 
 ---
 
-## 💡 Lessons learned z asset-management-api deploy battle (2026-05-18)
+## 💡 Lessons learned z inventario-api deploy battle (2026-05-18)
 
 3.5-hodinový debug session odhalil viacero Vercel-specific quirks. Aplikuj na `inventario-app` deploy session:
 
@@ -341,8 +341,8 @@ Debug session rýchlo vyčerpá. Pro tier ($20/month) je rozumné pre production
 ## 📊 Architektúra deployu (full picture)
 
 ```
-Asset-Management repo
-├── apps/api/                  → Vercel: asset-management-api
+ltksolutions/inventario (repo)
+├── apps/api/                  → Vercel: inventario-api
 │                                URL: api.inventario.estate (Q3 2026)
 ├── apps/docs/                 → Vercel: inventario-docs
 │                                URL: docs.inventario.estate (LIVE)
@@ -352,7 +352,7 @@ Asset-Management repo
                                  URL: inventario.estate (LIVE)
 ```
 
-4 Vercel projekty z jedného repa, každý na svojej subdoméne. Všetko cez Websupport DNS pre `sportup.sk`, jeden monorepo z Slovensky-futbalovy-zvaz/Asset-Management.
+4 Vercel projekty z jedného repa, každý na svojej subdoméne. Všetko cez Websupport DNS pre `sportup.sk`, jeden monorepo z ltksolutions/inventario.
 
 ---
 

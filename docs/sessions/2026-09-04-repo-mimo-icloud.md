@@ -47,11 +47,40 @@ obídená.
   prvý), ale v sekcii 11 to prežilo. Prepísané.
 - **`NEXT.md`**: bod o iCloude ide von, je vyriešený.
 
-Historické session logy staré cesty spomínajú a **nechávajú sa tak** —
-sú záznamom stavu v danom čase. Rovnako `infra/vercel/DEPLOYMENT.md`
-a `scripts/commit-phase-c-blok-5.sh`, ktoré odkazujú na ešte starší názov
-repa `Asset-Management`; tie sú zastarané z iného dôvodu a je to
-samostatná vec.
+Historické session logy, ADR a `docs/milestones/` staré cesty a starý názov
+repa spomínajú a **nechávajú sa tak** — sú záznamom stavu v danom čase.
+
+## Starý názov repa `Asset-Management`: dve z toho boli live 404-ky
+
+Pri kontrole zvyškov po premenovaní sa ukázalo, že to nie je len
+dokumentačný dlh. `github.com/Slovensky-futbalovy-zvaz/Asset-Management`
+ani `github.com/janletko/Asset-Management` **nepresmerúvajú** — overené
+naostro, oboje vracia 404. A odkazovali na ne dve živé miesta:
+
+- `apps/docs/app/layout.tsx` — `projectLink` (odkaz „GitHub" v navbare)
+  a `docsRepositoryBase` (každé „Edit this page"). Teda na
+  docs.inventario.estate viedli tieto odkazy do prázdna.
+- `.github/ISSUE_TEMPLATE/config.yml` — „Bezpečnostné hlásenie"
+  a „Otázky a diskusia" v issue chooseri.
+
+Oboje prepísané na `ltksolutions/inventario` (to je skutočný `origin`).
+Odkaz na Discussions zostáva a bude 404, kým sa Discussions v repe
+nezapnú — to je otvorený bod v `NEXT.md`, nie nová vec.
+
+Ďalej opravené, už len dokumentačne:
+
+- `infra/vercel/{DEPLOYMENT,DOCS-DEPLOYMENT,APP-DEPLOYMENT}.md` — názov repa
+  pri „Import Git Repository", lokálne cesty a názov Vercel projektu
+  (`asset-management-api` → `inventario-api`). Prepísané aj tam, kde ide
+  o historickú vetu — projekt sa dnes tak nikde nevolá, takže starý názov
+  by čitateľa poslal hľadať niečo, čo neexistuje. Pôvodné znenie drží
+  `git log`.
+- `scripts/commit-phase-c-blok-5.sh` — `REPO_ROOT` bol natvrdo zapísaná
+  cesta, ktorá prežila premenovanie repa **aj** jeho presun a ukazovala do
+  prázdna. Odvodzuje sa z umiestnenia skriptu. Poznámka „push manually via
+  GitHub Desktop" tiež von.
+- `CLAUDE.md` sekcia 5 tvrdila, že číslovanie ADR je „aktuálne po `0036`" —
+  v `docs/decisions/` je `0039`.
 
 ## Overené po presune
 

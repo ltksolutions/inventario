@@ -107,7 +107,7 @@ koľko testov, koľko milisekúnd, pred a po.
 - Kostra je v `docs/decisions/template.md` — **Kontext → Možnosti →
   Rozhodnutie → Dôsledky**, s hlavičkou Status / Dátum / Autori /
   Súvisiace ADR. Použi ju, nevymýšľaj vlastnú.
-- Číslovanie priebežné, nikdy sa nerecykluje (aktuálne po `0036`).
+- Číslovanie priebežné, nikdy sa nerecykluje (aktuálne po `0039`).
 - ADR sa needituje. Zmena rozhodnutia = nové ADR; v starom sa `Status`
   prepne na `Superseded by [ADR-XXXX]`.
 
