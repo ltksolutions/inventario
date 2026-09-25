@@ -399,6 +399,11 @@ export interface InsertTestAssetOptions {
   inventoryNumber?: string;
   /** Asset display name. Defaults to "Test Asset". */
   name?: string;
+  /** Free-text identification fields. Default null (search tests set them). */
+  serialNumber?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  description?: string | null;
   /** Asset status. Defaults to AVAILABLE. */
   status?: 'AVAILABLE' | 'BORROWED' | 'IN_REPAIR' | 'RETIRED' | 'LOST';
   /** Asset condition. Defaults to NEW. */
@@ -444,14 +449,14 @@ export async function insertTestAsset(
     // ADR-0021: publicToken vyžadovaný schémou. Fixture generuje deterministický
     // token z counter-u (nie CSPRNG) — stačí pre testy, unique v rámci procesu.
     publicToken: `TEST${String(++testAssetCounter).padStart(28, '0')}`,
-    serialNumber: null,
+    serialNumber: options.serialNumber ?? null,
     name: options.name ?? 'Test Asset',
-    description: null,
+    description: options.description ?? null,
     categoryId: options.categoryId ?? '000000000000000000000001',
     condition: options.condition ?? 'NEW',
     locationId: options.locationId ?? '000000000000000000000002',
-    manufacturer: null,
-    model: null,
+    manufacturer: options.manufacturer ?? null,
+    model: options.model ?? null,
     acquiredAt: now,
     acquisitionCost: null,
     warrantyUntil: null,

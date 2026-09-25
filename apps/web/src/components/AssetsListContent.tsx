@@ -6,7 +6,7 @@
 import { ASSET_STATUS_VALUES } from '@inventario/shared-types';
 import { Plus, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { AssetsTable } from './AssetsTable';
 import { BatchLabelPrintButton } from './BatchLabelPrintButton';
@@ -24,12 +24,12 @@ import { useCurrentOrganisation } from '@/lib/organisations-hooks';
  * Assets list page content.
  *
  * Data model:
- *   The backend's GET /v1/assets currently only supports `limit` + `skip`.
- *   Server-side filtering / sorting / search will land in a future slice;
- *   for the pilot launch we filter the *current page* on the client.
- *   That's a deliberate trade-off — pilot tenants have < 1000 assets, so
- *   one round-trip with a wider page size feels fine. We revisit when
- *   real data shows otherwise.
+ *   Vyhľadávanie (`q`) beží na serveri naprieč celou evidenciou —
+ *   inventárne číslo, názov, sériové číslo, výrobca, model, popis
+ *   (2026-09-25; predtým sa hľadalo len na aktuálnej stránke a nenašli
+ *   sa položky z ďalších strán ani podľa sériového čísla).
+ *   Filtre Stav a Typ sú zatiaľ stále klientske nad aktuálnou stránkou
+ *   — pozri NEXT.md.
  *
  * Pagination strategy:
  *   - 1-indexed page number in the UI ("Strana 1 z 5") because that's
@@ -41,12 +41,9 @@ import { useCurrentOrganisation } from '@/lib/organisations-hooks';
  *     own decision and won't lie if total is stale by a few ms.
  *
  * Filter / search interaction with pagination:
- *   The two are intentionally orthogonal: filtering refines *what's on
- *   this page*, not which page we're looking at. If we filtered before
- *   paginating, we'd silently skip matches on later pages. Once the
- *   backend supports filter+search query params we'll flip this — but
- *   for now the UI explicitly says "filter applies to this page" via
- *   the result count line.
+ *   Hľadanie sa aplikuje pred stránkovaním (server), zmena výrazu vráti
+ *   na stranu 1. Stav/Typ filtrujú len aktuálnu stránku, čo UI hovorí
+ *   v riadku s počtom výsledkov.
  */
 
 const STATUS_LABELS: Record<string, string> = {
@@ -67,12 +64,28 @@ export function AssetsListContent(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [trackingModeFilter, setTrackingModeFilter] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Paginated assets request. The query key includes both pagination
-  // params so TanStack caches each page independently — clicking back
+  // 300 ms debounce — jeden request po dopísaní, nie po každom znaku.
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [searchTerm]);
+
+  // Nový výraz = nová množina výsledkov, začni od strany 1.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  // Paginated assets request. The query key includes pagination params
+  // and `q` so TanStack caches each page independently — clicking back
   // to a previously seen page is instant.
-  const assetsQuery = useAssets({ limit: pageSize, skip: (page - 1) * pageSize });
+  const assetsQuery = useAssets({
+    limit: pageSize,
+    skip: (page - 1) * pageSize,
+    q: debouncedSearch,
+  });
 
   // Reference data — fetch large pages once so we can resolve every
   // FK on the visible asset rows. 200 is comfortably above the pilot
@@ -96,7 +109,6 @@ export function AssetsListContent(): JSX.Element {
   // comment on the component for why this is intentional.
   const filteredAssets = useMemo(() => {
     const rows = assetsQuery.data?.data ?? [];
-    const normalisedSearch = searchTerm.trim().toLowerCase();
     return rows.filter((asset) => {
       if (statusFilter && asset.status !== statusFilter) {
         return false;
@@ -104,21 +116,15 @@ export function AssetsListContent(): JSX.Element {
       if (trackingModeFilter && asset.trackingMode !== trackingModeFilter) {
         return false;
       }
-      if (normalisedSearch) {
-        const haystack = `${asset.inventoryNumber} ${asset.name}`.toLowerCase();
-        if (!haystack.includes(normalisedSearch)) {
-          return false;
-        }
-      }
       return true;
     });
-  }, [assetsQuery.data, statusFilter, trackingModeFilter, searchTerm]);
+  }, [assetsQuery.data, statusFilter, trackingModeFilter]);
 
   const total = assetsQuery.data?.pagination.total ?? 0;
   const hasMore = assetsQuery.data?.pagination.hasMore ?? false;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const hasActiveFilter =
-    statusFilter !== '' || trackingModeFilter !== '' || searchTerm.trim() !== '';
+  const hasPageFilter = statusFilter !== '' || trackingModeFilter !== '';
+  const hasActiveFilter = hasPageFilter || debouncedSearch !== '';
 
   const canEdit = useCanEditAssets();
   const orgQuery = useCurrentOrganisation();
@@ -167,7 +173,7 @@ export function AssetsListContent(): JSX.Element {
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Inventárne číslo alebo názov"
+              placeholder="Názov, inv. č., sér. č., výrobca…"
               className="w-full rounded-lg border border-border-default bg-surface-card py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-border-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             />
           </span>
@@ -224,11 +230,17 @@ export function AssetsListContent(): JSX.Element {
           'Načítavam položky…'
         ) : assetsQuery.isError ? (
           <span className="text-danger-fg">Položky sa nepodarilo načítať.</span>
-        ) : hasActiveFilter ? (
+        ) : hasPageFilter ? (
           <>
             Zobrazujem <strong>{filteredAssets.length}</strong> z{' '}
-            {assetsQuery.data?.data.length ?? 0} položiek na strane (celkom v evidencii:{' '}
-            {total.toLocaleString('sk-SK')}).
+            {assetsQuery.data?.data.length ?? 0} položiek na strane (
+            {debouncedSearch ? 'nájdených' : 'celkom v evidencii'}: {total.toLocaleString('sk-SK')}
+            ).
+          </>
+        ) : debouncedSearch ? (
+          <>
+            Nájdených <strong>{total.toLocaleString('sk-SK')}</strong> položiek — strana{' '}
+            <strong>{page}</strong> z {totalPages}.
           </>
         ) : (
           <>
@@ -354,7 +366,7 @@ function EmptyState({ hasActiveFilter }: { hasActiveFilter: boolean }): JSX.Elem
       </p>
       <p className="mt-1 text-sm text-text-secondary">
         {hasActiveFilter
-          ? 'Skúste vyčistiť hľadanie alebo zmeniť stav. Filter sa aplikuje na aktuálnu stranu.'
+          ? 'Skúste upraviť hľadanie alebo zmeniť stav či typ. Filtre Stav a Typ sa aplikujú na aktuálnu stranu.'
           : 'Akonáhle správca pridá prvý kus majetku, zobrazí sa tu.'}
       </p>
     </div>

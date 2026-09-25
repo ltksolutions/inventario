@@ -245,7 +245,50 @@ export interface LocationSummary {
  */
 export const REFERENCE_DATA_STALE_TIME_MS = 5 * 60_000;
 
-export const useAssets = makeListHook<AssetSummary>('assets', '/v1/assets');
+export interface AssetsListQueryOptions extends ListQueryOptions {
+  /**
+   * Serverové vyhľadávanie — inventárne číslo, názov, sériové číslo,
+   * výrobca, model, popis. Prázdny reťazec / undefined = bez filtra.
+   */
+  q?: string;
+}
+
+/**
+ * Zoznam majetku. Vlastný hook (nie `makeListHook`), lebo `/v1/assets`
+ * ako jediný z trojice podporuje `q` — generický hook by musel typovo
+ * pustiť `q` aj na categories/locations.
+ */
+export function useAssets(
+  options: AssetsListQueryOptions = {},
+): UseQueryResult<ListResponse<AssetSummary>, Error> {
+  const { limit = 50, skip = 0 } = options;
+  const q = options.q?.trim() || undefined;
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<ListResponse<AssetSummary>, Error>({
+    queryKey: ['assets', { limit, skip, q }],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      // `undefined` nesmie ísť na drôt — URLSearchParams by poslal "undefined".
+      const query: { limit: number; skip: number; q?: string } = { limit, skip };
+      if (q !== undefined) query.q = q;
+
+      const { data, error } = await apiClient.GET('/v1/assets', {
+        params: { query },
+      });
+      if (error) {
+        const errObj = error as unknown as { message?: unknown };
+        throw new Error(
+          typeof errObj.message === 'string' ? errObj.message : 'Failed to load assets',
+        );
+      }
+      if (!data) {
+        throw new Error('Empty response from /v1/assets');
+      }
+      return data as unknown as ListResponse<AssetSummary>;
+    },
+  });
+}
 export const useCategories = makeListHook<CategorySummary>(
   'categories',
   '/v1/categories',

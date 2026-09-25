@@ -26,6 +26,7 @@ import { randomBytes } from 'node:crypto';
 import { base32Encode } from '../../lib/base32.js';
 import { BadRequestError, NotFoundError } from '../../plugins/error-handler.js';
 
+import { buildAssetSearchFilter } from './asset-search.js';
 import { computeShallowDiff } from './assets-diff.js';
 
 import type { AssetsRepository, AssetUpdatePatch } from './assets.repository.js';
@@ -55,6 +56,8 @@ export interface ListAssetsResponse {
 export interface ListAssetsServiceParams {
   limit?: number;
   skip?: number;
+  /** Voľný text — pozri `buildAssetSearchFilter`. */
+  q?: string;
 }
 
 /**
@@ -95,6 +98,7 @@ export class AssetsService {
       organisationId: tenantId,
       limit,
       skip,
+      filter: buildAssetSearchFilter(params.q),
     });
 
     return {

@@ -53,6 +53,14 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 const ListAssetsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(20),
   skip: z.coerce.number().int().min(0).default(0),
+  q: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .describe(
+      'Vyhľadávanie (podreťazec, bez ohľadu na veľkosť písmen) v inventárnom čísle, názve, sériovom čísle, výrobcovi, modeli a popise.',
+    ),
 });
 
 const AssetIdParamsSchema = z.object({
@@ -201,15 +209,16 @@ const assetsRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['Assets'],
         summary: 'List assets',
-        description: 'Paginated list of assets (newest first). Soft-deleted excluded.',
+        description:
+          'Paginated list of assets (newest first). Soft-deleted excluded. Optional `q` filters across inventoryNumber, name, serialNumber, manufacturer, model and description.',
         security: [{ bearerAuth: [] }],
         querystring: ListAssetsQuerySchema,
         response: { 200: ListAssetsResponseSchema },
       },
     },
     async (request) => {
-      const { limit, skip } = request.query;
-      return service.list({ limit, skip }, request.currentUser);
+      const { limit, skip, q } = request.query;
+      return service.list({ limit, skip, ...(q ? { q } : {}) }, request.currentUser);
     },
   );
 

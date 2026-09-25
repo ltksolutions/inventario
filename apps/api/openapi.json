@@ -3488,7 +3488,7 @@
         "tags": [
           "Assets"
         ],
-        "description": "Paginated list of assets (newest first). Soft-deleted excluded.",
+        "description": "Paginated list of assets (newest first). Soft-deleted excluded. Optional `q` filters across inventoryNumber, name, serialNumber, manufacturer, model and description.",
         "parameters": [
           {
             "schema": {
@@ -3510,6 +3510,16 @@
             "in": "query",
             "name": "skip",
             "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "description": "Vyhľadávanie (podreťazec, bez ohľadu na veľkosť písmen) v inventárnom čísle, názve, sériovom čísle, výrobcovi, modeli a popise."
           }
         ],
         "security": [
