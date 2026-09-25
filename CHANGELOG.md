@@ -13,6 +13,14 @@ Formát vychádza zo štandardu [Keep a Changelog](https://keepachangelog.com/en
 
 ### Fixed
 
+- **Vyhľadávanie v majetku hľadalo len na aktuálnej stránke (2026-09-25)** —
+  zoznam majetku filtroval klientsky nad načítanou stranou (20 položiek)
+  a len podľa inventárneho čísla a názvu, takže položky z ďalších strán
+  sa nenašli. Nový voliteľný parameter `GET /v1/assets?q=` hľadá na
+  serveri naprieč celou evidenciou v inventárnom čísle, názve, sériovom
+  čísle, výrobcovi, modeli a popise (bez ohľadu na veľkosť písmen).
+  Session log: `docs/sessions/2026-09-25-vyhladavanie-majetku.md`.
+
 - **Odkazy na GitHub mierili na starý názov repa a vracali 404 (2026-09-04)** —
   po premenovaní na `ltksolutions/inventario` zostali v repe odkazy na
   `Slovensky-futbalovy-zvaz/Asset-Management` a `janletko/Asset-Management`.

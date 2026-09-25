@@ -17,6 +17,14 @@ ešte otvorené" over v gite, či sa to medzitým nevyriešilo.
 
 ## Najbližšie kroky (kód)
 
+- **Filtre Stav a Typ v zozname majetku sú stále klientske** — filtrujú
+  len aktuálnu stránku, rovnaký problém, aký malo do 2026-09-25
+  vyhľadávanie. Riešenie je rovnaké: `status` / `trackingMode` do
+  `GET /v1/assets`. Kontext: `2026-09-25-vyhladavanie-majetku.md`.
+- **`GET /v1/assets?q=` používa nekotvený `$regex`** — nevyužije index,
+  robí collection scan v rámci tenanta. Pri dnešných objemoch v poriadku;
+  keď tenant narastie do tisícov položiek, zmerať a zvážiť text index
+  alebo Atlas Search (Atlas Search je rozhodnutie na ADR).
 - **`issues` v chybovej odpovedi je v praxi zriedkavé** — validácia vstupu
   cez Fastify vracia jednu chybu v `message`, `issues` sa naplní len keď
   sa `ZodError` dostane k error handleru priamo. Ak má integrátor dostávať
